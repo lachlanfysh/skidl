@@ -856,9 +856,23 @@ def net_label_to_sexp(pin, tx=Tx(), force=False):
     pin_pt = getattr(pin, "pt", Point(pin.x, pin.y))
     pt = pin_pt * tx
 
-    # Map pin orientation to angle (degrees).
-    orient_map = {"R": 0, "D": 90, "L": 180, "U": 270}
-    angle = orient_map.get(pin.orientation, 0)
+    # Compute label angle from the pin's *transformed* direction so that
+    # the label extends away from the component body even when the part
+    # is rotated.  The raw pin.orientation is relative to the library
+    # symbol and doesn't account for part rotation.
+    from math import atan2, degrees
+
+    _pin_dir = {
+        "R": Point(1, 0),
+        "L": Point(-1, 0),
+        "U": Point(0, 1),
+        "D": Point(0, -1),
+    }
+    pin_dir = _pin_dir.get(pin.orientation, Point(1, 0))
+    pt_along = (pin_pt + pin_dir) * tx
+    dx = pt_along.x - pt.x
+    dy = pt_along.y - pt.y
+    angle = round(degrees(atan2(dy, dx)) % 360 / 90) * 90 % 360
 
     # Justify depends on label direction.
     justify = "left" if angle in (0, 90) else "right"
@@ -1197,6 +1211,108 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
 
 
 # ---------------------------------------------------------------------------
+# Label deconfliction
+# ---------------------------------------------------------------------------
+
+
+def _deconflict_labels(elements, node, sheet_tx):
+    """Offset labels that overlap component bodies.
+
+    After labels are generated with correct rotation, some may still overlap
+    neighbouring components (not their own).  This pass detects label-to-
+    component bbox intersections and nudges the label along its direction
+    axis to clear the overlap.
+    """
+    from skidl.geometry import BBox
+    from skidl.tools.kicad9.constants import LABEL_DECONFLICT_MARGIN
+
+    MARGIN_MM = LABEL_DECONFLICT_MARGIN * MILS_TO_MM
+
+    # Build component bboxes in sheet (mm) coordinates.
+    comp_bboxes = []
+    for part in node.parts:
+        if isinstance(part, NetTerminal):
+            continue
+        bbox = getattr(part, "place_bbox", None) or getattr(part, "lbl_bbox", None)
+        if bbox is None:
+            continue
+        part_tx = getattr(part, "tx", Tx())
+        tx = part_tx * sheet_tx
+        tb = bbox * tx
+        # Normalise so min < max after transforms.
+        comp_bboxes.append(
+            BBox(
+                Point(min(tb.min.x, tb.max.x), min(tb.min.y, tb.max.y)),
+                Point(max(tb.min.x, tb.max.x), max(tb.min.y, tb.max.y)),
+            )
+        )
+
+    if not comp_bboxes:
+        return
+
+    # Direction unit vectors for each KiCad label angle.
+    from math import cos, sin, radians
+
+    def _label_dir(angle_deg):
+        r = radians(angle_deg)
+        return (cos(r), sin(r))
+
+    # Approximate label bbox: 10mm wide × 2mm tall, extending in the label
+    # direction from the anchor point.  This is conservative; exact size
+    # depends on net name length.
+    LABEL_W = 10.0  # mm
+    LABEL_H = 2.0   # mm (half-height each side of anchor)
+
+    for elem in elements:
+        if not hasattr(elem, "__getitem__") or len(elem) < 1:
+            continue
+        if elem[0] != "global_label":
+            continue
+
+        # Find the (at x y angle) sub-expression.
+        at_sexp = None
+        for sub in elem:
+            if hasattr(sub, "__getitem__") and len(sub) > 0 and sub[0] == "at":
+                at_sexp = sub
+                break
+        if at_sexp is None or len(at_sexp) < 4:
+            continue
+
+        lx, ly, langle = float(at_sexp[1]), float(at_sexp[2]), int(at_sexp[3])
+        dx, dy = _label_dir(langle)
+
+        # Build label bbox: extends LABEL_W in the label direction.
+        x_end = lx + dx * LABEL_W
+        y_end = ly + dy * LABEL_W
+        lbl_min_x = min(lx, x_end) - LABEL_H / 2
+        lbl_max_x = max(lx, x_end) + LABEL_H / 2
+        lbl_min_y = min(ly, y_end) - LABEL_H / 2
+        lbl_max_y = max(ly, y_end) + LABEL_H / 2
+        lbl_bbox = BBox(Point(lbl_min_x, lbl_min_y), Point(lbl_max_x, lbl_max_y))
+
+        for cb in comp_bboxes:
+            if not lbl_bbox.intersects(cb):
+                continue
+
+            # Offset label along its direction to clear the component bbox.
+            if abs(dx) > abs(dy):
+                # Horizontal label — offset in x.
+                if dx > 0:
+                    offset = cb.max.x - lx + MARGIN_MM
+                else:
+                    offset = cb.min.x - lx - MARGIN_MM
+                at_sexp[1] = _round_mm(lx + offset)
+            else:
+                # Vertical label — offset in y.
+                if dy > 0:
+                    offset = cb.max.y - ly + MARGIN_MM
+                else:
+                    offset = cb.min.y - ly - MARGIN_MM
+                at_sexp[2] = _round_mm(ly + offset)
+            break  # Only resolve the first overlap per label.
+
+
+# ---------------------------------------------------------------------------
 # Top-level schematic assembly + write
 # ---------------------------------------------------------------------------
 
@@ -1263,6 +1379,9 @@ def write_top_schematic(circuit, node, filepath, top_name, title, version=202304
             label = net_label_to_sexp(pin, tx=sheet_tx)
             if label:
                 elements.append(label)
+
+    # Post-process: offset any labels that overlap component bodies.
+    _deconflict_labels(elements, node, sheet_tx)
 
     # Build lib_symbols section.
     lib_symbols_sexp = Sexp(["lib_symbols"])
