@@ -379,6 +379,12 @@ def _is_two_pin_part(part):
     return not isinstance(part, NetTerminal) and len(part.pins) == 2
 
 
+def _is_power_net(net):
+    """Return True if net is a power rail (GND, VCC, +3.3V, etc.)."""
+    name = getattr(net, 'name', '')
+    return name.startswith("+") or bool(_POWER_NET_RE.match(name))
+
+
 def _pin_world_orient(pin, part):
     """Get the world-space outward direction from a pin after part rotation."""
     outward = {"L": "R", "R": "L", "U": "D", "D": "U"}
@@ -446,6 +452,10 @@ def _snap_two_pin_parts(node):
     Pass 2+: Iteratively snap remaining 2-pin parts onto the free pins of
     already-snapped 2-pin parts, building chains (e.g. IC ← R ← LED).
 
+    Pass 3: Stack remaining 2-pin parts onto already-occupied IC pins,
+    extending perpendicular to the first snapped part. Handles nets shared
+    between multiple 2-pin parts (e.g. switch + pull-down on the same IC input).
+
     Recurses into child nodes first.
     """
     for child in node.children.values():
@@ -470,6 +480,8 @@ def _snap_two_pin_parts(node):
         my_pin = None
 
         for my_p, other_net in [(p1, net1), (p2, net2)]:
+            if _is_power_net(other_net):
+                continue
             for net_pin in other_net.pins:
                 other_part = net_pin.part
                 if (
@@ -515,6 +527,8 @@ def _snap_two_pin_parts(node):
             my_pin = None
 
             for my_p, other_net in [(p1, net1), (p2, net2)]:
+                if _is_power_net(other_net):
+                    continue
                 for net_pin in other_net.pins:
                     other_part = net_pin.part
                     if (
@@ -543,6 +557,49 @@ def _snap_two_pin_parts(node):
         if not newly_snapped:
             break
         snapped |= newly_snapped
+
+    perp_map = {"R": "D", "L": "U", "U": "R", "D": "L"}
+    for part in list(node.parts):
+        if id(part) in snapped or not _is_two_pin_part(part):
+            continue
+
+        p1, p2 = part.pins[0], part.pins[1]
+        net1 = getattr(p1, "net", None)
+        net2 = getattr(p2, "net", None)
+        if not net1 or not net2:
+            continue
+
+        target_pin = None
+        target_part = None
+        my_pin = None
+
+        for my_p, other_net in [(p1, net1), (p2, net2)]:
+            for net_pin in other_net.pins:
+                other_part = net_pin.part
+                if (
+                    other_part is not part
+                    and id(other_part) in node_part_ids
+                    and not isinstance(other_part, NetTerminal)
+                    and len(other_part.pins) > 2
+                    and id(net_pin) in occupied_pins
+                ):
+                    target_pin = net_pin
+                    target_part = other_part
+                    my_pin = my_p
+                    break
+            if target_pin:
+                break
+
+        if not target_pin:
+            continue
+
+        target_world = target_pin.pt * target_part.tx
+        ic_dir = _pin_world_orient(target_pin, target_part)
+        extend_dir = perp_map.get(ic_dir, ic_dir)
+        other_pin = p2 if my_pin is p1 else p1
+
+        part.tx = _compute_snap_tx(my_pin, other_pin, target_world, extend_dir)
+        snapped.add(id(part))
 
 
 def _stub_all_non_explicit(circuit):
