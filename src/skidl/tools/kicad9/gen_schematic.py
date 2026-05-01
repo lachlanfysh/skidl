@@ -379,19 +379,81 @@ def _is_two_pin_part(part):
     return not isinstance(part, NetTerminal) and len(part.pins) == 2
 
 
+def _pin_world_orient(pin, part):
+    """Get the world-space outward direction from a pin after part rotation."""
+    outward = {"L": "R", "R": "L", "U": "D", "D": "U"}
+    orient_to_deg = {"R": 0, "U": 90, "L": 180, "D": 270}
+    deg_to_orient = {0: "R", 90: "U", 180: "L", 270: "D"}
+
+    raw_orient = getattr(pin, "orientation", "R")
+    angle_deg, _, _ = part.tx.analyze_transform()
+    base_deg = orient_to_deg.get(raw_orient, 0)
+    rotated_deg = (base_deg + round(angle_deg)) % 360
+    world_orient = deg_to_orient.get(rotated_deg, "R")
+    return outward.get(world_orient, "R")
+
+
+def _compute_snap_tx(my_pin, other_pin, target_world, extend_dir):
+    """Compute the transform to snap a 2-pin part onto a target pin position.
+
+    Orients the part so `other_pin` extends in `extend_dir` from the target,
+    and places `my_pin` exactly at `target_world`.
+
+    Returns:
+        Tx: The new transform for the 2-pin part.
+    """
+    dx_local = other_pin.pt.x - my_pin.pt.x
+    dy_local = other_pin.pt.y - my_pin.pt.y
+
+    if extend_dir == "R":
+        if abs(dx_local) >= abs(dy_local):
+            symtx = "" if dx_local > 0 else "H"
+        else:
+            symtx = "L" if dy_local > 0 else "R"
+    elif extend_dir == "L":
+        if abs(dx_local) >= abs(dy_local):
+            symtx = "" if dx_local < 0 else "H"
+        else:
+            symtx = "R" if dy_local > 0 else "L"
+    elif extend_dir == "U":
+        if abs(dy_local) >= abs(dx_local):
+            symtx = "" if dy_local > 0 else "V"
+        else:
+            symtx = "R" if dx_local > 0 else "L"
+    elif extend_dir == "D":
+        if abs(dy_local) >= abs(dx_local):
+            symtx = "" if dy_local < 0 else "V"
+        else:
+            symtx = "L" if dx_local > 0 else "R"
+    else:
+        symtx = ""
+
+    new_tx = Tx.from_symtx(symtx)
+    my_pin_placed = my_pin.pt * new_tx
+    offset = Point(
+        target_world.x - my_pin_placed.x,
+        target_world.y - my_pin_placed.y,
+    )
+    return new_tx.move(offset)
+
+
 def _snap_two_pin_parts(node):
-    """Snap 2-pin parts (LED, R, C) onto their parent IC pins.
+    """Snap 2-pin parts onto their connected IC or already-snapped part pins.
 
-    After placement, moves each 2-pin part so that its IC-connected pin
-    sits exactly on the IC pin position. The part is oriented to extend
-    outward from the IC. The other pin gets a label (power or signal).
+    Pass 1: Snap onto IC pins (parts with >2 pins). Each IC pin only accepts
+    one snapped part; extras keep their labels.
 
-    Recurses into child nodes.
+    Pass 2+: Iteratively snap remaining 2-pin parts onto the free pins of
+    already-snapped 2-pin parts, building chains (e.g. IC ← R ← LED).
+
+    Recurses into child nodes first.
     """
     for child in node.children.values():
         _snap_two_pin_parts(child)
 
     node_part_ids = {id(p) for p in node.parts}
+    snapped = set()
+    occupied_pins = set()
 
     for part in list(node.parts):
         if not _is_two_pin_part(part):
@@ -403,8 +465,8 @@ def _snap_two_pin_parts(node):
         if not net1 or not net2:
             continue
 
-        ic_pin = None
-        ic_part = None
+        target_pin = None
+        target_part = None
         my_pin = None
 
         for my_p, other_net in [(p1, net1), (p2, net2)]:
@@ -415,78 +477,72 @@ def _snap_two_pin_parts(node):
                     and id(other_part) in node_part_ids
                     and not isinstance(other_part, NetTerminal)
                     and len(other_part.pins) > 2
+                    and id(net_pin) not in occupied_pins
                 ):
-                    ic_pin = net_pin
-                    ic_part = other_part
+                    target_pin = net_pin
+                    target_part = other_part
                     my_pin = my_p
                     break
-            if ic_pin:
+            if target_pin:
                 break
 
-        if not ic_pin or not ic_part:
+        if not target_pin:
             continue
 
-        ic_pin_world = ic_pin.pt * ic_part.tx
-
-        outward = {"L": "R", "R": "L", "U": "D", "D": "U"}
-        raw_orient = getattr(ic_pin, "orientation", "R")
-
-        angle_deg, _, _ = ic_part.tx.analyze_transform()
-        orient_to_deg = {"R": 0, "U": 90, "L": 180, "D": 270}
-        deg_to_orient = {0: "R", 90: "U", 180: "L", 270: "D"}
-        base_deg = orient_to_deg.get(raw_orient, 0)
-        rotated_deg = (base_deg + round(angle_deg)) % 360
-        world_orient = deg_to_orient.get(rotated_deg, "R")
-        extend_dir = outward.get(world_orient, "R")
-
+        target_world = target_pin.pt * target_part.tx
+        extend_dir = _pin_world_orient(target_pin, target_part)
         other_pin = p2 if my_pin is p1 else p1
 
-        dx_local = other_pin.pt.x - my_pin.pt.x
-        dy_local = other_pin.pt.y - my_pin.pt.y
+        part.tx = _compute_snap_tx(my_pin, other_pin, target_world, extend_dir)
+        snapped.add(id(part))
+        occupied_pins.add(id(target_pin))
 
-        if extend_dir == "R":
-            if abs(dx_local) >= abs(dy_local):
-                if dx_local > 0:
-                    symtx = ""
-                else:
-                    symtx = "H"
-            else:
-                symtx = "L" if dy_local > 0 else "R"
-        elif extend_dir == "L":
-            if abs(dx_local) >= abs(dy_local):
-                if dx_local < 0:
-                    symtx = ""
-                else:
-                    symtx = "H"
-            else:
-                symtx = "R" if dy_local > 0 else "L"
-        elif extend_dir == "U":
-            if abs(dy_local) >= abs(dx_local):
-                if dy_local > 0:
-                    symtx = ""
-                else:
-                    symtx = "V"
-            else:
-                symtx = "R" if dx_local > 0 else "L"
-        elif extend_dir == "D":
-            if abs(dy_local) >= abs(dx_local):
-                if dy_local < 0:
-                    symtx = ""
-                else:
-                    symtx = "V"
-            else:
-                symtx = "L" if dx_local > 0 else "R"
+    for _iteration in range(5):
+        newly_snapped = set()
 
-        new_tx = Tx.from_symtx(symtx)
+        for part in list(node.parts):
+            if id(part) in snapped or not _is_two_pin_part(part):
+                continue
 
-        my_pin_placed = my_pin.pt * new_tx
-        offset = Point(
-            ic_pin_world.x - my_pin_placed.x,
-            ic_pin_world.y - my_pin_placed.y,
-        )
-        new_tx = new_tx.move(offset)
+            p1, p2 = part.pins[0], part.pins[1]
+            net1 = getattr(p1, "net", None)
+            net2 = getattr(p2, "net", None)
+            if not net1 or not net2:
+                continue
 
-        part.tx = new_tx
+            target_pin = None
+            target_part = None
+            my_pin = None
+
+            for my_p, other_net in [(p1, net1), (p2, net2)]:
+                for net_pin in other_net.pins:
+                    other_part = net_pin.part
+                    if (
+                        other_part is not part
+                        and id(other_part) in snapped
+                        and id(net_pin) not in occupied_pins
+                    ):
+                        target_pin = net_pin
+                        target_part = other_part
+                        my_pin = my_p
+                        break
+                if target_pin:
+                    break
+
+            if not target_pin:
+                continue
+
+            target_world = target_pin.pt * target_part.tx
+            extend_dir = _pin_world_orient(target_pin, target_part)
+            other_pin = p2 if my_pin is p1 else p1
+
+            part.tx = _compute_snap_tx(my_pin, other_pin, target_world, extend_dir)
+            newly_snapped.add(id(part))
+            occupied_pins.add(id(target_pin))
+
+        if not newly_snapped:
+            break
+        snapped |= newly_snapped
 
 
 def _stub_all_non_explicit(circuit):
