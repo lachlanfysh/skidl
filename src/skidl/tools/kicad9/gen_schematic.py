@@ -318,16 +318,45 @@ def _handle_fallback(circuit, tool_module, filepath, top_name, title, flatness,
             "labels-only output instead of crashing."
         )
 
-    # Produce labels-only output.
+    from skidl.schematics.place import PlacementFailure
+    from skidl.schematics.route import RoutingFailure
+
+    # Place with real connectivity so connected parts group together,
+    # then stub for routing. This gives connectivity-aware placement
+    # with labels-only routing (which always succeeds).
+    placed = False
+    for expansion in [1.5, 2.25, 3.0]:
+        try:
+            preprocess_circuit(circuit, **options)
+            node = SchNode(circuit, tool_module, filepath, top_name, title, flatness)
+            node.place(expansion_factor=expansion, **options)
+            placed = True
+            break
+        except PlacementFailure:
+            finalize_parts_and_nets(circuit, **options)
+            logger.info(
+                f"  [graceful_fallback] Connectivity-aware placement failed "
+                f"at {expansion}x, trying wider"
+            )
+
+    if not placed:
+        # Last resort: stub everything, place without connectivity.
+        _stub_all_non_explicit(circuit)
+        preprocess_circuit(circuit, **options)
+        node = SchNode(circuit, tool_module, filepath, top_name, title, flatness)
+        node.place(expansion_factor=1.0, **options)
+
+    _snap_two_pin_parts(node)
+
+    # Stub all remaining nets so routing is trivial (labels only).
     stubbed_nets = []
     for net in circuit.nets:
         if not getattr(net, "_stub_explicit", False) and not net._stub:
             stubbed_nets.append(net.name)
-    _stub_all_non_explicit(circuit)
+            net._stub = True
+            for pin in net.get_pins():
+                pin.stub = True
 
-    preprocess_circuit(circuit, **options)
-    node = SchNode(circuit, tool_module, filepath, top_name, title, flatness)
-    node.place(expansion_factor=1.0, **options)
     node.route(**options)
     output_file = write_top_schematic(
         circuit, node, filepath, top_name, title, version=20230409
@@ -335,17 +364,129 @@ def _handle_fallback(circuit, tool_module, filepath, top_name, title, flatness,
     finalize_parts_and_nets(circuit, **options)
 
     msg = (
-        f"{reason}. Produced labels-only schematic at {output_file}. "
-        f"Nets converted to labels: {', '.join(stubbed_nets[:10])}"
-        f"{'...' if len(stubbed_nets) > 10 else ''}. "
-        "This may mask routing issues that could be fixed by improving "
-        "the circuit layout. Set auto_stub_fallback='raise' to get the "
-        "original error instead."
+        f"{reason}. Produced schematic at {output_file} with "
+        f"connectivity-aware placement. "
+        f"{len(stubbed_nets)} nets as labels, close 2-pin nets wired directly."
     )
-    logger.warning(msg)
+    logger.info(msg)
 
     if fallback == "warn":
         warnings.warn(msg, LabelsOnlyWarning, stacklevel=4)
+
+
+def _is_two_pin_part(part):
+    """Return True if part is a simple 2-pin component (LED, R, C, etc.)."""
+    return not isinstance(part, NetTerminal) and len(part.pins) == 2
+
+
+def _snap_two_pin_parts(node):
+    """Snap 2-pin parts (LED, R, C) onto their parent IC pins.
+
+    After placement, moves each 2-pin part so that its IC-connected pin
+    sits exactly on the IC pin position. The part is oriented to extend
+    outward from the IC. The other pin gets a label (power or signal).
+
+    Recurses into child nodes.
+    """
+    for child in node.children.values():
+        _snap_two_pin_parts(child)
+
+    node_part_ids = {id(p) for p in node.parts}
+
+    for part in list(node.parts):
+        if not _is_two_pin_part(part):
+            continue
+
+        p1, p2 = part.pins[0], part.pins[1]
+        net1 = getattr(p1, "net", None)
+        net2 = getattr(p2, "net", None)
+        if not net1 or not net2:
+            continue
+
+        ic_pin = None
+        ic_part = None
+        my_pin = None
+
+        for my_p, other_net in [(p1, net1), (p2, net2)]:
+            for net_pin in other_net.pins:
+                other_part = net_pin.part
+                if (
+                    other_part is not part
+                    and id(other_part) in node_part_ids
+                    and not isinstance(other_part, NetTerminal)
+                    and len(other_part.pins) > 2
+                ):
+                    ic_pin = net_pin
+                    ic_part = other_part
+                    my_pin = my_p
+                    break
+            if ic_pin:
+                break
+
+        if not ic_pin or not ic_part:
+            continue
+
+        ic_pin_world = ic_pin.pt * ic_part.tx
+
+        outward = {"L": "R", "R": "L", "U": "D", "D": "U"}
+        raw_orient = getattr(ic_pin, "orientation", "R")
+
+        angle_deg, _, _ = ic_part.tx.analyze_transform()
+        orient_to_deg = {"R": 0, "U": 90, "L": 180, "D": 270}
+        deg_to_orient = {0: "R", 90: "U", 180: "L", 270: "D"}
+        base_deg = orient_to_deg.get(raw_orient, 0)
+        rotated_deg = (base_deg + round(angle_deg)) % 360
+        world_orient = deg_to_orient.get(rotated_deg, "R")
+        extend_dir = outward.get(world_orient, "R")
+
+        other_pin = p2 if my_pin is p1 else p1
+
+        dx_local = other_pin.pt.x - my_pin.pt.x
+        dy_local = other_pin.pt.y - my_pin.pt.y
+
+        if extend_dir == "R":
+            if abs(dx_local) >= abs(dy_local):
+                if dx_local > 0:
+                    symtx = ""
+                else:
+                    symtx = "H"
+            else:
+                symtx = "L" if dy_local > 0 else "R"
+        elif extend_dir == "L":
+            if abs(dx_local) >= abs(dy_local):
+                if dx_local < 0:
+                    symtx = ""
+                else:
+                    symtx = "H"
+            else:
+                symtx = "R" if dy_local > 0 else "L"
+        elif extend_dir == "U":
+            if abs(dy_local) >= abs(dx_local):
+                if dy_local > 0:
+                    symtx = ""
+                else:
+                    symtx = "V"
+            else:
+                symtx = "R" if dx_local > 0 else "L"
+        elif extend_dir == "D":
+            if abs(dy_local) >= abs(dx_local):
+                if dy_local < 0:
+                    symtx = ""
+                else:
+                    symtx = "V"
+            else:
+                symtx = "L" if dx_local > 0 else "R"
+
+        new_tx = Tx.from_symtx(symtx)
+
+        my_pin_placed = my_pin.pt * new_tx
+        offset = Point(
+            ic_pin_world.x - my_pin_placed.x,
+            ic_pin_world.y - my_pin_placed.y,
+        )
+        new_tx = new_tx.move(offset)
+
+        part.tx = new_tx
 
 
 def _stub_all_non_explicit(circuit):

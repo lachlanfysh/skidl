@@ -1089,6 +1089,87 @@ def _fix_sheet_filename(node):
         node.sheet_filename = node.sheet_filename[:-4] + ".kicad_sch"
 
 
+def _kicad_pin_pos(pin, part_tx, sheet_tx):
+    """Compute pin position as KiCad renders it from symbol placement.
+
+    KiCad's pin transform order: Y-flip, rotate(-angle), then mirror.
+    The angle from analyze_transform() is the visual angle in SKiDL's Y-up
+    space; KiCad uses its negative because the sheet Y-flip reverses rotation.
+    """
+    import math
+
+    angle_deg, mx, my = part_tx.analyze_transform()
+    composed = part_tx * sheet_tx
+    ox = _round_mm(composed.origin.x)
+    oy = _round_mm(composed.origin.y)
+
+    px, py = pin.x, -pin.y
+
+    theta = math.radians(-angle_deg)
+    cos_t, sin_t = math.cos(theta), math.sin(theta)
+    rx = px * cos_t - py * sin_t
+    ry = px * sin_t + py * cos_t
+
+    if mx:
+        ry = -ry
+    if my:
+        rx = -rx
+
+    return _round_mm(ox + rx), _round_mm(oy + ry)
+
+
+def _find_wireable_nets(node, tx, max_dist_mm=80.0):
+    """Find snapped 2-pin nets where both pins overlap (zero distance).
+
+    When a 2-pin part has been snapped onto an IC pin, the connecting pins
+    share the same position. These pins don't need labels — KiCad connects
+    them by position. This function identifies those pins and suppresses
+    their labels.
+
+    Returns:
+        tuple: (wired_pin_ids, wire_sexps) where wired_pin_ids is a set of
+            id(pin) for pins that should NOT get labels, and wire_sexps is
+            an empty list (no wire elements needed for overlapping pins).
+    """
+    node_part_ids = {id(p) for p in node.parts}
+    wired_pin_ids = set()
+
+    seen_nets = set()
+    for part in node.parts:
+        if isinstance(part, NetTerminal):
+            continue
+        for pin in part:
+            if not pin.stub or not pin.is_connected():
+                continue
+            net = pin.net
+            if id(net) in seen_nets:
+                continue
+            seen_nets.add(id(net))
+
+            if net.name in _get_power_symbol_names():
+                continue
+
+            pins_in_node = [
+                p for p in net.pins
+                if id(p.part) in node_part_ids
+                and not isinstance(p.part, NetTerminal)
+                and p.stub
+            ]
+            if len(pins_in_node) != 2:
+                continue
+
+            p1, p2 = pins_in_node
+            x1, y1 = _kicad_pin_pos(p1, getattr(p1.part, "tx", Tx()), tx)
+            x2, y2 = _kicad_pin_pos(p2, getattr(p2.part, "tx", Tx()), tx)
+
+            dist = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+            if dist < 0.01:
+                wired_pin_ids.add(id(p1))
+                wired_pin_ids.add(id(p2))
+
+    return wired_pin_ids, []
+
+
 @export_to_all
 def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
     """Convert a SchNode tree to S-expression schematic(s).
@@ -1149,11 +1230,17 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
     for net, junctions in node.junctions.items():
         elements.extend(junction_to_sexp(net, junctions, tx=tx))
 
-    # Generate net labels for stubbed pins.
+    # Replace close 2-pin stubbed nets with direct wires instead of labels.
+    wired_pin_ids, direct_wires = _find_wireable_nets(node, tx)
+    elements.extend(direct_wires)
+
+    # Generate net labels for stubbed pins (skip pins that got direct wires).
     for part in node.parts:
         if isinstance(part, NetTerminal):
             continue
         for pin in part:
+            if id(pin) in wired_pin_ids:
+                continue
             label = net_label_to_sexp(pin, tx=tx)
             if label:
                 elements.append(label)
@@ -1377,11 +1464,17 @@ def write_top_schematic(circuit, node, filepath, top_name, title, version=202304
     for net, junctions in node.junctions.items():
         elements.extend(junction_to_sexp(net, junctions, tx=sheet_tx))
 
-    # Generate net labels for stubbed pins.
+    # Replace close 2-pin stubbed nets with direct wires instead of labels.
+    wired_pin_ids, direct_wires = _find_wireable_nets(node, sheet_tx)
+    elements.extend(direct_wires)
+
+    # Generate net labels for stubbed pins (skip pins that got direct wires).
     for part in node.parts:
         if isinstance(part, NetTerminal):
             continue
         for pin in part:
+            if id(pin) in wired_pin_ids:
+                continue
             label = net_label_to_sexp(pin, tx=sheet_tx)
             if label:
                 elements.append(label)
