@@ -48,15 +48,19 @@ _pwr_counter = [0]
 
 def _get_power_lib_text():
     """Load the raw text of the power symbol library. Cached."""
+    from skidl import get_default_tool
+
+    kicad_version = get_default_tool()[len("kicad"):]
+
     global _power_lib_text_cache
     if _power_lib_text_cache is not None:
         return _power_lib_text_cache
 
     for path in [
-        os.environ.get("KICAD9_SYMBOL_DIR", ""),
+        os.environ.get(f"KICAD{kicad_version}_SYMBOL_DIR", ""),
         "/usr/share/kicad/symbols",
         "/usr/local/share/kicad/symbols",
-        os.path.expanduser("~/.local/share/kicad/9.0/symbols"),
+        os.path.expanduser(f"~/.local/share/kicad/{kicad_version}.0/symbols"),
     ]:
         lib_path = os.path.join(path, "power.kicad_sym") if path else ""
         if lib_path and os.path.exists(lib_path):
@@ -416,27 +420,6 @@ def _pick_paper_size(bbox):
 # ---------------------------------------------------------------------------
 
 
-def _extract_part_angle(part_tx):
-    """Extract rotation angle (degrees) from a part's transformation matrix.
-
-    The placement engine encodes rotation in the 2x2 matrix [a,b;c,d].
-    For a CCW rotation by θ: a=cos(θ), b=sin(θ), c=-sin(θ), d=cos(θ).
-
-    Because the sheet transform includes a Y-flip (d=-MILS_TO_MM), rotation
-    sense is reversed.  The KiCad 9 angle is therefore -θ from the placement
-    engine, normalised to one of {0, 90, 180, 270}.
-    """
-    from math import atan2, degrees
-
-    # Extract rotation from part_tx only (ignore translation).
-    angle_placement = degrees(atan2(part_tx.b, part_tx.a))
-    # Y-flip reverses rotation sense.
-    angle_kicad = -angle_placement
-    # Normalise to [0, 360) and snap to nearest 90°.
-    angle_kicad = round(angle_kicad % 360 / 90) * 90 % 360
-    return angle_kicad
-
-
 def part_to_sexp(part, tx=Tx()):
     """Create S-expression for a symbol instance.
 
@@ -452,7 +435,13 @@ def part_to_sexp(part, tx=Tx()):
         Sexp: Symbol S-expression.
     """
     part_tx = getattr(part, "tx", Tx())
-    angle = _extract_part_angle(part_tx)
+    angle, mx, my = part_tx.analyze_transform()
+    if mx:
+        mirror = ["mirror", "x"]
+    elif my:
+        mirror = ["mirror", "y"]
+    else:
+        mirror = []
     tx = part_tx * tx
     origin = Point(_round_mm(tx.origin.x), _round_mm(tx.origin.y))
     unit_num = getattr(part, "num", 1)
@@ -465,20 +454,22 @@ def part_to_sexp(part, tx=Tx()):
     part_name = part.name or "Unknown"
     lib_id = f"{lib_name}:{part_name}"
 
-    symbol = Sexp(
-        [
-            "symbol",
-            ["lib_id", lib_id],
-            ["at", origin.x, origin.y, 0],
-            ["unit", unit_num],
-            ["exclude_from_sim", "no"],
-            ["in_bom", "yes"],
-            ["on_board", "yes"],
-            ["dnp", "no"],
-            ["fields_autoplaced", "yes"],
-            ["uuid", _gen_uuid(part.hiername)],
-        ]
-    )
+    symbol_list = [
+        "symbol",
+        ["lib_id", lib_id],
+        ["at", origin.x, origin.y, angle],
+        mirror,
+        ["unit", unit_num],
+        ["exclude_from_sim", "no"],
+        ["in_bom", "yes"],
+        ["on_board", "yes"],
+        ["dnp", "no"],
+        ["fields_autoplaced", "yes"],
+        ["uuid", _gen_uuid(part.hiername)],
+    ]
+    if not mirror:
+        symbol_list.remove([])
+    symbol = Sexp(symbol_list)
 
     # Reference
     symbol.append(
@@ -487,7 +478,7 @@ def part_to_sexp(part, tx=Tx()):
                 "property",
                 "Reference",
                 part.ref,
-                ["at", origin.x, origin.y - 2.54, 0],
+                ["at", origin.x, origin.y - 2.54, angle],
                 ["effects", ["font", ["size", 1.27, 1.27]], ["justify", "left"]],
             ]
         )
@@ -500,7 +491,7 @@ def part_to_sexp(part, tx=Tx()):
                 "property",
                 "Value",
                 str(part.value),
-                ["at", origin.x, origin.y + 2.54, 0],
+                ["at", origin.x, origin.y + 2.54, angle],
                 ["effects", ["font", ["size", 1.27, 1.27]], ["justify", "left"]],
             ]
         )
@@ -513,7 +504,7 @@ def part_to_sexp(part, tx=Tx()):
                 "property",
                 "Footprint",
                 getattr(part, "footprint", ""),
-                ["at", origin.x, origin.y, 0],
+                ["at", origin.x, origin.y, angle],
                 ["effects", ["font", ["size", 1.27, 1.27]], ["hide", "yes"]],
             ]
         )
@@ -526,7 +517,7 @@ def part_to_sexp(part, tx=Tx()):
                 "property",
                 "Datasheet",
                 getattr(part, "datasheet", "~") or "~",
-                ["at", origin.x, origin.y, 0],
+                ["at", origin.x, origin.y, angle],
                 ["effects", ["font", ["size", 1.27, 1.27]], ["hide", "yes"]],
             ]
         )
@@ -539,7 +530,7 @@ def part_to_sexp(part, tx=Tx()):
                 "property",
                 "Description",
                 getattr(part, "description", "") or "",
-                ["at", origin.x, origin.y, 0],
+                ["at", origin.x, origin.y, angle],
                 ["effects", ["font", ["size", 1.27, 1.27]], ["hide", "yes"]],
             ]
         )
@@ -564,7 +555,7 @@ def part_to_sexp(part, tx=Tx()):
                             "property",
                             field_name,
                             str(field_value),
-                            ["at", origin.x, origin.y + y_offset, 0],
+                            ["at", origin.x, origin.y + y_offset, angle],
                             [
                                 "effects",
                                 ["font", ["size", 1.27, 1.27]],
@@ -817,6 +808,36 @@ def junction_to_sexp(net, junctions, tx=Tx()):
     return result
 
 
+def calc_pin_dir(pin):
+    """Calculate pin direction accounting for part transformation matrix."""
+
+    # Copy the part trans. matrix, but remove the translation vector, leaving only scaling/rotation stuff.
+    tx = pin.part.tx
+    tx = Tx(a=tx.a, b=tx.b, c=tx.c, d=tx.d)
+
+    # Use the pin orientation to compute the pin direction vector.
+    pin_vector = {
+        "U": Point(0, 1),
+        "D": Point(0, -1),
+        "L": Point(-1, 0),
+        "R": Point(1, 0),
+    }[pin.orientation]
+
+    # Rotate the direction vector using the part rotation matrix.
+    pin_vector = pin_vector * tx
+
+    # Create an integer tuple from the rotated direction vector.
+    pin_vector = (int(round(pin_vector.x)), int(round(pin_vector.y)))
+
+    # Return the pin orientation based on its rotated direction vector.
+    return {
+        (0, 1): "U",
+        (0, -1): "D",
+        (-1, 0): "L",
+        (1, 0): "R",
+    }[pin_vector]
+
+
 def net_label_to_sexp(pin, tx=Tx(), force=False):
     """Create S-expression for a net label at a pin stub.
 
@@ -834,7 +855,7 @@ def net_label_to_sexp(pin, tx=Tx(), force=False):
     """
     if not force and (not pin.stub or not pin.is_connected()):
         return None
-
+    
     # Check if this net matches a known KiCad power symbol.
     # If so, emit a power symbol instance instead of a global_label.
     # This eliminates power_pin_not_driven ERC errors.
@@ -851,28 +872,13 @@ def net_label_to_sexp(pin, tx=Tx(), force=False):
     label_type = "global_label"
 
     # Position at pin location (Y-flip is already in sheet_tx).
-    part_tx = getattr(pin.part, "tx", Tx())
-    tx = part_tx * tx
     pin_pt = getattr(pin, "pt", Point(pin.x, pin.y))
-    pt = pin_pt * tx
+    part_tx = getattr(pin.part, "tx", Tx())
+    pt = pin_pt * part_tx * tx
 
-    # Compute label angle from the pin's *transformed* direction so that
-    # the label extends away from the component body even when the part
-    # is rotated.  The raw pin.orientation is relative to the library
-    # symbol and doesn't account for part rotation.
-    from math import atan2, degrees
-
-    _pin_dir = {
-        "R": Point(1, 0),
-        "L": Point(-1, 0),
-        "U": Point(0, 1),
-        "D": Point(0, -1),
-    }
-    pin_dir = _pin_dir.get(pin.orientation, Point(1, 0))
-    pt_along = (pin_pt + pin_dir) * tx
-    dx = pt_along.x - pt.x
-    dy = pt_along.y - pt.y
-    angle = round(degrees(atan2(dy, dx)) % 360 / 90) * 90 % 360
+    # Map pin orientation to angle (degrees).
+    orient_map = {"R": 180, "D": 90, "L": 0, "U": 270}
+    angle = orient_map[calc_pin_dir(pin)]
 
     # Justify depends on label direction.
     justify = "left" if angle in (0, 90) else "right"

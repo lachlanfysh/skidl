@@ -5,7 +5,7 @@ import sys
 
 import setuptools
 
-__version__ = "2.2.1"
+__version__ = "2.2.3"
 __author__ = "Dave Vandenbout"
 __email__ = "dave@vdb.name"
 
@@ -28,7 +28,7 @@ with open("HISTORY.md") as history_file:
 
 requirements = [
     "kinet2pcb >= 1.1.4",
-    "simp_sexp >= 0.3.0",
+    "simp_sexp >= 0.3.1",
     "inspice; python_version>='3.11'",
     "ply",
     "rich",
