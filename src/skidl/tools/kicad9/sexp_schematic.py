@@ -1248,13 +1248,13 @@ def _find_wireable_nets(node, tx, max_dist_mm=80.0):
     return wired_pin_ids, []
 
 
-def _gen_power_bus_wires(node, tx):
+def _gen_power_bus_wires(node, tx, max_gap_mm=10.0):
     """Generate wire segments connecting co-linear power net pins.
 
     Finds subgroups of 3+ pins on the same power net that share an X or Y
-    coordinate (within 0.1mm). Generates wire segments between consecutive
-    pins in each subgroup. Returns (wire_sexps, bus_pin_ids) where
-    bus_pin_ids are pins that should NOT get individual power symbols.
+    coordinate (within 0.1mm) AND are spaced within max_gap_mm of each
+    neighbour. Returns (wire_sexps, bus_pin_ids) where bus_pin_ids are
+    pins that should NOT get individual power symbols.
     """
     from collections import defaultdict
 
@@ -1282,6 +1282,7 @@ def _gen_power_bus_wires(node, tx):
                 p for p in net.pins
                 if id(p.part) in node_part_ids
                 and not isinstance(p.part, NetTerminal)
+                and len(p.part.pins) == 2
             ]
             if len(pins_in_node) < 3:
                 continue
@@ -1303,55 +1304,54 @@ def _gen_power_bus_wires(node, tx):
                 y_key = round(pos[1], 1)
                 y_groups[y_key].append(pos)
 
-            # Process vertical groups (3+ pins at same X).
+            def _split_runs(sorted_group, axis):
+                """Split sorted positions into contiguous runs by max_gap_mm."""
+                runs = [[sorted_group[0]]]
+                for j in range(1, len(sorted_group)):
+                    gap = abs(sorted_group[j][axis] - sorted_group[j - 1][axis])
+                    if gap <= max_gap_mm:
+                        runs[-1].append(sorted_group[j])
+                    else:
+                        runs.append([sorted_group[j]])
+                return [r for r in runs if len(r) >= 3]
+
+            def _emit_run(run, net_name):
+                for j in range(len(run) - 1):
+                    x1, y1, _ = run[j]
+                    x2, y2, _ = run[j + 1]
+                    wires.append(
+                        Sexp(
+                            [
+                                "wire",
+                                ["pts", ["xy", x1, y1], ["xy", x2, y2]],
+                                ["stroke", ["width", 0], ["type", "default"]],
+                                [
+                                    "uuid",
+                                    _gen_uuid(
+                                        f"pbus:{net_name}:{x1}:{y1}:{x2}:{y2}"
+                                    ),
+                                ],
+                            ]
+                        )
+                    )
+                for _, _, p in run[:-1]:
+                    bus_pin_ids.add(id(p))
+
+            # Process vertical groups (same X, split by Y gap).
             for x_key, group in x_groups.items():
                 if len(group) < 3:
                     continue
                 group.sort(key=lambda p: p[1])
-                for i in range(len(group) - 1):
-                    x1, y1, _ = group[i]
-                    x2, y2, _ = group[i + 1]
-                    wires.append(
-                        Sexp(
-                            [
-                                "wire",
-                                ["pts", ["xy", x1, y1], ["xy", x2, y2]],
-                                ["stroke", ["width", 0], ["type", "default"]],
-                                [
-                                    "uuid",
-                                    _gen_uuid(
-                                        f"pbus:{net.name}:{x1}:{y1}:{x2}:{y2}"
-                                    ),
-                                ],
-                            ]
-                        )
-                    )
-                for _, _, p in group[:-1]:
-                    bus_pin_ids.add(id(p))
+                for run in _split_runs(group, axis=1):
+                    _emit_run(run, net.name)
 
-            # Process horizontal groups (3+ pins at same Y).
+            # Process horizontal groups (same Y, split by X gap).
             for y_key, group in y_groups.items():
                 if len(group) < 3:
                     continue
                 group.sort(key=lambda p: p[0])
-                for i in range(len(group) - 1):
-                    x1, y1, _ = group[i]
-                    x2, y2, _ = group[i + 1]
-                    wires.append(
-                        Sexp(
-                            [
-                                "wire",
-                                ["pts", ["xy", x1, y1], ["xy", x2, y2]],
-                                ["stroke", ["width", 0], ["type", "default"]],
-                                [
-                                    "uuid",
-                                    _gen_uuid(
-                                        f"pbus:{net.name}:{x1}:{y1}:{x2}:{y2}"
-                                    ),
-                                ],
-                            ]
-                        )
-                    )
+                for run in _split_runs(group, axis=0):
+                    _emit_run(run, net.name)
                 for _, _, p in group[:-1]:
                     bus_pin_ids.add(id(p))
 
@@ -1687,11 +1687,6 @@ def write_top_schematic(circuit, node, filepath, top_name, title, version=202304
     # Replace close 2-pin stubbed nets with direct wires instead of labels.
     wired_pin_ids, direct_wires = _find_wireable_nets(node, sheet_tx)
     elements.extend(direct_wires)
-
-    # Connect co-linear power net pins with bus wires.
-    power_wires, bus_pin_ids = _gen_power_bus_wires(node, sheet_tx)
-    elements.extend(power_wires)
-    wired_pin_ids.update(bus_pin_ids)
 
     # Generate net labels for stubbed pins (skip pins that got direct wires).
     for part in node.parts:
