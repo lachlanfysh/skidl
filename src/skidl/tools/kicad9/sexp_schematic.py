@@ -1356,8 +1356,6 @@ def _gen_power_bus_wires(node, tx, max_gap_mm=10.0):
                 group.sort(key=lambda p: p[0])
                 for run in _split_runs(group, axis=0):
                     _emit_run(run, net.name)
-                for _, _, p in group[:-1]:
-                    bus_pin_ids.add(id(p))
 
     return wires, bus_pin_ids
 
@@ -1443,6 +1441,24 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
     power_wires, bus_pin_ids = _gen_power_bus_wires(node, tx)
     elements.extend(power_wires)
     wired_pin_ids.update(bus_pin_ids)
+
+    # Generate T-junction wires from staggered snap placement.
+    for tjw in getattr(node, "_tjunction_wires", []):
+        x1_mil, y1_mil, x2_mil, y2_mil = tjw
+        p1 = Point(x1_mil, y1_mil) * tx
+        p2 = Point(x2_mil, y2_mil) * tx
+        x1, y1 = _round_mm(p1.x), _round_mm(p1.y)
+        x2, y2 = _round_mm(p2.x), _round_mm(p2.y)
+        elements.append(
+            Sexp(
+                [
+                    "wire",
+                    ["pts", ["xy", x1, y1], ["xy", x2, y2]],
+                    ["stroke", ["width", 0], ["type", "default"]],
+                    ["uuid", _gen_uuid(f"tjwire:{x1}:{y1}:{x2}:{y2}")],
+                ]
+            )
+        )
 
     # Generate net labels for stubbed pins (skip pins that got direct wires).
     power_names = _get_power_symbol_names()

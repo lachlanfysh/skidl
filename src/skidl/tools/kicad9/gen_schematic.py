@@ -13,7 +13,7 @@ import os
 import re
 import shutil
 import subprocess
-from collections import Counter
+from collections import Counter, defaultdict
 
 from skidl.geometry import BBox, Point, Tx, Vector
 from skidl.schematics.net_terminal import NetTerminal
@@ -545,6 +545,16 @@ def _snap_two_pin_parts(node):
             for my_p, other_net in [(p1, net1), (p2, net2)]:
                 if _is_power_net(other_net) and not both_power:
                     continue
+                has_occupied_ic = any(
+                    id(np) in occupied_pins
+                    for np in other_net.pins
+                    if np.part is not part
+                    and id(np.part) in node_part_ids
+                    and not isinstance(np.part, NetTerminal)
+                    and len(np.part.pins) > 2
+                )
+                if has_occupied_ic:
+                    continue
                 for net_pin in other_net.pins:
                     other_part = net_pin.part
                     if (
@@ -616,6 +626,115 @@ def _snap_two_pin_parts(node):
 
         part.tx = _compute_snap_tx(my_pin, other_pin, target_world, extend_dir)
         snapped.add(id(part))
+
+    _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins)
+
+
+def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=3):
+    """Detect repeating T-junction patterns and stagger parts outward from IC.
+
+    A T-junction occurs when 2+ two-pin parts share a signal net with the same
+    IC pin. When 3+ IC pins on the same IC have the same fan-out count, it's a
+    repeating pattern. Parts are rearranged so each pin's group steps further
+    from the IC body, with all parts extending perpendicular.
+
+    Also moves the pass-1 snapped part from its overlapping position to the
+    staggered position, and records junction wires on node._tjunction_wires
+    for sexp_schematic to render.
+    """
+    perp_map = {"R": "D", "L": "U", "U": "R", "D": "L"}
+    _dir_vec = {"R": (1, 0), "L": (-1, 0), "U": (0, -1), "D": (0, 1)}
+
+    ic_pin_to_parts = defaultdict(list)
+
+    for part in node.parts:
+        if not _is_two_pin_part(part):
+            continue
+
+        p1, p2 = part.pins[0], part.pins[1]
+        net1 = getattr(p1, "net", None)
+        net2 = getattr(p2, "net", None)
+        if not net1 or not net2:
+            continue
+
+        for my_p, other_net in [(p1, net1), (p2, net2)]:
+            if _is_power_net(other_net):
+                continue
+            for net_pin in other_net.pins:
+                ic = net_pin.part
+                if (
+                    ic is not part
+                    and id(ic) in node_part_ids
+                    and not isinstance(ic, NetTerminal)
+                    and len(ic.pins) > 2
+                    and id(net_pin) in occupied_pins
+                ):
+                    other_pin = p2 if my_p is p1 else p1
+                    ic_pin_to_parts[id(net_pin)].append(
+                        (part, my_p, other_pin, net_pin, ic)
+                    )
+                    break
+            else:
+                continue
+            break
+
+    ic_groups = defaultdict(list)
+    for ic_pin_id, parts_list in ic_pin_to_parts.items():
+        if not parts_list:
+            continue
+        ic = parts_list[0][4]
+        ic_groups[id(ic)].append((parts_list[0][3], parts_list))
+
+    junction_wires = getattr(node, "_tjunction_wires", [])
+
+    for ic_id, pin_entries in ic_groups.items():
+        fanout_counts = [len(pl) for _, pl in pin_entries]
+        dominant = max(set(fanout_counts), key=fanout_counts.count)
+        matching = [(ip, pl) for ip, pl in pin_entries if len(pl) == dominant]
+
+        if len(matching) < min_group:
+            continue
+
+        ic_part = matching[0][1][0][4]
+        ic_dir = _pin_world_orient(matching[0][0], ic_part)
+        perp_dir = perp_map.get(ic_dir, ic_dir)
+        step_dx, step_dy = _dir_vec.get(ic_dir, (1, 0))
+        step_size = 100
+
+        def _pin_sort_key(entry):
+            ic_pin = entry[0]
+            w = ic_pin.pt * ic_part.tx
+            if ic_dir in ("L", "R"):
+                return w.y
+            return w.x
+
+        matching.sort(key=_pin_sort_key)
+
+        parts_per_pin = dominant
+        for pin_idx, (ic_pin, parts_list) in enumerate(matching):
+            ic_pin_world = ic_pin.pt * ic_part.tx
+
+            parts_list.sort(key=lambda t: getattr(t[0], "ref", ""))
+
+            for part_idx, (part, my_pin, other_pin, _, _) in enumerate(parts_list):
+                offset_n = pin_idx * parts_per_pin + part_idx + 1
+                ox = ic_pin_world.x + step_dx * step_size * offset_n
+                oy = ic_pin_world.y + step_dy * step_size * offset_n
+                junction_pt = Point(ox, oy)
+
+                part.tx = _compute_snap_tx(
+                    my_pin, other_pin, junction_pt, perp_dir
+                )
+                snapped.add(id(part))
+
+            wire_end_n = pin_idx * parts_per_pin + parts_per_pin
+            wire_ex = ic_pin_world.x + step_dx * step_size * wire_end_n
+            wire_ey = ic_pin_world.y + step_dy * step_size * wire_end_n
+            junction_wires.append(
+                (ic_pin_world.x, ic_pin_world.y, wire_ex, wire_ey)
+            )
+
+    node._tjunction_wires = junction_wires
 
 
 def _stub_all_non_explicit(circuit):
