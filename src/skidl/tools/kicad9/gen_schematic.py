@@ -422,22 +422,22 @@ def _compute_snap_tx(my_pin, other_pin, target_world, extend_dir):
         if abs(dx_local) >= abs(dy_local):
             symtx = "" if dx_local > 0 else "H"
         else:
-            symtx = "L" if dy_local > 0 else "R"
+            symtx = "R" if dy_local > 0 else "L"
     elif extend_dir == "L":
         if abs(dx_local) >= abs(dy_local):
             symtx = "" if dx_local < 0 else "H"
         else:
-            symtx = "R" if dy_local > 0 else "L"
+            symtx = "L" if dy_local > 0 else "R"
     elif extend_dir == "U":
         if abs(dy_local) >= abs(dx_local):
             symtx = "" if dy_local > 0 else "V"
         else:
-            symtx = "R" if dx_local > 0 else "L"
+            symtx = "L" if dx_local > 0 else "R"
     elif extend_dir == "D":
         if abs(dy_local) >= abs(dx_local):
             symtx = "" if dy_local < 0 else "V"
         else:
-            symtx = "L" if dx_local > 0 else "R"
+            symtx = "R" if dx_local > 0 else "L"
     else:
         symtx = ""
 
