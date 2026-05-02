@@ -1150,12 +1150,15 @@ def _kicad_pin_pos(pin, part_tx, sheet_tx):
 
 
 def _find_wireable_nets(node, tx, max_dist_mm=80.0):
-    """Find snapped 2-pin nets where both pins overlap (zero distance).
+    """Suppress labels for pins connected by snap (overlapping positions).
 
-    When a 2-pin part has been snapped onto an IC pin, the connecting pins
-    share the same position. These pins don't need labels — KiCad connects
-    them by position. This function identifies those pins and suppresses
-    their labels.
+    Builds connected clusters of overlapping pins per net. Within each
+    cluster, all pins are physically connected so only one label is needed
+    (for cross-sheet connectivity). All other pins in the cluster are
+    suppressed.
+
+    Also tracks nets that have real (non-NetTerminal) pins on this sheet,
+    so NetTerminal labels can be suppressed for those nets.
 
     Returns:
         tuple: (wired_pin_ids, wire_sexps) where wired_pin_ids is a set of
@@ -1186,17 +1189,61 @@ def _find_wireable_nets(node, tx, max_dist_mm=80.0):
                 and not isinstance(p.part, NetTerminal)
                 and p.stub
             ]
-            if len(pins_in_node) != 2:
+            if len(pins_in_node) < 2:
                 continue
 
-            p1, p2 = pins_in_node
-            x1, y1 = _kicad_pin_pos(p1, getattr(p1.part, "tx", Tx()), tx)
-            x2, y2 = _kicad_pin_pos(p2, getattr(p2.part, "tx", Tx()), tx)
+            positions = []
+            for p in pins_in_node:
+                x, y = _kicad_pin_pos(p, getattr(p.part, "tx", Tx()), tx)
+                positions.append((x, y, p))
 
-            dist = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-            if dist < 0.01:
-                wired_pin_ids.add(id(p1))
-                wired_pin_ids.add(id(p2))
+            # Union-find to cluster overlapping pins (dist < 0.01mm).
+            parent = list(range(len(positions)))
+
+            def find(i):
+                while parent[i] != i:
+                    parent[i] = parent[parent[i]]
+                    i = parent[i]
+                return i
+
+            for i in range(len(positions)):
+                for j in range(i + 1, len(positions)):
+                    dist = ((positions[i][0] - positions[j][0]) ** 2 +
+                            (positions[i][1] - positions[j][1]) ** 2) ** 0.5
+                    if dist < 0.01:
+                        ri, rj = find(i), find(j)
+                        if ri != rj:
+                            parent[ri] = rj
+
+            # Group pins by cluster.
+            clusters = {}
+            for i in range(len(positions)):
+                r = find(i)
+                clusters.setdefault(r, []).append(i)
+
+            # Check if the net has pins outside this sheet.
+            all_real_pins = [
+                p for p in net.pins
+                if not isinstance(p.part, NetTerminal)
+            ]
+            has_pins_outside = len(all_real_pins) > len(pins_in_node)
+
+            for members in clusters.values():
+                if len(members) < 2:
+                    continue
+
+                pins_outside_cluster = len(pins_in_node) - len(members)
+
+                if not has_pins_outside and pins_outside_cluster == 0:
+                    # All net pins are in this cluster — fully connected by
+                    # overlap, no labels needed at all.
+                    for idx in members:
+                        wired_pin_ids.add(id(positions[idx][2]))
+                else:
+                    # Net has pins elsewhere — keep one label for cross-sheet
+                    # connectivity, suppress the rest.
+                    for idx in members[1:]:
+                        wired_pin_ids.add(id(positions[idx][2]))
 
     return wired_pin_ids, []
 
@@ -1242,11 +1289,24 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
             if lib_id not in lib_symbols:
                 lib_symbols[lib_id] = part
 
+    # Collect net names that have real (non-NetTerminal) stubbed pins on this
+    # sheet.  NetTerminal labels are redundant for these nets since the pins
+    # will generate their own labels.
+    nets_with_real_pins = set()
+    for part in node.parts:
+        if isinstance(part, NetTerminal):
+            continue
+        for pin in part:
+            if pin.stub and pin.is_connected():
+                nets_with_real_pins.add(pin.net.name)
+
     # Generate part S-expressions.
     for part in node.parts:
         if isinstance(part, NetTerminal):
-            # NetTerminals become net labels.
-            label = net_label_to_sexp(part.pins[0], tx=tx, force=True)
+            pin = part.pins[0]
+            if pin.is_connected() and pin.net.name in nets_with_real_pins:
+                continue
+            label = net_label_to_sexp(pin, tx=tx, force=True)
             if label:
                 elements.append(label)
         else:
@@ -1479,10 +1539,22 @@ def write_top_schematic(circuit, node, filepath, top_name, title, version=202304
             if lib_id not in lib_symbols:
                 lib_symbols[lib_id] = part
 
+    # Collect net names with real stubbed pins on the root sheet.
+    nets_with_real_pins = set()
+    for part in node.parts:
+        if isinstance(part, NetTerminal):
+            continue
+        for pin in part:
+            if pin.stub and pin.is_connected():
+                nets_with_real_pins.add(pin.net.name)
+
     # Generate part S-expressions for root-level parts.
     for part in node.parts:
         if isinstance(part, NetTerminal):
-            label = net_label_to_sexp(part.pins[0], tx=sheet_tx, force=True)
+            pin = part.pins[0]
+            if pin.is_connected() and pin.net.name in nets_with_real_pins:
+                continue
+            label = net_label_to_sexp(pin, tx=sheet_tx, force=True)
             if label:
                 elements.append(label)
         else:
