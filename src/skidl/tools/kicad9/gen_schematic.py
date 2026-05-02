@@ -545,16 +545,6 @@ def _snap_two_pin_parts(node):
             for my_p, other_net in [(p1, net1), (p2, net2)]:
                 if _is_power_net(other_net) and not both_power:
                     continue
-                has_occupied_ic = any(
-                    id(np) in occupied_pins
-                    for np in other_net.pins
-                    if np.part is not part
-                    and id(np.part) in node_part_ids
-                    and not isinstance(np.part, NetTerminal)
-                    and len(np.part.pins) > 2
-                )
-                if has_occupied_ic:
-                    continue
                 for net_pin in other_net.pins:
                     other_part = net_pin.part
                     if (
@@ -643,6 +633,7 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=3
     for sexp_schematic to render.
     """
     perp_map = {"R": "D", "L": "U", "U": "R", "D": "L"}
+    anti_perp = {"U": "D", "D": "U", "L": "R", "R": "L"}
     _dir_vec = {"R": (1, 0), "L": (-1, 0), "U": (0, -1), "D": (0, 1)}
 
     ic_pin_to_parts = defaultdict(list)
@@ -714,30 +705,30 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=3
         matching.sort(key=_pin_sort_key)
 
         parts_per_pin = dominant
+        anti = anti_perp.get(perp_dir, perp_dir)
+        extend_dirs = [perp_dir, anti] if parts_per_pin >= 2 else [perp_dir]
+
         for pin_idx, (ic_pin, parts_list) in enumerate(matching):
             ic_pin_world = ic_pin.pt * ic_part.tx
 
             parts_list.sort(key=lambda t: getattr(t[0], "ref", ""))
 
-            pin_positions = [(ic_pin_world.x, ic_pin_world.y)]
-            for part_idx, (part, my_pin, other_pin, _, _) in enumerate(parts_list):
-                offset_n = pin_idx * parts_per_pin + part_idx + 1
-                ox = ic_pin_world.x + step_dx * step_size * offset_n
-                oy = ic_pin_world.y + step_dy * step_size * offset_n
-                junction_pt = Point(ox, oy)
+            offset_n = pin_idx + 1
+            ox = ic_pin_world.x + step_dx * step_size * offset_n
+            oy = ic_pin_world.y + step_dy * step_size * offset_n
+            junction_pt = Point(ox, oy)
 
+            for part_idx, (part, my_pin, other_pin, _, _) in enumerate(parts_list):
+                ext_dir = extend_dirs[part_idx % len(extend_dirs)]
                 part.tx = _compute_snap_tx(
-                    my_pin, other_pin, junction_pt, perp_dir
+                    my_pin, other_pin, junction_pt, ext_dir
                 )
                 snapped.add(id(part))
                 suppressed_pins.add(id(my_pin))
-                pin_positions.append((ox, oy))
 
-            for i in range(len(pin_positions) - 1):
-                junction_wires.append(
-                    (pin_positions[i][0], pin_positions[i][1],
-                     pin_positions[i + 1][0], pin_positions[i + 1][1])
-                )
+            junction_wires.append(
+                (ic_pin_world.x, ic_pin_world.y, ox, oy)
+            )
 
     node._tjunction_wires = junction_wires
     node._tjunction_suppressed_pins = suppressed_pins
