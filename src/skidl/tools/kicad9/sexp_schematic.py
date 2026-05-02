@@ -1283,6 +1283,10 @@ def _gen_power_bus_wires(node, tx, max_gap_mm=10.0):
                 if id(p.part) in node_part_ids
                 and not isinstance(p.part, NetTerminal)
                 and len(p.part.pins) == 2
+                and not all(
+                    pp.is_connected() and pp.net.name in power_names
+                    for pp in p.part.pins
+                )
             ]
             if len(pins_in_node) < 3:
                 continue
@@ -1441,6 +1445,7 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
     wired_pin_ids.update(bus_pin_ids)
 
     # Generate net labels for stubbed pins (skip pins that got direct wires).
+    power_names = _get_power_symbol_names()
     for part in node.parts:
         if isinstance(part, NetTerminal):
             continue
@@ -1450,6 +1455,15 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
             label = net_label_to_sexp(pin, tx=tx)
             if label:
                 elements.append(label)
+            elif (
+                len(part.pins) == 2
+                and not pin.stub
+                and pin.is_connected()
+                and pin.net.name in power_names
+            ):
+                label = net_label_to_sexp(pin, tx=tx, force=True)
+                if label:
+                    elements.append(label)
 
     elements.extend(_gen_no_connect_flags(node, tx))
 
@@ -1689,6 +1703,7 @@ def write_top_schematic(circuit, node, filepath, top_name, title, version=202304
     elements.extend(direct_wires)
 
     # Generate net labels for stubbed pins (skip pins that got direct wires).
+    power_names = _get_power_symbol_names()
     for part in node.parts:
         if isinstance(part, NetTerminal):
             continue
@@ -1698,6 +1713,15 @@ def write_top_schematic(circuit, node, filepath, top_name, title, version=202304
             label = net_label_to_sexp(pin, tx=sheet_tx)
             if label:
                 elements.append(label)
+            elif (
+                len(part.pins) == 2
+                and not pin.stub
+                and pin.is_connected()
+                and pin.net.name in power_names
+            ):
+                label = net_label_to_sexp(pin, tx=sheet_tx, force=True)
+                if label:
+                    elements.append(label)
 
     elements.extend(_gen_no_connect_flags(node, sheet_tx))
 

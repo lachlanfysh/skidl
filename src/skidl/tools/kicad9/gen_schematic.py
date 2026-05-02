@@ -486,8 +486,10 @@ def _snap_two_pin_parts(node):
         target_part = None
         my_pin = None
 
+        both_power = _is_power_net(net1) and _is_power_net(net2)
+
         for my_p, other_net in [(p1, net1), (p2, net2)]:
-            if _is_power_net(other_net):
+            if _is_power_net(other_net) and not both_power:
                 continue
             for net_pin in other_net.pins:
                 other_part = net_pin.part
@@ -533,8 +535,10 @@ def _snap_two_pin_parts(node):
             target_part = None
             my_pin = None
 
+            both_power = _is_power_net(net1) and _is_power_net(net2)
+
             for my_p, other_net in [(p1, net1), (p2, net2)]:
-                if _is_power_net(other_net):
+                if _is_power_net(other_net) and not both_power:
                     continue
                 for net_pin in other_net.pins:
                     other_part = net_pin.part
