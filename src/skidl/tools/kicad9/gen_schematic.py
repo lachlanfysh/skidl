@@ -487,6 +487,7 @@ def _snap_two_pin_parts(node):
         my_pin = None
 
         both_power = _is_power_net(net1) and _is_power_net(net2)
+        min_target_pins = 8 if both_power else 2
 
         for my_p, other_net in [(p1, net1), (p2, net2)]:
             if _is_power_net(other_net) and not both_power:
@@ -497,7 +498,7 @@ def _snap_two_pin_parts(node):
                     other_part is not part
                     and id(other_part) in node_part_ids
                     and not isinstance(other_part, NetTerminal)
-                    and len(other_part.pins) > 2
+                    and len(other_part.pins) > min_target_pins
                     and id(net_pin) not in occupied_pins
                 ):
                     target_pin = net_pin
@@ -515,6 +516,10 @@ def _snap_two_pin_parts(node):
         other_pin = p2 if my_pin is p1 else p1
 
         part.tx = _compute_snap_tx(my_pin, other_pin, target_world, extend_dir)
+        if both_power:
+            _offset_dir = {"R": (200, 0), "L": (-200, 0), "U": (0, 200), "D": (0, -200)}
+            dx, dy = _offset_dir.get(extend_dir, (200, 0))
+            part.tx = part.tx.move(Point(dx, dy))
         snapped.add(id(part))
         occupied_pins.add(id(target_pin))
 
