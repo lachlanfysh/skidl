@@ -26,6 +26,7 @@ from simp_sexp import Sexp
 
 from skidl.geometry import Point, Tx
 from skidl.pckg_info import __version__
+from skidl.net import NCNet
 from skidl.schematics.net_terminal import NetTerminal
 from skidl.utilities import export_to_all
 
@@ -855,7 +856,10 @@ def net_label_to_sexp(pin, tx=Tx(), force=False):
     """
     if not force and (not pin.stub or not pin.is_connected()):
         return None
-    
+
+    if isinstance(getattr(pin, "net", None), NCNet):
+        return None
+
     # Check if this net matches a known KiCad power symbol.
     # If so, emit a power symbol instance instead of a global_label.
     # This eliminates power_pin_not_driven ERC errors.
@@ -895,6 +899,33 @@ def net_label_to_sexp(pin, tx=Tx(), force=False):
     )
 
     return label
+
+
+def _gen_no_connect_flags(node, tx):
+    """Generate no_connect flag S-expressions for pins on NCNet.
+
+    Returns a list of Sexp objects, one per NC pin.
+    """
+    flags = []
+    for part in node.parts:
+        if isinstance(part, NetTerminal):
+            continue
+        for pin in part:
+            if not isinstance(getattr(pin, "net", None), NCNet):
+                continue
+            pin_pt = getattr(pin, "pt", Point(pin.x, pin.y))
+            part_tx = getattr(pin.part, "tx", Tx())
+            pt = pin_pt * part_tx * tx
+            flags.append(
+                Sexp(
+                    [
+                        "no_connect",
+                        ["at", _round_mm(pt.x), _round_mm(pt.y)],
+                        ["uuid", _gen_uuid(f"nc:{part.ref}:{pin.num}:{pt.x}:{pt.y}")],
+                    ]
+                )
+            )
+    return flags
 
 
 # ---------------------------------------------------------------------------
@@ -1245,6 +1276,8 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
             if label:
                 elements.append(label)
 
+    elements.extend(_gen_no_connect_flags(node, tx))
+
     if node.flattened:
         # Return elements for inclusion in the parent sheet.
         return elements
@@ -1478,6 +1511,8 @@ def write_top_schematic(circuit, node, filepath, top_name, title, version=202304
             label = net_label_to_sexp(pin, tx=sheet_tx)
             if label:
                 elements.append(label)
+
+    elements.extend(_gen_no_connect_flags(node, sheet_tx))
 
     # Post-process: offset any labels that overlap component bodies.
     _deconflict_labels(elements, node, sheet_tx)

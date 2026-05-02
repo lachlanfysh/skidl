@@ -386,16 +386,23 @@ def _is_power_net(net):
 
 
 def _pin_world_orient(pin, part):
-    """Get the world-space outward direction from a pin after part rotation."""
+    """Get the world-space outward direction from a pin after part rotation.
+
+    Transforms the pin's stub direction vector through the part's full
+    transform (including mirrors/flips), then returns the opposite direction.
+    """
+    orient_to_vec = {"R": (1, 0), "L": (-1, 0), "U": (0, -1), "D": (0, 1)}
     outward = {"L": "R", "R": "L", "U": "D", "D": "U"}
-    orient_to_deg = {"R": 0, "U": 90, "L": 180, "D": 270}
-    deg_to_orient = {0: "R", 90: "U", 180: "L", 270: "D"}
 
     raw_orient = getattr(pin, "orientation", "R")
-    angle_deg, _, _ = part.tx.analyze_transform()
-    base_deg = orient_to_deg.get(raw_orient, 0)
-    rotated_deg = (base_deg + round(angle_deg)) % 360
-    world_orient = deg_to_orient.get(rotated_deg, "R")
+    vx, vy = orient_to_vec.get(raw_orient, (1, 0))
+    tx = part.tx
+    wx = tx.a * vx + tx.b * vy
+    wy = tx.c * vx + tx.d * vy
+    if abs(wx) >= abs(wy):
+        world_orient = "R" if wx > 0 else "L"
+    else:
+        world_orient = "D" if wy > 0 else "U"
     return outward.get(world_orient, "R")
 
 
