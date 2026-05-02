@@ -1248,6 +1248,116 @@ def _find_wireable_nets(node, tx, max_dist_mm=80.0):
     return wired_pin_ids, []
 
 
+def _gen_power_bus_wires(node, tx):
+    """Generate wire segments connecting co-linear power net pins.
+
+    Finds subgroups of 3+ pins on the same power net that share an X or Y
+    coordinate (within 0.1mm). Generates wire segments between consecutive
+    pins in each subgroup. Returns (wire_sexps, bus_pin_ids) where
+    bus_pin_ids are pins that should NOT get individual power symbols.
+    """
+    from collections import defaultdict
+
+    node_part_ids = {id(p) for p in node.parts}
+    power_names = _get_power_symbol_names()
+    bus_pin_ids = set()
+    wires = []
+
+    seen_nets = set()
+    for part in node.parts:
+        if isinstance(part, NetTerminal):
+            continue
+        for pin in part:
+            if not pin.is_connected():
+                continue
+            net = pin.net
+            if id(net) in seen_nets:
+                continue
+            seen_nets.add(id(net))
+
+            if net.name not in power_names:
+                continue
+
+            pins_in_node = [
+                p for p in net.pins
+                if id(p.part) in node_part_ids
+                and not isinstance(p.part, NetTerminal)
+            ]
+            if len(pins_in_node) < 3:
+                continue
+
+            positions = []
+            for p in pins_in_node:
+                x, y = _kicad_pin_pos(p, getattr(p.part, "tx", Tx()), tx)
+                positions.append((_round_mm(x), _round_mm(y), p))
+
+            # Group pins by shared X coordinate (vertical columns).
+            x_groups = defaultdict(list)
+            for pos in positions:
+                x_key = round(pos[0], 1)
+                x_groups[x_key].append(pos)
+
+            # Group pins by shared Y coordinate (horizontal rows).
+            y_groups = defaultdict(list)
+            for pos in positions:
+                y_key = round(pos[1], 1)
+                y_groups[y_key].append(pos)
+
+            # Process vertical groups (3+ pins at same X).
+            for x_key, group in x_groups.items():
+                if len(group) < 3:
+                    continue
+                group.sort(key=lambda p: p[1])
+                for i in range(len(group) - 1):
+                    x1, y1, _ = group[i]
+                    x2, y2, _ = group[i + 1]
+                    wires.append(
+                        Sexp(
+                            [
+                                "wire",
+                                ["pts", ["xy", x1, y1], ["xy", x2, y2]],
+                                ["stroke", ["width", 0], ["type", "default"]],
+                                [
+                                    "uuid",
+                                    _gen_uuid(
+                                        f"pbus:{net.name}:{x1}:{y1}:{x2}:{y2}"
+                                    ),
+                                ],
+                            ]
+                        )
+                    )
+                for _, _, p in group[:-1]:
+                    bus_pin_ids.add(id(p))
+
+            # Process horizontal groups (3+ pins at same Y).
+            for y_key, group in y_groups.items():
+                if len(group) < 3:
+                    continue
+                group.sort(key=lambda p: p[0])
+                for i in range(len(group) - 1):
+                    x1, y1, _ = group[i]
+                    x2, y2, _ = group[i + 1]
+                    wires.append(
+                        Sexp(
+                            [
+                                "wire",
+                                ["pts", ["xy", x1, y1], ["xy", x2, y2]],
+                                ["stroke", ["width", 0], ["type", "default"]],
+                                [
+                                    "uuid",
+                                    _gen_uuid(
+                                        f"pbus:{net.name}:{x1}:{y1}:{x2}:{y2}"
+                                    ),
+                                ],
+                            ]
+                        )
+                    )
+                for _, _, p in group[:-1]:
+                    bus_pin_ids.add(id(p))
+
+    return wires, bus_pin_ids
+
+
 @export_to_all
 def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
     """Convert a SchNode tree to S-expression schematic(s).
@@ -1324,6 +1434,11 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
     # Replace close 2-pin stubbed nets with direct wires instead of labels.
     wired_pin_ids, direct_wires = _find_wireable_nets(node, tx)
     elements.extend(direct_wires)
+
+    # Connect co-linear power net pins with bus wires.
+    power_wires, bus_pin_ids = _gen_power_bus_wires(node, tx)
+    elements.extend(power_wires)
+    wired_pin_ids.update(bus_pin_ids)
 
     # Generate net labels for stubbed pins (skip pins that got direct wires).
     for part in node.parts:
@@ -1572,6 +1687,11 @@ def write_top_schematic(circuit, node, filepath, top_name, title, version=202304
     # Replace close 2-pin stubbed nets with direct wires instead of labels.
     wired_pin_ids, direct_wires = _find_wireable_nets(node, sheet_tx)
     elements.extend(direct_wires)
+
+    # Connect co-linear power net pins with bus wires.
+    power_wires, bus_pin_ids = _gen_power_bus_wires(node, sheet_tx)
+    elements.extend(power_wires)
+    wired_pin_ids.update(bus_pin_ids)
 
     # Generate net labels for stubbed pins (skip pins that got direct wires).
     for part in node.parts:
