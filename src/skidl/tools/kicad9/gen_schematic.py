@@ -344,7 +344,7 @@ def _handle_fallback(circuit, tool_module, filepath, top_name, title, flatness,
         _stub_all_non_explicit(circuit)
         preprocess_circuit(circuit, **options)
         node = SchNode(circuit, tool_module, filepath, top_name, title, flatness)
-        node.place(expansion_factor=1.0, **options)
+        node.place(expansion_factor=1.5, **options)
 
     _snap_two_pin_parts(node)
 
@@ -686,10 +686,13 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=3
         ic_groups[id(ic)].append((parts_list[0][3], parts_list))
 
     junction_wires = getattr(node, "_tjunction_wires", [])
+    suppressed_pins = set()
 
     for ic_id, pin_entries in ic_groups.items():
         fanout_counts = [len(pl) for _, pl in pin_entries]
         dominant = max(set(fanout_counts), key=fanout_counts.count)
+        if dominant < 2:
+            continue
         matching = [(ip, pl) for ip, pl in pin_entries if len(pl) == dominant]
 
         if len(matching) < min_group:
@@ -716,6 +719,7 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=3
 
             parts_list.sort(key=lambda t: getattr(t[0], "ref", ""))
 
+            pin_positions = [(ic_pin_world.x, ic_pin_world.y)]
             for part_idx, (part, my_pin, other_pin, _, _) in enumerate(parts_list):
                 offset_n = pin_idx * parts_per_pin + part_idx + 1
                 ox = ic_pin_world.x + step_dx * step_size * offset_n
@@ -726,15 +730,17 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=3
                     my_pin, other_pin, junction_pt, perp_dir
                 )
                 snapped.add(id(part))
+                suppressed_pins.add(id(my_pin))
+                pin_positions.append((ox, oy))
 
-            wire_end_n = pin_idx * parts_per_pin + parts_per_pin
-            wire_ex = ic_pin_world.x + step_dx * step_size * wire_end_n
-            wire_ey = ic_pin_world.y + step_dy * step_size * wire_end_n
-            junction_wires.append(
-                (ic_pin_world.x, ic_pin_world.y, wire_ex, wire_ey)
-            )
+            for i in range(len(pin_positions) - 1):
+                junction_wires.append(
+                    (pin_positions[i][0], pin_positions[i][1],
+                     pin_positions[i + 1][0], pin_positions[i + 1][1])
+                )
 
     node._tjunction_wires = junction_wires
+    node._tjunction_suppressed_pins = suppressed_pins
 
 
 def _stub_all_non_explicit(circuit):

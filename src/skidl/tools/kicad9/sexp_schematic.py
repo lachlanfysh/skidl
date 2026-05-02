@@ -1460,6 +1460,9 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
             )
         )
 
+    # Suppress labels for staggered T-junction signal pins (connected by wire).
+    wired_pin_ids.update(getattr(node, "_tjunction_suppressed_pins", set()))
+
     # Generate net labels for stubbed pins (skip pins that got direct wires).
     power_names = _get_power_symbol_names()
     for part in node.parts:
