@@ -623,13 +623,9 @@ def _snap_two_pin_parts(node):
 def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=2):
     """Detect repeating T-junction patterns and stagger parts outward from IC.
 
-    A T-junction occurs when 2+ two-pin parts share a signal net with the same
-    IC pin. When 3+ IC pins on the same IC have the same fan-out count, it's a
-    repeating pattern. Parts are rearranged so each pin's group steps further
-    from the IC body, with all parts extending perpendicular.
-
-    After staggering, IC groups are vertically redistributed so their stagger
-    fans don't overlap.
+    Phase 1: identify stagger groups, compute how much space each needs,
+    and shift ICs apart vertically so fans won't overlap.
+    Phase 2: place the staggered parts at the (now separated) IC positions.
     """
     perp_map = {"R": "D", "L": "U", "U": "R", "D": "L"}
     anti_perp = {"U": "D", "D": "U", "L": "R", "R": "L"}
@@ -675,11 +671,9 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=2
         ic = parts_list[0][4]
         ic_groups[id(ic)].append((parts_list[0][3], parts_list))
 
-    junction_wires = getattr(node, "_tjunction_wires", [])
-    suppressed_pins = set()
-
-    # Collect stagger group metadata for redistribution pass.
-    stagger_groups = []
+    # ── Phase 1: identify qualifying groups and pre-shift ICs ─────────
+    MM_TO_MILS = 1 / 0.0254
+    stagger_plans = []
 
     for ic_id, pin_entries in ic_groups.items():
         fanout_counts = [len(pl) for _, pl in pin_entries]
@@ -693,10 +687,8 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=2
 
         ic_part = matching[0][1][0][4]
         ic_dir = _pin_world_orient(matching[0][0], ic_part)
-        perp_dir = perp_map.get(ic_dir, ic_dir)
         step_dx, step_dy = _dir_vec.get(ic_dir, (1, 0))
 
-        MM_TO_MILS = 1 / 0.0254
         max_span = 0
         for _, parts_list_scan in matching:
             for (scan_part, _, _, _, _) in parts_list_scan:
@@ -709,6 +701,36 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=2
                     max_span = max(max_span, span)
         step_size = max(100, int(max_span) + 50)
 
+        n_pins = len(matching)
+        stagger_extent = step_size * n_pins + max_span
+
+        stagger_plans.append({
+            "ic_part": ic_part,
+            "matching": matching,
+            "ic_dir": ic_dir,
+            "step_dx": step_dx,
+            "step_dy": step_dy,
+            "step_size": step_size,
+            "stagger_extent": stagger_extent,
+            "dominant": dominant,
+        })
+
+    if len(stagger_plans) > 1:
+        _pre_shift_ics(stagger_plans, node, snapped)
+
+    # ── Phase 2: place staggered parts at final IC positions ──────────
+    junction_wires = getattr(node, "_tjunction_wires", [])
+    suppressed_pins = set()
+
+    for plan in stagger_plans:
+        ic_part = plan["ic_part"]
+        matching = plan["matching"]
+        ic_dir = plan["ic_dir"]
+        step_dx = plan["step_dx"]
+        step_dy = plan["step_dy"]
+        step_size = plan["step_size"]
+        perp_dir = perp_map.get(ic_dir, ic_dir)
+
         def _pin_sort_key(entry, _ic_part=ic_part, _ic_dir=ic_dir):
             ic_pin = entry[0]
             w = ic_pin.pt * _ic_part.tx
@@ -718,7 +740,7 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=2
 
         matching.sort(key=_pin_sort_key)
 
-        parts_per_pin = dominant
+        parts_per_pin = plan["dominant"]
         anti = anti_perp.get(perp_dir, perp_dir)
         extend_dirs = [perp_dir, anti] if parts_per_pin >= 2 else [perp_dir]
 
@@ -745,6 +767,72 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=2
 
     node._tjunction_wires = junction_wires
     node._tjunction_suppressed_pins = suppressed_pins
+
+
+def _pre_shift_ics(plans, node, snapped):
+    """Shift ICs vertically BEFORE stagger placement so fans won't overlap.
+
+    Collects all parts already snapped to each IC and moves them together.
+    The stagger parts haven't been placed yet, so they'll naturally land
+    at the shifted IC positions in phase 2.
+    """
+    for plan in plans:
+        ic = plan["ic_part"]
+        ic_deps = set()
+        ic_id = id(ic)
+
+        for part in node.parts:
+            if id(part) == ic_id or id(part) not in snapped:
+                continue
+            if not _is_two_pin_part(part):
+                continue
+            for pin in part.pins:
+                net = getattr(pin, "net", None)
+                if not net:
+                    continue
+                for net_pin in net.pins:
+                    if net_pin.part is ic:
+                        ic_deps.add(id(part))
+                        break
+                if id(part) in ic_deps:
+                    break
+
+        plan["_deps"] = [p for p in node.parts if id(p) in ic_deps]
+
+    def _ic_bbox(plan):
+        ic = plan["ic_part"]
+        all_parts = [ic] + plan["_deps"]
+        min_y = float("inf")
+        max_y = float("-inf")
+        for part in all_parts:
+            for pin in part.pins:
+                w = pin.pt * part.tx
+                min_y = min(min_y, w.y)
+                max_y = max(max_y, w.y)
+        return min_y, max_y
+
+    plans.sort(key=lambda p: _ic_bbox(p)[0])
+
+    margin = 200
+    prev_max_y = None
+
+    for plan in plans:
+        ic_min_y, ic_max_y = _ic_bbox(plan)
+        needed_height = plan["stagger_extent"]
+        group_max_y = max(ic_max_y, ic_min_y + needed_height)
+
+        if prev_max_y is not None and ic_min_y < prev_max_y + margin:
+            shift = (prev_max_y + margin) - ic_min_y
+            vec = Point(0, shift)
+            shifted = set()
+            for part in [plan["ic_part"]] + plan["_deps"]:
+                if id(part) not in shifted:
+                    part.tx = part.tx.move(vec)
+                    shifted.add(id(part))
+            ic_min_y += shift
+            group_max_y += shift
+
+        prev_max_y = group_max_y
 
 
 def _stub_all_non_explicit(circuit):
