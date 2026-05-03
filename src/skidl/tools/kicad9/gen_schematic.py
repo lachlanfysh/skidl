@@ -722,9 +722,6 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=2
         anti = anti_perp.get(perp_dir, perp_dir)
         extend_dirs = [perp_dir, anti] if parts_per_pin >= 2 else [perp_dir]
 
-        group_parts = []
-        group_wires = []
-
         for pin_idx, (ic_pin, parts_list) in enumerate(matching):
             ic_pin_world = ic_pin.pt * ic_part.tx
 
@@ -742,107 +739,12 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=2
                 )
                 snapped.add(id(part))
                 suppressed_pins.add(id(my_pin))
-                group_parts.append(part)
-
-            group_wires.append(
+            junction_wires.append(
                 (ic_pin_world.x, ic_pin_world.y, ox, oy)
             )
 
-        stagger_groups.append({
-            "ic_part": ic_part,
-            "parts": group_parts,
-            "wires": group_wires,
-            "ic_dir": ic_dir,
-            "n_pins": len(matching),
-            "step_size": step_size,
-        })
-
-    # Redistribute IC groups vertically so stagger fans don't overlap.
-    if len(stagger_groups) > 1:
-        _redistribute_stagger_groups(stagger_groups, node, snapped)
-
-    for grp in stagger_groups:
-        junction_wires.extend(grp["wires"])
-
     node._tjunction_wires = junction_wires
     node._tjunction_suppressed_pins = suppressed_pins
-
-
-def _redistribute_stagger_groups(groups, node, snapped):
-    """Shift IC groups vertically so their stagger fans don't overlap."""
-
-    for grp in groups:
-        _collect_ic_dependents(grp, node, snapped)
-
-    def _group_bbox(grp):
-        all_parts = [grp["ic_part"]] + grp["all_deps"]
-        min_y = float("inf")
-        max_y = float("-inf")
-
-        for part in all_parts:
-            for pin in part.pins:
-                w = pin.pt * part.tx
-                min_y = min(min_y, w.y)
-                max_y = max(max_y, w.y)
-
-        return min_y, max_y
-
-    groups.sort(key=lambda g: _group_bbox(g)[0])
-
-    margin = 200
-    prev_max_y = None
-
-    for grp in groups:
-        min_y, max_y = _group_bbox(grp)
-
-        if prev_max_y is not None and min_y < prev_max_y + margin:
-            shift = (prev_max_y + margin) - min_y
-            _shift_group(grp, 0, shift)
-            min_y += shift
-            max_y += shift
-
-        prev_max_y = max_y
-
-
-def _collect_ic_dependents(grp, node, snapped):
-    """Find all snapped 2-pin parts connected to this IC (not just stagger parts)."""
-    ic = grp["ic_part"]
-    ic_id = id(ic)
-    deps = set(id(p) for p in grp["parts"])
-    deps.add(ic_id)
-
-    for part in node.parts:
-        if id(part) in deps or id(part) not in snapped:
-            continue
-        if not _is_two_pin_part(part):
-            continue
-        for pin in part.pins:
-            net = getattr(pin, "net", None)
-            if not net:
-                continue
-            for net_pin in net.pins:
-                if net_pin.part is ic:
-                    deps.add(id(part))
-                    break
-            if id(part) in deps:
-                break
-
-    grp["all_deps"] = [p for p in node.parts if id(p) in deps and p is not ic]
-
-
-def _shift_group(grp, dx, dy):
-    """Shift an IC and all its dependent parts by (dx, dy)."""
-    vec = Point(dx, dy)
-    all_parts = [grp["ic_part"]] + grp["all_deps"]
-    shifted_ids = set()
-    for part in all_parts:
-        if id(part) not in shifted_ids:
-            part.tx = part.tx.move(vec)
-            shifted_ids.add(id(part))
-    grp["wires"] = [
-        (x1 + dx, y1 + dy, x2 + dx, y2 + dy)
-        for (x1, y1, x2, y2) in grp["wires"]
-    ]
 
 
 def _stub_all_non_explicit(circuit):
