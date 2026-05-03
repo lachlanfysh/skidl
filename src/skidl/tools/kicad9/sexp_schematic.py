@@ -258,15 +258,15 @@ def _power_symbol_to_sexp(pin, net_name, tx):
     y = _round_mm(pt.y)
 
     # Rotate the power symbol so its graphical part points AWAY from the
-    # component, in the same direction as the pin.  At angle=0, ground-type
-    # symbols (GND, GNDA, etc.) have bars pointing down; supply-type symbols
-    # (VCC, +5V, etc.) have arrows/bars pointing up.
+    # component.  calc_pin_dir returns directions in SKiDL's internal coords
+    # (Y-up), but KiCad schematics use Y-down, so U and D are swapped.
+    # At angle=0: GND bars point down, supply arrows point up (KiCad convention).
     pin_dir = calc_pin_dir(pin)
     _is_gnd = any(g in net_name.upper() for g in ("GND", "VSS", "EARTH"))
     if _is_gnd:
-        angle = {"D": 0, "U": 180, "R": 270, "L": 90}.get(pin_dir, 0)
+        angle = {"U": 0, "D": 180, "R": 270, "L": 90}.get(pin_dir, 0)
     else:
-        angle = {"U": 0, "D": 180, "R": 90, "L": 270}.get(pin_dir, 0)
+        angle = {"D": 0, "U": 180, "R": 90, "L": 270}.get(pin_dir, 0)
 
     lib_id = f"power:{net_name}"
     inst_uuid = _gen_uuid(f"pwr:{net_name}:{x}:{y}:{_pwr_counter[0]}")
