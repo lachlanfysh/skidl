@@ -257,12 +257,16 @@ def _power_symbol_to_sexp(pin, net_name, tx):
     x = _round_mm(pt.x)
     y = _round_mm(pt.y)
 
-    # Power symbol angle: the symbol's pin orientation determines how
-    # it should be rotated.  For most power symbols, the connection pin
-    # is at (0, 0) and the graphical part extends in one direction.
-    # We don't rotate — KiCad power symbols are designed to display correctly
-    # at angle 0 (voltage symbols point up, GND symbols point down).
-    angle = 0
+    # Rotate the power symbol so its graphical part points AWAY from the
+    # component, in the same direction as the pin.  At angle=0, ground-type
+    # symbols (GND, GNDA, etc.) have bars pointing down; supply-type symbols
+    # (VCC, +5V, etc.) have arrows/bars pointing up.
+    pin_dir = calc_pin_dir(pin)
+    _is_gnd = any(g in net_name.upper() for g in ("GND", "VSS", "EARTH"))
+    if _is_gnd:
+        angle = {"D": 0, "U": 180, "R": 270, "L": 90}.get(pin_dir, 0)
+    else:
+        angle = {"U": 0, "D": 180, "R": 90, "L": 270}.get(pin_dir, 0)
 
     lib_id = f"power:{net_name}"
     inst_uuid = _gen_uuid(f"pwr:{net_name}:{x}:{y}:{_pwr_counter[0]}")

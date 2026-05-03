@@ -693,7 +693,19 @@ def _stagger_tjunctions(node, node_part_ids, snapped, occupied_pins, min_group=3
         ic_dir = _pin_world_orient(matching[0][0], ic_part)
         perp_dir = perp_map.get(ic_dir, ic_dir)
         step_dx, step_dy = _dir_vec.get(ic_dir, (1, 0))
-        step_size = 100
+
+        MM_TO_MILS = 1 / 0.0254
+        max_span = 0
+        for _, parts_list_scan in matching:
+            for (scan_part, _, _, _, _) in parts_list_scan:
+                pts = [getattr(p, "pt", Point(p.x * MM_TO_MILS, p.y * MM_TO_MILS)) for p in scan_part.pins]
+                if pts:
+                    span = max(
+                        max(p.x for p in pts) - min(p.x for p in pts),
+                        max(p.y for p in pts) - min(p.y for p in pts),
+                    )
+                    max_span = max(max_span, span)
+        step_size = max(100, int(max_span) + 50)
 
         def _pin_sort_key(entry):
             ic_pin = entry[0]
