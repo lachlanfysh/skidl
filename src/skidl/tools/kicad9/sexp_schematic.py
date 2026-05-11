@@ -1184,15 +1184,25 @@ def _find_wireable_nets(node, tx, max_dist_mm=80.0):
                 continue
             seen_nets.add(id(net))
 
-            if net.name in _get_power_symbol_names():
-                continue
+            is_power = net.name in _get_power_symbol_names()
 
-            pins_in_node = [
-                p for p in net.pins
-                if id(p.part) in node_part_ids
-                and not isinstance(p.part, NetTerminal)
-                and p.stub
-            ]
+            # For non-power nets, only consider stubbed pins (these get labels).
+            # For power nets, consider ALL pins on this sheet — power symbols
+            # are emitted regardless of stub state, so we still want to suppress
+            # redundant ones when pins overlap (cap snap-stacked on IC VCC pin).
+            if is_power:
+                pins_in_node = [
+                    p for p in net.pins
+                    if id(p.part) in node_part_ids
+                    and not isinstance(p.part, NetTerminal)
+                ]
+            else:
+                pins_in_node = [
+                    p for p in net.pins
+                    if id(p.part) in node_part_ids
+                    and not isinstance(p.part, NetTerminal)
+                    and p.stub
+                ]
             if len(pins_in_node) < 2:
                 continue
 
@@ -1466,6 +1476,27 @@ def node_to_sexp_schematic(node, sheet_tx=Tx(), version=20230409):
 
     # Suppress labels for staggered T-junction signal pins (connected by wire).
     wired_pin_ids.update(getattr(node, "_tjunction_suppressed_pins", set()))
+
+    # Emit wires for decoupling caps that were offset-snapped to IC power pins,
+    # and suppress their pin labels (the wire makes the redundant power label
+    # noise rather than informative).
+    for pcw in getattr(node, "_power_cap_wires", []):
+        x1_mil, y1_mil, x2_mil, y2_mil = pcw
+        p1 = Point(x1_mil, y1_mil) * tx
+        p2 = Point(x2_mil, y2_mil) * tx
+        x1, y1 = _round_mm(p1.x), _round_mm(p1.y)
+        x2, y2 = _round_mm(p2.x), _round_mm(p2.y)
+        elements.append(
+            Sexp(
+                [
+                    "wire",
+                    ["pts", ["xy", x1, y1], ["xy", x2, y2]],
+                    ["stroke", ["width", 0], ["type", "default"]],
+                    ["uuid", _gen_uuid(f"pcwire:{x1}:{y1}:{x2}:{y2}")],
+                ]
+            )
+        )
+    wired_pin_ids.update(getattr(node, "_power_cap_suppressed_pins", set()))
 
     # Generate net labels for stubbed pins (skip pins that got direct wires).
     power_names = _get_power_symbol_names()

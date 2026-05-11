@@ -520,6 +520,19 @@ def _snap_two_pin_parts(node):
             _offset_dir = {"R": (200, 0), "L": (-200, 0), "U": (0, 200), "D": (0, -200)}
             dx, dy = _offset_dir.get(extend_dir, (200, 0))
             part.tx = part.tx.move(Point(dx, dy))
+            # Emit a wire from the IC's power pin back to the now-offset cap +ve pin
+            # so the connection is visually drawn rather than relying on two power
+            # labels. Suppress the cap +ve pin's label since the wire makes it
+            # redundant.
+            cap_pin_world = my_pin.pt * part.tx
+            power_cap_wires = getattr(node, "_power_cap_wires", [])
+            power_cap_wires.append(
+                (target_world.x, target_world.y, cap_pin_world.x, cap_pin_world.y)
+            )
+            node._power_cap_wires = power_cap_wires
+            power_cap_suppressed = getattr(node, "_power_cap_suppressed_pins", set())
+            power_cap_suppressed.add(id(my_pin))
+            node._power_cap_suppressed_pins = power_cap_suppressed
         snapped.add(id(part))
         occupied_pins.add(id(target_pin))
 
