@@ -129,11 +129,12 @@ were. Corrected for honesty:
   (doc P1b). Snap still solves in *placement* space via
   `schematics.snap._compute_snap_tx`, called directly from `snap.py` — not through
   this interface.
-- **Emission primitives** (`emit_wire`/`emit_label`/`emit_no_connect`) — **defined
-  but NOT yet wired** into the emission path (the renderer still emits via
-  `sexp_schematic` module functions). They exist for the deferred `render_node`
-  unification. `emit_label` now **rejects** `at`/`angle` override placement
-  explicitly instead of silently ignoring it.
+- **Emission primitives** — partially wired: `emit_wire` and `emit_no_connect`
+  ARE on the live emission path; `emit_label`/`emit_part`/`emit_power_symbol`/
+  `emit_junction` are defined for completeness but the renderer still uses the
+  module-level functions for those (full routing waits on the deferred
+  `render_node` unification). `emit_label` now **rejects** `at`/`angle` override
+  placement explicitly instead of silently ignoring it.
 - **What IS live:** the geometry-query half of the interface
   (`pin_render_pos`, `pin_render_dir`, `is_power_net_name`, `render_xy`,
   `label_bbox`) — consumed by `schematics.decisions`. That's the dependency
