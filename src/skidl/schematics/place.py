@@ -1714,6 +1714,50 @@ class Placer:
             # Abort if nothing to place.
             return
 
+        # Opt-in floorplan: pack the wire-connected units into an orderly,
+        # size-aware grid (shelf packing) instead of force-directed block
+        # placement, so groups don't land scattered / overlapping ("dropped
+        # on"). Board-agnostic — it just packs whatever groups exist by their
+        # bounding-box sizes. Each `part_block` already carries its padded
+        # group bbox; we translate the block so its bbox lands on a shelf slot.
+        if options.get("grid_blocks", False):
+            pad = BLK_EXT_PAD
+            # Largest-first shelf packing into rows under a target (~landscape) width.
+            order = sorted(
+                part_blocks,
+                key=lambda b: (b.place_bbox.h, b.place_bbox.w),
+                reverse=True,
+            )
+            total_area = (
+                sum((b.place_bbox.w + pad) * (b.place_bbox.h + pad) for b in order)
+                or 1.0
+            )
+            row_limit = (total_area * 1.6) ** 0.5  # aim for ~1.6:1 aspect
+            x = y = 0.0
+            row_h = 0.0
+            for b in order:
+                w = b.place_bbox.w + pad
+                h = b.place_bbox.h + pad
+                if x > 0.0 and x + w > row_limit:
+                    # Start a new shelf (row).
+                    x = 0.0
+                    y += row_h
+                    row_h = 0.0
+                # Translate this block so its bbox min lands at the (x, y) slot.
+                offset = Point(x, y) - b.place_bbox.min
+                b.tx = Tx().move(offset)
+                snap_to_grid(b)
+                x += w
+                row_h = max(row_h, h)
+
+            for blk in part_blocks:
+                try:
+                    blk.src.tx = blk.tx
+                except AttributeError:
+                    for part in blk.src:
+                        part.tx *= blk.tx
+            return
+
         # For large block counts, use a simple grid layout instead of
         # O(n²) force-directed placement.
         if len(part_blocks) > node._ROW_PLACE_THRESHOLD:
