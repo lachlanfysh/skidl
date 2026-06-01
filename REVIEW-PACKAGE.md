@@ -72,13 +72,21 @@ Distinct from the part-orientation fix above. On a **shared multi-pin net** (e.g
 transistors' B pins tied to `BNET`), the net is drawn as a wire down the column and a
 `global_label` is emitted at *every* tap, so:
 
-1. **Net-label facing** — `net_label_to_sexp` faces the label purely from
-   `calc_pin_dir(pin)` via `orient_map = {"R":180,"D":270,"L":0,"U":90}`. For a
-   down-facing pin the label is vertical; since it sits *on* the shared wire, the wire
-   runs through the text. Facing alone can't lift text off a collinear wire — needs a
-   facing + offset (or label-vs-wire) strategy. **Before changing the angle map, add a
-   regression test pinning emitted S-expr angles for U/D/L/R pins** (KiCad label-angle
-   semantics are easy to get subtly backwards — verified by render, not assumed).
+1. **Net-label facing / placement side** — `net_label_to_sexp` derives both the label
+   angle (`orient_map[calc_pin_dir(pin)]`) and, indirectly, which side of the part the
+   stub label/terminal lands on, from `calc_pin_dir`. **`calc_pin_dir` uses only the
+   part matrix, not the sheet `tx` (the Y-flip)**, so for *vertical* pins the rendered
+   direction and the computed direction disagree. Result: a label that is clean for an
+   up-pointing pin (label above, short wire) sits on the *wrong side* for a
+   down-pointing pin (wire crosses the body), or vice-versa. **Verified by render**: the
+   naive fix — swapping the `U`/`D` entries — does NOT work; it just moves the breakage
+   to the opposite orientation (a single locked transistor renders clean one way and
+   wire-through-body the other under each map). A correct fix must compute the *rendered*
+   pin direction (including `sheet_tx`) so the placement side and the angle agree, then
+   verify all four orientations + ERC. Horizontal (L/R) pins are unaffected (Y-flip
+   doesn't change them), which is why C/E labels always look right. This is the
+   maintainer's net-label domain. (A golden test pinning emitted angles per direction is
+   the right guard, but only once the correct per-direction values are known.)
 2. **Redundant labels on wired taps** — `find_overlapping_pins` suppresses labels for
    *overlapping* same-net pin clusters, but collinear wired taps aren't overlapping, so
    8 `BNET` labels get emitted where 1 would do. Aesthetic, not electrical.
