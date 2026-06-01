@@ -66,30 +66,36 @@ level: `schematics/decisions.py` and `schematics/backend.py` import nothing from
 - `solve_snap_tx` in true render-space (P1b; fixes a latent transform bug). Currently
   raises `NotImplementedError` — snap solves in placement space via `schematics.snap`.
 
-## Still open (net-label *emission* — maintainer's domain, NOT claimed fixed)
+## Net-label facing — investigated, NOT a bug
 
-Distinct from the part-orientation fix above. On a **shared multi-pin net** (e.g. all
-transistors' B pins tied to `BNET`), the net is drawn as a wire down the column and a
-`global_label` is emitted at *every* tap, so:
+A reviewer flagged `BNET` labels looking "rotated wrong, wire running through them."
+Investigated to root: **the per-label facing is correct.** A single transistor locked
+into all four rotations renders clean in every case — B-down → label below, B-up →
+label above, B-left/right → label to the side — no body-crossing. The `orient_map`
+(`{"R":180,"D":270,"L":0,"U":90}`) keyed on `calc_pin_dir` already produces the right
+angle, and `deconflict_labels` (which derives its move direction from that angle) moves
+each label *away* from the body. A naive `U`/`D` swap was tried and **reverted** — it
+breaks the cases that currently work. No code change here.
 
-1. **Net-label facing / placement side** — `net_label_to_sexp` derives both the label
-   angle (`orient_map[calc_pin_dir(pin)]`) and, indirectly, which side of the part the
-   stub label/terminal lands on, from `calc_pin_dir`. **`calc_pin_dir` uses only the
-   part matrix, not the sheet `tx` (the Y-flip)**, so for *vertical* pins the rendered
-   direction and the computed direction disagree. Result: a label that is clean for an
-   up-pointing pin (label above, short wire) sits on the *wrong side* for a
-   down-pointing pin (wire crosses the body), or vice-versa. **Verified by render**: the
-   naive fix — swapping the `U`/`D` entries — does NOT work; it just moves the breakage
-   to the opposite orientation (a single locked transistor renders clean one way and
-   wire-through-body the other under each map). A correct fix must compute the *rendered*
-   pin direction (including `sheet_tx`) so the placement side and the angle agree, then
-   verify all four orientations + ERC. Horizontal (L/R) pins are unaffected (Y-flip
-   doesn't change them), which is why C/E labels always look right. This is the
-   maintainer's net-label domain. (A golden test pinning emitted angles per direction is
-   the right guard, but only once the correct per-direction values are known.)
-2. **Redundant labels on wired taps** — `find_overlapping_pins` suppresses labels for
-   *overlapping* same-net pin clusters, but collinear wired taps aren't overlapping, so
-   8 `BNET` labels get emitted where 1 would do. Aesthetic, not electrical.
+## Still open (net-label *emission* on shared nets — maintainer's domain)
+
+The reviewer's artifact is real but lives one level up: on a **shared net spanning many
+discrete parts** (e.g. 8 separate transistors' B pins tied to `BNET`), the net is drawn
+as a **bus wire down the column with a `global_label` emitted at every tap** — so the
+bus runs through the (individually correct) labels, and two taps even land at identical
+coordinates.
+
+- **This is specific to the multi-part signal bus.** The single-context bus cases work
+  well and are untouched: IC pins fanning to a bus (through passives), LED-driver chains
+  — `find_power_bus_runs` already suppresses *its* tap labels, so those look clean.
+- **Fix shape, if pursued (lowest-risk first):** extend the existing wired-pin label
+  suppression — on a net whose pins are already joined by an emitted wire, keep one
+  naming label (+ any cross-sheet terminal) and drop the redundant taps. This changes
+  **no routing**, so it cannot regress the IC/LED/power buses; it only removes labels
+  whose connectivity the wire already provides. Needs ERC verification before adoption.
+- **Deeper question (left for the maintainer):** whether a bus *should* be drawn across
+  many independent parts at all, or whether such stub nets should stay label-only. That
+  one is a genuine net-strategy call and a bridge too far to decide here.
 
 ## Known limitation (architectural, not a bug)
 
