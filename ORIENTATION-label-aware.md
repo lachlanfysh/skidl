@@ -3,6 +3,12 @@
 > Addendum to `ARCHITECTURE-snap-backend-split.md` (on branch `docs/snap-backend-split`).
 > Implemented on branch `feat/label-aware-orientation`. Lives entirely in the
 > tool-agnostic placer (`src/skidl/schematics/place.py`).
+>
+> **Scope:** this changes which way a *part* is rotated so its labels splay off the
+> body. It does **not** change which way an emitted `global_label` faces, and does not
+> run for floating groups >20 under `auto_stub` (early grid-place return). Net-label
+> *facing* and redundant-label suppression on wired multi-pin nets are separate, still
+> open — see "Still open" in `REVIEW-PACKAGE.md`.
 
 ## Problem
 
