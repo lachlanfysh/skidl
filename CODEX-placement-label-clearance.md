@@ -43,12 +43,14 @@ place_bbox = lbl_bbox                       # symbol body + ref/value text ONLY
                                              #   (× expansion_factor)
 ```
 
-**The bug is purely timing — the machinery to reserve label space already exists and is
-accurate.** Pins that are `pin.stub` *at preprocessing time* get their label box folded
-into `lbl_bbox` via `calc_hier_label_bbox(name, orientation)` (`calc_part_bbox`,
-`gen_schematic.py:569-575`). That box is **text-aware** — `lbl_len = len(name) *
-PIN_LABEL_FONT_SIZE + HIER_TERM_SIZE`, per orientation, in backend units. So for *known*
-stubs (power nets, manual stubs) the placer already reserves correct, name-sized label
+**The bug is purely timing — the machinery to reserve label space already exists.** Pins
+that are `pin.stub` *at preprocessing time* get a label bbox folded into `lbl_bbox` via
+`calc_hier_label_bbox(name, orientation)` (`calc_part_bbox`, `gen_schematic.py:569-575`).
+That box is **text-aware** (`lbl_len = len(name) * PIN_LABEL_FONT_SIZE + HIER_TERM_SIZE`,
+per orientation, in backend units) — note it's an *approximation* of the emitted
+`global_label` geometry (`net_label_to_sexp`, `sexp_schematic.py:680`), not its exact
+footprint, but it's the same box the existing preprocessing already trusts. So for
+*known* stubs (power nets, manual stubs) the placer already reserves name-sized label
 room. (Earlier draft wrongly said `lbl_bbox` excluded labels — corrected per review.)
 
 The gap is the stubs decided **after** preprocessing/placement, in this order
@@ -80,10 +82,10 @@ space, and fires inconsistently (position-dependent → symptom 3).
 
 ## No new estimator needed — reuse `calc_hier_label_bbox`
 
-Because `calc_part_bbox` already folds `calc_hier_label_bbox` boxes into `lbl_bbox` for
-stub pins, and those boxes are text-aware and local-space, **the fix is to re-run that
-preprocessing once the final stub set is known**, not to invent a new label-box
-estimator. This sidesteps the earlier idea of reusing `label_overlap_cost`
+Because `calc_part_bbox` already folds the **existing backend label bbox**
+(`calc_hier_label_bbox`, text-aware, local-space) into `lbl_bbox` for stub pins, **the
+fix is to re-run that preprocessing once the final stub set is known**, not to invent a
+new label-box estimator. This sidesteps the earlier idea of reusing `label_overlap_cost`
 (`place.py:532`) — which would have been a coordinate-space hazard anyway (`place_bbox`
 is **local**; `label_overlap_cost` works in **placed** coords via `pin.pt * part.tx`).
 
@@ -137,7 +139,15 @@ inter-pin **distance**, which only exists after a placement. So, gated behind `a
    path, which also reads `lbl_bbox`) reserve label room automatically. This is an
    **explicit "label-clearance placement pass" *before* routing** — *not* the ERC-retry
    loop (which runs only after an ERC failure at ~773 and is the wrong hook).
-5. **Route** the label-aware placement.
+5. **Route** with the **frozen stub set**.
+
+**Freeze the classifiers on Pass 2 (per review).** Today `_apply_deferred_stubs` *and*
+`_classify_and_stub_complex_nets` run after *every* `node.place()`
+(`gen_schematic.py:701-703`). If Pass 2 reuses that path unchanged, they'd re-run and
+mutate the stub set *after* the label-aware bboxes were computed — undoing the freeze.
+So Pass 2 must **place and route against the frozen stubs without reclassifying**
+(skip both classifier calls on Pass 2), unless we deliberately want another
+classify → re-preprocess → rebuild cycle (a possible but unneeded convergence loop).
 
 Keep `deconflict_labels` as a **safety net** for residual overlaps — and **instrument how
 often it fires** before deciding whether its little connecting wires can be retired.
