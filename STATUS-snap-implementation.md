@@ -117,3 +117,41 @@ differential unit test on the riskiest (Sexp-mutating) path.
 3. The stub-vs-route net selection (which nets get direct on-pin labels vs routed terminals)
    is the lever behind both the off-pin labels and the crossing wires. Is reworking that
    strategy in scope, or maintainer territory?
+
+
+## Codex review round 2 — interface honesty (addressed)
+
+Codex correctly flagged that two interface methods looked more finished than they
+were. Corrected for honesty:
+
+- **`solve_snap_tx`** — was passing the wrong object into `_compute_snap_tx` (a
+  latent trap). Now **raises `NotImplementedError`** and is documented as deferred
+  (doc P1b). Snap still solves in *placement* space via
+  `schematics.snap._compute_snap_tx`, called directly from `snap.py` — not through
+  this interface.
+- **Emission primitives** (`emit_wire`/`emit_label`/`emit_no_connect`) — **defined
+  but NOT yet wired** into the emission path (the renderer still emits via
+  `sexp_schematic` module functions). They exist for the deferred `render_node`
+  unification. `emit_label` now **rejects** `at`/`angle` override placement
+  explicitly instead of silently ignoring it.
+- **What IS live:** the geometry-query half of the interface
+  (`pin_render_pos`, `pin_render_dir`, `is_power_net_name`, `render_xy`,
+  `label_bbox`) — consumed by `schematics.decisions`. That's the dependency
+  inversion that the relocation actually relies on today.
+
+### Known geometry-path inconsistencies (deferred — output-affecting)
+Two decision paths still compute geometry directly rather than via the backend
+oracle. Routing them through the backend would change output for rotated/mirrored
+parts (and would break the differential-parity that proves this branch is a pure
+restructure), so they're left as documented follow-ups, same bucket as
+render_node / render-space solve_snap_tx:
+- `decisions.find_no_connect_pins` uses `pin_pt * part_tx * sheet_tx` instead of
+  `backend.pin_render_pos` (Codex P2). (No NC flags in the verified designs.)
+- `decisions.deconflict_labels` computes component bboxes with
+  `bbox * (part.tx * sheet_tx)` instead of `backend`-backed `_part_render_bbox`
+  (Codex P3) — power-bus body checks already use `backend.render_xy`.
+
+**Honest summary:** the *decision/geometry dependency-inversion spine is real and
+output-preserving*. The *emission-through-interface* and `solve_snap_tx` are
+scaffolding for the deferred render_node work and are now labelled as such, not
+presented as complete.
