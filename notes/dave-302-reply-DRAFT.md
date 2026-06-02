@@ -1,18 +1,26 @@
-Following up on my last comment — the net-label orientation I corrected above is now fixed and test-covered, I've closed out the rest of what you flagged, and I tightened up the label placement on top. Re-ran your own two test cases.
+Good timing — I was just prepping the message below when your question came through.
+
+Mostly yes — and it maps onto the refactor. The label and wire *decisions* are now tool-agnostic in `schematics/decisions.py`, the snap geometry in `schematics/snap.py`, so the two-pin snapping places cleanly with no overlaps. The one piece that stays backend-side is the label's angle and justify — that's how KiCad justifies the text in the s-expr, not a placement call — and that's where the worst of it came from: the vertical labels' justify was pushing them back over their own body. Fixed in the kicad9 emit. It's done and running on your own two test cases:
 
 **Your 8-transistor rotation/mirror test:**
 
 ![Transistor rotation/mirror test — net labels face away from the body in every orientation incl. vertical/mirrored, and sit on their pins with no stray wires](https://raw.githubusercontent.com/lachlanfysh/skidl/feat/label-clearance-placement/notes/renders/transistor-onpin.png)
 
-Labels face away from the body in every rotation and mirror **and** sit on their pins — no stray cross-sheet wires. (Two things were wrong: the orientation, and stub-net labels being dragged off-pin — both fixed, see below.)
+Labels face away from the body in every rotation and mirror, sit on their pins, no stray cross-sheet wires.
 
 **`esp32_audio_board` (MCU region):**
 
 ![esp32_audio_board MCU region — U3 renders fully, decoupling caps fan to VCC, EN pull-up + RC cap tee cleanly off EN, labels face away](https://raw.githubusercontent.com/lachlanfysh/skidl/feat/label-clearance-placement/notes/renders/esp32-wide.png)
 
-`U3` renders fully (missing/unknown components were power-symbol defs not emitted from the flattened-sheet instances — fixed), decoupling caps fan to VCC, the EN pull-up + RC cap tee cleanly off the EN pin, labels face away.
+U3 renders fully, the decoupling caps fan to VCC, and the EN pull-up and reset cap tee off the EN pin cleanly.
 
-Each finding → its own isolated commit:
+The small fixes are below, one per commit. The bigger structural change — pulling the snap/label/wire work out of the backend into tool-agnostic decisions in `schematics/`, behind a thin interface — is laid out in the architecture doc I linked last time: [ARCHITECTURE-snap-backend-split.md](https://github.com/lachlanfysh/skidl/blob/docs/snap-backend-split/ARCHITECTURE-snap-backend-split.md). That's the part I'd most want your read on before I open anything.
+
+I've held off opening any PRs so you can get your head around it at your own pace — but it's all ready as isolated commits against `development`, so just say the word and how you'd like them grouped.
+
+---
+
+Each fix is its own commit, if it helps to see them mapped to what you flagged:
 
 | Finding | Fix |
 |---|---|
@@ -23,6 +31,11 @@ Each finding → its own isolated commit:
 | wires over the VBUS power symbol | `82e64115` (drop power-bus segments crossing a part body) |
 | power-symbol `angle=0` | `e080dd73` (shared angle table) |
 
-Two smaller placement bits: **EN-pin teeing** (`846d8999` — a single IC pin's fan now staggers, so the EN pull-up + RC cap tee cleanly instead of the cap landing on the body), and an opt-in **`grid_blocks`** shelf-pack for spacing independent groups apart on dense sheets (`generate_schematic(grid_blocks=True)`, no-op on IC-fan sheets) — happy to demo on a design of yours if it's a direction you'd want.
+Two additive placement bits beyond your findings:
 
-On delivery: rather than my whole branch (it diverged from your `development`), I'd start with one small PR — the net-label orientation fix + its regression test — onto `development`, since that's the one you said you'd need to do anyway. If it lands cleanly I'll follow with the deconflict, power-symbol and snap/wire fixes grouped. Sound right, or take them another way?
+| Feature | Commit |
+|---|---|
+| single-pin fan teeing — a pull-up + RC cap on one IC pin tee off cleanly instead of the cap landing on the body (**shown in the esp32 render**, the EN pin) | `846d8999` (one IC pin with ≥2 two-pin parts now staggers; any pin, not just EN) |
+| spacing independent groups apart on dense sheets — opt-in (**not used in either render above**) | `5cbc486e` (`grid_blocks=True`, size-aware shelf-pack; default off) |
+
+On `grid_blocks` — that overlaps the inter-group placement @rhaingenix is working in #306. I flagged the idea over there; what I landed on is a good deal simpler — it leans on SKiDL's existing `place_blocks` rather than their primitives — but credit to #306 for working the same ground. Happy to converge the two rather than ship competing versions — whichever shape you'd rather have in SKiDL.
