@@ -24,7 +24,7 @@ The rest of your list, each as its own isolated commit:
 
 On the placement front you flagged as the deeper issue last time, two concrete moves:
 
-**EN-pin teeing** (`e9e8ebda`): the snap now staggers a *single* IC pin's fan, so an MCU EN pull-up + RC-reset cap tee cleanly off the pin instead of the cap landing on the IC body — same mechanism as the switch-input fans, generalised to the one-pin case. (Visible on the esp32 render above.)
+**EN-pin teeing** (`846d8999`): the snap now staggers a *single* IC pin's fan, so an MCU EN pull-up + RC-reset cap tee cleanly off the pin instead of the cap landing on the IC body — same mechanism as the switch-input fans, generalised to the one-pin case. (Visible on the esp32 render above.)
 
 **`grid_blocks`** — an opt-in shelf-pack of the wired-connected groups, for the scatter where independent units land mashed/overlapping:
 
