@@ -566,6 +566,13 @@ def preprocess_circuit(circuit, **options):
                 resize_wh.y = (100 - bare_bbox.h) / 2
             bare_bbox = bare_bbox.resize(resize_wh)
 
+            # The bare symbol-graphic box (pins + body, no label reservation).
+            # Kept separately so label deconfliction can clear the actual drawn
+            # body instead of the label-inflated lbl_bbox (whose ~20mm of net-
+            # label reservation made on-pin stub labels collide with neighbors'
+            # empty label space and get flung across the sheet).
+            part_unit.body_bbox = bare_bbox
+
             part_unit.lbl_bbox = BBox()
             part_unit.lbl_bbox.add(bare_bbox)
             for pin in part_unit:

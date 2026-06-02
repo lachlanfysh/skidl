@@ -332,6 +332,8 @@ def deconflict_labels(labels, occupied_seed, node, backend, sheet_tx):
 
     MARGIN_MM = 1.27  # ~50 mils clearance from the body
     GRID = 1.27       # KiCad 50-mil grid
+    MAX_NUDGE_MM = 6.35  # 250 mils: cap so a label is stepped off a grazed
+    # body edge, never dragged across a whole neighbouring body (long wire).
 
     def _snap(v):
         return round(round(v / GRID) * GRID, 2)
@@ -343,11 +345,24 @@ def deconflict_labels(labels, occupied_seed, node, backend, sheet_tx):
         return abs(v / GRID - round(v / GRID)) < 0.02
 
     # Component body bboxes in sheet (mm) coordinates.
+    #
+    # Use the bare symbol-graphic box (``body_bbox``) — the actual drawn body —
+    # NOT ``place_bbox``/``lbl_bbox``.  Those latter boxes are inflated to
+    # reserve ~20mm of net-label space + routing channels around each part; a
+    # neighbour's on-pin stub label projecting ~10mm reaches into that empty
+    # reservation, is treated as a body collision, and gets nudged clear across
+    # it (to the far edge + margin), dragging a long connecting wire.  Clearing
+    # the bare body keeps stub labels on their pins.  Fall back to the inflated
+    # boxes for parts that don't expose ``body_bbox`` (e.g. older test stubs).
     comp_bboxes = []
     for part in node.parts:
         if isinstance(part, NetTerminal):
             continue
-        bbox = getattr(part, "place_bbox", None) or getattr(part, "lbl_bbox", None)
+        bbox = (
+            getattr(part, "body_bbox", None)
+            or getattr(part, "place_bbox", None)
+            or getattr(part, "lbl_bbox", None)
+        )
         if bbox is None:
             continue
         tb = bbox * (getattr(part, "tx", Tx()) * sheet_tx)
@@ -409,6 +424,14 @@ def deconflict_labels(labels, occupied_seed, node, backend, sheet_tx):
                 offset = (cb.max.y - ly + MARGIN_MM) if dy > 0 else (cb.min.y - ly - MARGIN_MM)
                 nx, ny = _snap(lx), _snap(ly + offset)
             if (nx, ny) == (ax, ay):
+                break
+            # Cap the nudge: a legitimate move only steps the label off the
+            # edge of the body it's grazing (a few mm). A move longer than the
+            # label itself means we'd be dragging it clear ACROSS a neighbouring
+            # body — that produces a long connecting wire across the sheet,
+            # which is far worse than a cosmetic label/body graze. Leave the
+            # label on its pin in that case (connectivity is by net name).
+            if abs(offset) > MAX_NUDGE_MM:
                 break
             # Reject moves that would collide with a different net or a wire end.
             owner = occupied.get(_cell(nx, ny), "__free__")
