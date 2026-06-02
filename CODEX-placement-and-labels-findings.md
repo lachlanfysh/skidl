@@ -21,21 +21,31 @@
 Verification baseline for all: full `tests/unit_tests/ai_tests/` = **292 passed,
 1 skipped, 1 failed** (only pre-existing `netlistsvg`-missing).
 
-## Net-label *facing* — settled, NOT a bug (history clarified)
+## Net-label *facing* — REAL bug, now fixed (earlier "false trail" call was wrong)
 
-A long-standing worry was that vertical net labels faced *into* part bodies and
-that the maintainer's refactor caused it. Resolved with git + render:
+A long-standing worry was that vertical net labels faced *into* part bodies.
+**This was REAL.** Earlier notes here — and our #302 comment — wrongly dismissed
+it as a "false trail." Re-verified with a rotated+mirrored render fixture:
 
-- Original `orient_map` (`ancestor e19d9a6a`, `master`): `{"R":180,"D":90,"L":0,"U":270}`.
-- Current: `{"R":180,"D":270,"L":0,"U":90}` — **the maintainer changed it** in
-  commit `4bd527dc` (2026-05-14), titled *"Fixed incorrect orientation of
-  vertical net labels."*
-- Rendering a single transistor locked into all four rotations: the **current
-  (maintainer's) map is correct** in every orientation. Swapping back to the
-  original reproduces labels rendering into the body on up-pins.
+- Correct vertical values: `{"R":180,"D":90,"L":0,"U":270}` — established and
+  test-covered by the maintainer in `b3728d27` ("Corrected rotation/mirroring of
+  parts and net labels, added a test example").
+- `4bd527dc` (2026-05-14, *"Fixed incorrect orientation of vertical net
+  labels"*) then **swapped them to `{"R":180,"D":270,"L":0,"U":90}`**,
+  overcorrecting the maintainer's own previously-correct, tested values. Our
+  branch sits on top of `4bd527dc`, so it inherited the bad values.
+- With the swapped values, vertical labels point **into** the body. The old
+  `deconflict_labels` masked this by shoving them off the body + adding a wire
+  (which *is* the step-out bug). Our `2c7935b1` (deconflict skips own body)
+  removed that mask, exposing the raw overprint.
 
-**Conclusion: the maintainer fixed vertical-label facing; it is not currently a
-bug.** Do not "swap U/D" — that re-introduces the original defect.
+**Fix (this branch):** `net_label_to_sexp` now uses an explicit `(angle,
+justify)` table keyed on `calc_pin_dir`, chosen so the label always extends
+*away* from the pin in all four directions + mirror. Verified: probe render
+clean for every orientation, tg032 ERC clean, suite 292/1/1. This also removes a
+major source of the step-out, since deconflict no longer has to rescue inward
+labels. The unintuitive map numbers come from the Y-flip between SKiDL (Y-up) and
+the KiCad sheet (Y-down) — always re-render, never reason about the raw values.
 
 ## C — `grid_blocks` (size-aware floorplan of units)
 
