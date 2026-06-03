@@ -198,6 +198,16 @@ def gen_netlist_comp(part, **kwargs):
     part_fields.append(["SKiDL Tag", part.tag])
     if kwargs["track_src"]:
         part_fields.append(["SKiDL Line", part.src_line(kwargs["track_abs_path"])])
+    # Durable placement-group tag. A part's subsystem identity is needed by
+    # downstream tools (e.g. PCB placement clusters by subsystem), but the
+    # sheetpath that currently carries it is mutable — schematic flattening can
+    # hoist a part to the root sheet and erase its grouping. Emit an explicit
+    # "Group" field so the subsystem survives that: an author-set Group wins,
+    # otherwise default to the part's immediate subcircuit name.
+    if "Group" not in part.fields:
+        named_levels = [name for name in part.hiertuple if name]
+        if named_levels:
+            part_fields.append(["Group", named_levels[-1]])
     for fld_name, fld_value in part_fields:
         if fld_value:
             field = Sexp(["field", ["name", fld_name], fld_value])

@@ -231,3 +231,27 @@ def test_stringio():
     generate_netlist(file=output)
     print(output.getvalue())
 
+
+
+def test_group_field():
+    """Each part emits a durable 'Group' field defaulting to its subcircuit;
+    a root-level part (no subcircuit) emits none."""
+    import io
+    import re
+
+    @subcircuit
+    def audio():
+        Part("Device", "R", value="10k",
+             footprint="Resistor_SMD:R_0603_1608Metric")
+
+    audio()
+    Part("Device", "R", value="0",
+         footprint="Resistor_SMD:R_0603_1608Metric")  # root, no subcircuit
+
+    output = io.StringIO()
+    generate_netlist(file=output)
+    nl = output.getvalue()
+
+    assert '(name "Group") "audio1"' in nl, "subcircuit part should carry its Group"
+    root_blk = [b for b in re.split(r"\(comp\b", nl)[1:] if 'value "0"' in b][0]
+    assert '(name "Group")' not in root_blk, "root part should have no Group"
