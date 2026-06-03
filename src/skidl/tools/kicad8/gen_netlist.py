@@ -193,6 +193,13 @@ def gen_netlist_comp(part, **kwargs):
     part_fields.append(["SKiDL Tag", part.tag])
     if kwargs["track_src"]:
         part_fields.append(["SKiDL Line", part.src_line(kwargs["track_abs_path"])])
+    # Durable placement-group tag (see kicad9 gen_netlist): subsystem identity
+    # that survives schematic flattening. Author-set Group wins; else default to
+    # the part's immediate subcircuit name. Root-level parts emit no Group.
+    if "Group" not in part.fields:
+        named_levels = [name for name in part.hiertuple if name]
+        if named_levels:
+            part_fields.append(["Group", named_levels[-1]])
     for fld_name, fld_value in part_fields:
         if fld_value:
             field = Sexp(["field", ["name", fld_name], fld_value])
