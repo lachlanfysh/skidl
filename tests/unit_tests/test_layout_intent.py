@@ -125,3 +125,9 @@ def test_infers_mux_and_repeated_channel_intent():
     assert plan.repeated_channels[0].refs_by_channel[0] == ["U1", "U2"]
     assert plan.repeated_channels[0].refs_by_channel[1] == ["U1", "U3"]
     assert {"U1", "U2", "U3"}.issubset(set(plan.repeated_channels[0].refs))
+    assert plan.repeated_channels[0].shared_refs == ["U1"]
+    assert plan.repeated_channels[0].controller_refs == ["U1"]
+    slots = {slot.channel_number: slot for slot in plan.repeated_channels[0].slots}
+    assert slots[0].sensor_refs == ["U2"]
+    assert slots[1].sensor_refs == ["U3"]
+    assert slots[2].refs == []

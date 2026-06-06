@@ -20,6 +20,8 @@ Already implemented:
   available.
 - Coarse power topology chains for source/protection/conversion/storage/load
   ordering, candidate biasing, and report summaries.
+- Channel slot metadata for repeated structures, including shared controller
+  refs and per-channel placement zones.
 - Power route intents and reserved power corridor summaries.
 - Per-part candidate placement reasons in `PlacementReport`.
 
@@ -138,6 +140,11 @@ Tests:
 ## Phase 4: Channel Slot Model
 
 Goal: make repeated structures look intentional and routable.
+
+Status: implemented. Repeated-channel intent now distinguishes shared/controller
+refs from per-channel slots, categorizes slot refs by role, and the
+`repeated_channel_array` candidate adds per-slot zones plus controller bank
+zones while preserving the older ordered-distribution behavior.
 
 Implementation tasks:
 

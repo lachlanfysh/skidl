@@ -10,7 +10,12 @@ from skidl.layout.constraints import (
     LayoutConstraints,
 )
 from skidl.layout.hierarchy import PlacementGroup
-from skidl.layout.intent import MatingIntent, PlacementIntentPlan, RepeatedChannelIntent
+from skidl.layout.intent import (
+    ChannelSlot,
+    MatingIntent,
+    PlacementIntentPlan,
+    RepeatedChannelIntent,
+)
 from skidl.layout.power import PowerChain, PowerTopology
 
 
@@ -67,6 +72,10 @@ def test_repeated_channel_candidate_distributes_channel_refs():
                 channel_numbers=[0, 1],
                 refs_by_channel={0: ["U2"], 1: ["U3"]},
                 pattern="test",
+                slots=[
+                    ChannelSlot(channel_number=0, slot_index=0, refs=["U2"]),
+                    ChannelSlot(channel_number=1, slot_index=1, refs=["U3"]),
+                ],
             )
         ]
     )
@@ -87,6 +96,8 @@ def test_repeated_channel_candidate_distributes_channel_refs():
     assert placed["U2"].y_mm == pytest.approx(12.5)
     assert placed["U3"].y_mm == pytest.approx(12.5)
     assert "placement zone" in "; ".join(array_candidate.ref_reasons["U2"])
+    assert "channel slot: CH0" in "; ".join(array_candidate.ref_reasons["U2"])
+    assert any(zone.refs == ["U2"] for zone in array_candidate.constraints.zones)
 
 
 def test_power_topology_candidate_adds_chain_constraints_and_reasons():

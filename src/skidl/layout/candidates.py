@@ -203,12 +203,14 @@ def _with_repeated_channel_array(
 
         x_pad = outline.width_mm * 0.12
         y = outline.y_min + outline.height_mm * 0.25
+        start_x = outline.x_min + x_pad
+        end_x = outline.x_max - x_pad
         arrayed.distribute.append(
             DistributeConstraint(
                 refs=slot_refs,
                 axis="x",
-                start_mm=outline.x_min + x_pad,
-                end_mm=outline.x_max - x_pad,
+                start_mm=start_x,
+                end_mm=end_x,
             )
         )
         arrayed.align.append(AlignConstraint(refs=slot_refs, axis="y", value_mm=y))
@@ -222,6 +224,37 @@ def _with_repeated_channel_array(
                 refs=slot_refs,
             )
         )
+
+        slots = [slot for slot in channel.slots if slot.refs]
+        if slots:
+            slot_width = (end_x - start_x) / max(len(slots), 1)
+            for idx, slot in enumerate(slots):
+                slot_x_min = start_x + idx * slot_width - slot_width * 0.35
+                slot_x_max = start_x + (idx + 1) * slot_width + slot_width * 0.35
+                arrayed.zones.append(
+                    AnchorZone(
+                        group_name="",
+                        x_min=max(outline.x_min, slot_x_min),
+                        y_min=outline.y_min,
+                        x_max=min(outline.x_max, slot_x_max),
+                        y_max=outline.y_min + outline.height_mm * 0.62,
+                        refs=slot.refs,
+                    )
+                )
+
+        if channel.controller_refs:
+            bank_x_min = outline.x_min + outline.width_mm * 0.35
+            bank_x_max = outline.x_min + outline.width_mm * 0.65
+            arrayed.zones.append(
+                AnchorZone(
+                    group_name="",
+                    x_min=bank_x_min,
+                    y_min=outline.y_min + outline.height_mm * 0.42,
+                    x_max=bank_x_max,
+                    y_max=outline.y_min + outline.height_mm * 0.75,
+                    refs=channel.controller_refs,
+                )
+            )
     return arrayed
 
 
@@ -241,6 +274,12 @@ def _annotate_ref_reasons(
     for chain in power_topology.chains if power_topology else []:
         for ref in chain.ordered_refs:
             power_chain_by_ref[ref] = chain
+    slot_by_ref = {}
+    if intent_plan is not None:
+        for channel in intent_plan.repeated_channels:
+            for slot in channel.slots:
+                for ref in slot.refs:
+                    slot_by_ref[ref] = slot
     zone_by_ref = {}
     for zone in constraints.zones or []:
         for ref in zone.refs or []:
@@ -269,6 +308,9 @@ def _annotate_ref_reasons(
             reasons.append(
                 f"power chain: {chain.source_net} from {chain.source_ref}"
             )
+        if placed.ref in slot_by_ref:
+            slot = slot_by_ref[placed.ref]
+            reasons.append(f"channel slot: CH{slot.channel_number}")
         if intent_plan is not None:
             kinds = sorted(
                 {intent.kind for intent in intent_plan.intents_for(placed.ref)}
