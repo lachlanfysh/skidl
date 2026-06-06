@@ -26,6 +26,8 @@ Already implemented:
   density, keepouts, and power corridors.
 - Deterministic score-gated local refinement for candidate moves, geometry
   rotations, and compatible swaps while preserving fixed/edge refs and decaps.
+- Structured `PlacementReport` helpers for `part(ref)`, `net(name)`, and
+  `top_risks()`.
 - Power route intents and reserved power corridor summaries.
 - Per-part candidate placement reasons in `PlacementReport`.
 
@@ -241,6 +243,13 @@ For each:
 ## Phase 8: Explainability Per Net And Part
 
 Goal: make the placer useful as a design reviewer.
+
+Status: partially implemented. `PlacementReport.part(ref)` explains per-part
+placement reasons, matching warnings, and hard violations.
+`PlacementReport.net(name)` explains HPWL, power corridors, congestion regions,
+and risk notes for a named net. `PlacementReport.top_risks()` produces a
+prioritized list from hard violations, warnings, net risks, and congestion
+hotspots. Deeper next-action wording and richer per-net attribution remain.
 
 Implementation tasks:
 

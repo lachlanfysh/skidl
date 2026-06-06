@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from .candidates import PlacementCandidate
@@ -21,6 +22,66 @@ class CandidateReport:
 
 
 @dataclass
+class PartExplanation:
+    ref: str
+    reasons: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    violations: list[str] = field(default_factory=list)
+
+    def summary(self) -> str:
+        lines = [f"Part {self.ref}:"]
+        if self.reasons:
+            lines.append("  reasons: " + "; ".join(self.reasons[:6]))
+        if self.violations:
+            lines.append("  violations: " + "; ".join(self.violations[:6]))
+        if self.warnings:
+            lines.append("  warnings: " + "; ".join(self.warnings[:6]))
+        if len(lines) == 1:
+            lines.append("  no specific placement explanation recorded")
+        return "\n".join(lines)
+
+
+@dataclass
+class NetExplanation:
+    name: str
+    hpwl_mm: float | None = None
+    power_corridors: list[str] = field(default_factory=list)
+    congestion_regions: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
+
+    @property
+    def risk_score(self) -> float:
+        return (
+            (self.hpwl_mm or 0.0)
+            + len(self.power_corridors) * 8.0
+            + len(self.congestion_regions) * 12.0
+            + len(self.warnings) * 10.0
+            + len(self.risks) * 6.0
+        )
+
+    def summary(self) -> str:
+        lines = [f"Net {self.name}:"]
+        if self.hpwl_mm is not None:
+            lines.append(f"  estimated HPWL: {self.hpwl_mm:.1f}mm")
+        if self.power_corridors:
+            lines.append("  power corridors:")
+            for corridor in self.power_corridors[:5]:
+                lines.append(f"    {corridor}")
+        if self.congestion_regions:
+            lines.append("  congestion:")
+            for region in self.congestion_regions[:5]:
+                lines.append(f"    {region}")
+        if self.risks:
+            lines.append("  risks: " + "; ".join(self.risks[:6]))
+        if self.warnings:
+            lines.append("  warnings: " + "; ".join(self.warnings[:6]))
+        if len(lines) == 1:
+            lines.append("  no specific net risk recorded")
+        return "\n".join(lines)
+
+
+@dataclass
 class PlacementReport:
     selected: str
     candidates: list[CandidateReport] = field(default_factory=list)
@@ -30,8 +91,79 @@ class PlacementReport:
     power_corridors: list[str] = field(default_factory=list)
     power_topology: list[str] = field(default_factory=list)
     part_reasons: dict[str, list[str]] = field(default_factory=dict)
+    net_explanations: dict[str, NetExplanation] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
+
+    def part(self, ref: str) -> PartExplanation:
+        ref_text = str(ref)
+        ref_lower = ref_text.lower()
+        return PartExplanation(
+            ref=ref_text,
+            reasons=list(self.part_reasons.get(ref_text, [])),
+            warnings=[
+                warning
+                for warning in self.warnings
+                if ref_lower in warning.lower()
+            ],
+            violations=[
+                violation
+                for violation in self.hard_violations
+                if ref_lower in violation.lower()
+            ],
+        )
+
+    def net(self, name: str) -> NetExplanation:
+        name_text = str(name)
+        for stored_name, explanation in self.net_explanations.items():
+            if stored_name.upper() == name_text.upper():
+                return explanation
+
+        explanation = NetExplanation(name=name_text)
+        for risky_name, hpwl in self.risky_nets:
+            if risky_name.upper() == name_text.upper():
+                explanation.hpwl_mm = hpwl
+                explanation.risks.append(f"long estimated route span {hpwl:.1f}mm")
+        for region in self.congestion_regions:
+            if name_text.upper() in region.upper():
+                explanation.congestion_regions.append(region)
+                explanation.risks.append("appears in a congestion hotspot")
+        for corridor in self.power_corridors:
+            if corridor.upper().startswith(name_text.upper() + ":"):
+                explanation.power_corridors.append(corridor)
+                explanation.risks.append("power corridor needs reserved routing space")
+        return explanation
+
+    def top_risks(self, limit: int = 10) -> list[str]:
+        risks: list[tuple[float, str]] = []
+        for idx, violation in enumerate(self.hard_violations):
+            risks.append((1000.0 - idx, f"hard violation: {violation}"))
+        for warning in self.warnings:
+            risks.append((500.0, f"warning: {warning}"))
+        explanations = list(self.net_explanations.values())
+        if not explanations:
+            explanations = [self.net(name) for name, _ in self.risky_nets]
+        for explanation in explanations:
+            if explanation.risk_score <= 0:
+                continue
+            detail = explanation.risks[0] if explanation.risks else "review placement"
+            risks.append(
+                (
+                    explanation.risk_score,
+                    f"net {explanation.name}: {detail}",
+                )
+            )
+        for region in self.congestion_regions[:5]:
+            risks.append((250.0, f"congestion: {region}"))
+
+        risks.sort(key=lambda item: (-item[0], item[1]))
+        ordered: list[str] = []
+        for _, text in risks:
+            if text not in ordered:
+                ordered.append(text)
+            if len(ordered) >= limit:
+                break
+        return ordered
 
     def summary(self) -> str:
         lines = [f"Selected placement candidate: {self.selected}"]
@@ -79,6 +211,29 @@ class PlacementReport:
             for warning in self.warnings[:20]:
                 lines.append(f"  {warning}")
         return "\n".join(lines)
+
+
+_NET_IN_REGION_RE = re.compile(r"\bnet\s+([^;\]\s]+)")
+
+
+def _ensure_net(
+    explanations: dict[str, NetExplanation],
+    name: str,
+) -> NetExplanation:
+    for stored_name, explanation in explanations.items():
+        if stored_name.upper() == name.upper():
+            return explanation
+    explanations[name] = NetExplanation(name=name)
+    return explanations[name]
+
+
+def _net_names_from_region(region: str) -> list[str]:
+    names: list[str] = []
+    for match in _NET_IN_REGION_RE.finditer(region):
+        name = match.group(1).strip()
+        if name and name not in names:
+            names.append(name)
+    return names
 
 
 def build_placement_report(
@@ -135,6 +290,21 @@ def build_placement_report(
         )
         for chain in power_plan.topology.chains
     ]
+    net_explanations: dict[str, NetExplanation] = {}
+    for name, hpwl in selected_validation.worst_hpwl_nets:
+        explanation = _ensure_net(net_explanations, name)
+        explanation.hpwl_mm = hpwl
+        explanation.risks.append(f"long estimated route span {hpwl:.1f}mm")
+    for corridor in power_corridors:
+        name = corridor.split(":", 1)[0]
+        explanation = _ensure_net(net_explanations, name)
+        explanation.power_corridors.append(corridor)
+        explanation.risks.append("power corridor needs reserved routing space")
+    for region in selected_score.congestion_regions[:5]:
+        for name in _net_names_from_region(region):
+            explanation = _ensure_net(net_explanations, name)
+            explanation.congestion_regions.append(region)
+            explanation.risks.append("appears in a congestion hotspot")
 
     return PlacementReport(
         selected=selected.name,
@@ -145,6 +315,7 @@ def build_placement_report(
         power_corridors=power_corridors,
         power_topology=power_topology,
         part_reasons=dict(selected.ref_reasons),
+        net_explanations=net_explanations,
         warnings=list(selected_score.warnings[:20]) + list(power_plan.warnings[:20]),
         reasons=reasons,
     )

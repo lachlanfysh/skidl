@@ -64,7 +64,7 @@ from .refinement import (
     refine_candidate_placement,
     refine_placement,
 )
-from .report import CandidateReport, PlacementReport
+from .report import CandidateReport, NetExplanation, PartExplanation, PlacementReport
 from .roles import PartRole, classify_part, classify_parts
 from .scoring import LayoutScore, score_placement
 from .validator import ValidationResult, find_kicad_cli, run_kicad_drc, validate
