@@ -130,9 +130,15 @@ def add_placement_bboxes(parts, **options):
         part.place_bbox.add(part.lbl_bbox)
 
         # Compute the routing area for each side based on the number of pins on each side.
+        # Skip pins on deferred-stub nets — they haven't been classified yet and
+        # inflating bbox for them scatters placement, making post-placement distance
+        # checks fail.
         padding = {"U": 1, "D": 1, "L": 1, "R": 1}  # Min padding of 1 channel per side.
         for pin in part:
             if pin.stub is False and pin.is_connected():
+                net = pin.net
+                if getattr(net, "_deferred_stub", False):
+                    continue
                 padding[pin.orientation] += 1
 
         # expansion_factor > 1 is used to expand the area for routing around each part,

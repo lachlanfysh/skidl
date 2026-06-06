@@ -1,16 +1,41 @@
-# Schematic Generation: Backend Split — Design Proposal
+# Schematic Generation: Backend Split Proposal
 
-> A proposal for moving the snap feature's decision logic out of the KiCad-9
-> backend (`tools/kicad9/sexp_schematic.py`) into the tool-agnostic layer
-> (`src/skidl/schematics/`), in line with the thin / cross-backend direction of
-> the `development` refactor. On `lachlanfysh/skidl` (a fork). Self-contained.
+> **Status:** design proposal, for architectural review.
+> **Repo:** this is on `lachlanfysh/skidl` (a fork), **not** `devbisme/skidl`.
+> **Audience:** second-opinion architectural review (e.g. Codex). Self-contained — no prior context assumed.
+>
+> **Revision 5** — closes the two open risks. `solve_snap_tx` is feasible as discrete-transform
+> selection + translation solve, validated by a round-trip test with per-part skip-snap
+> fallback (not an arbitrary inverse). `render_node` unification proceeds behind golden
+> fixtures for root + child, with the PR explicitly declaring the intentional root-output
+> change. Neither blocks the architecture; both are now implementation tasks, not unknowns.
+>
+> **Revision 4** — connectivity-correctness pass. Label deconfliction must not move the
+> electrical **anchor** off the pin (in KiCad the label/power-symbol `at` *is* the connection
+> point) — placements now separate `anchor_xy` (fixed on pin) from `text_xy`, and any anchor
+> move must be wire-backed; power symbols are not anchor-deconflictable (P1, also a latent bug
+> in today's `_deconflict_labels`). Stale-wire purge is explicitly placement-space, not render
+> space (P2). Router normalization renamed to `split_router_segments_to_render_mm` to preserve
+> junction-splitting semantics (P3).
+>
+> **Revision 3** — contract-tightening pass. `label_candidate_pins()` replaces `stubbed_pins()`
+> so forced power labels aren't dropped (P2a); `emit_label` gains `at`/`angle` to match
+> pre-emission deconfliction (P2b); render-geometry cache is invalidated on snap `part.tx`
+> mutation (P2c); snap node-artifacts default to empty when snap is disabled (P3).
+>
+> **Revision 2** — incorporates code-grounded review feedback. Changes: coordinate
+> normalization now covers router wires + junctions, not just snap artifacts (§6, P1a);
+> snap placement needs a backend transform-solve primitive, not just a measure query
+> (§3/§5, P1b); root and child rendering must share one `render_node()` core — the root
+> path currently lacks power-bus/T-junction/power-cap handling (§5, P2a); `pin_render_dir`
+> takes `sheet_tx` (§3, P2b); §7 questions are now resolved decisions.
 
 ---
 
 ## 0. TL;DR
 
 SKiDL generates KiCad schematics. A "snap" feature (place 2-pin parts onto IC pins,
-draw connecting wires, suppress redundant labels) was added in PR #302. The upstream
+draw connecting wires, suppress redundant labels) was added in PR #297. The upstream
 maintainer refactored the KiCad backend toward a thin, tooling-agnostic design and wants
 the snap feature's logic moved **out** of the KiCad-specific backend file
 (`tools/kicad9/sexp_schematic.py`) into the tool-agnostic layer (`src/skidl/schematics/`).
@@ -29,13 +54,38 @@ irreducibly tool-specific. So it cannot be *relocated* to the agnostic layer —
 
 ---
 
-## 1. Context
+## 1. Background & history (why the code looks the way it does)
 
-The snap feature (PR #302) currently carries its decision and emission logic in
-the KiCad-9 backend. This proposal relocates the tool-agnostic decisions into
-`src/skidl/schematics/` behind a small backend interface, so the KiCad
-coordinate convention and S-expression syntax stay in the backend while the
-decision logic becomes reusable across tools.
+| Branch / PR | What it is | Snap geometry lives in | `sexp_schematic.py` |
+|---|---|---|---|
+| ancestor `e19d9a6a` | shared base (Apr 2026) | n/a | baseline (~28 funcs) |
+| **#297** (`pr/kicad9-snap-placement`) | original snap feature | `gen_schematic.py` (inline) | baseline **+510 lines** of emit/decide code |
+| `development` (maintainer) | parallel refactor of base | n/a | **−203 net lines** vs ancestor; leaner; introduced 2 regressions |
+| **#302 / v2** (`pr/kicad9-snap-v2`) | snap rebased onto `development` | **`schematics/snap.py`** (extracted, 462 lines) | +435 lines |
+| **v3** (`pr/kicad9-snap-v3`) | rebuilt from ancestor after v2 regressed | back in `gen_schematic.py` | restored #297 pipeline + UUID cherry-pick |
+
+Key facts established from git:
+
+- **v3 does not descend from v2.** It was branched from the shared ancestor to recover
+  working output after v2 regressed, then cherry-picked the maintainer's hierarchical-UUID
+  work. Consequence: v2's `schematics/snap.py` extraction was **not inherited** — it died as
+  collateral when the branch was rebuilt, not by intent.
+- v3's `sexp_schematic.py` is ~identical to #297's (34/23 line delta) and ~unrelated to
+  `development`'s (834/122 line delta). This is why the maintainer reads v3 as "reverting my
+  refactor" — mechanically, it does.
+- The maintainer's refactor was **not** a pure simplification: it shipped two real
+  correctness regressions — a D↔U net-label orientation swap, and missing/unknown component
+  symbols. He has acknowledged these and intends to fix them.
+
+### Two independent bug-owners (relevant to who fixes what)
+
+1. **Orientation + missing symbols** → in the maintainer's `development` refactor. His to fix.
+2. **Wire remnants after snap** → in this feature's code. Mechanism: snap runs *after* route
+   (`place → defer-stub → route → snap`); it moves a 2-pin part by reassigning `part.tx`, but
+   the router's wire to the part's *old* position is never purged from `node.wires`, so it is
+   still emitted. Independent of orientation. **Ours to fix**, regardless of which base we land on.
+
+---
 
 ## 2. The three layers (target architecture)
 
@@ -109,7 +159,7 @@ class SchematicBackend(Protocol):
                       extend_dir: PinDir, sheet_tx: Tx):
         """Return a new `part.tx` such that `my_pin` will RENDER at
         `target_render_xy`, extending in `extend_dir`. This is the INVERSE of
-        `pin_render_pos`: a measure query can't produce it (see §6). The
+        `pin_render_pos`: a measure query can't produce it (see §6/P1b). The
         agnostic snap layer decides the relationship (which part attaches to
         which pin, in which direction); the backend solves the transform.
         KiCad impl == current `_compute_snap_tx`, made render-space-aware."""
@@ -134,10 +184,10 @@ class SchematicBackend(Protocol):
                    force: bool = False) -> Optional[Element]:
         """Emit a net label / power symbol for `pin`.
         `at`/`angle` override computed position/orientation — supplied by the
-        agnostic deconflict pass once it has resolved a final placement.
+        agnostic deconflict pass once it has resolved a final placement (P2b).
         If `at` is None the backend computes position itself. `force=True` emits
         even for non-stubbed pins (the forced-power-label case, see
-        `label_candidate_pins`)."""
+        `label_candidate_pins` / P2a)."""
 
     def emit_no_connect(self, x: float, y: float) -> Element: ...
 
@@ -174,7 +224,7 @@ def deconflict_labels(placements: dict, node, backend, sheet_tx) -> dict:
     `deconflictable` entries only, nudge `text_xy` to clear the overlap while
     leaving `anchor_xy` on the pin. Uses `backend.label_bbox(text)` for box size.
     Caller emits a short connecting wire when `text_xy != anchor_xy` so the
-    nudge does not break connectivity. Power symbols are left pinned.
+    nudge does not break connectivity (P1). Power symbols are left pinned.
     Relocated DECISION half of `_deconflict_labels`."""
 ```
 
@@ -185,7 +235,7 @@ def render_node(node, backend, sheet_tx, uuid_path):
     """SINGLE rendering core. Called by BOTH the root and child paths.
     Today these are two divergent code paths (`write_top_schematic` vs
     `node_to_sexp_schematic`); the root path is missing power-bus / T-junction /
-    power-cap handling entirely (see §5). Unifying them here is part of the
+    power-cap handling entirely (see §5/P2a). Unifying them here is part of the
     migration, not an afterthought."""
     elements = []
 
@@ -193,15 +243,15 @@ def render_node(node, backend, sheet_tx, uuid_path):
     elements += [backend.emit_part(p, sheet_tx, uuid_path) for p in real_parts(node)]
 
     # ---- wires: ALL segment sources normalized to render-mm first ----
-    # router wires (node.wires) are pre-transform Segments in PLACEMENT
+    # P1a: router wires (node.wires) are pre-transform Segments in PLACEMENT
     # coords; today wire_to_sexp() applies sheet_tx at emit time. Snap/bus
     # segments are computed in render-mm. To make emit_wire() transform-free we
     # normalize EVERY source into render-mm up front — router wires + junctions
     # included, not just the snap artifacts.
-    # not just a transform — it also SPLITS wires at junctions (the current
+    # P3: not just a transform — it also SPLITS wires at junctions (the current
     # wire_to_sexp(..., junctions=...) behavior) so KiCad connectivity is correct.
     router_segs = split_router_segments_to_render_mm(node.wires, node.junctions, sheet_tx)
-    # snap artifacts default to empty when snap is disabled / never ran.
+    # P3: snap artifacts default to empty when snap is disabled / never ran.
     # These are initialized on SchNode (or read via getattr with a default), so
     # backends with supports_snap=False don't hit AttributeError.
     snap_segs   = getattr(node, "snap_wires", [])           # render-mm
@@ -216,7 +266,7 @@ def render_node(node, backend, sheet_tx, uuid_path):
     suppress  = find_overlapping_pins(node, backend, sheet_tx)
     suppress |= snap_skip | bus_skip
 
-    # ---- candidate pins for labels ----
+    # ---- candidate pins for labels (P2a) ----
     # NOT just stubbed pins: also the FORCED power case — connected 2-pin
     # power-net pins that are *not* stubbed still get a power symbol/label in the
     # current code. Dropping them here would make power symbols disappear.
@@ -224,7 +274,7 @@ def render_node(node, backend, sheet_tx, uuid_path):
     candidates = [p for p in candidates if id(p) not in suppress]
 
     # ---- decide label PLACEMENTS (deconflict BEFORE emit; see §7 Q3) ----
-    # in KiCad the label/power-symbol `at` IS the electrical connection point.
+    # P1: in KiCad the label/power-symbol `at` IS the electrical connection point.
     # The ANCHOR must stay on the pin; only the TEXT may be nudged, and only for
     # labels that can be wire-backed. Power symbols are NOT anchor-deconflictable
     # (moving them disconnects the net) → pinned: text_xy == anchor_xy.
@@ -312,16 +362,16 @@ render math out."
 |---|---|---|---|
 | `_find_wireable_nets` | ~109 | pure decision (emits nothing) | **→ `schematics/decisions.py`** |
 | `_gen_power_bus_wires` | ~113 | decision (~95) + emit (~18) | decision **→ schematics/**; emit via `backend.emit_wire` |
-| `_deconflict_labels` (+`_label_dir`) | ~103 | decision + Sexp mutation; **moves `global_label` anchor = latent disconnection bug** | decision **→ schematics/**, restructured to nudge `text_xy` only + wire-back (Q3) |
+| `_deconflict_labels` (+`_label_dir`) | ~103 | decision + Sexp mutation; **moves `global_label` anchor = latent disconnection bug** | decision **→ schematics/**, restructured to nudge `text_xy` only + wire-back (Q3/P1) |
 | `_gen_no_connect_flags` | ~32 | trivial detect + emit | detect → schematics/; emit via `backend.emit_no_connect` |
 | `_kicad_pin_pos` | ~29 | KiCad render geometry | **STAYS** → `backend.pin_render_pos` |
 | `calc_pin_dir` | ~30 | KiCad render geometry | **STAYS** → `backend.pin_render_dir` |
 | `_get_power_symbol_names` + power helpers | ~80 | KiCad power lib | **STAYS** → `backend.is_power_net_name` + emit |
 | `wire_to_sexp`, `net_label_to_sexp`, `junction_to_sexp`, `part_to_sexp`, `hierarchical_label_to_sexp` | (pre-existing) | KiCad emission primitives | **STAY** (already in `development`) |
-| snap relationships: `_snap_two_pin_parts`, `_stagger_tjunctions`, `_pre_shift_ics` | ~430 | decide which part attaches where, in which direction | **→ `schematics/snap.py`** |
+| snap relationships: `_snap_two_pin_parts`, `_stagger_tjunctions`, `_pre_shift_ics` | ~430 | decide which part attaches where, in which direction | **→ `schematics/snap.py`** (as in v2) |
 | `_compute_snap_tx` | ~30 | **solves a new `part.tx`** from a target + direction | **STAYS / backend** → `backend.solve_snap_tx` (P1b — inverse of `pin_render_pos`, can't be a measure query) |
-| root vs child render paths: `write_top_schematic` + tail of `node_to_sexp_schematic` | (dup) | duplicated emit logic; **root path lacks bus/T-junction/power-cap** | **unify** → single `render_node()` core |
-| router wires/junctions: `node.wires`, `node.junctions` via `wire_to_sexp`/`junction_to_sexp` | — | transformed **and junction-split** at emit time | `split_router_segments_to_render_mm` in orchestration — must preserve junction-splitting |
+| root vs child render paths: `write_top_schematic` + tail of `node_to_sexp_schematic` | (dup) | duplicated emit logic; **root path lacks bus/T-junction/power-cap** | **unify** → single `render_node()` core (P2a) |
+| router wires/junctions: `node.wires`, `node.junctions` via `wire_to_sexp`/`junction_to_sexp` | — | transformed **and junction-split** at emit time | `split_router_segments_to_render_mm` in orchestration — must preserve junction-splitting (P1a/P3) |
 
 > **P1b (snap coordinate-space tension).** Today snap aligns pins in SKiDL *abstract*
 > placement space (`target = pin.pt * part.tx`), while overlap/co-linear decisions run in
@@ -370,7 +420,7 @@ that space. The backend's `emit_wire(x1,y1,x2,y2)` takes those coordinates direc
 further transform). This collapses the three computations into **one source of truth**
 (`pin_render_pos`) and structurally eliminates the divergence.
 
-**The normalization surface is bigger than the snap artifacts.** Today there are at
+**The normalization surface is bigger than the snap artifacts (P1a).** Today there are at
 least three coordinate conventions in play at emit time:
 - `node.wires` / `node.junctions` (router output) — pre-transform `Segment`s in *placement*
   coords, transformed by `wire_to_sexp`/`junction_to_sexp` at emit;
@@ -382,7 +432,7 @@ The proposal standardizes **all** of them on render-mm in the orchestration laye
 are transform-free. Router wires are the largest surface, not the snap artifacts — easy to
 miss because the doc's first draft only called out `_tjunction_wires`.
 
-**Snap placement must join the same space.** Snap currently solves `part.tx` in
+**Snap placement must join the same space (P1b).** Snap currently solves `part.tx` in
 abstract placement space, but overlap/co-linearity are judged in render space. The two must
 share one space or snap-created overlaps go undetected. Resolution: `backend.solve_snap_tx`
 targets render coordinates (the inverse direction of `pin_render_pos`), so snap and detection
@@ -393,7 +443,8 @@ coordinate contract fixes both.
 
 ## 7. Resolved design decisions
 
-Listed with the decision and rationale for each.
+These were open questions in Rev 1; resolved here per code-grounded review. Listed with the
+decision and rationale so a re-reviewer can challenge any specific call.
 
 1. **Interface mechanics → `Protocol` + explicit backend object.** Structural `Protocol` (no
    forced inheritance for existing tool modules) plus a concrete `backend` handle threaded
@@ -402,10 +453,10 @@ Listed with the decision and rationale for each.
 
 2. **Coordinate space → normalize to render-mm, for every segment source.** One source of
    truth (`pin_render_pos`). Crucially this includes `node.wires` router segments and
-   `node.junctions`, not only the snap artifacts — router wires are the largest surface.
+   `node.junctions`, not only the snap artifacts (P1a) — router wires are the largest surface.
    `emit_wire`/`emit_junction` become transform-free.
 
-3. **Label deconfliction → pre-emission, and anchor-preserving.** `deconflict_labels`
+3. **Label deconfliction → pre-emission, and anchor-preserving (P1).** `deconflict_labels`
    returns final placements (agnostic); the backend emits once at the resolved position. No
    more mutating built `Sexp` `at` coords. **Critically: it nudges `text_xy` only — never the
    `anchor_xy`, which is the net's connection point.** Power symbols are pinned
@@ -417,16 +468,16 @@ Listed with the decision and rationale for each.
    sizes to detect overlap, and that's font/tool-specific. Surface is now: `pin_render_pos`,
    `pin_render_dir`, `is_power_net_name`, `solve_snap_tx`, `label_bbox` + emit primitives.
 
-5. **Stale-wire purge → snap owns it; mutation stays in placement space.** When snap
+5. **Stale-wire purge → snap owns it; mutation stays in placement space (P2).** When snap
    moves a part, it purges/reroutes the affected `node.wires` entries, then junction/cleanup
-   re-runs so no remnant survives (the wire-remnant fix). **Space discipline:** snap may
+   re-runs so no remnant survives (the v3 wire-remnant fix, §1). **Space discipline:** snap may
    *measure* in render space (via `pin_render_pos`) to decide *what* to purge, but `node.wires`
    are router-owned **placement-space** segments until `split_router_segments_to_render_mm`
    normalizes them at emit. So either mutate `node.wires` in placement space, or don't write
    them back at all — emit separate render-mm snap segments and record which router segments to
    drop (by id/net). Do not mutate `node.wires` with render-mm values.
 
-6. **Performance → cache render geometry in a `RenderContext`, invalidated on snap.**
+6. **Performance → cache render geometry in a `RenderContext`, invalidated on snap (P2c).**
    Memoize `pin_render_pos`/`pin_render_dir` in a context the orchestration owns. **The key
    cannot be just `(pin, sheet_tx)`** — snap mutates `part.tx` mid-pipeline (and snap itself
    queries geometry to measure), so a position cached pre-snap is stale post-snap. Resolution:
@@ -440,20 +491,20 @@ Listed with the decision and rationale for each.
    `supports_snap = False` and the snap phase is skipped *explicitly* (logged), so it's never
    ambiguous whether snap ran.
 
-8. **Label candidate set → `label_candidate_pins()`, not `stubbed_pins()`.** The
+8. **Label candidate set → `label_candidate_pins()`, not `stubbed_pins()` (P2a).** The
    candidate set is stubbed pins **∪** the forced-power case (connected 2-pin power-net pins
    that aren't stubbed still get a power symbol today). A literal `stubbed_pins()` loop would
    make those power symbols vanish. `is_forced(pin)` flags which need `force=True` at emit.
 
-9. **`emit_label` signature → carries `at`/`angle`.** Pre-emission deconfliction
+9. **`emit_label` signature → carries `at`/`angle` (P2b).** Pre-emission deconfliction
    resolves final position/orientation, so the backend must accept overrides rather than
    recomputing. `at=None` falls back to backend-computed placement (the no-deconflict path).
 
-10. **Snap node-artifacts → defaulted.** `node.snap_wires` / `node.snap_suppressed_pins`
+10. **Snap node-artifacts → defaulted (P3).** `node.snap_wires` / `node.snap_suppressed_pins`
     are initialized on `SchNode` (or read via `getattr(node, ..., empty)`), so `render_node`
     is safe when `supports_snap = False` and snap never populated them.
 
-### Resolved with implementation strategy
+### Resolved with implementation strategy (were open in Rev 4)
 
 - **`solve_snap_tx` → feasible; implement as discrete selection + translation, gate on a
   round-trip test.** This is *not* an arbitrary inverse problem. Snap only ever needs one of a
@@ -475,13 +526,13 @@ Listed with the decision and rationale for each.
   power-cap omission. De-risk by: (a) committing golden fixtures for both a root case and a
   child case so the diff is visible and deliberate; (b) stating in the PR, explicitly,
   *"this intentionally changes root-level output to match child-sheet behavior for
-  bus/T-junction/power-cap wires."* A deliberate, declared output change.
+  bus/T-junction/power-cap wires."* A planned, approved output change — not a regression.
 
 ---
 
 ## 8. Alternatives considered
 
-- **A. Status quo (feature lives in `sexp_schematic.py`).** Works, but the backend is
+- **A. Status quo / v3 (feature lives in `sexp_schematic.py`).** Works, but the backend is
   fat and kicad9-only; conflicts with the maintainer's thin/cross-backend goal. Rejected.
 - **B. Move the render math itself into `schematics/`.** Would make the agnostic layer
   hardcode KiCad's coordinate convention → not actually agnostic. The opposite of the goal.
@@ -491,3 +542,16 @@ Listed with the decision and rationale for each.
   coordinate source of truth. **Proposed.**
 
 ---
+
+## Appendix: line-count evidence (from git, this repo)
+
+```
+sexp_schematic.py size:   #297 = 1902   development = 1201   v3 = 1913
+ancestor → development:   +116 / −319   (maintainer's refactor: net −203)
+ancestor → #297:          +510 / −12    (this feature's additions)
+v3 sexp vs #297:          34 / 23        (≈ identical — the UUID cherry-pick)
+v3 sexp vs development:    834 / 122      (≈ unrelated — why it reads as a revert)
+new funcs in #297 sexp:   _find_wireable_nets, _gen_power_bus_wires,
+                          _gen_no_connect_flags, _deconflict_labels,
+                          _kicad_pin_pos, _label_dir
+```
