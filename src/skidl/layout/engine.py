@@ -8,6 +8,7 @@ from .candidates import (
     generate_placement_candidates,
 )
 from .constraints import BoardOutline, LayoutConstraints
+from .decaps import refine_candidate_decaps
 from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometries
 from .hierarchy import PlacementGroup, extract_groups
 from .intent import PlacementIntentPlan, infer_placement_intents
@@ -151,6 +152,12 @@ def plan_layout(
     candidate_validations: dict[str, ValidationResult] = {}
     for candidate in candidates:
         refine_candidate_orientations(candidate, circuit, fp_geometries)
+        refine_candidate_decaps(
+            candidate,
+            circuit,
+            fp_geometries,
+            resolved_bboxes,
+        )
         candidate_constraints = candidate.constraints or resolved_constraints
         candidate_validations[candidate.name] = validate(
             candidate.placed_parts,

@@ -13,6 +13,13 @@ from .constraints import (
 )
 from .backends import OptionalBackendStatus, optional_backend_status
 from .candidates import PlacementCandidate, generate_placement_candidates
+from .decaps import (
+    DecapPlacementIntent,
+    DecapRefinementResult,
+    infer_decap_placement_intents,
+    refine_candidate_decaps,
+    refine_decaps,
+)
 from .engine import LayoutResult, plan_layout
 from .geometry import (
     FootprintGeometry,

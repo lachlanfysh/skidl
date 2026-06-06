@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+from skidl.layout.decaps import infer_decap_placement_intents, refine_decaps
+from skidl.layout.geometry import FootprintGeometry, PadGeometry
+from skidl.layout.writer import PlacedPart
+
+
+class _Net:
+    def __init__(self, name):
+        self.name = name
+        self._pins = []
+
+    def get_pins(self):
+        return self._pins
+
+
+class _Pin:
+    def __init__(self, part, num, net):
+        self.part = part
+        self.num = str(num)
+        self.net = net
+        net._pins.append(self)
+
+
+class _Part:
+    def __init__(self, ref, value="", footprint="", pins=None, name=""):
+        self.ref = ref
+        self.value = value
+        self.footprint = footprint
+        self.name = name
+        self.pins = []
+        for num, net in pins or []:
+            self.pins.append(_Pin(self, num, net))
+
+    def __len__(self):
+        return len(self.pins)
+
+
+class _Circuit:
+    def __init__(self, parts, nets):
+        self.parts = parts
+        self._nets = nets
+
+    def get_nets(self):
+        return self._nets
+
+
+def _basic_geometries():
+    return {
+        "Pkg:MCU": FootprintGeometry(
+            footprint="Pkg:MCU",
+            pads=[
+                PadGeometry("1", -4.0, -1.5, 0.6, 0.6),
+                PadGeometry("2", -4.0, 1.5, 0.6, 0.6),
+                PadGeometry("3", 4.0, 0.0, 0.6, 0.6),
+            ],
+            body_bounds=(-5.0, -5.0, 5.0, 5.0),
+        ),
+        "Pkg:Cap": FootprintGeometry(
+            footprint="Pkg:Cap",
+            pads=[
+                PadGeometry("1", -0.6, 0.0, 0.4, 0.4),
+                PadGeometry("2", 0.6, 0.0, 0.4, 0.4),
+            ],
+            body_bounds=(-1.0, -0.6, 1.0, 0.6),
+        ),
+    }
+
+
+def test_infers_decap_parent_actual_power_and_ground_pads():
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    parent = _Part(
+        "U1",
+        footprint="Pkg:MCU",
+        pins=[("1", vdd), ("2", gnd), ("3", sig)],
+        name="MCU",
+    )
+    cap = _Part("C1", value="100nF", footprint="Pkg:Cap", pins=[("1", vdd), ("2", gnd)])
+    circuit = _Circuit([parent, cap], [vdd, gnd, sig])
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Pkg:MCU"),
+        PlacedPart("C1", 20.0, 30.0, 0.0, "Pkg:Cap"),
+    ]
+
+    intents = infer_decap_placement_intents(circuit, placed, _basic_geometries())
+
+    assert len(intents) == 1
+    assert intents[0].parent_ref == "U1"
+    assert intents[0].target_power_pin == "1"
+    assert intents[0].target_ground_pin == "2"
+    assert intents[0].target_power_xy == (16.0, 18.5)
+    assert intents[0].target_ground_xy == (16.0, 21.5)
+
+
+def test_refine_decaps_moves_cap_to_actual_pad_side_and_rotates_it():
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    parent = _Part(
+        "U1",
+        footprint="Pkg:MCU",
+        pins=[("1", vdd), ("2", gnd), ("3", sig)],
+        name="MCU",
+    )
+    cap = _Part("C1", value="100nF", footprint="Pkg:Cap", pins=[("1", vdd), ("2", gnd)])
+    circuit = _Circuit([parent, cap], [vdd, gnd, sig])
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Pkg:MCU"),
+        PlacedPart("C1", 20.0, 30.0, 0.0, "Pkg:Cap"),
+    ]
+
+    result = refine_decaps(
+        placed,
+        circuit,
+        _basic_geometries(),
+        {"Pkg:MCU": (10.0, 10.0), "Pkg:Cap": (2.0, 1.2)},
+    )
+    refined = {part.ref: part for part in result.placed_parts}
+
+    assert refined["C1"].x_mm < 16.0
+    assert 17.0 < refined["C1"].y_mm < 23.0
+    assert refined["C1"].rot_deg == 90.0
+    assert "actual U1 VDD/GND pads" in result.ref_reasons["C1"][0]
+
+
+def test_multiple_decaps_distribute_across_parent_power_pads():
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    parent = _Part(
+        "U1",
+        footprint="Pkg:MCU",
+        pins=[("1", vdd), ("2", gnd), ("3", vdd)],
+        name="MCU",
+    )
+    c1 = _Part("C1", value="100nF", footprint="Pkg:Cap", pins=[("1", vdd), ("2", gnd)])
+    c2 = _Part("C2", value="100nF", footprint="Pkg:Cap", pins=[("1", vdd), ("2", gnd)])
+    circuit = _Circuit([parent, c1, c2], [vdd, gnd])
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Pkg:MCU"),
+        PlacedPart("C1", 20.0, 30.0, 0.0, "Pkg:Cap"),
+        PlacedPart("C2", 20.0, 34.0, 0.0, "Pkg:Cap"),
+    ]
+
+    intents = infer_decap_placement_intents(circuit, placed, _basic_geometries())
+    by_ref = {intent.ref: intent for intent in intents}
+
+    assert by_ref["C1"].target_power_pin == "1"
+    assert by_ref["C2"].target_power_pin == "3"

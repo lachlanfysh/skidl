@@ -7,6 +7,7 @@ from skidl.layout.constraints import (
     LayoutConstraints,
 )
 from skidl.layout.engine import LayoutResult, _footprint_names, plan_layout
+from skidl.layout.geometry import FootprintGeometry, PadGeometry
 
 
 class _Net:
@@ -174,3 +175,61 @@ def test_plan_layout_returns_candidates_report_and_preserves_edge_anchors():
     assert j1.x_mm == 50.0
     assert j1.y_mm + h / 2 == outline.y_max
     assert j1.rot_deg == 180.0
+
+
+def test_plan_layout_refines_decaps_to_actual_parent_pads(monkeypatch):
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    u1 = _Part(
+        "U1",
+        name="MCU",
+        footprint="Package_QFP:MCU",
+        nets=[vdd, gnd, sig],
+        pins=3,
+    )
+    c1 = _Part("C1", value="100nF", footprint="Capacitor:C_0805", nets=[vdd, gnd])
+    circuit = _Circuit([u1, c1], [vdd, gnd, sig])
+    geometries = {
+        "Package_QFP:MCU": FootprintGeometry(
+            footprint="Package_QFP:MCU",
+            pads=[
+                PadGeometry("1", -4.0, -1.5, 0.6, 0.6),
+                PadGeometry("2", -4.0, 1.5, 0.6, 0.6),
+                PadGeometry("3", 4.0, 0.0, 0.6, 0.6),
+            ],
+            body_bounds=(-5.0, -5.0, 5.0, 5.0),
+        ),
+        "Capacitor:C_0805": FootprintGeometry(
+            footprint="Capacitor:C_0805",
+            pads=[
+                PadGeometry("1", -0.6, 0.0, 0.4, 0.4),
+                PadGeometry("2", 0.6, 0.0, 0.4, 0.4),
+            ],
+            body_bounds=(-1.0, -0.6, 1.0, 0.6),
+        ),
+    }
+    monkeypatch.setattr(
+        "skidl.layout.engine._resolve_geometries",
+        lambda circuit, fp_lib_dirs: geometries,
+    )
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes={
+            "Package_QFP:MCU": (10.0, 10.0),
+            "Capacitor:C_0805": (2.0, 1.2),
+        },
+        constraints=LayoutConstraints(
+            fixed=[FixedPosition("U1", 20.0, 20.0)],
+            outline=BoardOutline(60.0, 40.0),
+        ),
+    )
+    placed = {part.ref: part for part in result.placed_parts}
+
+    assert placed["C1"].x_mm < placed["U1"].x_mm
+    assert placed["C1"].rot_deg == 90.0
+    assert any(
+        "actual U1 VDD/GND pads" in reason
+        for reason in result.report.part_reasons["C1"]
+    )

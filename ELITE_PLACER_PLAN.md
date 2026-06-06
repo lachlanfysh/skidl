@@ -16,6 +16,8 @@ Already implemented:
 - Keepouts, polygon outline validation, soft constraints, optional Shapely
   containment acceleration, and optional-backend detection.
 - Pad/net-pressure orientation refinement for unlocked parts.
+- Actual-pin-aware decap inference and refinement when footprint pad geometry is
+  available.
 - Power route intents and reserved power corridor summaries.
 - Per-part candidate placement reasons in `PlacementReport`.
 
@@ -73,6 +75,12 @@ Tests:
 
 Goal: place decaps near the relevant IC/regulator power pins instead of near
 the parent package center.
+
+Status: implemented. `src/skidl/layout/decaps.py` infers cap-to-parent pad
+targets from SKiDL pin nets plus footprint geometry, refines candidate
+placements near the actual power/GND pad side, rotates caps toward parent pads,
+and records per-cap report reasons. Bbox-only boards still use the existing
+placement fallback.
 
 Implementation tasks:
 
@@ -215,4 +223,3 @@ Definition of done:
 
 - A user can ask "why is this here?" and get a concrete answer.
 - A risky board explains the next physical fix, not just a score.
-
