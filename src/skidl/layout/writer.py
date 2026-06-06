@@ -22,6 +22,23 @@ def _q(value) -> str:
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def _needs_quoting(s: str) -> bool:
+    if not s:
+        return True
+    if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+        return False
+    return any(c in s for c in ' "\t\n\r()')
+
+
+def _requote_strings(sexp):
+    """Quote string tokens that contain spaces or special characters."""
+    for i, item in enumerate(sexp):
+        if isinstance(item, list):
+            _requote_strings(item)
+        elif i > 0 and isinstance(item, str) and _needs_quoting(item):
+            sexp[i] = _q(item)
+
+
 _LAYERS = [
     (0,  _q("F.Cu"),      "signal"),
     (2,  _q("B.Cu"),      "signal"),
@@ -233,7 +250,22 @@ def _ensure_uuid(node, seed: str):
         node.append(Sexp(["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, seed))]))
 
 
+_ALWAYS_QUOTE_FIELDS = frozenset({
+    "uuid", "generator", "generator_version", "descr", "tags", "model",
+})
+
+
+def _quote_known_fields(sexp):
+    """Quote values of KiCad fields that always require quoted strings."""
+    for node in _walk_nodes(sexp):
+        if len(node) >= 2 and node[0] in _ALWAYS_QUOTE_FIELDS:
+            if isinstance(node[1], str):
+                node[1] = _q(node[1])
+
+
 def _prepare_footprint_for_board(fp: Sexp, fp_uuid: str):
+    _requote_strings(fp)
+    _quote_known_fields(fp)
     if len(fp) > 1:
         fp[1] = _q(fp[1])
     _sanitize_layer_nodes(fp)

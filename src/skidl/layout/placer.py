@@ -237,6 +237,14 @@ def place_parts(
     # occupied: list of (x, y, w, h) tuples for overlap checks
     occupied: list[tuple] = []
 
+    # Seed keepout zones as occupied regions
+    for ko in (constraints.keepouts or []):
+        cx = (ko.x_min + ko.x_max) / 2
+        cy = (ko.y_min + ko.y_max) / 2
+        w = ko.x_max - ko.x_min
+        h = ko.y_max - ko.y_min
+        occupied.append((cx, cy, w, h))
+
     def _commit(pp: PlacedPart, w: float, h: float):
         placed_map[pp.ref] = pp
         occupied.append((pp.x_mm, pp.y_mm, w, h))
