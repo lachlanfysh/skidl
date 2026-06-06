@@ -28,6 +28,8 @@ Already implemented:
   rotations, and compatible swaps while preserving fixed/edge refs and decaps.
 - Structured `PlacementReport` helpers for `part(ref)`, `net(name)`, and
   `top_risks()`.
+- Benchmark corpus covering USB MCU, repeated sensor array, power-heavy,
+  board-UI, and RF/antenna boards with structural and report invariants.
 - Power route intents and reserved power corridor summaries.
 - Per-part candidate placement reasons in `PlacementReport`.
 
@@ -223,6 +225,13 @@ Tests:
 ## Phase 7: Golden Board Corpus
 
 Goal: stop optimizing only toy examples.
+
+Status: partially implemented. The committed benchmark corpus covers five
+realistic mock boards: USB MCU, muxed sensor array, battery/power board, UI
+control board, and RF/antenna board. It asserts placement structure, inferred
+intent, decap proximity, keepout/outline behavior, and actionable report risks.
+Remaining work is artifact generation, screenshot capture, and broader KiCad
+DRC coverage where `kicad-cli` is available.
 
 Add real-ish fixtures:
 

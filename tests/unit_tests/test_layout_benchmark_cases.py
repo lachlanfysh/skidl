@@ -54,6 +54,21 @@ def _inside_outline(part, bbox_w, bbox_h, outline: BoardOutline) -> bool:
     )
 
 
+def _assert_explainable_report(result: LayoutResult) -> None:
+    report = result.report
+    assert report is not None
+    assert report.top_risks(limit=5)
+    if report.risky_nets:
+        net_name, _ = report.risky_nets[0]
+        net_report = report.net(net_name)
+        assert net_report.risks or net_report.next_actions
+        assert (
+            net_report.refs
+            or net_report.power_corridors
+            or net_report.congestion_regions
+        )
+
+
 # ====================================================================
 # Case 1: USB-powered MCU board
 # ====================================================================
@@ -164,6 +179,9 @@ class TestUSBMCUBoard:
         names = [c.name for c in result.candidates]
         assert "baseline" in names
 
+    def test_report_has_actionable_risks(self):
+        _assert_explainable_report(self._run())
+
     def test_4layer_vs_2layer_scoring(self):
         r2 = self._run(board_layers=2)
         r4 = self._run(board_layers=4)
@@ -271,6 +289,9 @@ class TestSensorArrayBoard:
         has_power = "power" in summary.lower() or "GND" in summary
         assert has_channel or has_power
 
+    def test_report_has_actionable_risks(self):
+        _assert_explainable_report(self._run())
+
 
 # ====================================================================
 # Case 3: Power-heavy board with battery input
@@ -376,6 +397,9 @@ class TestPowerBoard:
     def test_score_nonzero(self):
         result = self._run()
         assert result.score.score > 0
+
+    def test_report_has_actionable_risks(self):
+        _assert_explainable_report(self._run())
 
 
 # ====================================================================
@@ -489,6 +513,9 @@ class TestUIBoard:
         has_ui = "board_ui" in summary.lower()
         assert has_mating or has_face or has_ui
 
+    def test_report_has_actionable_risks(self):
+        _assert_explainable_report(self._run())
+
 
 # ====================================================================
 # Case 5: RF module with antenna keepout
@@ -591,3 +618,6 @@ class TestRFBoard:
         has_antenna = "antenna" in summary.lower()
         has_module = "rf_module" in summary.lower()
         assert has_rf or has_antenna or has_module
+
+    def test_report_has_actionable_risks(self):
+        _assert_explainable_report(self._run())
