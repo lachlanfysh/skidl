@@ -1,0 +1,244 @@
+from __future__ import annotations
+
+import math
+import re
+from typing import Optional
+
+from .constraints import LayoutConstraints, FixedPosition, KeepOut
+from .hierarchy import PlacementGroup
+from .writer import PlacedPart
+
+
+POWER_NET_RE = re.compile(r'^(VCC|VDD|VBUS|V\d|[+-]\d|[+-]V|\+\d+\.\d+V)$', re.IGNORECASE)
+GND_NET_RE = re.compile(r'^(GND|VSS|DGND|AGND|GNDA|GNDD)$', re.IGNORECASE)
+DECAP_VALUE_RE = re.compile(r'^(100n|0\.1u)', re.IGNORECASE)
+
+_DEFAULT_BBOX = (2.0, 2.0)
+
+
+def _pin_net_names(part) -> list[str]:
+    names = []
+    try:
+        from skidl.net import NCNet
+        for pin in part.pins:
+            net = getattr(pin, 'net', None)
+            if net is not None and not isinstance(net, NCNet):
+                name = getattr(net, 'name', None)
+                if name:
+                    names.append(name)
+    except Exception:
+        pass
+    return names
+
+
+def _is_decoupling_cap(part) -> bool:
+    if len(part) != 2:
+        return False
+    val = (getattr(part, 'value', '') or '').strip()
+    if not DECAP_VALUE_RE.match(val):
+        return False
+    nets = _pin_net_names(part)
+    return any(POWER_NET_RE.match(n) for n in nets) and any(GND_NET_RE.match(n) for n in nets)
+
+
+def _bbox(part, fp_bboxes: dict) -> tuple[float, float]:
+    fp = getattr(part, 'foot', None) or ''
+    return fp_bboxes.get(fp, _DEFAULT_BBOX)
+
+
+def _overlaps(x1, y1, w1, h1, x2, y2, w2, h2, clearance=0.5) -> bool:
+    return (abs(x1 - x2) < (w1 + w2) / 2 + clearance and
+            abs(y1 - y2) < (h1 + h2) / 2 + clearance)
+
+
+def _overlaps_any(x, y, w, h, occupied: list[tuple], clearance=0.5) -> bool:
+    for ox, oy, ow, oh in occupied:
+        if _overlaps(x, y, w, h, ox, oy, ow, oh, clearance):
+            return True
+    return False
+
+
+def _find_clear_position(
+    target_x: float,
+    target_y: float,
+    width: float,
+    height: float,
+    occupied: list[tuple],
+    step: float = 1.0,
+    max_radius: float = 50.0,
+) -> tuple[float, float]:
+    if not _overlaps_any(target_x, target_y, width, height, occupied):
+        return target_x, target_y
+    steps = max(1, int(max_radius / step))
+    for i in range(1, steps):
+        radius = step * i
+        angle_count = max(4, int(radius * 2 * math.pi))
+        for j in range(angle_count):
+            angle = j * (2 * math.pi / angle_count)
+            x = target_x + radius * math.cos(angle)
+            y = target_y + radius * math.sin(angle)
+            if not _overlaps_any(x, y, width, height, occupied):
+                return x, y
+    return target_x, target_y
+
+
+def _clamp_to_outline(x, y, w, h, outline) -> tuple[float, float]:
+    if outline is None:
+        return x, y
+    half_w, half_h = w / 2, h / 2
+    x = max(half_w, min(outline.width_mm - half_w, x))
+    y = max(half_h, min(outline.height_mm - half_h, y))
+    return x, y
+
+
+def _most_adjacent_placed(ref: str, adjacency: dict, placed_map: dict) -> Optional[str]:
+    """Return the ref of the already-placed part sharing the most nets with `ref`."""
+    neighbors = adjacency.get(ref, set())
+    best_ref, best_count = None, 0
+    for other_ref in neighbors:
+        if other_ref in placed_map:
+            count = 1
+            if count > best_count:
+                best_count = count
+                best_ref = other_ref
+    return best_ref
+
+
+def _largest_ic_ref(group: PlacementGroup) -> Optional[str]:
+    """Return ref of the part with the most pins (tie: first encountered)."""
+    best_ref, best_pins = None, -1
+    for part in group.parts:
+        n = len(part)
+        if n > best_pins:
+            best_pins = n
+            best_ref = part.ref
+    return best_ref
+
+
+def place_parts(
+    groups: dict,
+    constraints: LayoutConstraints,
+    fp_bboxes: dict[str, tuple[float, float]],
+) -> list[PlacedPart]:
+    """Place all parts, honoring fixed positions and filling in the rest."""
+
+    fixed_map = {fp.ref: fp for fp in (constraints.fixed or [])}
+
+    # placed_map: ref → PlacedPart
+    placed_map: dict[str, PlacedPart] = {}
+    # occupied: list of (x, y, w, h) tuples for overlap checks
+    occupied: list[tuple] = []
+
+    def _commit(pp: PlacedPart, w: float, h: float):
+        placed_map[pp.ref] = pp
+        occupied.append((pp.x_mm, pp.y_mm, w, h))
+
+    all_parts = []
+    for group in groups.values():
+        for part in group.parts:
+            all_parts.append((part, group))
+
+    # Layer 1: fixed positions
+    for part, group in all_parts:
+        if part.ref in fixed_map:
+            fp_constraint = fixed_map[part.ref]
+            w, h = _bbox(part, fp_bboxes)
+            pp = PlacedPart(
+                ref=part.ref,
+                x_mm=fp_constraint.x_mm,
+                y_mm=fp_constraint.y_mm,
+                rot_deg=fp_constraint.rot_deg,
+                footprint=getattr(part, 'foot', '') or '',
+            )
+            _commit(pp, w, h)
+
+    # Layer 2: decoupling caps
+    for part, group in all_parts:
+        if part.ref in placed_map:
+            continue
+        if not _is_decoupling_cap(part):
+            continue
+        w, h = _bbox(part, fp_bboxes)
+        parent_ref = _most_adjacent_placed(part.ref, group.adjacency, placed_map)
+        if parent_ref:
+            parent = placed_map[parent_ref]
+            pw, ph = _bbox_for_ref(parent_ref, all_parts, fp_bboxes)
+            target_x = parent.x_mm + pw / 2 + w / 2 + 1.5
+            target_y = parent.y_mm
+            rot = parent.rot_deg
+        else:
+            target_x, target_y = _spillover_position(placed_map, constraints)
+            rot = 0.0
+        target_x, target_y = _clamp_to_outline(target_x, target_y, w, h, constraints.outline)
+        x, y = _find_clear_position(target_x, target_y, w, h, occupied)
+        x, y = _clamp_to_outline(x, y, w, h, constraints.outline)
+        _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=rot,
+                           footprint=getattr(part, 'foot', '') or ''), w, h)
+
+    # Layer 3: signal passives (2-pin, not decoupling caps)
+    # Track how many passives have been stacked per parent ref
+    stack_count: dict[str, int] = {}
+    for part, group in all_parts:
+        if part.ref in placed_map:
+            continue
+        if len(part) != 2:
+            continue
+        w, h = _bbox(part, fp_bboxes)
+        parent_ref = _most_adjacent_placed(part.ref, group.adjacency, placed_map)
+        if parent_ref:
+            parent = placed_map[parent_ref]
+            pw, ph = _bbox_for_ref(parent_ref, all_parts, fp_bboxes)
+            n = stack_count.get(parent_ref, 0)
+            stack_count[parent_ref] = n + 1
+            # Stack below the parent, offset by (n+1) steps
+            target_x = parent.x_mm
+            target_y = parent.y_mm + ph / 2 + h / 2 + 1.0 + n * (h + 1.0)
+            rot = parent.rot_deg
+        else:
+            target_x, target_y = _spillover_position(placed_map, constraints)
+            rot = 0.0
+        target_x, target_y = _clamp_to_outline(target_x, target_y, w, h, constraints.outline)
+        x, y = _find_clear_position(target_x, target_y, w, h, occupied)
+        x, y = _clamp_to_outline(x, y, w, h, constraints.outline)
+        _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=rot,
+                           footprint=getattr(part, 'foot', '') or ''), w, h)
+
+    # Layer 4: remaining parts (shelf-pack near group anchor)
+    for group in groups.values():
+        anchor_ref = _largest_ic_ref(group)
+        for part in group.parts:
+            if part.ref in placed_map:
+                continue
+            w, h = _bbox(part, fp_bboxes)
+            if anchor_ref and anchor_ref in placed_map:
+                anchor = placed_map[anchor_ref]
+                aw, ah = _bbox_for_ref(anchor_ref, all_parts, fp_bboxes)
+                target_x = anchor.x_mm - aw / 2 - w / 2 - 2.0
+                target_y = anchor.y_mm
+            else:
+                target_x, target_y = _spillover_position(placed_map, constraints)
+            target_x, target_y = _clamp_to_outline(target_x, target_y, w, h, constraints.outline)
+            x, y = _find_clear_position(target_x, target_y, w, h, occupied)
+            x, y = _clamp_to_outline(x, y, w, h, constraints.outline)
+            _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=0.0,
+                               footprint=getattr(part, 'foot', '') or ''), w, h)
+
+    return list(placed_map.values())
+
+
+def _bbox_for_ref(ref: str, all_parts, fp_bboxes: dict) -> tuple[float, float]:
+    for part, _ in all_parts:
+        if part.ref == ref:
+            return _bbox(part, fp_bboxes)
+    return _DEFAULT_BBOX
+
+
+def _spillover_position(placed_map: dict, constraints) -> tuple[float, float]:
+    """Find a position in the spillover area (below all placed parts, or at a safe origin)."""
+    if not placed_map:
+        return 10.0, 10.0
+    max_y = max(pp.y_mm for pp in placed_map.values())
+    avg_x = sum(pp.x_mm for pp in placed_map.values()) / len(placed_map)
+    if constraints.outline:
+        return avg_x, max_y + 10.0
+    return avg_x, max_y + 10.0

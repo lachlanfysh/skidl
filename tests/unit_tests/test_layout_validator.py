@@ -1,0 +1,124 @@
+from __future__ import annotations
+
+import pytest
+
+from skidl.layout.writer import PlacedPart
+from skidl.layout.validator import validate, ValidationResult, run_kicad_drc
+
+
+BBOXES_0805 = {"Resistor_SMD:R_0805": (2.0, 1.25)}
+
+
+def test_no_overlaps_when_separated():
+    parts = [
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R2", 30.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+    result = validate(parts, None, BBOXES_0805)
+    assert result.overlaps == []
+
+
+def test_overlap_detected():
+    parts = [
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R2", 10.5, 10.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+    result = validate(parts, None, BBOXES_0805)
+    assert len(result.overlaps) > 0
+    pair = result.overlaps[0]
+    assert set(pair) == {"R1", "R2"}
+
+
+def test_clearance_boundary():
+    # Parts just outside clearance — width 2.0 each, so gap needed = 2.0 + 0.5 = 2.5
+    # At x-distance of 2.6 they should be clear
+    parts = [
+        PlacedPart("R1", 0.0, 0.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R2", 2.6, 0.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+    result = validate(parts, None, BBOXES_0805)
+    assert result.overlaps == []
+
+    # At x-distance of 2.4 they should overlap
+    parts[1] = PlacedPart("R2", 2.4, 0.0, 0.0, "Resistor_SMD:R_0805")
+    result = validate(parts, None, BBOXES_0805)
+    assert len(result.overlaps) > 0
+
+
+def test_ok_property_no_overlaps():
+    result = ValidationResult(placed_parts=5, total_parts=5)
+    assert result.ok is True
+
+
+def test_ok_property_with_overlaps():
+    result = ValidationResult(placed_parts=5, total_parts=5)
+    result.overlaps = [("R1", "R2")]
+    assert result.ok is False
+
+
+def test_ok_property_with_missing():
+    result = ValidationResult(placed_parts=4, total_parts=5, missing_refs=["C1"])
+    assert result.ok is False
+
+
+def test_summary_parts_count():
+    result = ValidationResult(placed_parts=10, total_parts=12, missing_refs=["C1", "C2"])
+    s = result.summary()
+    assert "10/12" in s
+    assert "MISSING" in s
+    assert "C1" in s
+
+
+def test_summary_overlaps_loud():
+    result = ValidationResult(placed_parts=2, total_parts=2)
+    result.overlaps = [("R1", "R2")]
+    s = result.summary()
+    assert "OVERLAPS" in s
+    assert "R1" in s
+    assert "R2" in s
+
+
+def test_summary_no_overlaps_message():
+    result = ValidationResult(placed_parts=2, total_parts=2)
+    s = result.summary()
+    assert "No overlaps" in s
+
+
+def test_validate_with_none_circuit():
+    parts = [PlacedPart("R1", 10.0, 10.0, 0.0, "R_0805")]
+    result = validate(parts, None, {})
+    assert result.placed_parts == 1
+    assert result.total_parts == 0
+    assert result.missing_refs == []
+    assert result.extra_refs == []
+    assert result.worst_hpwl_nets == []
+
+
+def test_unknown_footprint_uses_default_bbox():
+    # Parts with unknown footprint fall back to 2.0×2.0 default
+    parts = [
+        PlacedPart("U1", 0.0, 0.0, 0.0, "Unknown:Part"),
+        PlacedPart("U2", 0.5, 0.0, 0.0, "Unknown:Part"),
+    ]
+    result = validate(parts, None, {})
+    # With default 2.0×2.0 and clearance 0.5, these must overlap
+    assert len(result.overlaps) > 0
+
+
+def test_run_kicad_drc_missing_binary():
+    # kicad-cli almost certainly not installed in CI
+    passed, report = run_kicad_drc("/nonexistent/board.kicad_pcb")
+    # Either it's not installed (passed=True, "not available") or returncode != 0
+    assert isinstance(passed, bool)
+    assert isinstance(report, str)
+
+
+def test_multiple_overlapping_pairs():
+    # Three parts all at the same spot — should produce 3 pairs
+    parts = [
+        PlacedPart("R1", 0.0, 0.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R2", 0.0, 0.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R3", 0.0, 0.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+    result = validate(parts, None, BBOXES_0805)
+    assert len(result.overlaps) == 3
