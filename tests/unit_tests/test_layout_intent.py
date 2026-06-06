@@ -82,10 +82,10 @@ def test_infers_board_ui_mating_intent():
     button = _Part(
         "SW1",
         name="user button",
-        foot="Button_Switch_SMD:SW_SPST",
+        footprint="Button_Switch_SMD:SW_SPST",
         nets=[gnd],
     )
-    led = _Part("D1", name="status LED", foot="LED_SMD:LED_0805", nets=[gnd])
+    led = _Part("D1", name="status LED", footprint="LED_SMD:LED_0805", nets=[gnd])
     circuit = _Circuit([button, led], [gnd])
 
     plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
