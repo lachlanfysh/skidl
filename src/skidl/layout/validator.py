@@ -18,6 +18,7 @@ class ValidationResult:
     outline_violations: list[str] = field(default_factory=list)
     keepout_violations: list[str] = field(default_factory=list)
     worst_hpwl_nets: list[tuple[str, float]] = field(default_factory=list)
+    worst_hpwl_refs: dict[str, list[str]] = field(default_factory=dict)
     missing_refs: list[str] = field(default_factory=list)
     extra_refs: list[str] = field(default_factory=list)
     total_parts: int = 0
@@ -204,7 +205,7 @@ def _check_keepout_violations(
 def _compute_hpwl(
     placed: list[PlacedPart],
     circuit,
-) -> list[tuple[str, float]]:
+) -> list[tuple[str, float, list[str]]]:
     from skidl.net import NCNet
 
     pos_by_ref = {pp.ref: (pp.x_mm, pp.y_mm) for pp in placed}
@@ -214,16 +215,19 @@ def _compute_hpwl(
         if isinstance(net, NCNet):
             continue
         xs, ys = [], []
+        refs = []
         for pin in net.get_pins():
             ref = getattr(getattr(pin, "part", None), "ref", None)
             if ref and ref in pos_by_ref:
                 x, y = pos_by_ref[ref]
                 xs.append(x)
                 ys.append(y)
+                if ref not in refs:
+                    refs.append(ref)
         if len(xs) < 2:
             continue
         hpwl = (max(xs) - min(xs)) + (max(ys) - min(ys))
-        net_hpwl.append((net.name, hpwl))
+        net_hpwl.append((net.name, hpwl, refs))
 
     net_hpwl.sort(key=lambda t: t[1], reverse=True)
     return net_hpwl[:10]
@@ -256,7 +260,9 @@ def validate(
         placed_refs = {pp.ref for pp in placed_parts}
         result.missing_refs = sorted(circuit_refs - placed_refs - {None})
         result.extra_refs = sorted(placed_refs - circuit_refs)
-        result.worst_hpwl_nets = _compute_hpwl(placed_parts, circuit)
+        worst_hpwl = _compute_hpwl(placed_parts, circuit)
+        result.worst_hpwl_nets = [(name, hpwl) for name, hpwl, _ in worst_hpwl]
+        result.worst_hpwl_refs = {name: refs for name, _, refs in worst_hpwl}
 
     return result
 

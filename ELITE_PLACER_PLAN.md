@@ -246,10 +246,11 @@ Goal: make the placer useful as a design reviewer.
 
 Status: partially implemented. `PlacementReport.part(ref)` explains per-part
 placement reasons, matching warnings, and hard violations.
-`PlacementReport.net(name)` explains HPWL, power corridors, congestion regions,
-and risk notes for a named net. `PlacementReport.top_risks()` produces a
-prioritized list from hard violations, warnings, net risks, and congestion
-hotspots. Deeper next-action wording and richer per-net attribution remain.
+`PlacementReport.net(name)` explains HPWL, involved refs, power corridors,
+congestion regions, risk notes, and first-pass next actions for a named net.
+`PlacementReport.top_risks()` produces a prioritized list from hard violations,
+warnings, net risks, and congestion hotspots. Richer per-pin/pad attribution and
+more design-specific fix wording remain.
 
 Implementation tasks:
 

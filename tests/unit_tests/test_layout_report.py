@@ -75,6 +75,7 @@ def test_report_part_net_and_top_risk_helpers():
     assert isinstance(sig, NetExplanation)
     assert sig.hpwl_mm == 42.0
     assert sig.congestion_regions
+    assert sig.next_actions
     assert "power corridor" in vbus.summary()
     assert risks[0].startswith("hard violation:")
     assert any("net SIG" in risk for risk in risks)
@@ -104,5 +105,8 @@ def test_plan_layout_populates_structured_net_explanations():
 
     assert report is not None
     assert report.part("J1").reasons
-    assert report.net("VBUS").power_corridors or report.net("VBUS").hpwl_mm is not None
+    vbus_report = report.net("VBUS")
+    assert vbus_report.power_corridors or vbus_report.hpwl_mm is not None
+    assert {"J1", "U1"}.issubset(set(vbus_report.refs))
+    assert vbus_report.next_actions
     assert report.top_risks(limit=3)

@@ -45,10 +45,12 @@ class PartExplanation:
 class NetExplanation:
     name: str
     hpwl_mm: float | None = None
+    refs: list[str] = field(default_factory=list)
     power_corridors: list[str] = field(default_factory=list)
     congestion_regions: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
+    next_actions: list[str] = field(default_factory=list)
 
     @property
     def risk_score(self) -> float:
@@ -58,10 +60,13 @@ class NetExplanation:
             + len(self.congestion_regions) * 12.0
             + len(self.warnings) * 10.0
             + len(self.risks) * 6.0
+            + len(self.next_actions) * 4.0
         )
 
     def summary(self) -> str:
         lines = [f"Net {self.name}:"]
+        if self.refs:
+            lines.append("  involved refs: " + " -> ".join(self.refs[:10]))
         if self.hpwl_mm is not None:
             lines.append(f"  estimated HPWL: {self.hpwl_mm:.1f}mm")
         if self.power_corridors:
@@ -74,6 +79,8 @@ class NetExplanation:
                 lines.append(f"    {region}")
         if self.risks:
             lines.append("  risks: " + "; ".join(self.risks[:6]))
+        if self.next_actions:
+            lines.append("  next actions: " + "; ".join(self.next_actions[:6]))
         if self.warnings:
             lines.append("  warnings: " + "; ".join(self.warnings[:6]))
         if len(lines) == 1:
@@ -124,14 +131,23 @@ class PlacementReport:
             if risky_name.upper() == name_text.upper():
                 explanation.hpwl_mm = hpwl
                 explanation.risks.append(f"long estimated route span {hpwl:.1f}mm")
+                explanation.next_actions.append(
+                    "move the farthest connected refs closer or reserve a cleaner path"
+                )
         for region in self.congestion_regions:
             if name_text.upper() in region.upper():
                 explanation.congestion_regions.append(region)
                 explanation.risks.append("appears in a congestion hotspot")
+                explanation.next_actions.append(
+                    "spread nearby refs or clear routing space through the hotspot"
+                )
         for corridor in self.power_corridors:
             if corridor.upper().startswith(name_text.upper() + ":"):
                 explanation.power_corridors.append(corridor)
                 explanation.risks.append("power corridor needs reserved routing space")
+                explanation.next_actions.append(
+                    "reserve a wide trace or plane corridor before signal routing"
+                )
         return explanation
 
     def top_risks(self, limit: int = 10) -> list[str]:
@@ -146,7 +162,13 @@ class PlacementReport:
         for explanation in explanations:
             if explanation.risk_score <= 0:
                 continue
-            detail = explanation.risks[0] if explanation.risks else "review placement"
+            detail = (
+                explanation.next_actions[0]
+                if explanation.next_actions
+                else explanation.risks[0]
+                if explanation.risks
+                else "review placement"
+            )
             risks.append(
                 (
                     explanation.risk_score,
@@ -236,6 +258,20 @@ def _net_names_from_region(region: str) -> list[str]:
     return names
 
 
+def _append_unique(values: list[str], value: str) -> None:
+    if value and value not in values:
+        values.append(value)
+
+
+def _hpwl_action(name: str, hpwl: float, refs: list[str]) -> str:
+    if len(refs) >= 2:
+        return (
+            f"bring {refs[0]} and {refs[-1]} closer on {name}, or reserve "
+            "a straighter route between them"
+        )
+    return f"shorten or reserve a cleaner route for {name} ({hpwl:.1f}mm HPWL)"
+
+
 def build_placement_report(
     selected: PlacementCandidate,
     candidate_scores: dict[str, LayoutScore],
@@ -294,17 +330,35 @@ def build_placement_report(
     for name, hpwl in selected_validation.worst_hpwl_nets:
         explanation = _ensure_net(net_explanations, name)
         explanation.hpwl_mm = hpwl
-        explanation.risks.append(f"long estimated route span {hpwl:.1f}mm")
-    for corridor in power_corridors:
-        name = corridor.split(":", 1)[0]
+        refs = selected_validation.worst_hpwl_refs.get(name, [])
+        for ref in refs:
+            _append_unique(explanation.refs, ref)
+        _append_unique(explanation.risks, f"long estimated route span {hpwl:.1f}mm")
+        _append_unique(explanation.next_actions, _hpwl_action(name, hpwl, refs))
+    for corridor in power_plan.corridors:
+        name = corridor.net_name
         explanation = _ensure_net(net_explanations, name)
-        explanation.power_corridors.append(corridor)
-        explanation.risks.append("power corridor needs reserved routing space")
+        corridor_text = (
+            f"{corridor.net_name}: {corridor.width_mm:.2f}mm on {corridor.layer} "
+            f"across {len(corridor.refs)} refs"
+        )
+        _append_unique(explanation.power_corridors, corridor_text)
+        for ref in corridor.refs:
+            _append_unique(explanation.refs, ref)
+        _append_unique(explanation.risks, "power corridor needs reserved routing space")
+        _append_unique(
+            explanation.next_actions,
+            "reserve a wide trace or plane corridor before signal routing",
+        )
     for region in selected_score.congestion_regions[:5]:
         for name in _net_names_from_region(region):
             explanation = _ensure_net(net_explanations, name)
-            explanation.congestion_regions.append(region)
-            explanation.risks.append("appears in a congestion hotspot")
+            _append_unique(explanation.congestion_regions, region)
+            _append_unique(explanation.risks, "appears in a congestion hotspot")
+            _append_unique(
+                explanation.next_actions,
+                "spread nearby refs or clear routing space through the hotspot",
+            )
 
     return PlacementReport(
         selected=selected.name,
