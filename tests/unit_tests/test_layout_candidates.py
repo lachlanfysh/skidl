@@ -11,6 +11,7 @@ from skidl.layout.constraints import (
 )
 from skidl.layout.hierarchy import PlacementGroup
 from skidl.layout.intent import MatingIntent, PlacementIntentPlan, RepeatedChannelIntent
+from skidl.layout.power import PowerChain, PowerTopology
 
 
 class _Part:
@@ -40,10 +41,11 @@ def test_generate_placement_candidates_is_deterministic_and_named():
         intent_plan=intent,
     )
 
-    assert [candidate.name for candidate in candidates[:4]] == [
+    assert [candidate.name for candidate in candidates[:5]] == [
         "baseline",
         "connector_edge_first",
         "power_first",
+        "power_topology_first",
         "cluster_first",
     ]
     baseline_j1 = candidates[0].placed_parts[0]
@@ -85,6 +87,50 @@ def test_repeated_channel_candidate_distributes_channel_refs():
     assert placed["U2"].y_mm == pytest.approx(12.5)
     assert placed["U3"].y_mm == pytest.approx(12.5)
     assert "placement zone" in "; ".join(array_candidate.ref_reasons["U2"])
+
+
+def test_power_topology_candidate_adds_chain_constraints_and_reasons():
+    source = _Part("J1", "Connector:USB", pins=4)
+    regulator = _Part("U2", "Package_TO_SOT:SOT23", pins=3)
+    cap = _Part("C1", "Capacitor:C_0805", pins=2)
+    load = _Part("U1", "Package_QFP:MCU", pins=8)
+    group = PlacementGroup(
+        name="",
+        parts=[source, regulator, cap, load],
+        adjacency={},
+    )
+    topology = PowerTopology(
+        chains=[
+            PowerChain(
+                source_ref="J1",
+                source_net="VBUS",
+                converter_refs=["U2"],
+                storage_refs=["C1"],
+                load_refs=["U1"],
+                output_nets=["VCC"],
+            )
+        ]
+    )
+
+    candidates = generate_placement_candidates(
+        {None: group},
+        LayoutConstraints(outline=BoardOutline(80.0, 50.0)),
+        {
+            "Connector:USB": (10.0, 5.0),
+            "Package_TO_SOT:SOT23": (3.0, 3.0),
+            "Capacitor:C_0805": (2.0, 1.25),
+            "Package_QFP:MCU": (12.0, 12.0),
+        },
+        power_topology=topology,
+    )
+    candidate = next(
+        candidate for candidate in candidates if candidate.name == "power_topology_first"
+    )
+
+    assert len(candidate.constraints.near) == 3
+    assert candidate.constraints.near[0].target_ref == "J1"
+    assert candidate.constraints.near[0].ref == "U2"
+    assert "power chain: VBUS from J1" in "; ".join(candidate.ref_reasons["U2"])
 
 
 def test_candidates_preserve_mating_face_edges_and_reasons():

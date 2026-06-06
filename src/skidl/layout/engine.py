@@ -14,7 +14,7 @@ from .hierarchy import PlacementGroup, extract_groups
 from .intent import PlacementIntentPlan, infer_placement_intents
 from .orientation import refine_candidate_orientations
 from .placer import derive_outline, _footprint_name
-from .power import PowerRoutePlan, plan_power_routes
+from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
 from .report import PlacementReport, build_placement_report
 from .scoring import LayoutScore, score_placement
@@ -141,11 +141,13 @@ def plan_layout(
 
     groups = extract_groups(circuit)
     intent_plan = infer_placement_intents(circuit, outline=resolved_outline)
+    power_topology = infer_power_topology(circuit)
     candidates = generate_placement_candidates(
         groups,
         resolved_constraints,
         resolved_bboxes,
         intent_plan=intent_plan,
+        power_topology=power_topology,
     )
 
     candidate_scores: dict[str, LayoutScore] = {}

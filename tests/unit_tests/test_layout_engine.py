@@ -162,10 +162,11 @@ def test_plan_layout_returns_candidates_report_and_preserves_edge_anchors():
     j1 = next(placed for placed in result.placed_parts if placed.ref == "J1")
     _, h = BBOXES[j1.footprint]
 
-    assert names[:4] == [
+    assert names[:5] == [
         "baseline",
         "connector_edge_first",
         "power_first",
+        "power_topology_first",
         "cluster_first",
     ]
     assert result.report.selected in names
@@ -175,6 +176,40 @@ def test_plan_layout_returns_candidates_report_and_preserves_edge_anchors():
     assert j1.x_mm == 50.0
     assert j1.y_mm + h / 2 == outline.y_max
     assert j1.rot_deg == 180.0
+
+
+def test_plan_layout_reports_power_topology_chain():
+    vbus = _Net("VBUS")
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    j1 = _Part("J1", name="USB connector", footprint="Connector:USB", nets=[vbus, gnd])
+    u2 = _Part(
+        "U2",
+        name="LDO regulator",
+        footprint="Package_TO_SOT:SOT23",
+        nets=[vbus, gnd, vcc],
+        pins=3,
+    )
+    c1 = _Part("C1", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd, sig], pins=3)
+    circuit = _Circuit([j1, u2, c1, u1], [vbus, vcc, gnd, sig])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes={
+            **BBOXES,
+            "Package_TO_SOT:SOT23": (3.0, 3.0),
+        },
+        constraints=LayoutConstraints(outline=BoardOutline(100.0, 60.0)),
+    )
+
+    assert any(candidate.name == "power_topology_first" for candidate in result.candidates)
+    assert any("VBUS: J1 -> U2 -> C1 -> U1" in chain for chain in result.report.power_topology)
+    assert any(
+        "power chain: VBUS from J1" in reason
+        for reason in result.report.part_reasons["U2"]
+    )
 
 
 def test_plan_layout_refines_decaps_to_actual_parent_pads(monkeypatch):

@@ -42,11 +42,14 @@ from .orientation import (
     refine_orientations,
 )
 from .power import (
+    PowerChain,
     PowerCorridor,
     PowerNet,
     PowerRouteIntent,
     PowerRoutePlan,
+    PowerTopology,
     identify_power_nets,
+    infer_power_topology,
     plan_power_routes,
 )
 from .reader import read_board_outline, read_footprint_bboxes, read_placed_positions

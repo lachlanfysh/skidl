@@ -18,6 +18,8 @@ Already implemented:
 - Pad/net-pressure orientation refinement for unlocked parts.
 - Actual-pin-aware decap inference and refinement when footprint pad geometry is
   available.
+- Coarse power topology chains for source/protection/conversion/storage/load
+  ordering, candidate biasing, and report summaries.
 - Power route intents and reserved power corridor summaries.
 - Per-part candidate placement reasons in `PlacementReport`.
 
@@ -106,6 +108,12 @@ Tests:
 ## Phase 3: Power Topology Graph
 
 Goal: understand mandatory high-current chains before placement/routing.
+
+Status: implemented. `PowerTopology` / `PowerChain` infer coarse directed
+chains from connector-like sources, protection parts, regulators, storage caps,
+and downstream loads. `power_topology_first` adds chain-aware placement
+constraints, `PowerRoutePlan` carries the topology, and placement reports
+summarize inferred chain order.
 
 Implementation tasks:
 

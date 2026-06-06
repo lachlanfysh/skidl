@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from skidl.layout.power import PowerRouteIntent, identify_power_nets, plan_power_routes
+from skidl.layout.power import (
+    PowerRouteIntent,
+    identify_power_nets,
+    infer_power_topology,
+    plan_power_routes,
+)
 from skidl.layout.writer import PlacedPart
 
 
@@ -92,6 +97,20 @@ def test_two_layer_power_plan_uses_outer_copper():
     assert vcc.suggested_layer == "F.Cu"
 
 
+def test_infer_power_topology_builds_source_regulator_storage_load_chain():
+    topology = infer_power_topology(_power_circuit())
+
+    assert len(topology.chains) == 1
+    chain = topology.chains[0]
+    assert chain.source_ref == "J1"
+    assert chain.source_net == "VBUS"
+    assert chain.converter_refs == ["U2"]
+    assert chain.storage_refs == ["C1"]
+    assert chain.load_refs == ["U1"]
+    assert chain.output_nets == ["VCC"]
+    assert chain.ordered_refs == ["J1", "U2", "C1", "U1"]
+
+
 def test_plan_power_routes_warns_for_missing_regulator_decap():
     circuit = _power_circuit()
     placed = [
@@ -107,6 +126,8 @@ def test_plan_power_routes_warns_for_missing_regulator_decap():
     assert any(
         "regulator has no decoupling cap within 5mm" in w for w in plan.warnings
     )
+    assert plan.topology.chains[0].ordered_refs == ["J1", "U2", "C1", "U1"]
+    assert "Power topology:" in plan.summary()
 
 
 def test_four_layer_power_plan_adds_plane_and_internal_rail_intents():
