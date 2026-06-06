@@ -93,14 +93,12 @@ def _clamp_to_outline(x, y, w, h, outline) -> tuple[float, float]:
 
 def _most_adjacent_placed(ref: str, adjacency: dict, placed_map: dict) -> Optional[str]:
     """Return the ref of the already-placed part sharing the most nets with `ref`."""
-    neighbors = adjacency.get(ref, set())
+    neighbors = adjacency.get(ref, {})
     best_ref, best_count = None, 0
-    for other_ref in neighbors:
-        if other_ref in placed_map:
-            count = 1
-            if count > best_count:
-                best_count = count
-                best_ref = other_ref
+    for other_ref, count in neighbors.items():
+        if other_ref in placed_map and count > best_count:
+            best_count = count
+            best_ref = other_ref
     return best_ref
 
 

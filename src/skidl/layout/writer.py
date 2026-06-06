@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import copy
+import logging
 import os
 import uuid
 from dataclasses import dataclass
 
 from simp_sexp import Sexp
+
+logger = logging.getLogger(__name__)
 
 from .constraints import BoardOutline
 
@@ -200,10 +203,13 @@ def write_kicad_pcb(
     for net in nets:
         board.append(Sexp(["net", net_map[net.name], net.name]))
 
+    missing_fps = []
     for pp in placed_parts:
         try:
             fp_sexp = load_footprint(pp.footprint, fp_lib_dirs)
         except FileNotFoundError:
+            missing_fps.append(pp.ref)
+            logger.warning("MISSING FOOTPRINT: %s (%s) — skipped, will not appear in PCB", pp.ref, pp.footprint)
             continue
 
         part = _find_circuit_part(circuit, pp.ref)
@@ -220,6 +226,12 @@ def write_kicad_pcb(
             ["layer", "Edge.Cuts"],
             ["stroke", ["width", 0.1]],
         ]))
+
+    if missing_fps:
+        logger.warning(
+            "INCOMPLETE PCB: %d/%d parts missing footprints: %s",
+            len(missing_fps), len(placed_parts), ", ".join(missing_fps[:20])
+        )
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w") as f:

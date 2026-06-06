@@ -13,7 +13,7 @@ __all__ = ["PlacementGroup", "extract_groups"]
 class PlacementGroup:
     name: str
     parts: list = field(default_factory=list)
-    adjacency: dict = field(default_factory=dict)  # ref → set of refs sharing nets
+    adjacency: dict = field(default_factory=dict)  # ref → {other_ref: shared_net_count}
 
 
 def extract_groups(circuit) -> dict:
@@ -50,7 +50,9 @@ def extract_groups(circuit) -> dict:
                 continue
             adj = groups[key].adjacency
             if ref not in adj:
-                adj[ref] = set()
-            adj[ref].update(p.ref for p in parts_on_net if p is not part)
+                adj[ref] = {}
+            for p in parts_on_net:
+                if p is not part:
+                    adj[ref][p.ref] = adj[ref].get(p.ref, 0) + 1
 
     return groups

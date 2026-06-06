@@ -102,6 +102,7 @@ def test_adjacency_shared_net():
     group = next(iter(groups.values()))
     assert r1.ref in group.adjacency
     assert r2.ref in group.adjacency[r1.ref]
+    assert group.adjacency[r1.ref][r2.ref] >= 1
     assert r1.ref in group.adjacency[r2.ref]
 
 
@@ -125,8 +126,8 @@ def test_adjacency_no_cross_contamination():
     group = next(iter(groups.values()))
 
     r1, r2 = ckt.parts[0], ckt.parts[1]
-    assert r2.ref not in group.adjacency.get(r1.ref, set())
-    assert r1.ref not in group.adjacency.get(r2.ref, set())
+    assert r2.ref not in group.adjacency.get(r1.ref, {})
+    assert r1.ref not in group.adjacency.get(r2.ref, {})
 
 
 # ---------------------------------------------------------------------------
@@ -178,10 +179,8 @@ def test_nc_net_not_in_adjacency():
     group = next(iter(groups.values()))
 
     # r1 and r2 share SIG so must be adjacent
-    assert r2.ref in group.adjacency.get(r1.ref, set())
-    # But NC pins must not have created spurious extra adjacency entries beyond SIG
-    # (both pins go to the same NCNet, which is skipped)
-    assert len(group.adjacency.get(r1.ref, set())) == 1
+    assert r2.ref in group.adjacency.get(r1.ref, {})
+    assert len(group.adjacency.get(r1.ref, {})) == 1
 
 
 # ---------------------------------------------------------------------------

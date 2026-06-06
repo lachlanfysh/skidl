@@ -68,7 +68,7 @@ def test_fixed_positions_honored():
     group = PlacementGroup(
         name="main",
         parts=[ic, cap],
-        adjacency={"U1": {"C1"}, "C1": {"U1"}},
+        adjacency={"U1": {"C1": 2}, "C1": {"U1": 2}},
     )
 
     constraints = _simple_constraints(
@@ -107,8 +107,8 @@ def test_all_parts_placed():
     resistors = [_make_mock_part(f"R{i}", "10k", "Resistor_SMD:R_0805_2012Metric", num_pins=2) for i in range(3)]
 
     all_p = [ic] + caps + resistors
-    adj = {p.ref: {"U1"} for p in caps + resistors}
-    adj["U1"] = {p.ref for p in caps + resistors}
+    adj = {p.ref: {"U1": 1} for p in caps + resistors}
+    adj["U1"] = {p.ref: 1 for p in caps + resistors}
 
     group = PlacementGroup(name="main", parts=all_p, adjacency=adj)
     constraints = _simple_constraints(fixed=[FixedPosition("U1", 50.0, 40.0, 0.0)])
@@ -153,7 +153,7 @@ def test_decoupling_cap_near_ic():
     group = PlacementGroup(
         name="main",
         parts=[ic, cap],
-        adjacency={"U1": {"C1"}, "C1": {"U1"}},
+        adjacency={"U1": {"C1": 2}, "C1": {"U1": 2}},
     )
     constraints = _simple_constraints(
         fixed=[FixedPosition("U1", 50.0, 50.0, 0.0)],
@@ -183,9 +183,9 @@ def test_no_overlaps_multiple_parts():
     """After placement, no two parts should overlap."""
     ic = _make_mock_part("U1", "MCU", "Package_DIP:DIP-28", num_pins=28)
     parts = [_make_mock_part(f"R{i}", "10k", "Resistor_SMD:R_0805_2012Metric") for i in range(6)]
-    adj = {"U1": {p.ref for p in parts}}
+    adj = {"U1": {p.ref: 1 for p in parts}}
     for p in parts:
-        adj[p.ref] = {"U1"}
+        adj[p.ref] = {"U1": 1}
 
     group = PlacementGroup(name="main", parts=[ic] + parts, adjacency=adj)
     constraints = _simple_constraints(
