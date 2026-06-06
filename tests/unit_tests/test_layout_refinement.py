@@ -1,0 +1,178 @@
+from __future__ import annotations
+
+import pytest
+
+from skidl.layout.candidates import PlacementCandidate
+from skidl.layout.constraints import BoardOutline, EdgeAnchor, FixedPosition, LayoutConstraints
+from skidl.layout.geometry import FootprintGeometry
+from skidl.layout.refinement import refine_candidate_placement, refine_placement
+from skidl.layout.scoring import score_placement
+from skidl.layout.writer import PlacedPart
+
+
+class _Net:
+    def __init__(self, name):
+        self.name = name
+        self._pins = []
+
+    def get_pins(self):
+        return self._pins
+
+
+class _Pin:
+    def __init__(self, part, net):
+        self.part = part
+        self.net = net
+        net._pins.append(self)
+
+
+class _Part:
+    def __init__(self, ref, footprint, name="", nets=None, pins=2):
+        self.ref = ref
+        self.footprint = footprint
+        self.name = name
+        self.value = ""
+        self.pins = []
+        for net in nets or []:
+            self.pins.append(_Pin(self, net))
+        while len(self.pins) < pins:
+            self.pins.append(_Pin(self, _Net(f"{ref}_N{len(self.pins)}")))
+
+    def __len__(self):
+        return len(self.pins)
+
+
+class _Circuit:
+    def __init__(self, parts, nets):
+        self.parts = parts
+        self._nets = nets
+
+    def get_nets(self):
+        return self._nets
+
+
+BBOXES = {
+    "Package_QFP:MCU": (8.0, 8.0),
+    "Connector:USB": (10.0, 5.0),
+    "Package:Long": (16.0, 4.0),
+}
+
+
+def _connected_circuit():
+    sig = _Net("SIG")
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[sig], pins=8)
+    u2 = _Part("U2", "Package_QFP:MCU", nets=[sig], pins=8)
+    return _Circuit([u1, u2], [sig])
+
+
+def _signature(placed_parts):
+    return [
+        (
+            part.ref,
+            round(part.x_mm, 4),
+            round(part.y_mm, 4),
+            round(part.rot_deg, 4),
+        )
+        for part in placed_parts
+    ]
+
+
+def test_refinement_moves_unlocked_part_when_score_improves():
+    circuit = _connected_circuit()
+    constraints = LayoutConstraints(
+        outline=BoardOutline(100.0, 50.0),
+        fixed=[FixedPosition("U1", 10.0, 10.0)],
+    )
+    placed = [
+        PlacedPart("U1", 10.0, 10.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("U2", 80.0, 10.0, 0.0, "Package_QFP:MCU"),
+    ]
+    candidate = PlacementCandidate(
+        name="test",
+        placed_parts=placed,
+        constraints=constraints,
+    )
+    before = score_placement(
+        candidate.placed_parts,
+        circuit,
+        BBOXES,
+        outline=constraints.outline,
+    )
+
+    result = refine_candidate_placement(candidate, circuit, BBOXES)
+    after = score_placement(
+        candidate.placed_parts,
+        circuit,
+        BBOXES,
+        outline=constraints.outline,
+    )
+    by_ref = {part.ref: part for part in candidate.placed_parts}
+
+    assert result.accepted_moves >= 1
+    assert after.score > before.score
+    assert by_ref["U1"].x_mm == pytest.approx(10.0)
+    assert by_ref["U1"].y_mm == pytest.approx(10.0)
+    assert by_ref["U2"].x_mm < 80.0
+    assert "local refinement accepted" in "; ".join(candidate.reasons)
+    assert "connected-net centroid" in "; ".join(candidate.ref_reasons["U2"])
+
+
+def test_refinement_preserves_edge_anchor_positions():
+    vbus = _Net("VBUS")
+    j1 = _Part("J1", "Connector:USB", name="USB connector", nets=[vbus], pins=4)
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[vbus], pins=8)
+    circuit = _Circuit([j1, u1], [vbus])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(100.0, 60.0),
+        edge_anchors=[EdgeAnchor("J1", "bottom", offset_mm=50.0, rot_deg=180.0)],
+    )
+    placed = [
+        PlacedPart("J1", 50.0, 57.5, 180.0, "Connector:USB"),
+        PlacedPart("U1", 10.0, 10.0, 0.0, "Package_QFP:MCU"),
+    ]
+
+    result = refine_placement(placed, circuit, BBOXES, constraints=constraints)
+    by_ref = {part.ref: part for part in result.placed_parts}
+
+    assert by_ref["J1"].x_mm == pytest.approx(50.0)
+    assert by_ref["J1"].y_mm == pytest.approx(57.5)
+    assert by_ref["J1"].rot_deg == pytest.approx(180.0)
+
+
+def test_refinement_can_rotate_geometry_into_outline():
+    circuit = _Circuit([_Part("U1", "Package:Long", pins=8)], [])
+    constraints = LayoutConstraints(outline=BoardOutline(20.0, 20.0))
+    placed = [PlacedPart("U1", 18.0, 10.0, 0.0, "Package:Long")]
+    geometries = {
+        "Package:Long": FootprintGeometry(
+            footprint="Package:Long",
+            body_bounds=(-8.0, -2.0, 8.0, 2.0),
+        )
+    }
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=geometries,
+    )
+
+    assert result.accepted_rotations == 1
+    assert result.placed_parts[0].rot_deg == pytest.approx(90.0)
+    assert result.final_score > result.start_score
+
+
+def test_refinement_is_deterministic():
+    circuit = _connected_circuit()
+    constraints = LayoutConstraints(outline=BoardOutline(100.0, 50.0))
+    placed = [
+        PlacedPart("U1", 10.0, 10.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("U2", 80.0, 10.0, 0.0, "Package_QFP:MCU"),
+    ]
+
+    first = refine_placement(placed, circuit, BBOXES, constraints=constraints)
+    second = refine_placement(placed, circuit, BBOXES, constraints=constraints)
+
+    assert _signature(first.placed_parts) == _signature(second.placed_parts)
+    assert first.final_score == pytest.approx(second.final_score)

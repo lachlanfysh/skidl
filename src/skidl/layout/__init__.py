@@ -59,6 +59,11 @@ from .power import (
     plan_power_routes,
 )
 from .reader import read_board_outline, read_footprint_bboxes, read_placed_positions
+from .refinement import (
+    RefinementResult,
+    refine_candidate_placement,
+    refine_placement,
+)
 from .report import CandidateReport, PlacementReport
 from .roles import PartRole, classify_part, classify_parts
 from .scoring import LayoutScore, score_placement

@@ -24,6 +24,8 @@ Already implemented:
   refs and per-channel placement zones.
 - Deterministic congestion heatmap scoring/reporting for net spans, pin escape
   density, keepouts, and power corridors.
+- Deterministic score-gated local refinement for candidate moves, geometry
+  rotations, and compatible swaps while preserving fixed/edge refs and decaps.
 - Power route intents and reserved power corridor summaries.
 - Per-part candidate placement reasons in `PlacementReport`.
 
@@ -194,6 +196,13 @@ Tests:
 
 Goal: improve candidates after first placement without adding required heavy
 dependencies.
+
+Status: implemented. `refine_placement()` runs a bounded deterministic local
+search over unlocked candidate refs, tries small connected-net moves, geometry
+rotations, and compatible same-footprint swaps, and accepts only normal
+scorecard improvements that do not add hard violations. Fixed refs, edge
+anchors, face-edge rotations, zones, outlines, keepouts, and dedicated decap
+placements are preserved.
 
 Implementation tasks:
 

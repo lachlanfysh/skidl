@@ -16,6 +16,7 @@ from .orientation import refine_candidate_orientations
 from .placer import derive_outline, _footprint_name
 from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
+from .refinement import refine_candidate_placement
 from .report import PlacementReport, build_placement_report
 from .scoring import LayoutScore, score_placement
 from .validator import ValidationResult, validate
@@ -159,6 +160,14 @@ def plan_layout(
             circuit,
             fp_geometries,
             resolved_bboxes,
+        )
+        refine_candidate_placement(
+            candidate,
+            circuit,
+            resolved_bboxes,
+            fp_geometries=fp_geometries,
+            clearance_mm=clearance_mm,
+            board_layers=board_layers,
         )
         candidate_constraints = candidate.constraints or resolved_constraints
         candidate_validations[candidate.name] = validate(
