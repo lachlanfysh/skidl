@@ -483,6 +483,20 @@ def test_footprint_set_on_output():
     assert result[0].footprint == "Resistor_SMD:R_0805_2012Metric"
 
 
+def test_foot_attribute_supported_on_output():
+    r = MagicMock()
+    r.ref = "R1"
+    r.value = "10k"
+    r.foot = "Resistor_SMD:R_0805_2012Metric"
+    r.pins = []
+    r.__len__ = lambda self: 2
+    group = PlacementGroup(name="g", parts=[r], adjacency={})
+
+    result = place_parts({"g": group}, _simple_constraints(), _FP_BBOXES)
+
+    assert result[0].footprint == "Resistor_SMD:R_0805_2012Metric"
+
+
 # ---------------------------------------------------------------------------
 # Unknown footprint fallback
 # ---------------------------------------------------------------------------

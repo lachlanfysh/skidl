@@ -6,7 +6,7 @@ from skidl.layout.constraints import (
     FixedPosition,
     LayoutConstraints,
 )
-from skidl.layout.engine import LayoutResult, plan_layout
+from skidl.layout.engine import LayoutResult, _footprint_names, plan_layout
 
 
 class _Net:
@@ -66,6 +66,14 @@ def _circuit():
     c1 = _Part("C1", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
     j1 = _Part("J1", name="USB connector", footprint="Connector:USB", nets=[vbus, gnd])
     return _Circuit([u1, c1, j1], [vbus, vcc, gnd])
+
+
+def test_footprint_names_accepts_foot_alias():
+    part = _Part("R1", name="resistor")
+    part.foot = "Device:R"
+    circuit = _Circuit([part], [])
+
+    assert _footprint_names(circuit) == {"Device:R"}
 
 
 def test_plan_layout_derives_outline_scores_and_power_plan():

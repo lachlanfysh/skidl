@@ -12,7 +12,7 @@ from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometr
 from .hierarchy import PlacementGroup, extract_groups
 from .intent import PlacementIntentPlan, infer_placement_intents
 from .orientation import refine_candidate_orientations
-from .placer import derive_outline
+from .placer import derive_outline, _footprint_name
 from .power import PowerRoutePlan, plan_power_routes
 from .reader import read_board_outline
 from .report import PlacementReport, build_placement_report
@@ -72,9 +72,9 @@ def _copy_constraints(
 def _footprint_names(circuit) -> set[str]:
     names = set()
     for part in circuit.parts:
-        fp = getattr(part, "footprint", None)
+        fp = _footprint_name(part)
         if fp:
-            names.add(str(fp))
+            names.add(fp)
     return names
 
 
