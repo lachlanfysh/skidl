@@ -3,10 +3,16 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock
 
-from skidl.layout.constraints import LayoutConstraints, FixedPosition, BoardOutline
+from skidl.layout.constraints import (
+    AnchorZone,
+    BoardOutline,
+    EdgeAnchor,
+    FixedPosition,
+    LayoutConstraints,
+)
 from skidl.layout.hierarchy import PlacementGroup
 from skidl.layout.writer import PlacedPart
-from skidl.layout.placer import place_parts, _overlaps
+from skidl.layout.placer import place_parts, _overlaps, derive_outline
 
 
 # ---------------------------------------------------------------------------
@@ -39,14 +45,17 @@ def _make_mock_part(ref, value="10k", footprint="Resistor_SMD:R_0805_2012Metric"
 def _simple_constraints(**kwargs):
     return LayoutConstraints(
         fixed=kwargs.get('fixed', []),
-        zones=[],
-        keepouts=[],
+        zones=kwargs.get('zones', []),
+        edge_anchors=kwargs.get('edge_anchors', []),
+        keepouts=kwargs.get('keepouts', []),
         outline=kwargs.get('outline', None),
     )
 
 
 _FP_BBOXES = {
     "Package_DIP:DIP-28": (7.62, 35.56),
+    "Package_QFP:QFP-48": (10.0, 10.0),
+    "Connector_USB:USB_C": (10.0, 5.0),
     "Resistor_SMD:R_0805_2012Metric": (2.0, 1.25),
     "Capacitor_SMD:C_0805_2012Metric": (2.0, 1.25),
 }
@@ -221,6 +230,170 @@ def test_parts_within_outline():
         assert pp.y_mm - h / 2 >= 0, f"{pp.ref} off top edge"
         assert pp.x_mm + w / 2 <= outline.width_mm, f"{pp.ref} off right edge"
         assert pp.y_mm + h / 2 <= outline.height_mm, f"{pp.ref} off bottom edge"
+
+
+def test_parts_within_offset_outline_bounds():
+    outline = BoardOutline(
+        vertices=[(10.0, 20.0), (110.0, 20.0), (110.0, 100.0), (10.0, 100.0)]
+    )
+    parts = [_make_mock_part(f"R{i}") for i in range(4)]
+    group = PlacementGroup(name="g", parts=parts, adjacency={})
+    constraints = _simple_constraints(outline=outline)
+
+    result = place_parts({"g": group}, constraints, _FP_BBOXES)
+    for pp in result:
+        w, h = _FP_BBOXES.get(pp.footprint, (2.0, 2.0))
+        assert pp.x_mm - w / 2 >= outline.x_min
+        assert pp.y_mm - h / 2 >= outline.y_min
+        assert pp.x_mm + w / 2 <= outline.x_max
+        assert pp.y_mm + h / 2 <= outline.y_max
+
+
+def test_group_anchor_zone_keeps_parts_in_service_area():
+    outline = BoardOutline(110.0, 180.0)
+    zone = AnchorZone("service", 0.0, 130.0, 110.0, 180.0)
+    ic = _make_mock_part("U1", "MCU", "Package_QFP:QFP-48", num_pins=48)
+    cap = _make_mock_part(
+        "C1", "100nF", "Capacitor_SMD:C_0805_2012Metric",
+        num_pins=2, pin_nets=["VCC", "GND"],
+    )
+    group = PlacementGroup(
+        name="service",
+        parts=[ic, cap],
+        adjacency={"U1": {"C1": 2}, "C1": {"U1": 2}},
+    )
+
+    result = place_parts(
+        {"service": group},
+        _simple_constraints(outline=outline, zones=[zone]),
+        _FP_BBOXES,
+    )
+
+    for pp in result:
+        w, h = _FP_BBOXES[pp.footprint]
+        assert pp.x_mm - w / 2 >= zone.x_min
+        assert pp.x_mm + w / 2 <= zone.x_max
+        assert pp.y_mm - h / 2 >= zone.y_min
+        assert pp.y_mm + h / 2 <= zone.y_max
+
+
+def test_ref_anchor_zone_overrides_group_zone():
+    outline = BoardOutline(110.0, 180.0)
+    top_zone = AnchorZone("sensors", 0.0, 0.0, 110.0, 70.0)
+    ref_zone = AnchorZone("", 0.0, 130.0, 110.0, 180.0, refs=["U1"])
+    ic = _make_mock_part("U1", "MCU", "Package_QFP:QFP-48", num_pins=48)
+    group = PlacementGroup(name="sensors", parts=[ic], adjacency={})
+
+    result = place_parts(
+        {"sensors": group},
+        _simple_constraints(outline=outline, zones=[top_zone, ref_zone]),
+        _FP_BBOXES,
+    )
+
+    u1 = next(p for p in result if p.ref == "U1")
+    assert ref_zone.y_min <= u1.y_mm <= ref_zone.y_max
+
+
+def test_edge_anchor_places_connector_on_bottom_edge():
+    outline = BoardOutline(110.0, 180.0)
+    usb = _make_mock_part(
+        "J1", "USB", "Connector_USB:USB_C", num_pins=16,
+    )
+    group = PlacementGroup(name="service", parts=[usb], adjacency={})
+
+    result = place_parts(
+        {"service": group},
+        _simple_constraints(
+            outline=outline,
+            edge_anchors=[EdgeAnchor("J1", "bottom", offset_mm=55.0, rot_deg=180.0)],
+        ),
+        _FP_BBOXES,
+    )
+
+    j1 = next(p for p in result if p.ref == "J1")
+    _, h = _FP_BBOXES[j1.footprint]
+    assert j1.x_mm == pytest.approx(55.0)
+    assert j1.y_mm + h / 2 == pytest.approx(outline.y_max)
+    assert j1.rot_deg == 180.0
+
+
+def test_power_decaps_distribute_across_tied_fixed_parents():
+    u1 = _make_mock_part("U1", "Sensor", "Package_QFP:QFP-48", num_pins=8)
+    u2 = _make_mock_part("U2", "Sensor", "Package_QFP:QFP-48", num_pins=8)
+    c1 = _make_mock_part(
+        "C1", "100nF", "Capacitor_SMD:C_0805_2012Metric",
+        num_pins=2, pin_nets=["VCC", "GND"],
+    )
+    c2 = _make_mock_part(
+        "C2", "100nF", "Capacitor_SMD:C_0805_2012Metric",
+        num_pins=2, pin_nets=["VCC", "GND"],
+    )
+    adjacency = {
+        "U1": {"C1": 2, "C2": 2},
+        "U2": {"C1": 2, "C2": 2},
+        "C1": {"U1": 2, "U2": 2},
+        "C2": {"U1": 2, "U2": 2},
+    }
+    group = PlacementGroup(name="sensors", parts=[u1, u2, c1, c2], adjacency=adjacency)
+
+    result = place_parts(
+        {"sensors": group},
+        _simple_constraints(
+            outline=BoardOutline(100.0, 60.0),
+            fixed=[
+                FixedPosition("U1", 20.0, 30.0),
+                FixedPosition("U2", 80.0, 30.0),
+            ],
+        ),
+        _FP_BBOXES,
+    )
+    placed = {p.ref: p for p in result}
+
+    def nearest_parent(ref):
+        cap = placed[ref]
+        return min(
+            ["U1", "U2"],
+            key=lambda parent: (cap.x_mm - placed[parent].x_mm) ** 2
+            + (cap.y_mm - placed[parent].y_mm) ** 2,
+        )
+
+    assert {nearest_parent("C1"), nearest_parent("C2")} == {"U1", "U2"}
+
+
+def test_derive_outline_encloses_parts():
+    parts = [
+        PlacedPart("R1", 10.0, 20.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+        PlacedPart("R2", 50.0, 60.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+    ]
+    outline = derive_outline(parts, _FP_BBOXES, margin_mm=5.0)
+    assert isinstance(outline, BoardOutline)
+    assert outline.width_mm >= 52.0
+    assert outline.height_mm >= 51.0
+
+
+def test_derive_outline_preserves_offset_bounds():
+    parts = [
+        PlacedPart("R1", -10.0, 20.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+        PlacedPart("R2", 40.0, 70.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+    ]
+    outline = derive_outline(parts, _FP_BBOXES, margin_mm=5.0)
+    assert outline.x_min == pytest.approx(-16.0)
+    assert outline.y_min == pytest.approx(14.375)
+    assert outline.x_max == pytest.approx(46.0)
+    assert outline.y_max == pytest.approx(75.625)
+
+
+def test_derive_outline_empty_fallback():
+    outline = derive_outline([], _FP_BBOXES)
+    assert outline.width_mm == 50.0
+    assert outline.height_mm == 50.0
+
+
+def test_derive_outline_single_part():
+    parts = [PlacedPart("R1", 25.0, 25.0, 0.0, "Resistor_SMD:R_0805_2012Metric")]
+    outline = derive_outline(parts, _FP_BBOXES, margin_mm=3.0)
+    assert outline.width_mm == pytest.approx(8.0, abs=0.1)
+    assert outline.height_mm == pytest.approx(7.25, abs=0.1)
 
 
 # ---------------------------------------------------------------------------

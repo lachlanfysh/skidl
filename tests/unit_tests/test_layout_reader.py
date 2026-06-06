@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from skidl.layout.reader import read_footprint_bboxes, read_placed_positions
+from skidl.layout.reader import (
+    read_board_outline,
+    read_footprint_bboxes,
+    read_placed_positions,
+)
 
 MINIMAL_PCB = """(kicad_pcb
   (version 20240108)
@@ -109,3 +113,34 @@ def test_empty_pcb(tmp_path):
     path = _write_pcb(tmp_path, EMPTY_PCB)
     assert read_placed_positions(path) == []
     assert read_footprint_bboxes(path) == {}
+    assert read_board_outline(path) is None
+
+
+def test_read_rect_board_outline(tmp_path):
+    pcb = """(kicad_pcb
+  (version 20240108)
+  (generator "test")
+  (gr_rect (start 10 20) (end 110 80) (layer "Edge.Cuts") (stroke (width 0.1)))
+)"""
+    path = _write_pcb(tmp_path, pcb)
+    outline = read_board_outline(path)
+    assert outline is not None
+    assert outline.x_min == 10.0
+    assert outline.y_min == 20.0
+    assert outline.width_mm == 100.0
+    assert outline.height_mm == 60.0
+
+
+def test_read_polygon_board_outline(tmp_path):
+    pcb = """(kicad_pcb
+  (version 20240108)
+  (generator "test")
+  (gr_line (start 0 0) (end 30 0) (layer "Edge.Cuts") (stroke (width 0.1)))
+  (gr_line (start 30 0) (end 25 20) (layer "Edge.Cuts") (stroke (width 0.1)))
+  (gr_line (start 25 20) (end 0 20) (layer "Edge.Cuts") (stroke (width 0.1)))
+  (gr_line (start 0 20) (end 0 0) (layer "Edge.Cuts") (stroke (width 0.1)))
+)"""
+    path = _write_pcb(tmp_path, pcb)
+    outline = read_board_outline(path)
+    assert outline is not None
+    assert outline.vertices == [(0.0, 0.0), (30.0, 0.0), (25.0, 20.0), (0.0, 20.0)]

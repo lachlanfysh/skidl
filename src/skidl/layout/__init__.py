@@ -1,12 +1,23 @@
 from .constraints import (
-    FixedPosition,
     AnchorZone,
-    KeepOut,
     BoardOutline,
+    EdgeAnchor,
+    FixedPosition,
+    KeepOut,
     LayoutConstraints,
 )
+from .engine import LayoutResult, plan_layout
 from .hierarchy import PlacementGroup, extract_groups
-from .reader import read_placed_positions, read_footprint_bboxes
-from .placer import place_parts
-from .writer import PlacedPart, write_kicad_pcb, load_footprint_bboxes
-from .validator import validate, ValidationResult, run_kicad_drc
+from .placer import derive_outline, place_parts
+from .power import (
+    PowerNet,
+    PowerRouteIntent,
+    PowerRoutePlan,
+    identify_power_nets,
+    plan_power_routes,
+)
+from .reader import read_board_outline, read_footprint_bboxes, read_placed_positions
+from .roles import PartRole, classify_part, classify_parts
+from .scoring import LayoutScore, score_placement
+from .validator import ValidationResult, find_kicad_cli, run_kicad_drc, validate
+from .writer import PlacedPart, load_footprint_bboxes, write_kicad_pcb

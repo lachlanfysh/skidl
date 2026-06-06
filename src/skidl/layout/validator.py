@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 
 from .writer import PlacedPart
 
 
+_MACOS_KICAD_CLI = "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"
+
+
 @dataclass
 class ValidationResult:
     overlaps: list[tuple[str, str]] = field(default_factory=list)
+    outline_violations: list[str] = field(default_factory=list)
     worst_hpwl_nets: list[tuple[str, float]] = field(default_factory=list)
     missing_refs: list[str] = field(default_factory=list)
     extra_refs: list[str] = field(default_factory=list)
@@ -17,7 +23,11 @@ class ValidationResult:
 
     @property
     def ok(self) -> bool:
-        return not self.overlaps and not self.missing_refs
+        return (
+            not self.overlaps
+            and not self.missing_refs
+            and not self.outline_violations
+        )
 
     def summary(self) -> str:
         lines = []
@@ -30,6 +40,10 @@ class ValidationResult:
                 lines.append(f"  {a} ↔ {b}")
         else:
             lines.append("No overlaps")
+        if self.outline_violations:
+            lines.append(f"OUTSIDE OUTLINE ({len(self.outline_violations)}):")
+            for ref in self.outline_violations[:20]:
+                lines.append(f"  {ref}")
         if self.worst_hpwl_nets:
             lines.append("Worst HPWL nets:")
             for name, hpwl in self.worst_hpwl_nets[:10]:
@@ -51,6 +65,28 @@ def _check_overlaps(
                     abs(a.y_mm - b.y_mm) < (ha + hb) / 2 + clearance_mm):
                 overlaps.append((a.ref, b.ref))
     return overlaps
+
+
+def _check_outline_violations(
+    placed: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    outline,
+) -> list[str]:
+    if outline is None:
+        return []
+
+    violations = []
+    for pp in placed:
+        w, h = fp_bboxes.get(pp.footprint, (2.0, 2.0))
+        half_w, half_h = w / 2, h / 2
+        if (
+            pp.x_mm - half_w < outline.x_min
+            or pp.y_mm - half_h < outline.y_min
+            or pp.x_mm + half_w > outline.x_max
+            or pp.y_mm + half_h > outline.y_max
+        ):
+            violations.append(pp.ref)
+    return violations
 
 
 def _compute_hpwl(
@@ -86,10 +122,14 @@ def validate(
     circuit,
     fp_bboxes: dict[str, tuple[float, float]],
     clearance_mm: float = 0.5,
+    outline=None,
 ) -> ValidationResult:
     result = ValidationResult(placed_parts=len(placed_parts))
 
     result.overlaps = _check_overlaps(placed_parts, fp_bboxes, clearance_mm)
+    result.outline_violations = _check_outline_violations(
+        placed_parts, fp_bboxes, outline
+    )
 
     if circuit is not None:
         result.total_parts = len(circuit.parts)
@@ -102,10 +142,20 @@ def validate(
     return result
 
 
+def find_kicad_cli() -> str | None:
+    return shutil.which("kicad-cli") or (
+        _MACOS_KICAD_CLI if os.path.isfile(_MACOS_KICAD_CLI) else None
+    )
+
+
 def run_kicad_drc(pcb_path: str) -> tuple[bool, str]:
+    kicad_cli = find_kicad_cli()
+    if kicad_cli is None:
+        return True, "kicad-cli not available"
+
     try:
         result = subprocess.run(
-            ["kicad-cli", "pcb", "drc", "--output", pcb_path + ".drc.json", pcb_path],
+            [kicad_cli, "pcb", "drc", "--output", pcb_path + ".drc.json", pcb_path],
             capture_output=True,
             text=True,
             timeout=60,

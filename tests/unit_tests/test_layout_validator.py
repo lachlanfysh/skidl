@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from skidl.layout.constraints import BoardOutline
 from skidl.layout.writer import PlacedPart
 from skidl.layout.validator import validate, ValidationResult, run_kicad_drc
 
@@ -61,6 +62,11 @@ def test_ok_property_with_missing():
     assert result.ok is False
 
 
+def test_ok_property_with_outline_violations():
+    result = ValidationResult(placed_parts=5, total_parts=5, outline_violations=["R1"])
+    assert result.ok is False
+
+
 def test_summary_parts_count():
     result = ValidationResult(placed_parts=10, total_parts=12, missing_refs=["C1", "C2"])
     s = result.summary()
@@ -82,6 +88,50 @@ def test_summary_no_overlaps_message():
     result = ValidationResult(placed_parts=2, total_parts=2)
     s = result.summary()
     assert "No overlaps" in s
+
+
+def test_outline_violation_detected():
+    outline = BoardOutline(50.0, 50.0)
+    parts = [
+        PlacedPart("R1", 25.0, 25.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R2", 51.0, 25.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+    result = validate(parts, None, BBOXES_0805, outline=outline)
+    assert "R2" in result.outline_violations
+    assert "R1" not in result.outline_violations
+    assert result.ok is False
+
+
+def test_outline_violation_negative():
+    outline = BoardOutline(50.0, 50.0)
+    parts = [PlacedPart("R1", -5.0, 25.0, 0.0, "Resistor_SMD:R_0805")]
+    result = validate(parts, None, BBOXES_0805, outline=outline)
+    assert "R1" in result.outline_violations
+
+
+def test_offset_outline_bounds_used_for_validation():
+    outline = BoardOutline(
+        vertices=[(10.0, 20.0), (60.0, 20.0), (60.0, 70.0), (10.0, 70.0)]
+    )
+    parts = [
+        PlacedPart("R1", 20.0, 30.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R2", 5.0, 30.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+    result = validate(parts, None, BBOXES_0805, outline=outline)
+    assert result.outline_violations == ["R2"]
+
+
+def test_no_outline_no_violations():
+    parts = [PlacedPart("R1", 999.0, 999.0, 0.0, "Resistor_SMD:R_0805")]
+    result = validate(parts, None, BBOXES_0805)
+    assert result.outline_violations == []
+
+
+def test_outline_violation_in_summary():
+    result = ValidationResult(placed_parts=2, total_parts=2, outline_violations=["R2"])
+    s = result.summary()
+    assert "OUTSIDE OUTLINE" in s
+    assert "R2" in s
 
 
 def test_validate_with_none_circuit():

@@ -235,10 +235,90 @@ def test_write_missing_footprint_skipped(tmp_path):
         PlacedPart(ref="U1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint="NoLib:NoFP"),
     ]
     out = str(tmp_path / "board.kicad_pcb")
-    write_kicad_pcb(parts, circuit, [], out)
+    write_kicad_pcb(parts, circuit, [], out, strict_missing_footprints=False)
 
     with open(out) as f:
         board = Sexp(f.read())
 
     footprints = list(board.search("footprint"))
     assert len(footprints) == 0
+
+
+def test_write_missing_footprint_raises_by_default(tmp_path):
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(ref="U1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint="NoLib:NoFP"),
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    with pytest.raises(FileNotFoundError, match="INCOMPLETE PCB"):
+        write_kicad_pcb(parts, circuit, [], out)
+
+    assert not os.path.exists(out)
+
+
+def test_write_polygon_outline_as_edge_lines(tmp_path):
+    lib_root = _make_minimal_fp_lib(tmp_path)
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(
+            ref="R1",
+            x_mm=5.0,
+            y_mm=5.0,
+            rot_deg=0.0,
+            footprint="TestLib:R_Test",
+        )
+    ]
+    outline = BoardOutline(vertices=[(0, 0), (30, 0), (25, 20), (0, 20)])
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [lib_root], out, outline=outline)
+
+    with open(out) as f:
+        board = Sexp(f.read())
+
+    assert list(board.search("gr_rect")) == []
+    assert len(list(board.search("gr_line"))) == 4
+
+
+def test_write_filters_unsupported_internal_footprint_layers(tmp_path):
+    lib_dir = tmp_path / "TestLib.pretty"
+    lib_dir.mkdir()
+    mod = lib_dir / "Module_With_Zone.kicad_mod"
+    mod.write_text(
+        '(footprint "Module_With_Zone"\n'
+        '  (layer "F.Cu")\n'
+        '  (property "Reference" "REF**" (at 0 -2) (layer F.SilkS))\n'
+        '  (property "Value" "Module_With_Zone" (at 0 2) (layer F.Fab))\n'
+        '  (pad "1" smd rect (at 0 0) (size 1 1) (layers "*.Cu" "F.Mask"))\n'
+        '  (zone\n'
+        '    (net 0)\n'
+        '    (net_name "")\n'
+        '    (layers F.Cu B.Cu In1.Cu In2.Cu)\n'
+        '    (hatch edge 0.5)\n'
+        '    (connect_pads (clearance 0.2))\n'
+        '    (polygon (pts (xy -1 -1) (xy 1 -1) (xy 1 1) (xy -1 1)))\n'
+        '  )\n'
+        ')\n'
+    )
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(
+            ref="U1",
+            x_mm=5.0,
+            y_mm=5.0,
+            rot_deg=0.0,
+            footprint="TestLib:Module_With_Zone",
+        )
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [str(tmp_path)], out)
+
+    content = open(out).read()
+    assert "In1.Cu" not in content
+    assert "In2.Cu" not in content
+    board = Sexp(content)
+    zone = list(board.search("zone"))[0]
+    layers = next(child for child in zone if isinstance(child, list) and child[0] == "layers")
+    assert layers == ["layers", "F.Cu", "B.Cu"]
