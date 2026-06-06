@@ -26,6 +26,7 @@ class PlacementReport:
     candidates: list[CandidateReport] = field(default_factory=list)
     hard_violations: list[str] = field(default_factory=list)
     risky_nets: list[tuple[str, float]] = field(default_factory=list)
+    congestion_regions: list[str] = field(default_factory=list)
     power_corridors: list[str] = field(default_factory=list)
     power_topology: list[str] = field(default_factory=list)
     part_reasons: dict[str, list[str]] = field(default_factory=dict)
@@ -56,6 +57,10 @@ class PlacementReport:
             lines.append("Top risky nets:")
             for name, hpwl in self.risky_nets[:10]:
                 lines.append(f"  {name}: {hpwl:.1f}mm")
+        if self.congestion_regions:
+            lines.append("Top congested regions:")
+            for region in self.congestion_regions[:5]:
+                lines.append(f"  {region}")
         if self.power_corridors:
             lines.append("Power corridors:")
             for corridor in self.power_corridors[:10]:
@@ -136,6 +141,7 @@ def build_placement_report(
         candidates=candidate_reports,
         hard_violations=hard_violations,
         risky_nets=list(selected_validation.worst_hpwl_nets),
+        congestion_regions=list(selected_score.congestion_regions[:5]),
         power_corridors=power_corridors,
         power_topology=power_topology,
         part_reasons=dict(selected.ref_reasons),

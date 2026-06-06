@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from .congestion import build_congestion_map
 from .geometry import FootprintGeometry
 from .power import plan_power_routes
 from .roles import GND_NET_RE, POWER_NET_RE, PartRole, classify_parts, pin_net_names
@@ -25,6 +26,7 @@ class LayoutScore:
     power_corridor_count: int = 0
     role_counts: dict[str, int] = field(default_factory=dict)
     power_net_count: int = 0
+    congestion_regions: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -51,6 +53,10 @@ class LayoutScore:
             lines.append(f"Estimated crossings: {self.crossing_count}")
         if self.congestion_score:
             lines.append(f"Pin escape congestion: {self.congestion_score:.1f}")
+        if self.congestion_regions:
+            lines.append("Top congested regions:")
+            for region in self.congestion_regions[:5]:
+                lines.append(f"  {region}")
         if self.power_corridor_count:
             lines.append(f"Power corridors: {self.power_corridor_count}")
         if self.warnings:
@@ -321,7 +327,23 @@ def score_placement(
     total_hpwl = _total_hpwl(placed_parts, circuit)
     weighted_hpwl = _weighted_hpwl(placed_parts, circuit)
     crossing_count = _estimate_crossings(placed_parts, circuit)
-    congestion_score = _pin_escape_congestion(placed_parts, circuit)
+    pin_escape_score = _pin_escape_congestion(placed_parts, circuit)
+    congestion_map = build_congestion_map(
+        placed_parts,
+        circuit,
+        outline=outline,
+        keepouts=keepouts,
+        power_plan=power_plan,
+        board_layers=board_layers,
+    )
+    congestion_score = (
+        pin_escape_score
+        + congestion_map.peak_demand
+        + congestion_map.average_demand * 0.5
+    )
+    congestion_regions = [
+        region.label for region in congestion_map.top_regions(limit=5)
+    ]
 
     penalty = 0.0
     penalty += len(validation.overlaps) * 25.0
@@ -352,6 +374,7 @@ def score_placement(
         congestion_score=congestion_score,
         role_counts=_role_counts(roles),
         power_net_count=len(power_plan.nets) if power_plan is not None else 0,
+        congestion_regions=congestion_regions,
         power_corridor_count=(
             len(power_plan.corridors) if power_plan is not None else 0
         ),

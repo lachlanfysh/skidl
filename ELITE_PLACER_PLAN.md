@@ -22,6 +22,8 @@ Already implemented:
   ordering, candidate biasing, and report summaries.
 - Channel slot metadata for repeated structures, including shared controller
   refs and per-channel placement zones.
+- Deterministic congestion heatmap scoring/reporting for net spans, pin escape
+  density, keepouts, and power corridors.
 - Power route intents and reserved power corridor summaries.
 - Per-part candidate placement reasons in `PlacementReport`.
 
@@ -167,6 +169,11 @@ Tests:
 ## Phase 5: Congestion Heatmap
 
 Goal: score whether a placement is likely to route before autorouting exists.
+
+Status: implemented. `build_congestion_map()` creates a deterministic grid
+from net spans, pin escape density, power corridors, and keepouts. Scoring uses
+peak/average congestion with 4-layer relief, and reports include top congested
+regions with contributing reasons.
 
 Implementation tasks:
 
