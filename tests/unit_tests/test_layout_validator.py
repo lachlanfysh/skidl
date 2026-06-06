@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from skidl.layout.constraints import BoardOutline
+from skidl.layout.constraints import BoardOutline, KeepOut
 from skidl.layout.writer import PlacedPart
 from skidl.layout.validator import validate, ValidationResult, run_kicad_drc
 
@@ -132,6 +132,43 @@ def test_outline_violation_in_summary():
     s = result.summary()
     assert "OUTSIDE OUTLINE" in s
     assert "R2" in s
+
+
+def test_keepout_violation_detected_and_fails_validation():
+    parts = [
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R2", 30.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+    result = validate(
+        parts,
+        None,
+        BBOXES_0805,
+        keepouts=[KeepOut(8.0, 8.0, 12.0, 12.0)],
+    )
+
+    assert result.keepout_violations == ["R1"]
+    assert result.ok is False
+    assert "INSIDE KEEPOUT" in result.summary()
+
+
+def test_polygon_outline_containment_checks_corners():
+    outline = BoardOutline(
+        vertices=[
+            (0.0, 0.0),
+            (50.0, 0.0),
+            (50.0, 50.0),
+            (25.0, 35.0),
+            (0.0, 50.0),
+        ]
+    )
+    parts = [
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R2", 25.0, 45.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+
+    result = validate(parts, None, BBOXES_0805, outline=outline)
+
+    assert result.outline_violations == ["R2"]
 
 
 def test_validate_with_none_circuit():

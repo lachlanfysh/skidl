@@ -120,3 +120,20 @@ def test_score_includes_power_plan_warnings():
     assert any(
         "regulator has no decoupling cap" in warning for warning in score.warnings
     )
+
+
+def test_four_layer_board_scores_long_high_current_path_better_than_two_layer():
+    vbus = _Net("VBUS")
+    gnd = _Net("GND")
+    j1 = _Part("J1", name="USB connector", foot="Connector:Header", nets=[vbus, gnd])
+    u1 = _Part("U1", name="load", foot="Package_QFP:MCU", nets=[vbus, gnd], pins=4)
+    circuit = _Circuit([j1, u1], [vbus, gnd])
+    placed = [
+        PlacedPart("J1", 0.0, 0.0, 0.0, "Connector:Header"),
+        PlacedPart("U1", 100.0, 0.0, 0.0, "Package_QFP:MCU"),
+    ]
+
+    score_2_layer = score_placement(placed, circuit, BBOXES, board_layers=2)
+    score_4_layer = score_placement(placed, circuit, BBOXES, board_layers=4)
+
+    assert score_4_layer.score > score_2_layer.score

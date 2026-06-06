@@ -5,10 +5,16 @@ from unittest.mock import MagicMock
 
 from skidl.layout.constraints import (
     AnchorZone,
+    AlignConstraint,
     BoardOutline,
+    DistributeConstraint,
     EdgeAnchor,
+    FaceEdgeConstraint,
+    FarConstraint,
     FixedPosition,
+    KeepOut,
     LayoutConstraints,
+    NearConstraint,
 )
 from skidl.layout.hierarchy import PlacementGroup
 from skidl.layout.writer import PlacedPart
@@ -315,6 +321,68 @@ def test_edge_anchor_places_connector_on_bottom_edge():
     assert j1.x_mm == pytest.approx(55.0)
     assert j1.y_mm + h / 2 == pytest.approx(outline.y_max)
     assert j1.rot_deg == 180.0
+
+
+def test_keepout_is_avoided_during_placement():
+    outline = BoardOutline(50.0, 40.0)
+    r1 = _make_mock_part("R1")
+    r2 = _make_mock_part("R2")
+    group = PlacementGroup(name="g", parts=[r1, r2], adjacency={})
+
+    result = place_parts(
+        {"g": group},
+        _simple_constraints(
+            outline=outline,
+            keepouts=[KeepOut(20.0, 15.0, 30.0, 25.0)],
+        ),
+        _FP_BBOXES,
+    )
+
+    for placed in result:
+        assert not (20.0 <= placed.x_mm <= 30.0 and 15.0 <= placed.y_mm <= 25.0)
+
+
+def test_align_and_distribute_constraints_move_parts_after_initial_placement():
+    parts = [_make_mock_part(f"R{i}") for i in range(1, 4)]
+    group = PlacementGroup(name="g", parts=parts, adjacency={})
+    constraints = LayoutConstraints(
+        outline=BoardOutline(60.0, 40.0),
+        align=[AlignConstraint(["R1", "R2", "R3"], "y", 20.0)],
+        distribute=[DistributeConstraint(["R1", "R2", "R3"], "x", 10.0, 30.0)],
+    )
+
+    result = {placed.ref: placed for placed in place_parts({"g": group}, constraints, _FP_BBOXES)}
+
+    assert [result[ref].x_mm for ref in ["R1", "R2", "R3"]] == pytest.approx(
+        [10.0, 20.0, 30.0]
+    )
+    assert [result[ref].y_mm for ref in ["R1", "R2", "R3"]] == pytest.approx(
+        [20.0, 20.0, 20.0]
+    )
+
+
+def test_near_far_and_face_edge_constraints_are_applied():
+    u1 = _make_mock_part("U1", "MCU", "Package_QFP:QFP-48", num_pins=48)
+    r1 = _make_mock_part("R1")
+    r2 = _make_mock_part("R2")
+    group = PlacementGroup(
+        name="g",
+        parts=[u1, r1, r2],
+        adjacency={"U1": {"R1": 1, "R2": 1}, "R1": {"U1": 1}, "R2": {"U1": 1}},
+    )
+    constraints = LayoutConstraints(
+        outline=BoardOutline(80.0, 60.0),
+        fixed=[FixedPosition("U1", 20.0, 30.0)],
+        near=[NearConstraint("R1", "U1", 8.0)],
+        far=[FarConstraint("R2", "U1", 24.0)],
+        face_edges=[FaceEdgeConstraint("U1", "right", rot_deg=90.0)],
+    )
+
+    result = {placed.ref: placed for placed in place_parts({"g": group}, constraints, _FP_BBOXES)}
+
+    assert result["U1"].rot_deg == 90.0
+    assert ((result["R1"].x_mm - 20.0) ** 2 + (result["R1"].y_mm - 30.0) ** 2) ** 0.5 < 12.0
+    assert ((result["R2"].x_mm - 20.0) ** 2 + (result["R2"].y_mm - 30.0) ** 2) ** 0.5 >= 24.0
 
 
 def test_power_decaps_distribute_across_tied_fixed_parents():
