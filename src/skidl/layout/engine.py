@@ -72,9 +72,9 @@ def _copy_constraints(
 def _footprint_names(circuit) -> set[str]:
     names = set()
     for part in circuit.parts:
-        foot = getattr(part, "foot", None) or getattr(part, "footprint", None)
-        if foot:
-            names.add(foot)
+        fp = getattr(part, "footprint", None)
+        if fp:
+            names.add(str(fp))
     return names
 
 

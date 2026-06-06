@@ -22,6 +22,23 @@ def _q(value) -> str:
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def _needs_quoting(s: str) -> bool:
+    if not s:
+        return True
+    if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+        return False
+    return any(c in s for c in ' "\t\n\r()')
+
+
+def _requote_strings(sexp):
+    """Quote string tokens that contain spaces or special characters."""
+    for i, item in enumerate(sexp):
+        if isinstance(item, list):
+            _requote_strings(item)
+        elif i > 0 and isinstance(item, str) and _needs_quoting(item):
+            sexp[i] = _q(item)
+
+
 _LAYERS = [
     (0,  _q("F.Cu"),      "signal"),
     (2,  _q("B.Cu"),      "signal"),
@@ -73,11 +90,44 @@ def _kiid_path(part) -> str:
     return "/" + "/".join(sheet_uuids) + "/" + _part_uuid(part)
 
 
-def _fp_file_path(fp_name: str, fp_lib_dirs: list[str]) -> str:
+def parse_fp_lib_table(path: str, project_dir: str = None) -> dict[str, str]:
+    """Parse fp-lib-table and return {lib_name: resolved_dir_path}."""
+    if project_dir is None:
+        project_dir = os.path.dirname(os.path.abspath(path))
+    result = {}
+    try:
+        with open(path) as f:
+            table = Sexp(f.read())
+    except (FileNotFoundError, OSError):
+        return result
+    for lib in table.search("lib"):
+        name_node = _find_child(lib, "name")
+        uri_node = _find_child(lib, "uri")
+        if name_node and uri_node and len(name_node) > 1 and len(uri_node) > 1:
+            lib_name = str(name_node[1]).strip('"')
+            uri = str(uri_node[1]).strip('"')
+            uri = uri.replace("${KIPRJMOD}", project_dir)
+            result[lib_name] = uri
+    return result
+
+
+def _fp_file_path(
+    fp_name: str,
+    fp_lib_dirs: list[str],
+    lib_table: dict[str, str] = None,
+) -> str:
+    if ":" not in fp_name:
+        raise FileNotFoundError(f"Invalid footprint name (no library prefix): {fp_name!r}")
     lib, name = fp_name.split(":", 1)
-    lib_dir = f"{lib}.pretty"
     file_name = f"{name}.kicad_mod"
 
+    # Check fp-lib-table mapping first
+    if lib_table and lib in lib_table:
+        candidate = os.path.join(lib_table[lib], file_name)
+        if os.path.isfile(candidate):
+            return candidate
+
+    lib_dir = f"{lib}.pretty"
     search_dirs = list(fp_lib_dirs)
     env_dir = os.environ.get("KICAD9_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
     if env_dir:
@@ -91,9 +141,9 @@ def _fp_file_path(fp_name: str, fp_lib_dirs: list[str]) -> str:
     raise FileNotFoundError(f"Footprint not found: {fp_name} (searched {search_dirs})")
 
 
-def load_footprint(fp_name: str, fp_lib_dirs: list[str]) -> Sexp:
+def load_footprint(fp_name: str, fp_lib_dirs: list[str], lib_table: dict[str, str] = None) -> Sexp:
     """Load a .kicad_mod footprint file and return its S-expression."""
-    path = _fp_file_path(fp_name, fp_lib_dirs)
+    path = _fp_file_path(fp_name, fp_lib_dirs, lib_table)
     with open(path) as f:
         return Sexp(f.read())
 
@@ -125,12 +175,16 @@ def footprint_bbox(fp_sexp: Sexp) -> tuple[float, float]:
     return (max(xs) - min(xs), max(ys) - min(ys))
 
 
-def load_footprint_bboxes(fp_names: set[str], fp_lib_dirs: list[str]) -> dict[str, tuple[float, float]]:
+def load_footprint_bboxes(
+    fp_names: set[str],
+    fp_lib_dirs: list[str],
+    lib_table: dict[str, str] = None,
+) -> dict[str, tuple[float, float]]:
     """Load bounding boxes for a set of footprint names."""
     result: dict[str, tuple[float, float]] = {}
     for name in fp_names:
         try:
-            fp_sexp = load_footprint(name, fp_lib_dirs)
+            fp_sexp = load_footprint(name, fp_lib_dirs, lib_table)
             result[name] = footprint_bbox(fp_sexp)
         except FileNotFoundError:
             pass
@@ -231,7 +285,22 @@ def _ensure_uuid(node, seed: str):
         node.append(Sexp(["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, seed))]))
 
 
+_ALWAYS_QUOTE_FIELDS = frozenset({
+    "uuid", "generator", "generator_version", "descr", "tags", "model",
+})
+
+
+def _quote_known_fields(sexp):
+    """Quote values of KiCad fields that always require quoted strings."""
+    for node in _walk_nodes(sexp):
+        if len(node) >= 2 and node[0] in _ALWAYS_QUOTE_FIELDS:
+            if isinstance(node[1], str):
+                node[1] = _q(node[1])
+
+
 def _prepare_footprint_for_board(fp: Sexp, fp_uuid: str):
+    _requote_strings(fp)
+    _quote_known_fields(fp)
     if len(fp) > 1:
         fp[1] = _q(fp[1])
     _sanitize_layer_nodes(fp)
@@ -348,6 +417,7 @@ def write_kicad_pcb(
     outline: BoardOutline = None,
     version: int = 20241229,
     strict_missing_footprints: bool = True,
+    lib_table: dict[str, str] = None,
 ):
     """Write a complete .kicad_pcb file."""
     net_map, nets = _build_net_map(circuit)
@@ -376,7 +446,7 @@ def write_kicad_pcb(
     missing_fps = []
     for pp in placed_parts:
         try:
-            fp_sexp = load_footprint(pp.footprint, fp_lib_dirs)
+            fp_sexp = load_footprint(pp.footprint, fp_lib_dirs, lib_table)
         except FileNotFoundError:
             missing_fps.append((pp.ref, pp.footprint))
             logger.warning(

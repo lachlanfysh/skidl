@@ -21,11 +21,11 @@ class _Pin:
 
 
 class _Part:
-    def __init__(self, ref, value="", name="", foot="", nets=None, pins=2):
+    def __init__(self, ref, value="", name="", footprint="", nets=None, pins=2):
         self.ref = ref
         self.value = value
         self.name = name
-        self.foot = foot
+        self.footprint = footprint
         self.pins = []
         for net in nets or []:
             self.pins.append(_Pin(self, net))
@@ -53,19 +53,19 @@ def _power_circuit():
     j1 = _Part(
         "J1",
         name="USB connector",
-        foot="Connector:USB",
+        footprint="Connector:USB",
         nets=[vbus, gnd],
         pins=2,
     )
-    u1 = _Part("U1", name="MCU", foot="Package_QFP:MCU", nets=[vcc, gnd, sig], pins=3)
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd, sig], pins=3)
     u2 = _Part(
         "U2",
         name="LDO regulator",
-        foot="Package_TO_SOT:SOT23",
+        footprint="Package_TO_SOT:SOT23",
         nets=[vbus, gnd, vcc],
         pins=3,
     )
-    c1 = _Part("C1", value="100nF", foot="Capacitor:C_0805", nets=[vcc, gnd])
+    c1 = _Part("C1", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
     return _Circuit([j1, u1, u2, c1], [vbus, vcc, gnd, sig])
 
 

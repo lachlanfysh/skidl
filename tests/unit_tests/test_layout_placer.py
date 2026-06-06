@@ -35,7 +35,7 @@ def _make_mock_part(ref, value="10k", footprint="Resistor_SMD:R_0805_2012Metric"
     part = MagicMock()
     part.ref = ref
     part.value = value
-    part.foot = footprint
+    part.footprint = footprint
     pins = []
     for i in range(num_pins):
         pin = MagicMock()

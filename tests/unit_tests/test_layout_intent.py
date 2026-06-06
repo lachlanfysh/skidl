@@ -21,10 +21,10 @@ class _Pin:
 
 
 class _Part:
-    def __init__(self, ref, value="", foot="", name="", nets=None, pins=2):
+    def __init__(self, ref, value="", footprint="", name="", nets=None, pins=2):
         self.ref = ref
         self.value = value
-        self.foot = foot
+        self.footprint = footprint
         self.name = name
         self.node = None
         self.pins = []
@@ -53,8 +53,8 @@ def _kinds(plan, ref):
 def test_infers_edge_connector_power_and_debug_intent():
     vbus = _Net("VBUS")
     gnd = _Net("GND")
-    usb = _Part("J1", name="USB connector", foot="Connector:USB_C", nets=[vbus, gnd], pins=16)
-    debug = _Part("J2", name="SWD debug header", foot="Connector:TagConnect", nets=[gnd], pins=6)
+    usb = _Part("J1", name="USB connector", footprint="Connector:USB_C", nets=[vbus, gnd], pins=16)
+    debug = _Part("J2", name="SWD debug header", footprint="Connector:TagConnect", nets=[gnd], pins=6)
     circuit = _Circuit([usb, debug], [vbus, gnd])
 
     plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
@@ -107,13 +107,13 @@ def test_infers_mux_and_repeated_channel_intent():
     mux = _Part(
         "U1",
         name="analog mux",
-        foot="Package_QFN:MUX",
+        footprint="Package_QFN:MUX",
         nets=[ch0, ch1, ch2, ch3],
         pins=4,
     )
     sensors = [
-        _Part("U2", name="sensor", foot="Sensor:S", nets=[ch0], pins=3),
-        _Part("U3", name="sensor", foot="Sensor:S", nets=[ch1], pins=3),
+        _Part("U2", name="sensor", footprint="Sensor:S", nets=[ch0], pins=3),
+        _Part("U3", name="sensor", footprint="Sensor:S", nets=[ch1], pins=3),
     ]
     circuit = _Circuit([mux, *sensors], [ch0, ch1, ch2, ch3])
 

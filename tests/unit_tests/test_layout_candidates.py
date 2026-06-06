@@ -14,9 +14,9 @@ from skidl.layout.intent import MatingIntent, PlacementIntentPlan, RepeatedChann
 
 
 class _Part:
-    def __init__(self, ref, foot, pins=4):
+    def __init__(self, ref, footprint, pins=4):
         self.ref = ref
-        self.foot = foot
+        self.footprint = footprint
         self.value = ""
         self.name = ""
         self.pins = [object() for _ in range(pins)]

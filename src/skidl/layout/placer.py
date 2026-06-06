@@ -17,13 +17,14 @@ from .writer import PlacedPart
 
 _DEFAULT_BBOX = (2.0, 2.0)
 
+_PASSIVE_BBOX = (1.7, 0.9)
+
 
 def _footprint_name(part) -> str:
-    return (
-        getattr(part, "foot", None)
-        or getattr(part, "footprint", None)
-        or ""
-    )
+    fp = getattr(part, "footprint", None)
+    if fp:
+        return str(fp)
+    return ""
 
 
 def _pin_net_names(part) -> list[str]:
@@ -54,7 +55,12 @@ def _is_decoupling_cap(part) -> bool:
 
 
 def _bbox(part, fp_bboxes: dict) -> tuple[float, float]:
-    return fp_bboxes.get(_footprint_name(part), _DEFAULT_BBOX)
+    fp = _footprint_name(part)
+    if fp in fp_bboxes:
+        return fp_bboxes[fp]
+    if len(part) == 2:
+        return _PASSIVE_BBOX
+    return _DEFAULT_BBOX
 
 
 def _overlaps(x1, y1, w1, h1, x2, y2, w2, h2, clearance=0.5) -> bool:
@@ -122,6 +128,48 @@ def _find_clear_position(
             ):
                 return x, y
     return target_x, target_y
+
+
+def _find_near_parent(
+    parent_x: float,
+    parent_y: float,
+    pw: float,
+    ph: float,
+    width: float,
+    height: float,
+    n: int,
+    occupied: list[tuple],
+    bounds=None,
+) -> tuple[float, float]:
+    """Try right/below/left/above offsets from parent, return closest clear position."""
+    # Use rotation-safe (square) dimensions so orientation refinement can't
+    # create overlaps by rotating a part after placement.
+    side = max(width, height)
+    gap = 1.0
+    offsets = [
+        (pw / 2 + side / 2 + gap + n * (side + 0.5), 0),
+        (0, ph / 2 + side / 2 + gap + n * (side + 0.5)),
+        (-(pw / 2 + side / 2 + gap + n * (side + 0.5)), 0),
+        (0, -(ph / 2 + side / 2 + gap + n * (side + 0.5))),
+    ]
+
+    best, best_dist = None, float("inf")
+    for dx, dy in offsets:
+        tx = parent_x + dx
+        ty = parent_y + dy
+        if bounds is not None:
+            tx, ty = _clamp_to_bounds(tx, ty, side, side, bounds)
+        x, y = _find_clear_position(
+            tx, ty, side, side, occupied, bounds=bounds,
+            step=0.5, max_radius=25.0,
+        )
+        if bounds is not None:
+            x, y = _clamp_to_bounds(x, y, side, side, bounds)
+        dist = math.hypot(x - parent_x, y - parent_y)
+        if dist < best_dist:
+            best = (x, y)
+            best_dist = dist
+    return best
 
 
 def _clamp_to_bounds(x, y, w, h, bounds) -> tuple[float, float]:
@@ -509,8 +557,10 @@ def place_parts(
             )
             parent = placed_map[parent_ref]
             pw, ph = _bbox_for_ref(parent_ref, all_parts, fp_bboxes)
-            target_x = parent.x_mm + pw / 2 + w / 2 + 1.5
-            target_y = parent.y_mm
+            n = decap_parent_counts[parent_ref] - 1
+            x, y = _find_near_parent(
+                parent.x_mm, parent.y_mm, pw, ph, w, h, n, occupied, bounds,
+            )
             rot = parent.rot_deg
         else:
             target_x, target_y = (
@@ -519,11 +569,11 @@ def place_parts(
                 else _spillover_position(placed_map, constraints)
             )
             rot = 0.0
-        target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
-        x, y = _find_clear_position(
-            target_x, target_y, w, h, occupied, bounds=bounds
-        )
-        x, y = _clamp_to_bounds(x, y, w, h, bounds)
+            target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
+            x, y = _find_clear_position(
+                target_x, target_y, w, h, occupied, bounds=bounds
+            )
+            x, y = _clamp_to_bounds(x, y, w, h, bounds)
         _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=rot,
                            footprint=_footprint_name(part)), w, h)
 
@@ -549,9 +599,9 @@ def place_parts(
             pw, ph = _bbox_for_ref(parent_ref, all_parts, fp_bboxes)
             n = stack_count.get(parent_ref, 0)
             stack_count[parent_ref] = n + 1
-            # Stack below the parent, offset by (n+1) steps
-            target_x = parent.x_mm
-            target_y = parent.y_mm + ph / 2 + h / 2 + 1.0 + n * (h + 1.0)
+            x, y = _find_near_parent(
+                parent.x_mm, parent.y_mm, pw, ph, w, h, n, occupied, bounds,
+            )
             rot = parent.rot_deg
         else:
             target_x, target_y = (
@@ -560,11 +610,11 @@ def place_parts(
                 else _spillover_position(placed_map, constraints)
             )
             rot = 0.0
-        target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
-        x, y = _find_clear_position(
-            target_x, target_y, w, h, occupied, bounds=bounds
-        )
-        x, y = _clamp_to_bounds(x, y, w, h, bounds)
+            target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
+            x, y = _find_clear_position(
+                target_x, target_y, w, h, occupied, bounds=bounds
+            )
+            x, y = _clamp_to_bounds(x, y, w, h, bounds)
         _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=rot,
                            footprint=_footprint_name(part)), w, h)
 

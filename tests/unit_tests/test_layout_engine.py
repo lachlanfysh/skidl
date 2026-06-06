@@ -26,10 +26,10 @@ class _Pin:
 
 
 class _Part:
-    def __init__(self, ref, value="", foot="", name="", nets=None, pins=2):
+    def __init__(self, ref, value="", footprint="", name="", nets=None, pins=2):
         self.ref = ref
         self.value = value
-        self.foot = foot
+        self.footprint = footprint
         self.name = name
         self.node = None
         self.pins = []
@@ -62,9 +62,9 @@ def _circuit():
     vbus = _Net("VBUS")
     vcc = _Net("3V3")
     gnd = _Net("GND")
-    u1 = _Part("U1", name="MCU", foot="Package_QFP:MCU", nets=[vcc, gnd], pins=2)
-    c1 = _Part("C1", value="100nF", foot="Capacitor:C_0805", nets=[vcc, gnd])
-    j1 = _Part("J1", name="USB connector", foot="Connector:USB", nets=[vbus, gnd])
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=2)
+    c1 = _Part("C1", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    j1 = _Part("J1", name="USB connector", footprint="Connector:USB", nets=[vbus, gnd])
     return _Circuit([u1, c1, j1], [vbus, vcc, gnd])
 
 

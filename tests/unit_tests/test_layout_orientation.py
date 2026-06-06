@@ -24,9 +24,9 @@ class _Pin:
 
 
 class _Part:
-    def __init__(self, ref, foot, pins):
+    def __init__(self, ref, footprint, pins):
         self.ref = ref
-        self.foot = foot
+        self.footprint = footprint
         self.pins = []
         for num, net in pins:
             self.pins.append(_Pin(self, num, net))

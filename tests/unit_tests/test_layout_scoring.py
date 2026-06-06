@@ -22,10 +22,10 @@ class _Pin:
 
 
 class _Part:
-    def __init__(self, ref, value="", foot="", name="", nets=None, pins=2):
+    def __init__(self, ref, value="", footprint="", name="", nets=None, pins=2):
         self.ref = ref
         self.value = value
-        self.foot = foot
+        self.footprint = footprint
         self.name = name
         self.pins = []
         for net in nets or []:
@@ -54,7 +54,7 @@ BBOXES = {
 
 
 def test_score_connector_warns_when_far_from_edge():
-    connector = _Part("J1", name="Header", foot="Connector:Header")
+    connector = _Part("J1", name="Header", footprint="Connector:Header")
     circuit = _Circuit([connector], [])
     placed = [PlacedPart("J1", 50.0, 50.0, 0.0, "Connector:Header")]
 
@@ -70,8 +70,8 @@ def test_score_decoupling_cap_warns_when_far_from_parent():
     vcc = _Net("VCC")
     gnd = _Net("GND")
     sig = _Net("SIG")
-    ic = _Part("U1", name="MCU", foot="Package_QFP:MCU", nets=[vcc, gnd, sig], pins=3)
-    cap = _Part("C1", value="100nF", foot="Capacitor:C_0805", nets=[vcc, gnd])
+    ic = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd, sig], pins=3)
+    cap = _Part("C1", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
     circuit = _Circuit([ic, cap], [vcc, gnd, sig])
     placed = [
         PlacedPart("U1", 10.0, 10.0, 0.0, "Package_QFP:MCU"),
@@ -107,7 +107,7 @@ def test_score_includes_power_plan_warnings():
     regulator = _Part(
         "U2",
         name="LDO regulator",
-        foot="Package_TO_SOT:SOT23",
+        footprint="Package_TO_SOT:SOT23",
         nets=[vbus, gnd, vcc],
         pins=3,
     )
@@ -125,8 +125,8 @@ def test_score_includes_power_plan_warnings():
 def test_four_layer_board_scores_long_high_current_path_better_than_two_layer():
     vbus = _Net("VBUS")
     gnd = _Net("GND")
-    j1 = _Part("J1", name="USB connector", foot="Connector:Header", nets=[vbus, gnd])
-    u1 = _Part("U1", name="load", foot="Package_QFP:MCU", nets=[vbus, gnd], pins=4)
+    j1 = _Part("J1", name="USB connector", footprint="Connector:Header", nets=[vbus, gnd])
+    u1 = _Part("U1", name="load", footprint="Package_QFP:MCU", nets=[vbus, gnd], pins=4)
     circuit = _Circuit([j1, u1], [vbus, gnd])
     placed = [
         PlacedPart("J1", 0.0, 0.0, 0.0, "Connector:Header"),
