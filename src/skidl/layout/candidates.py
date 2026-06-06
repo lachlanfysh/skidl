@@ -53,6 +53,12 @@ def _merge_inferred_edge_anchors(
             merged.edge_anchors.append(anchor)
             explicit_refs.add(anchor.ref)
 
+    explicit_face_refs = {face.ref for face in merged.face_edges}
+    for face_edge in intent_plan.face_edges:
+        if face_edge.ref not in explicit_face_refs:
+            merged.face_edges.append(face_edge)
+            explicit_face_refs.add(face_edge.ref)
+
     explicit_keepouts = {
         (keepout.x_min, keepout.y_min, keepout.x_max, keepout.y_max)
         for keepout in merged.keepouts
@@ -193,6 +199,9 @@ def _annotate_ref_reasons(
     fixed_refs = {fixed.ref for fixed in constraints.fixed or []}
     edge_by_ref = {anchor.ref: anchor for anchor in constraints.edge_anchors or []}
     face_refs = {face.ref for face in constraints.face_edges or []}
+    mating_by_ref = {
+        mating.ref: mating for mating in (intent_plan.mating_intents if intent_plan else [])
+    }
     zone_by_ref = {}
     for zone in constraints.zones or []:
         for ref in zone.refs or []:
@@ -208,6 +217,14 @@ def _annotate_ref_reasons(
             reasons.append("assigned to a placement zone")
         if placed.ref in face_refs:
             reasons.append("rotation constrained by face-edge intent")
+        if placed.ref in mating_by_ref:
+            mating = mating_by_ref[placed.ref]
+            detail = mating.kind
+            if mating.edge_preference:
+                detail += f" facing {mating.edge_preference}"
+            if mating.mating_side:
+                detail += f" ({mating.mating_side})"
+            reasons.append(f"mating intent: {detail}")
         if intent_plan is not None:
             kinds = sorted(
                 {intent.kind for intent in intent_plan.intents_for(placed.ref)}

@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass, field
 
 from .backends import OptionalBackendStatus, optional_backend_status
-from .constraints import EdgeAnchor, KeepOut
+from .constraints import EdgeAnchor, FaceEdgeConstraint, KeepOut
 from .roles import GND_NET_RE, POWER_NET_RE, PartRole, classify_parts, pin_net_names
 
 
@@ -14,6 +14,14 @@ RF_RE = re.compile(r"(antenna|rf|wifi|wi-fi|ble|bluetooth|esp32|nrf52|wroom)", r
 UI_RE = re.compile(r"(button|switch|encoder|pot|display|oled|lcd|led)", re.I)
 DEBUG_RE = re.compile(r"(swd|jtag|icsp|debug|program|uart|serial)", re.I)
 POWER_INPUT_RE = re.compile(r"(usb|barrel|battery|batt|jst|terminal|power)", re.I)
+BARREL_RE = re.compile(r"(barrel|dc jack|power jack)", re.I)
+JST_RE = re.compile(r"\b(jst|battery|batt|lipo|li-po)\b", re.I)
+FFC_RE = re.compile(r"\b(ffc|fpc|flat flex|ribbon)\b", re.I)
+HEADER_RE = re.compile(r"\b(header|pinheader|pin header|tagconnect|swd|jtag)\b", re.I)
+BUTTON_RE = re.compile(r"\b(button|pushbutton|tact|switch)\b", re.I)
+LED_RE = re.compile(r"\b(led|neopixel|indicator)\b", re.I)
+DISPLAY_RE = re.compile(r"\b(display|oled|lcd|screen)\b", re.I)
+POT_ENCODER_RE = re.compile(r"\b(pot|potentiometer|encoder|knob)\b", re.I)
 
 
 @dataclass
@@ -34,11 +42,24 @@ class RepeatedChannelIntent:
 
 
 @dataclass
+class MatingIntent:
+    ref: str
+    kind: str
+    edge_preference: str | None = None
+    mating_side: str | None = None
+    allowed_rotations: tuple[float, ...] = (0.0, 90.0, 180.0, 270.0)
+    confidence: float = 0.5
+    reasons: list[str] = field(default_factory=list)
+
+
+@dataclass
 class PlacementIntentPlan:
     intents: dict[str, list[PlacementIntent]] = field(default_factory=dict)
     edge_anchors: list[EdgeAnchor] = field(default_factory=list)
+    face_edges: list[FaceEdgeConstraint] = field(default_factory=list)
     keepouts: list[KeepOut] = field(default_factory=list)
     repeated_channels: list[RepeatedChannelIntent] = field(default_factory=list)
+    mating_intents: list[MatingIntent] = field(default_factory=list)
     backend_status: OptionalBackendStatus = field(default_factory=optional_backend_status)
     warnings: list[str] = field(default_factory=list)
 
@@ -66,6 +87,10 @@ class PlacementIntentPlan:
             lines.append(f"  {kind}: {count}")
         if self.edge_anchors:
             lines.append(f"  inferred edge anchors: {len(self.edge_anchors)}")
+        if self.face_edges:
+            lines.append(f"  inferred face-edge constraints: {len(self.face_edges)}")
+        if self.mating_intents:
+            lines.append(f"  mating intents: {len(self.mating_intents)}")
         if self.repeated_channels:
             lines.append(f"  repeated channel groups: {len(self.repeated_channels)}")
         if self.warnings:
@@ -115,6 +140,102 @@ def _edge_for_part(text: str, role: PartRole, nets: list[str]) -> str | None:
     return None
 
 
+def _mating_intent_for_part(
+    ref: str,
+    text: str,
+    role: PartRole | None,
+    nets: list[str],
+) -> MatingIntent | None:
+    role_name = role.role if role is not None else ""
+    if "usb" in text:
+        return MatingIntent(
+            ref=ref,
+            kind="usb",
+            edge_preference="bottom",
+            mating_side="outside_board",
+            allowed_rotations=(0.0, 180.0),
+            confidence=0.95,
+            reasons=["USB connector metadata"],
+        )
+    if BARREL_RE.search(text):
+        return MatingIntent(
+            ref=ref,
+            kind="barrel",
+            edge_preference="bottom",
+            mating_side="outside_board",
+            allowed_rotations=(0.0, 90.0, 180.0, 270.0),
+            confidence=0.9,
+            reasons=["barrel/power jack metadata"],
+        )
+    if JST_RE.search(text):
+        return MatingIntent(
+            ref=ref,
+            kind="jst",
+            edge_preference="bottom",
+            mating_side="cable_exit",
+            allowed_rotations=(0.0, 180.0),
+            confidence=0.85,
+            reasons=["JST/battery connector metadata"],
+        )
+    if FFC_RE.search(text):
+        return MatingIntent(
+            ref=ref,
+            kind="ffc",
+            edge_preference="bottom",
+            mating_side="cable_exit",
+            allowed_rotations=(0.0, 180.0),
+            confidence=0.85,
+            reasons=["FFC/FPC connector metadata"],
+        )
+    if HEADER_RE.search(text) or role_name == "connector":
+        edge = _edge_for_part(text, role or PartRole(ref, "connector", 0.5), nets)
+        return MatingIntent(
+            ref=ref,
+            kind="header" if HEADER_RE.search(text) else "generic_connector",
+            edge_preference=edge,
+            mating_side="pin_access",
+            confidence=0.75,
+            reasons=["connector/header metadata"],
+        )
+    if DISPLAY_RE.search(text):
+        return MatingIntent(
+            ref=ref,
+            kind="display",
+            edge_preference="top",
+            mating_side="visible_face",
+            confidence=0.8,
+            reasons=["display metadata"],
+        )
+    if POT_ENCODER_RE.search(text):
+        return MatingIntent(
+            ref=ref,
+            kind="encoder" if "encoder" in text else "pot",
+            edge_preference="right",
+            mating_side="user_control",
+            confidence=0.8,
+            reasons=["panel control metadata"],
+        )
+    if BUTTON_RE.search(text):
+        return MatingIntent(
+            ref=ref,
+            kind="button",
+            edge_preference="right",
+            mating_side="user_control",
+            confidence=0.75,
+            reasons=["button/switch metadata"],
+        )
+    if LED_RE.search(text):
+        return MatingIntent(
+            ref=ref,
+            kind="led",
+            edge_preference="right",
+            mating_side="visible_face",
+            confidence=0.7,
+            reasons=["LED/indicator metadata"],
+        )
+    return None
+
+
 def _infer_repeated_channels(circuit) -> list[RepeatedChannelIntent]:
     channel_refs: dict[int, set[str]] = {}
     for part in circuit.parts:
@@ -158,6 +279,20 @@ def infer_placement_intents(
         role = roles.get(ref)
         text = _part_text(part)
         nets = pin_net_names(part)
+        mating_intent = _mating_intent_for_part(ref, text, role, nets)
+        if mating_intent is not None:
+            plan.mating_intents.append(mating_intent)
+            _add_intent(
+                plan,
+                ref,
+                "mechanical_mating",
+                88,
+                f"{mating_intent.kind} mating intent",
+            )
+            if mating_intent.edge_preference is not None:
+                plan.face_edges.append(
+                    FaceEdgeConstraint(ref=ref, edge=mating_intent.edge_preference)
+                )
 
         if role is not None and role.role == "connector":
             edge = _edge_for_part(text, role, nets)

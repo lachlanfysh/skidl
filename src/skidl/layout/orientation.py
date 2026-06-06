@@ -126,11 +126,7 @@ def _locked_rotation_refs(constraints: LayoutConstraints | None) -> set[str]:
         return set()
     locked = {fixed.ref for fixed in constraints.fixed or []}
     locked.update(anchor.ref for anchor in constraints.edge_anchors or [])
-    locked.update(
-        face.ref
-        for face in constraints.face_edges or []
-        if face.rot_deg is not None
-    )
+    locked.update(face.ref for face in constraints.face_edges or [])
     return locked
 
 

@@ -3,9 +3,14 @@ from __future__ import annotations
 import pytest
 
 from skidl.layout.candidates import generate_placement_candidates
-from skidl.layout.constraints import BoardOutline, EdgeAnchor, LayoutConstraints
+from skidl.layout.constraints import (
+    BoardOutline,
+    EdgeAnchor,
+    FaceEdgeConstraint,
+    LayoutConstraints,
+)
 from skidl.layout.hierarchy import PlacementGroup
-from skidl.layout.intent import PlacementIntentPlan, RepeatedChannelIntent
+from skidl.layout.intent import MatingIntent, PlacementIntentPlan, RepeatedChannelIntent
 
 
 class _Part:
@@ -80,3 +85,36 @@ def test_repeated_channel_candidate_distributes_channel_refs():
     assert placed["U2"].y_mm == pytest.approx(12.5)
     assert placed["U3"].y_mm == pytest.approx(12.5)
     assert "placement zone" in "; ".join(array_candidate.ref_reasons["U2"])
+
+
+def test_candidates_preserve_mating_face_edges_and_reasons():
+    button = _Part("SW1", "Button:SW", pins=2)
+    group = PlacementGroup(name="", parts=[button], adjacency={})
+    constraints = LayoutConstraints(outline=BoardOutline(40.0, 30.0))
+    intent = PlacementIntentPlan(
+        face_edges=[FaceEdgeConstraint("SW1", "right")],
+        mating_intents=[
+            MatingIntent(
+                ref="SW1",
+                kind="button",
+                edge_preference="right",
+                mating_side="user_control",
+                confidence=0.8,
+            )
+        ],
+    )
+
+    candidates = generate_placement_candidates(
+        {None: group},
+        constraints,
+        {"Button:SW": (6.0, 4.0)},
+        intent_plan=intent,
+    )
+    edge_candidate = next(
+        candidate for candidate in candidates if candidate.name == "connector_edge_first"
+    )
+
+    assert any(face.ref == "SW1" for face in edge_candidate.constraints.face_edges)
+    assert "mating intent: button facing right" in "; ".join(
+        edge_candidate.ref_reasons["SW1"]
+    )

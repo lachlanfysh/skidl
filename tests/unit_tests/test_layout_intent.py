@@ -66,6 +66,37 @@ def test_infers_edge_connector_power_and_debug_intent():
     assert usb_anchor.edge == "bottom"
     assert usb_anchor.offset_mm == 40.0
     assert debug_anchor.edge == "right"
+    usb_mating = next(mating for mating in plan.mating_intents if mating.ref == "J1")
+    debug_mating = next(mating for mating in plan.mating_intents if mating.ref == "J2")
+    assert usb_mating.kind == "usb"
+    assert usb_mating.edge_preference == "bottom"
+    assert usb_mating.mating_side == "outside_board"
+    assert 180.0 in usb_mating.allowed_rotations
+    assert debug_mating.kind == "header"
+    assert any(face.ref == "J1" and face.edge == "bottom" for face in plan.face_edges)
+    assert "mechanical_mating" in _kinds(plan, "J1")
+
+
+def test_infers_board_ui_mating_intent():
+    gnd = _Net("GND")
+    button = _Part(
+        "SW1",
+        name="user button",
+        foot="Button_Switch_SMD:SW_SPST",
+        nets=[gnd],
+    )
+    led = _Part("D1", name="status LED", foot="LED_SMD:LED_0805", nets=[gnd])
+    circuit = _Circuit([button, led], [gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+
+    mating = {intent.ref: intent for intent in plan.mating_intents}
+    assert mating["SW1"].kind == "button"
+    assert mating["SW1"].mating_side == "user_control"
+    assert mating["D1"].kind == "led"
+    assert mating["D1"].mating_side == "visible_face"
+    assert any(face.ref == "SW1" and face.edge == "right" for face in plan.face_edges)
+    assert any(face.ref == "D1" and face.edge == "right" for face in plan.face_edges)
 
 
 def test_infers_mux_and_repeated_channel_intent():

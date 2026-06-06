@@ -22,6 +22,7 @@ from .geometry import (
 )
 from .hierarchy import PlacementGroup, extract_groups
 from .intent import (
+    MatingIntent,
     PlacementIntent,
     PlacementIntentPlan,
     RepeatedChannelIntent,
