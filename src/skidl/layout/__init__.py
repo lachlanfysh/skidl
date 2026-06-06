@@ -20,4 +20,4 @@ from .reader import read_board_outline, read_footprint_bboxes, read_placed_posit
 from .roles import PartRole, classify_part, classify_parts
 from .scoring import LayoutScore, score_placement
 from .validator import ValidationResult, find_kicad_cli, run_kicad_drc, validate
-from .writer import PlacedPart, load_footprint_bboxes, write_kicad_pcb
+from .writer import PlacedPart, load_footprint_bboxes, parse_fp_lib_table, write_kicad_pcb
