@@ -163,3 +163,80 @@ def make_passive(
     nets: list[_Net] | None = None,
 ) -> _Part:
     return _Part(ref, value=value, footprint=footprint, nets=nets, pins=2)
+
+
+# ---------------------------------------------------------------------------
+# Diagnostic summary extractor
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CaseScoreSummary:
+    """Compact diagnostic snapshot of a plan_layout() result."""
+
+    case_name: str
+    selected_candidate: str
+    score: float
+    overlap_count: int
+    outline_violation_count: int
+    keepout_violation_count: int
+    total_parts: int
+    placed_parts: int
+    risky_nets: list[tuple[str, float]]
+    intent_kinds: list[str]
+    part_reasons: dict[str, list[str]]
+    warnings: list[str]
+    power_net_count: int
+    candidate_count: int
+
+    def oneliner(self) -> str:
+        flags = []
+        if self.overlap_count:
+            flags.append(f"{self.overlap_count} overlaps")
+        if self.outline_violation_count:
+            flags.append(f"{self.outline_violation_count} outline")
+        if self.keepout_violation_count:
+            flags.append(f"{self.keepout_violation_count} keepout")
+        flag_str = f" [{', '.join(flags)}]" if flags else ""
+        return (
+            f"{self.case_name}: {self.score:.1f}/100 via {self.selected_candidate}, "
+            f"{self.placed_parts}/{self.total_parts} parts, "
+            f"{len(self.risky_nets)} risky nets{flag_str}"
+        )
+
+    def top_risky_net_names(self, n: int = 3) -> list[str]:
+        return [name for name, _ in self.risky_nets[:n]]
+
+    def reasons_for(self, ref: str) -> list[str]:
+        return self.part_reasons.get(ref, [])
+
+    def has_intent(self, kind: str) -> bool:
+        return kind in self.intent_kinds
+
+
+def extract_score_summary(case_name: str, result) -> CaseScoreSummary:
+    """Pull a compact diagnostic snapshot from a LayoutResult."""
+    intent_kinds = sorted(
+        set(
+            i.kind
+            for intents in (result.intent_plan.intents or {}).values()
+            for i in intents
+        )
+    ) if result.intent_plan else []
+
+    return CaseScoreSummary(
+        case_name=case_name,
+        selected_candidate=result.report.selected if result.report else "unknown",
+        score=result.score.score,
+        overlap_count=result.score.overlap_count,
+        outline_violation_count=result.score.outline_violation_count,
+        keepout_violation_count=result.score.keepout_violation_count,
+        total_parts=result.validation.total_parts,
+        placed_parts=result.validation.placed_parts,
+        risky_nets=list(result.report.risky_nets) if result.report else [],
+        intent_kinds=intent_kinds,
+        part_reasons=dict(result.report.part_reasons) if result.report else {},
+        warnings=list(result.report.warnings) if result.report else [],
+        power_net_count=result.score.power_net_count,
+        candidate_count=len(result.candidates) if result.candidates else 0,
+    )
