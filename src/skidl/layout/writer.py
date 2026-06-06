@@ -44,6 +44,8 @@ _LAYERS = [
     (35, _q("F.Fab"),     "user"),
     (33, _q("B.Fab"),     "user"),
 ]
+_BOARD_LAYER_NAMES = {str(entry[1]).strip('"') for entry in _LAYERS}
+_FOOTPRINT_LAYER_WILDCARDS = {"*.Cu", "*.Mask", "*.Paste"}
 
 
 @dataclass
@@ -197,6 +199,33 @@ def _quote_layer_node(node):
         layer[1] = _q(layer[1])
 
 
+def _walk_nodes(node):
+    if isinstance(node, list):
+        yield node
+        for child in node:
+            yield from _walk_nodes(child)
+
+
+def _sanitize_layer_nodes(fp: Sexp):
+    for node in _walk_nodes(fp):
+        if not node:
+            continue
+        if node[0] == "layer" and len(node) > 1:
+            node[1] = _q(node[1])
+        elif node[0] == "layers":
+            layers = [str(layer).strip('"') for layer in node[1:]]
+            filtered = [
+                layer
+                for layer in layers
+                if layer in _BOARD_LAYER_NAMES
+                or layer in _FOOTPRINT_LAYER_WILDCARDS
+            ]
+            if filtered:
+                node[:] = ["layers"] + [_q(layer) for layer in filtered]
+            else:
+                node[:] = ["layers"] + [_q(layer) for layer in layers]
+
+
 def _ensure_uuid(node, seed: str):
     if _find_child(node, "uuid") is None:
         node.append(Sexp(["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, seed))]))
@@ -205,7 +234,7 @@ def _ensure_uuid(node, seed: str):
 def _prepare_footprint_for_board(fp: Sexp, fp_uuid: str):
     if len(fp) > 1:
         fp[1] = _q(fp[1])
-    _quote_layer_node(fp)
+    _sanitize_layer_nodes(fp)
     _ensure_uuid(fp, fp_uuid)
 
     for prop in fp.search("property"):
@@ -213,16 +242,11 @@ def _prepare_footprint_for_board(fp: Sexp, fp_uuid: str):
             prop[1] = _q(prop[1])
         if len(prop) > 2:
             prop[2] = _q(prop[2])
-        _quote_layer_node(prop)
         _ensure_uuid(prop, f"{fp_uuid}:property:{prop[1] if len(prop) > 1 else ''}")
 
     for pad in fp.search("pad"):
         if len(pad) > 1:
             pad[1] = _q(pad[1])
-        layers = _find_child(pad, "layers")
-        if layers is not None:
-            for idx in range(1, len(layers)):
-                layers[idx] = _q(layers[idx])
         _ensure_uuid(pad, f"{fp_uuid}:pad:{pad[1] if len(pad) > 1 else ''}")
 
 

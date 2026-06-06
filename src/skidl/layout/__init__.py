@@ -1,6 +1,7 @@
 from .constraints import (
     AnchorZone,
     BoardOutline,
+    EdgeAnchor,
     FixedPosition,
     KeepOut,
     LayoutConstraints,
