@@ -74,6 +74,8 @@ def _kiid_path(part) -> str:
 
 
 def _fp_file_path(fp_name: str, fp_lib_dirs: list[str]) -> str:
+    if ":" not in fp_name:
+        raise FileNotFoundError(f"Invalid footprint name (no library prefix): {fp_name!r}")
     lib, name = fp_name.split(":", 1)
     lib_dir = f"{lib}.pretty"
     file_name = f"{name}.kicad_mod"
