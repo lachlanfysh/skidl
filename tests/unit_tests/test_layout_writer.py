@@ -235,10 +235,47 @@ def test_write_missing_footprint_skipped(tmp_path):
         PlacedPart(ref="U1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint="NoLib:NoFP"),
     ]
     out = str(tmp_path / "board.kicad_pcb")
-    write_kicad_pcb(parts, circuit, [], out)
+    write_kicad_pcb(parts, circuit, [], out, strict_missing_footprints=False)
 
     with open(out) as f:
         board = Sexp(f.read())
 
     footprints = list(board.search("footprint"))
     assert len(footprints) == 0
+
+
+def test_write_missing_footprint_raises_by_default(tmp_path):
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(ref="U1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint="NoLib:NoFP"),
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    with pytest.raises(FileNotFoundError, match="INCOMPLETE PCB"):
+        write_kicad_pcb(parts, circuit, [], out)
+
+    assert not os.path.exists(out)
+
+
+def test_write_polygon_outline_as_edge_lines(tmp_path):
+    lib_root = _make_minimal_fp_lib(tmp_path)
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(
+            ref="R1",
+            x_mm=5.0,
+            y_mm=5.0,
+            rot_deg=0.0,
+            footprint="TestLib:R_Test",
+        )
+    ]
+    outline = BoardOutline(vertices=[(0, 0), (30, 0), (25, 20), (0, 20)])
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [lib_root], out, outline=outline)
+
+    with open(out) as f:
+        board = Sexp(f.read())
+
+    assert list(board.search("gr_rect")) == []
+    assert len(list(board.search("gr_line"))) == 4

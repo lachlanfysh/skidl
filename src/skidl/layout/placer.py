@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 import math
-import re
 from typing import Optional
 
-from .constraints import LayoutConstraints, FixedPosition, KeepOut
+from .constraints import LayoutConstraints, FixedPosition, KeepOut, BoardOutline
 from .hierarchy import PlacementGroup
+from .roles import DECAP_VALUE_RE, GND_NET_RE, POWER_NET_RE
 from .writer import PlacedPart
 
-
-POWER_NET_RE = re.compile(r'^(VCC|VDD|VBUS|V\d|[+-]\d|[+-]V|\+\d+\.\d+V)$', re.IGNORECASE)
-GND_NET_RE = re.compile(r'^(GND|VSS|DGND|AGND|GNDA|GNDD)$', re.IGNORECASE)
-DECAP_VALUE_RE = re.compile(r'^(100n|0\.1u)', re.IGNORECASE)
-
 _DEFAULT_BBOX = (2.0, 2.0)
+
+
+def _footprint_name(part) -> str:
+    return (
+        getattr(part, "foot", None)
+        or getattr(part, "footprint", None)
+        or ""
+    )
 
 
 def _pin_net_names(part) -> list[str]:
@@ -38,12 +41,13 @@ def _is_decoupling_cap(part) -> bool:
     if not DECAP_VALUE_RE.match(val):
         return False
     nets = _pin_net_names(part)
-    return any(POWER_NET_RE.match(n) for n in nets) and any(GND_NET_RE.match(n) for n in nets)
+    return any(POWER_NET_RE.match(n) for n in nets) and any(
+        GND_NET_RE.match(n) for n in nets
+    )
 
 
 def _bbox(part, fp_bboxes: dict) -> tuple[float, float]:
-    fp = getattr(part, 'foot', None) or ''
-    return fp_bboxes.get(fp, _DEFAULT_BBOX)
+    return fp_bboxes.get(_footprint_name(part), _DEFAULT_BBOX)
 
 
 def _overlaps(x1, y1, w1, h1, x2, y2, w2, h2, clearance=0.5) -> bool:
@@ -86,8 +90,8 @@ def _clamp_to_outline(x, y, w, h, outline) -> tuple[float, float]:
     if outline is None:
         return x, y
     half_w, half_h = w / 2, h / 2
-    x = max(half_w, min(outline.width_mm - half_w, x))
-    y = max(half_h, min(outline.height_mm - half_h, y))
+    x = max(outline.x_min + half_w, min(outline.x_max - half_w, x))
+    y = max(outline.y_min + half_h, min(outline.y_max - half_h, y))
     return x, y
 
 
@@ -146,7 +150,7 @@ def place_parts(
                 x_mm=fp_constraint.x_mm,
                 y_mm=fp_constraint.y_mm,
                 rot_deg=fp_constraint.rot_deg,
-                footprint=getattr(part, 'foot', '') or '',
+                footprint=_footprint_name(part),
             )
             _commit(pp, w, h)
 
@@ -167,11 +171,13 @@ def place_parts(
         else:
             target_x, target_y = _spillover_position(placed_map, constraints)
             rot = 0.0
-        target_x, target_y = _clamp_to_outline(target_x, target_y, w, h, constraints.outline)
+        target_x, target_y = _clamp_to_outline(
+            target_x, target_y, w, h, constraints.outline
+        )
         x, y = _find_clear_position(target_x, target_y, w, h, occupied)
         x, y = _clamp_to_outline(x, y, w, h, constraints.outline)
         _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=rot,
-                           footprint=getattr(part, 'foot', '') or ''), w, h)
+                           footprint=_footprint_name(part)), w, h)
 
     # Layer 3: signal passives (2-pin, not decoupling caps)
     # Track how many passives have been stacked per parent ref
@@ -195,11 +201,13 @@ def place_parts(
         else:
             target_x, target_y = _spillover_position(placed_map, constraints)
             rot = 0.0
-        target_x, target_y = _clamp_to_outline(target_x, target_y, w, h, constraints.outline)
+        target_x, target_y = _clamp_to_outline(
+            target_x, target_y, w, h, constraints.outline
+        )
         x, y = _find_clear_position(target_x, target_y, w, h, occupied)
         x, y = _clamp_to_outline(x, y, w, h, constraints.outline)
         _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=rot,
-                           footprint=getattr(part, 'foot', '') or ''), w, h)
+                           footprint=_footprint_name(part)), w, h)
 
     # Layer 4: remaining parts (shelf-pack near group anchor)
     for group in groups.values():
@@ -215,11 +223,13 @@ def place_parts(
                 target_y = anchor.y_mm
             else:
                 target_x, target_y = _spillover_position(placed_map, constraints)
-            target_x, target_y = _clamp_to_outline(target_x, target_y, w, h, constraints.outline)
+            target_x, target_y = _clamp_to_outline(
+                target_x, target_y, w, h, constraints.outline
+            )
             x, y = _find_clear_position(target_x, target_y, w, h, occupied)
             x, y = _clamp_to_outline(x, y, w, h, constraints.outline)
             _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=0.0,
-                               footprint=getattr(part, 'foot', '') or ''), w, h)
+                               footprint=_footprint_name(part)), w, h)
 
     return list(placed_map.values())
 
@@ -231,8 +241,42 @@ def _bbox_for_ref(ref: str, all_parts, fp_bboxes: dict) -> tuple[float, float]:
     return _DEFAULT_BBOX
 
 
+def derive_outline(
+    placed_parts: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    margin_mm: float = 3.0,
+) -> BoardOutline:
+    """Return a rectangular outline enclosing placed parts plus margin."""
+    if not placed_parts:
+        return BoardOutline(50.0, 50.0)
+
+    x_min = float("inf")
+    y_min = float("inf")
+    x_max = float("-inf")
+    y_max = float("-inf")
+    for pp in placed_parts:
+        w, h = fp_bboxes.get(pp.footprint, _DEFAULT_BBOX)
+        x_min = min(x_min, pp.x_mm - w / 2)
+        y_min = min(y_min, pp.y_mm - h / 2)
+        x_max = max(x_max, pp.x_mm + w / 2)
+        y_max = max(y_max, pp.y_mm + h / 2)
+
+    x_min -= margin_mm
+    y_min -= margin_mm
+    x_max += margin_mm
+    y_max += margin_mm
+    return BoardOutline(
+        vertices=[
+            (x_min, y_min),
+            (x_max, y_min),
+            (x_max, y_max),
+            (x_min, y_max),
+        ]
+    )
+
+
 def _spillover_position(placed_map: dict, constraints) -> tuple[float, float]:
-    """Find a position in the spillover area (below all placed parts, or at a safe origin)."""
+    """Find a position in the spillover area below all placed parts."""
     if not placed_map:
         return 10.0, 10.0
     max_y = max(pp.y_mm for pp in placed_map.values())

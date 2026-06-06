@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 from skidl.layout.constraints import LayoutConstraints, FixedPosition, BoardOutline
 from skidl.layout.hierarchy import PlacementGroup
 from skidl.layout.writer import PlacedPart
-from skidl.layout.placer import place_parts, _overlaps
+from skidl.layout.placer import place_parts, _overlaps, derive_outline
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +221,59 @@ def test_parts_within_outline():
         assert pp.y_mm - h / 2 >= 0, f"{pp.ref} off top edge"
         assert pp.x_mm + w / 2 <= outline.width_mm, f"{pp.ref} off right edge"
         assert pp.y_mm + h / 2 <= outline.height_mm, f"{pp.ref} off bottom edge"
+
+
+def test_parts_within_offset_outline_bounds():
+    outline = BoardOutline(
+        vertices=[(10.0, 20.0), (110.0, 20.0), (110.0, 100.0), (10.0, 100.0)]
+    )
+    parts = [_make_mock_part(f"R{i}") for i in range(4)]
+    group = PlacementGroup(name="g", parts=parts, adjacency={})
+    constraints = _simple_constraints(outline=outline)
+
+    result = place_parts({"g": group}, constraints, _FP_BBOXES)
+    for pp in result:
+        w, h = _FP_BBOXES.get(pp.footprint, (2.0, 2.0))
+        assert pp.x_mm - w / 2 >= outline.x_min
+        assert pp.y_mm - h / 2 >= outline.y_min
+        assert pp.x_mm + w / 2 <= outline.x_max
+        assert pp.y_mm + h / 2 <= outline.y_max
+
+
+def test_derive_outline_encloses_parts():
+    parts = [
+        PlacedPart("R1", 10.0, 20.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+        PlacedPart("R2", 50.0, 60.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+    ]
+    outline = derive_outline(parts, _FP_BBOXES, margin_mm=5.0)
+    assert isinstance(outline, BoardOutline)
+    assert outline.width_mm >= 52.0
+    assert outline.height_mm >= 51.0
+
+
+def test_derive_outline_preserves_offset_bounds():
+    parts = [
+        PlacedPart("R1", -10.0, 20.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+        PlacedPart("R2", 40.0, 70.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+    ]
+    outline = derive_outline(parts, _FP_BBOXES, margin_mm=5.0)
+    assert outline.x_min == pytest.approx(-16.0)
+    assert outline.y_min == pytest.approx(14.375)
+    assert outline.x_max == pytest.approx(46.0)
+    assert outline.y_max == pytest.approx(75.625)
+
+
+def test_derive_outline_empty_fallback():
+    outline = derive_outline([], _FP_BBOXES)
+    assert outline.width_mm == 50.0
+    assert outline.height_mm == 50.0
+
+
+def test_derive_outline_single_part():
+    parts = [PlacedPart("R1", 25.0, 25.0, 0.0, "Resistor_SMD:R_0805_2012Metric")]
+    outline = derive_outline(parts, _FP_BBOXES, margin_mm=3.0)
+    assert outline.width_mm == pytest.approx(8.0, abs=0.1)
+    assert outline.height_mm == pytest.approx(7.25, abs=0.1)
 
 
 # ---------------------------------------------------------------------------

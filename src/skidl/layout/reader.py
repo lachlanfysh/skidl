@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from simp_sexp import Sexp
 
-from .constraints import FixedPosition
+from .constraints import BoardOutline, FixedPosition
 
 _ORIGIN_EPSILON = 0.001
 
@@ -16,6 +16,47 @@ def _find_child(sexp, key: str):
 
 def _find_children(sexp, key: str):
     return [child for child in sexp if isinstance(child, list) and len(child) > 0 and child[0] == key]
+
+
+def _is_on_layer(sexp, layer_name: str) -> bool:
+    layer = _find_child(sexp, "layer")
+    return layer is not None and len(layer) > 1 and str(layer[1]) == layer_name
+
+
+def _point(child) -> tuple[float, float] | None:
+    if child is None or len(child) < 3:
+        return None
+    return (float(child[1]), float(child[2]))
+
+
+def _same_point(a: tuple[float, float], b: tuple[float, float]) -> bool:
+    return abs(a[0] - b[0]) < 1e-6 and abs(a[1] - b[1]) < 1e-6
+
+
+def _order_segments(segments: list[tuple[tuple[float, float], tuple[float, float]]]):
+    if not segments:
+        return []
+
+    remaining = segments[1:]
+    vertices = [segments[0][0], segments[0][1]]
+    while remaining:
+        last = vertices[-1]
+        for i, (start, end) in enumerate(remaining):
+            if _same_point(start, last):
+                vertices.append(end)
+                remaining.pop(i)
+                break
+            if _same_point(end, last):
+                vertices.append(start)
+                remaining.pop(i)
+                break
+        else:
+            start, end = remaining.pop(0)
+            vertices.extend([start, end])
+
+    if len(vertices) > 1 and _same_point(vertices[0], vertices[-1]):
+        vertices.pop()
+    return vertices
 
 
 def _fp_reference(fp_sexp) -> str | None:
@@ -59,6 +100,42 @@ def read_placed_positions(pcb_path: str) -> list:
         result.append(FixedPosition(ref=ref, x_mm=x, y_mm=y, rot_deg=angle))
 
     return result
+
+
+def read_board_outline(pcb_path: str) -> BoardOutline | None:
+    """Extract an Edge.Cuts board outline from a .kicad_pcb file."""
+    with open(pcb_path) as f:
+        board = Sexp(f.read())
+
+    for rect in board.search("gr_rect"):
+        if not _is_on_layer(rect, "Edge.Cuts"):
+            continue
+        start = _point(_find_child(rect, "start"))
+        end = _point(_find_child(rect, "end"))
+        if start is None or end is None:
+            continue
+        x1, y1 = start
+        x2, y2 = end
+        return BoardOutline(vertices=[
+            (x1, y1),
+            (x2, y1),
+            (x2, y2),
+            (x1, y2),
+        ])
+
+    segments = []
+    for line in board.search("gr_line"):
+        if not _is_on_layer(line, "Edge.Cuts"):
+            continue
+        start = _point(_find_child(line, "start"))
+        end = _point(_find_child(line, "end"))
+        if start is not None and end is not None:
+            segments.append((start, end))
+
+    vertices = _order_segments(segments)
+    if vertices:
+        return BoardOutline(vertices=vertices)
+    return None
 
 
 def read_footprint_bboxes(pcb_path: str) -> dict:

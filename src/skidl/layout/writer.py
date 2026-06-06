@@ -8,26 +8,41 @@ from dataclasses import dataclass
 
 from simp_sexp import Sexp
 
-logger = logging.getLogger(__name__)
-
 from .constraints import BoardOutline
+
+logger = logging.getLogger(__name__)
 
 _NAMESPACE_UUID = uuid.UUID("7026fcc6-e1a0-409e-aaf4-6a17ea82654f")
 
+
+def _q(value) -> str:
+    text = str(value or "")
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        return text
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 _LAYERS = [
-    (0,  "F.Cu",       "signal"),
-    (31, "B.Cu",       "signal"),
-    (32, "B.Adhes",    "user",   "B.Adhesive"),
-    (33, "F.Adhes",    "user",   "F.Adhesive"),
-    (34, "B.Paste",    "user"),
-    (35, "F.Paste",    "user"),
-    (36, "B.SilkS",    "user",   "B.Silkscreen"),
-    (37, "F.SilkS",    "user",   "F.Silkscreen"),
-    (38, "B.Mask",     "user"),
-    (39, "F.Mask",     "user"),
-    (40, "Dwgs.User",  "user",   "User.Drawings"),
-    (41, "Cmts.User",  "user",   "User.Comments"),
-    (44, "Edge.Cuts",  "user"),
+    (0,  _q("F.Cu"),      "signal"),
+    (2,  _q("B.Cu"),      "signal"),
+    (9,  _q("F.Adhes"),   "user",   _q("F.Adhesive")),
+    (11, _q("B.Adhes"),   "user",   _q("B.Adhesive")),
+    (13, _q("F.Paste"),   "user"),
+    (15, _q("B.Paste"),   "user"),
+    (5,  _q("F.SilkS"),   "user",   _q("F.Silkscreen")),
+    (7,  _q("B.SilkS"),   "user",   _q("B.Silkscreen")),
+    (1,  _q("F.Mask"),    "user"),
+    (3,  _q("B.Mask"),    "user"),
+    (17, _q("Dwgs.User"), "user",   _q("User.Drawings")),
+    (19, _q("Cmts.User"), "user",   _q("User.Comments")),
+    (21, _q("Eco1.User"), "user",   _q("User.Eco1")),
+    (23, _q("Eco2.User"), "user",   _q("User.Eco2")),
+    (25, _q("Edge.Cuts"), "user"),
+    (27, _q("Margin"),    "user"),
+    (31, _q("F.CrtYd"),   "user",   _q("F.Courtyard")),
+    (29, _q("B.CrtYd"),   "user",   _q("B.Courtyard")),
+    (35, _q("F.Fab"),     "user"),
+    (33, _q("B.Fab"),     "user"),
 ]
 
 
@@ -120,6 +135,55 @@ def load_footprint_bboxes(fp_names: set[str], fp_lib_dirs: list[str]) -> dict[st
     return result
 
 
+def _default_setup() -> Sexp:
+    return Sexp([
+        "setup",
+        ["pad_to_mask_clearance", 0],
+        ["allow_soldermask_bridges_in_footprints", "no"],
+        ["tenting", "front", "back"],
+        [
+            "pcbplotparams",
+            ["layerselection", "0x00000000_00000000_55555555_5755f5ff"],
+            ["plot_on_all_layers_selection", "0x00000000_00000000_00000000_00000000"],
+            ["disableapertmacros", "no"],
+            ["usegerberextensions", "no"],
+            ["usegerberattributes", "yes"],
+            ["usegerberadvancedattributes", "yes"],
+            ["creategerberjobfile", "yes"],
+            ["dashed_line_dash_ratio", 12.000000],
+            ["dashed_line_gap_ratio", 3.000000],
+            ["svgprecision", 4],
+            ["plotframeref", "no"],
+            ["mode", 1],
+            ["useauxorigin", "no"],
+            ["hpglpennumber", 1],
+            ["hpglpenspeed", 20],
+            ["hpglpendiameter", 15.000000],
+            ["pdf_front_fp_property_popups", "yes"],
+            ["pdf_back_fp_property_popups", "yes"],
+            ["pdf_metadata", "yes"],
+            ["pdf_single_document", "no"],
+            ["dxfpolygonmode", "yes"],
+            ["dxfimperialunits", "yes"],
+            ["dxfusepcbnewfont", "yes"],
+            ["psnegative", "no"],
+            ["psa4output", "no"],
+            ["plot_black_and_white", "yes"],
+            ["sketchpadsonfab", "no"],
+            ["plotpadnumbers", "no"],
+            ["hidednponfab", "no"],
+            ["sketchdnponfab", "yes"],
+            ["crossoutdnponfab", "yes"],
+            ["subtractmaskfromsilk", "no"],
+            ["outputformat", 1],
+            ["mirror", "no"],
+            ["drillshape", 1],
+            ["scaleselection", 1],
+            ["outputdirectory", _q("")],
+        ],
+    ])
+
+
 def _build_net_map(circuit) -> tuple[dict[str, int], list]:
     """Return (name→code, ordered_nets) where code starts at 1."""
     nets = circuit.get_nets()
@@ -127,22 +191,64 @@ def _build_net_map(circuit) -> tuple[dict[str, int], list]:
     return net_map, nets
 
 
-def _place_footprint(fp_sexp: Sexp, pp: PlacedPart, kiid: str, net_map: dict[str, int], part) -> Sexp:
+def _quote_layer_node(node):
+    layer = _find_child(node, "layer")
+    if layer is not None and len(layer) > 1:
+        layer[1] = _q(layer[1])
+
+
+def _ensure_uuid(node, seed: str):
+    if _find_child(node, "uuid") is None:
+        node.append(Sexp(["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, seed))]))
+
+
+def _prepare_footprint_for_board(fp: Sexp, fp_uuid: str):
+    if len(fp) > 1:
+        fp[1] = _q(fp[1])
+    _quote_layer_node(fp)
+    _ensure_uuid(fp, fp_uuid)
+
+    for prop in fp.search("property"):
+        if len(prop) > 1:
+            prop[1] = _q(prop[1])
+        if len(prop) > 2:
+            prop[2] = _q(prop[2])
+        _quote_layer_node(prop)
+        _ensure_uuid(prop, f"{fp_uuid}:property:{prop[1] if len(prop) > 1 else ''}")
+
+    for pad in fp.search("pad"):
+        if len(pad) > 1:
+            pad[1] = _q(pad[1])
+        layers = _find_child(pad, "layers")
+        if layers is not None:
+            for idx in range(1, len(layers)):
+                layers[idx] = _q(layers[idx])
+        _ensure_uuid(pad, f"{fp_uuid}:pad:{pad[1] if len(pad) > 1 else ''}")
+
+
+def _place_footprint(
+    fp_sexp: Sexp,
+    pp: PlacedPart,
+    fp_uuid: str,
+    net_map: dict[str, int],
+    part,
+) -> Sexp:
     fp = copy.deepcopy(fp_sexp)
+    _prepare_footprint_for_board(fp, fp_uuid)
 
     at_val = [pp.x_mm, pp.y_mm]
     if pp.rot_deg:
         at_val.append(pp.rot_deg)
     fp.insert(2, Sexp(["at"] + at_val))
-    fp.insert(3, Sexp(["path", kiid]))
 
     for i, child in enumerate(fp):
         if not (isinstance(child, list) and len(child) >= 3 and child[0] == "property"):
             continue
-        if child[1] == "Reference":
-            fp[i][2] = pp.ref
-        elif child[1] == "Value":
-            fp[i][2] = getattr(part, "value", "") or pp.ref
+        prop_name = str(child[1]).strip('"')
+        if prop_name == "Reference":
+            fp[i][2] = _q(pp.ref)
+        elif prop_name == "Value":
+            fp[i][2] = _q(getattr(part, "value", "") or pp.ref)
 
     for pad in fp.search("pad"):
         pad_num = str(pad[1])
@@ -158,7 +264,7 @@ def _place_footprint(fp_sexp: Sexp, pp: PlacedPart, kiid: str, net_map: dict[str
             except Exception:
                 pass
         if net_name and net_name in net_map:
-            pad.append(Sexp(["net", net_map[net_name], net_name]))
+            pad.append(Sexp(["net", net_map[net_name], _q(net_name)]))
 
     return fp
 
@@ -170,21 +276,64 @@ def _find_circuit_part(circuit, ref: str):
     return None
 
 
+def _is_rectangular_outline(outline: BoardOutline) -> bool:
+    if len(outline.vertices) != 4:
+        return False
+    expected = {
+        (outline.x_min, outline.y_min),
+        (outline.x_max, outline.y_min),
+        (outline.x_max, outline.y_max),
+        (outline.x_min, outline.y_max),
+    }
+    return set(outline.vertices) == expected
+
+
+def _append_outline(board: Sexp, outline: BoardOutline):
+    if outline is None or not outline.vertices:
+        return
+
+    if _is_rectangular_outline(outline):
+        board.append(Sexp([
+            "gr_rect",
+            ["start", outline.x_min, outline.y_min],
+            ["end", outline.x_max, outline.y_max],
+            ["stroke", ["width", 0.1], ["type", "solid"]],
+            ["fill", "no"],
+            ["layer", _q("Edge.Cuts")],
+            ["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, "outline:rect"))],
+        ]))
+        return
+
+    vertices = outline.vertices
+    for idx, (start, end) in enumerate(zip(vertices, vertices[1:] + vertices[:1])):
+        board.append(Sexp([
+            "gr_line",
+            ["start", start[0], start[1]],
+            ["end", end[0], end[1]],
+            ["stroke", ["width", 0.1], ["type", "solid"]],
+            ["layer", _q("Edge.Cuts")],
+            ["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, f"outline:line:{idx}"))],
+        ]))
+
+
 def write_kicad_pcb(
     placed_parts: list,
     circuit,
     fp_lib_dirs: list[str],
     output_path: str,
     outline: BoardOutline = None,
-    version: int = 20240108,
+    version: int = 20241229,
+    strict_missing_footprints: bool = True,
 ):
     """Write a complete .kicad_pcb file."""
     net_map, nets = _build_net_map(circuit)
 
     board = Sexp(["kicad_pcb"])
     board.append(Sexp(["version", version]))
-    board.append(Sexp(["generator", "skidl"]))
-    board.append(Sexp(["general", ["thickness", 1.6]]))
+    board.append(Sexp(["generator", _q("skidl")]))
+    board.append(Sexp(["generator_version", _q("9.0")]))
+    board.append(Sexp(["general", ["thickness", 1.6], ["legacy_teardrops", "no"]]))
+    board.append(Sexp(["paper", _q("A4")]))
 
     layers = Sexp(["layers"])
     for entry in _LAYERS:
@@ -194,44 +343,45 @@ def write_kicad_pcb(
         layers.append(row)
     board.append(layers)
 
-    board.append(Sexp(["setup",
-        ["pad_to_mask_clearance", 0],
-        ["allow_soldermask_bridges_in_footprints", "no"],
-    ]))
+    board.append(_default_setup())
 
-    board.append(Sexp(["net", 0, ""]))
+    board.append(Sexp(["net", 0, _q("")]))
     for net in nets:
-        board.append(Sexp(["net", net_map[net.name], net.name]))
+        board.append(Sexp(["net", net_map[net.name], _q(net.name)]))
 
     missing_fps = []
     for pp in placed_parts:
         try:
             fp_sexp = load_footprint(pp.footprint, fp_lib_dirs)
         except FileNotFoundError:
-            missing_fps.append(pp.ref)
-            logger.warning("MISSING FOOTPRINT: %s (%s) — skipped, will not appear in PCB", pp.ref, pp.footprint)
+            missing_fps.append((pp.ref, pp.footprint))
+            logger.warning(
+                "MISSING FOOTPRINT: %s (%s) - skipped, will not appear in PCB",
+                pp.ref,
+                pp.footprint,
+            )
             continue
 
         part = _find_circuit_part(circuit, pp.ref)
-        kiid = _kiid_path(part) if part is not None else f"/{uuid.uuid4()}"
+        fp_uuid = _part_uuid(part) if part is not None else str(uuid.uuid4())
 
-        fp = _place_footprint(fp_sexp, pp, kiid, net_map, part)
+        fp = _place_footprint(fp_sexp, pp, fp_uuid, net_map, part)
         board.append(fp)
 
-    if outline is not None:
-        board.append(Sexp([
-            "gr_rect",
-            ["start", 0, 0],
-            ["end", outline.width_mm, outline.height_mm],
-            ["layer", "Edge.Cuts"],
-            ["stroke", ["width", 0.1]],
-        ]))
-
     if missing_fps:
+        missing_refs = ", ".join(ref for ref, _ in missing_fps[:20])
+        message = (
+            f"INCOMPLETE PCB: {len(missing_fps)}/{len(placed_parts)} parts "
+            f"missing footprints: {missing_refs}"
+        )
         logger.warning(
             "INCOMPLETE PCB: %d/%d parts missing footprints: %s",
-            len(missing_fps), len(placed_parts), ", ".join(missing_fps[:20])
+            len(missing_fps), len(placed_parts), missing_refs,
         )
+        if strict_missing_footprints:
+            raise FileNotFoundError(message)
+
+    _append_outline(board, outline)
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w") as f:
