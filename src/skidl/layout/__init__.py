@@ -28,7 +28,13 @@ from .intent import (
     infer_placement_intents,
 )
 from .placer import derive_outline, place_parts
+from .orientation import (
+    OrientationResult,
+    refine_candidate_orientations,
+    refine_orientations,
+)
 from .power import (
+    PowerCorridor,
     PowerNet,
     PowerRouteIntent,
     PowerRoutePlan,

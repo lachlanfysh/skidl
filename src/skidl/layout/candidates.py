@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .constraints import AnchorZone, LayoutConstraints
-from .intent import PlacementIntentPlan
+from .constraints import (
+    AlignConstraint,
+    AnchorZone,
+    DistributeConstraint,
+    LayoutConstraints,
+)
+from .intent import PlacementIntentPlan, RepeatedChannelIntent
 from .placer import place_parts
 from .writer import PlacedPart
 
@@ -13,6 +18,8 @@ class PlacementCandidate:
     name: str
     placed_parts: list[PlacedPart]
     reasons: list[str] = field(default_factory=list)
+    ref_reasons: dict[str, list[str]] = field(default_factory=dict)
+    constraints: LayoutConstraints | None = None
     score: float | None = None
 
 
@@ -120,6 +127,98 @@ def _with_cluster_zone(
     return zoned
 
 
+def _channel_slot_refs(channel: RepeatedChannelIntent) -> list[str]:
+    ref_counts: dict[str, int] = {}
+    for refs in channel.refs_by_channel.values():
+        for ref in refs:
+            ref_counts[ref] = ref_counts.get(ref, 0) + 1
+
+    slot_refs: list[str] = []
+    for channel_number in sorted(channel.refs_by_channel):
+        unique_refs = [
+            ref
+            for ref in channel.refs_by_channel[channel_number]
+            if ref_counts.get(ref, 0) == 1
+        ]
+        refs = unique_refs or channel.refs_by_channel[channel_number]
+        for ref in sorted(refs):
+            if ref not in slot_refs:
+                slot_refs.append(ref)
+    return slot_refs
+
+
+def _with_repeated_channel_array(
+    constraints: LayoutConstraints,
+    intent_plan: PlacementIntentPlan | None,
+) -> LayoutConstraints:
+    arrayed = _merge_inferred_edge_anchors(constraints, intent_plan)
+    if arrayed.outline is None or intent_plan is None:
+        return arrayed
+
+    outline = arrayed.outline
+    for channel in intent_plan.repeated_channels:
+        slot_refs = _channel_slot_refs(channel)
+        if len(slot_refs) < 2:
+            continue
+
+        x_pad = outline.width_mm * 0.12
+        y = outline.y_min + outline.height_mm * 0.25
+        arrayed.distribute.append(
+            DistributeConstraint(
+                refs=slot_refs,
+                axis="x",
+                start_mm=outline.x_min + x_pad,
+                end_mm=outline.x_max - x_pad,
+            )
+        )
+        arrayed.align.append(AlignConstraint(refs=slot_refs, axis="y", value_mm=y))
+        arrayed.zones.append(
+            AnchorZone(
+                group_name="",
+                x_min=outline.x_min,
+                y_min=outline.y_min,
+                x_max=outline.x_max,
+                y_max=outline.y_min + outline.height_mm * 0.55,
+                refs=slot_refs,
+            )
+        )
+    return arrayed
+
+
+def _annotate_ref_reasons(
+    candidate: PlacementCandidate,
+    constraints: LayoutConstraints,
+    intent_plan: PlacementIntentPlan | None,
+) -> None:
+    fixed_refs = {fixed.ref for fixed in constraints.fixed or []}
+    edge_by_ref = {anchor.ref: anchor for anchor in constraints.edge_anchors or []}
+    face_refs = {face.ref for face in constraints.face_edges or []}
+    zone_by_ref = {}
+    for zone in constraints.zones or []:
+        for ref in zone.refs or []:
+            zone_by_ref[ref] = zone
+
+    for placed in candidate.placed_parts:
+        reasons: list[str] = []
+        if placed.ref in fixed_refs:
+            reasons.append("locked by fixed-position constraint")
+        if placed.ref in edge_by_ref:
+            reasons.append(f"anchored to {edge_by_ref[placed.ref].edge} board edge")
+        if placed.ref in zone_by_ref:
+            reasons.append("assigned to a placement zone")
+        if placed.ref in face_refs:
+            reasons.append("rotation constrained by face-edge intent")
+        if intent_plan is not None:
+            kinds = sorted(
+                {intent.kind for intent in intent_plan.intents_for(placed.ref)}
+            )
+            if kinds:
+                reasons.append("inferred intent: " + ", ".join(kinds))
+        if not reasons:
+            reasons.append(f"placed by {candidate.name} strategy")
+        candidate.ref_reasons[placed.ref] = reasons
+
+
 def _append_candidate(
     candidates: list[PlacementCandidate],
     name: str,
@@ -127,9 +226,17 @@ def _append_candidate(
     constraints: LayoutConstraints,
     fp_bboxes: dict[str, tuple[float, float]],
     reasons: list[str],
+    intent_plan: PlacementIntentPlan | None = None,
 ):
     placed = place_parts(groups, constraints, fp_bboxes)
-    candidates.append(PlacementCandidate(name=name, placed_parts=placed, reasons=reasons))
+    candidate = PlacementCandidate(
+        name=name,
+        placed_parts=placed,
+        reasons=reasons,
+        constraints=constraints,
+    )
+    _annotate_ref_reasons(candidate, constraints, intent_plan)
+    candidates.append(candidate)
 
 
 def generate_placement_candidates(
@@ -148,6 +255,7 @@ def generate_placement_candidates(
         copy_constraints(constraints),
         fp_bboxes,
         ["explicit constraints and default placement order"],
+        intent_plan,
     )
     _append_candidate(
         candidates,
@@ -156,6 +264,7 @@ def generate_placement_candidates(
         _merge_inferred_edge_anchors(constraints, intent_plan),
         fp_bboxes,
         ["inferred connector edge anchors applied before primary parts"],
+        intent_plan,
     )
     _append_candidate(
         candidates,
@@ -164,6 +273,7 @@ def generate_placement_candidates(
         _with_power_zone(constraints, intent_plan),
         fp_bboxes,
         ["power input and regulator-like parts biased into a power zone"],
+        intent_plan,
     )
     _append_candidate(
         candidates,
@@ -172,6 +282,16 @@ def generate_placement_candidates(
         _with_cluster_zone(constraints, intent_plan),
         fp_bboxes,
         ["edge/UI/power/debug refs biased into a shared service zone"],
+        intent_plan,
+    )
+    _append_candidate(
+        candidates,
+        "repeated_channel_array",
+        groups,
+        _with_repeated_channel_array(constraints, intent_plan),
+        fp_bboxes,
+        ["repeated channel refs aligned and distributed as an ordered array"],
+        intent_plan,
     )
 
     if intent_plan is not None and intent_plan.backend_status.enabled:
@@ -185,6 +305,7 @@ def generate_placement_candidates(
                 "optional optimization backends detected; using deterministic "
                 "core strategy until backend-specific solvers are enabled"
             ],
+            intent_plan,
         )
 
     return candidates

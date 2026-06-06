@@ -26,6 +26,8 @@ class PlacementReport:
     candidates: list[CandidateReport] = field(default_factory=list)
     hard_violations: list[str] = field(default_factory=list)
     risky_nets: list[tuple[str, float]] = field(default_factory=list)
+    power_corridors: list[str] = field(default_factory=list)
+    part_reasons: dict[str, list[str]] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
 
@@ -53,6 +55,15 @@ class PlacementReport:
             lines.append("Top risky nets:")
             for name, hpwl in self.risky_nets[:10]:
                 lines.append(f"  {name}: {hpwl:.1f}mm")
+        if self.power_corridors:
+            lines.append("Power corridors:")
+            for corridor in self.power_corridors[:10]:
+                lines.append(f"  {corridor}")
+        if self.part_reasons:
+            lines.append("Part placement reasons:")
+            for ref in sorted(self.part_reasons)[:12]:
+                reason_text = "; ".join(self.part_reasons[ref][:3])
+                lines.append(f"  {ref}: {reason_text}")
         if self.warnings:
             lines.append("Warnings:")
             for warning in self.warnings[:20]:
@@ -82,6 +93,11 @@ def build_placement_report(
                 outline_violation_count=score.outline_violation_count,
                 keepout_violation_count=score.keepout_violation_count,
                 total_hpwl_mm=score.total_hpwl_mm,
+                reasons=(
+                    list(selected.reasons[:10])
+                    if candidate == selected.name
+                    else []
+                ),
                 warnings=list(score.warnings[:10]),
             )
         )
@@ -95,12 +111,21 @@ def build_placement_report(
     ]
     reasons = list(selected.reasons)
     reasons.append(f"highest score among {len(candidate_scores)} candidate(s)")
+    power_corridors = [
+        (
+            f"{corridor.net_name}: {corridor.width_mm:.2f}mm on {corridor.layer} "
+            f"across {len(corridor.refs)} refs"
+        )
+        for corridor in power_plan.corridors
+    ]
 
     return PlacementReport(
         selected=selected.name,
         candidates=candidate_reports,
         hard_violations=hard_violations,
         risky_nets=list(selected_validation.worst_hpwl_nets),
+        power_corridors=power_corridors,
+        part_reasons=dict(selected.ref_reasons),
         warnings=list(selected_score.warnings[:20]) + list(power_plan.warnings[:20]),
         reasons=reasons,
     )

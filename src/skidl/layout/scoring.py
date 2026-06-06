@@ -22,6 +22,7 @@ class LayoutScore:
     weighted_hpwl_mm: float = 0.0
     crossing_count: int = 0
     congestion_score: float = 0.0
+    power_corridor_count: int = 0
     role_counts: dict[str, int] = field(default_factory=dict)
     power_net_count: int = 0
     warnings: list[str] = field(default_factory=list)
@@ -50,6 +51,8 @@ class LayoutScore:
             lines.append(f"Estimated crossings: {self.crossing_count}")
         if self.congestion_score:
             lines.append(f"Pin escape congestion: {self.congestion_score:.1f}")
+        if self.power_corridor_count:
+            lines.append(f"Power corridors: {self.power_corridor_count}")
         if self.warnings:
             lines.append("Warnings:")
             for warning in self.warnings[:20]:
@@ -349,5 +352,8 @@ def score_placement(
         congestion_score=congestion_score,
         role_counts=_role_counts(roles),
         power_net_count=len(power_plan.nets) if power_plan is not None else 0,
+        power_corridor_count=(
+            len(power_plan.corridors) if power_plan is not None else 0
+        ),
         warnings=warnings,
     )

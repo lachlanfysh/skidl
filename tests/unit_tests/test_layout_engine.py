@@ -161,6 +161,8 @@ def test_plan_layout_returns_candidates_report_and_preserves_edge_anchors():
     ]
     assert result.report.selected in names
     assert result.intent_plan is not None
+    assert result.report.part_reasons["J1"]
+    assert result.report.power_corridors
     assert j1.x_mm == 50.0
     assert j1.y_mm + h / 2 == outline.y_max
     assert j1.rot_deg == 180.0

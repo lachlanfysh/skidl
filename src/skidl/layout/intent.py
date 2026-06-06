@@ -29,6 +29,7 @@ class RepeatedChannelIntent:
     name: str
     refs: list[str] = field(default_factory=list)
     channel_numbers: list[int] = field(default_factory=list)
+    refs_by_channel: dict[int, list[str]] = field(default_factory=dict)
     pattern: str = ""
 
 
@@ -132,6 +133,10 @@ def _infer_repeated_channels(circuit) -> list[RepeatedChannelIntent]:
             name="channel",
             refs=refs,
             channel_numbers=sorted(channel_refs),
+            refs_by_channel={
+                channel: sorted(refs_for_ch)
+                for channel, refs_for_ch in sorted(channel_refs.items())
+            },
             pattern="channel-numbered net names",
         )
     ]

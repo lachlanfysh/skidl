@@ -36,9 +36,27 @@ class PowerRouteIntent:
 
 
 @dataclass
+class PowerCorridor:
+    net_name: str
+    layer: str
+    width_mm: float
+    priority: int
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+    refs: list[str] = field(default_factory=list)
+
+    @property
+    def span_mm(self) -> float:
+        return (self.x_max - self.x_min) + (self.y_max - self.y_min)
+
+
+@dataclass
 class PowerRoutePlan:
     nets: list[PowerNet] = field(default_factory=list)
     route_intents: list[PowerRouteIntent] = field(default_factory=list)
+    corridors: list[PowerCorridor] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     def net(self, name: str) -> PowerNet | None:
@@ -68,6 +86,18 @@ class PowerRoutePlan:
                 )
                 if refs:
                     lines.append(f"    order: {refs}")
+        if self.corridors:
+            lines.append("Reserved power corridors:")
+            for corridor in self.corridors[:20]:
+                refs = " -> ".join(corridor.refs[:8])
+                lines.append(
+                    f"  {corridor.net_name}: {corridor.width_mm:.2f}mm on "
+                    f"{corridor.layer}, bounds "
+                    f"({corridor.x_min:.1f},{corridor.y_min:.1f}) to "
+                    f"({corridor.x_max:.1f},{corridor.y_max:.1f})"
+                )
+                if refs:
+                    lines.append(f"    refs: {refs}")
         if self.warnings:
             lines.append("Warnings:")
             for warning in self.warnings[:20]:
@@ -212,6 +242,36 @@ def _route_intents(
     return intents
 
 
+def _corridors(
+    route_intents: list[PowerRouteIntent],
+    placed_parts: list[PlacedPart],
+) -> list[PowerCorridor]:
+    placed = {pp.ref: pp for pp in placed_parts}
+    corridors: list[PowerCorridor] = []
+    for intent in route_intents:
+        refs = [ref for ref in intent.ordered_refs if ref in placed]
+        if len(refs) < 2 or intent.priority < 80:
+            continue
+        xs = [placed[ref].x_mm for ref in refs]
+        ys = [placed[ref].y_mm for ref in refs]
+        margin = max(2.0, intent.width_mm * 3.0)
+        corridors.append(
+            PowerCorridor(
+                net_name=intent.net_name,
+                layer=intent.layer,
+                width_mm=intent.width_mm,
+                priority=intent.priority,
+                x_min=min(xs) - margin,
+                y_min=min(ys) - margin,
+                x_max=max(xs) + margin,
+                y_max=max(ys) + margin,
+                refs=refs,
+            )
+        )
+    corridors.sort(key=lambda corridor: (-corridor.priority, corridor.net_name))
+    return corridors
+
+
 def _power_warnings(
     circuit,
     placed_parts: list[PlacedPart],
@@ -268,9 +328,11 @@ def plan_power_routes(
 ) -> PowerRoutePlan:
     power_nets = identify_power_nets(circuit, board_layers=board_layers)
     route_intents = _route_intents(power_nets, placed_parts, board_layers)
+    corridors = _corridors(route_intents, placed_parts)
     warnings = _power_warnings(circuit, placed_parts, power_nets)
     return PowerRoutePlan(
         nets=power_nets,
         route_intents=route_intents,
+        corridors=corridors,
         warnings=warnings,
     )

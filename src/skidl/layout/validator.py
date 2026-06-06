@@ -134,6 +134,9 @@ def _outline_contains_bounds(bounds, outline) -> bool:
     vertices = getattr(outline, "vertices", []) or []
     if len(vertices) <= 4:
         return True
+    shapely_result = _shapely_outline_contains_bounds(bounds, vertices)
+    if shapely_result is not None:
+        return shapely_result
     corners = [
         (x_min, y_min),
         (x_max, y_min),
@@ -141,6 +144,23 @@ def _outline_contains_bounds(bounds, outline) -> bool:
         (x_min, y_max),
     ]
     return all(_point_in_polygon(x, y, vertices) for x, y in corners)
+
+
+def _shapely_outline_contains_bounds(
+    bounds,
+    vertices: list[tuple[float, float]],
+) -> bool | None:
+    try:
+        from shapely.geometry import Polygon, box
+    except Exception:
+        return None
+    try:
+        polygon = Polygon(vertices)
+        if polygon.is_empty or not polygon.is_valid:
+            return None
+        return bool(polygon.covers(box(*bounds)))
+    except Exception:
+        return None
 
 
 def _check_outline_violations(

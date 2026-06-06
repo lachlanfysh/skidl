@@ -91,4 +91,6 @@ def test_infers_mux_and_repeated_channel_intent():
     assert "mux_bank_controller" in _kinds(plan, "U1")
     assert len(plan.repeated_channels) == 1
     assert plan.repeated_channels[0].channel_numbers == [0, 1, 2, 3]
+    assert plan.repeated_channels[0].refs_by_channel[0] == ["U1", "U2"]
+    assert plan.repeated_channels[0].refs_by_channel[1] == ["U1", "U3"]
     assert {"U1", "U2", "U3"}.issubset(set(plan.repeated_channels[0].refs))

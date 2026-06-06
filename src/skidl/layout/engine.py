@@ -11,6 +11,7 @@ from .constraints import BoardOutline, LayoutConstraints
 from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometries
 from .hierarchy import PlacementGroup, extract_groups
 from .intent import PlacementIntentPlan, infer_placement_intents
+from .orientation import refine_candidate_orientations
 from .placer import derive_outline
 from .power import PowerRoutePlan, plan_power_routes
 from .reader import read_board_outline
@@ -149,13 +150,15 @@ def plan_layout(
     candidate_scores: dict[str, LayoutScore] = {}
     candidate_validations: dict[str, ValidationResult] = {}
     for candidate in candidates:
+        refine_candidate_orientations(candidate, circuit, fp_geometries)
+        candidate_constraints = candidate.constraints or resolved_constraints
         candidate_validations[candidate.name] = validate(
             candidate.placed_parts,
             circuit,
             resolved_bboxes,
             clearance_mm=clearance_mm,
             outline=resolved_outline,
-            keepouts=resolved_constraints.keepouts,
+            keepouts=candidate_constraints.keepouts,
             fp_geometries=fp_geometries,
         )
         candidate_scores[candidate.name] = score_placement(
@@ -163,7 +166,7 @@ def plan_layout(
             circuit,
             resolved_bboxes,
             outline=resolved_outline,
-            keepouts=resolved_constraints.keepouts,
+            keepouts=candidate_constraints.keepouts,
             fp_geometries=fp_geometries,
             clearance_mm=clearance_mm,
             board_layers=board_layers,
@@ -178,6 +181,7 @@ def plan_layout(
         ),
     )
     placed_parts = selected_candidate.placed_parts
+    selected_constraints = selected_candidate.constraints or resolved_constraints
 
     if resolved_outline is None and derive_outline_if_missing:
         resolved_outline = derive_outline(
@@ -192,7 +196,7 @@ def plan_layout(
         resolved_bboxes,
         clearance_mm=clearance_mm,
         outline=resolved_outline,
-        keepouts=resolved_constraints.keepouts,
+        keepouts=selected_constraints.keepouts,
         fp_geometries=fp_geometries,
     )
     score = score_placement(
@@ -200,7 +204,7 @@ def plan_layout(
         circuit,
         resolved_bboxes,
         outline=resolved_outline,
-        keepouts=resolved_constraints.keepouts,
+        keepouts=selected_constraints.keepouts,
         fp_geometries=fp_geometries,
         clearance_mm=clearance_mm,
         board_layers=board_layers,

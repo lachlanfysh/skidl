@@ -137,3 +137,4 @@ def test_four_layer_board_scores_long_high_current_path_better_than_two_layer():
     score_4_layer = score_placement(placed, circuit, BBOXES, board_layers=4)
 
     assert score_4_layer.score > score_2_layer.score
+    assert score_4_layer.power_corridor_count >= 1
