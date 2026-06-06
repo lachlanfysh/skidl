@@ -96,7 +96,7 @@ def _find_clear_position(
     occupied: list[tuple],
     bounds=None,
     step: float = 1.0,
-    max_radius: float = 50.0,
+    max_radius: float = 120.0,
 ) -> tuple[float, float]:
     if _fits_bounds(target_x, target_y, width, height, bounds) and not _overlaps_any(
         target_x, target_y, width, height, occupied
