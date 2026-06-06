@@ -2,11 +2,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .candidates import (
+    PlacementCandidate,
+    copy_constraints,
+    generate_placement_candidates,
+)
 from .constraints import BoardOutline, LayoutConstraints
+from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometries
 from .hierarchy import PlacementGroup, extract_groups
-from .placer import derive_outline, place_parts
+from .intent import PlacementIntentPlan, infer_placement_intents
+from .orientation import refine_candidate_orientations
+from .placer import derive_outline
 from .power import PowerRoutePlan, plan_power_routes
 from .reader import read_board_outline
+from .report import PlacementReport, build_placement_report
 from .scoring import LayoutScore, score_placement
 from .validator import ValidationResult, validate
 from .writer import PlacedPart, load_footprint_bboxes
@@ -21,6 +30,10 @@ class LayoutResult:
     power_plan: PowerRoutePlan
     groups: dict[int | None, PlacementGroup]
     fp_bboxes: dict[str, tuple[float, float]]
+    candidates: list[PlacementCandidate] | None = None
+    intent_plan: PlacementIntentPlan | None = None
+    report: PlacementReport | None = None
+    fp_geometries: dict[str, FootprintGeometry] | None = None
 
     @property
     def ok(self) -> bool:
@@ -32,6 +45,10 @@ class LayoutResult:
             self.score.summary(),
             self.power_plan.summary(),
         ]
+        if self.report is not None:
+            lines.append(self.report.summary())
+        if self.intent_plan is not None:
+            lines.append(self.intent_plan.summary())
         if self.outline is not None:
             lines.insert(
                 0,
@@ -47,21 +64,17 @@ def _copy_constraints(
     constraints: LayoutConstraints | None,
     outline: BoardOutline | None,
 ) -> LayoutConstraints:
-    constraints = constraints or LayoutConstraints()
-    return LayoutConstraints(
-        fixed=list(constraints.fixed or []),
-        zones=list(constraints.zones or []),
-        keepouts=list(constraints.keepouts or []),
-        outline=outline,
-    )
+    copied = copy_constraints(constraints)
+    copied.outline = outline
+    return copied
 
 
 def _footprint_names(circuit) -> set[str]:
     names = set()
     for part in circuit.parts:
-        foot = getattr(part, "foot", None) or getattr(part, "footprint", None)
-        if foot:
-            names.add(foot)
+        fp = getattr(part, "footprint", None)
+        if fp:
+            names.add(str(fp))
     return names
 
 
@@ -75,6 +88,15 @@ def _resolve_bboxes(
     if fp_lib_dirs is None:
         return {}
     return load_footprint_bboxes(_footprint_names(circuit), fp_lib_dirs)
+
+
+def _resolve_geometries(
+    circuit,
+    fp_lib_dirs: list[str] | None,
+) -> dict[str, FootprintGeometry]:
+    if fp_lib_dirs is None:
+        return {}
+    return load_footprint_geometries(_footprint_names(circuit), fp_lib_dirs)
 
 
 def _resolve_outline(
@@ -104,12 +126,62 @@ def plan_layout(
     derive_outline_if_missing: bool = True,
 ) -> LayoutResult:
     """Place and score a board attempt without writing copper geometry."""
+    fp_geometries = _resolve_geometries(circuit, fp_lib_dirs)
     resolved_bboxes = _resolve_bboxes(circuit, fp_bboxes, fp_lib_dirs)
+    geometry_boxes = geometry_bboxes(fp_geometries)
+    if fp_bboxes is None:
+        resolved_bboxes.update(geometry_boxes)
+    else:
+        for footprint, bbox in geometry_boxes.items():
+            resolved_bboxes.setdefault(footprint, bbox)
+
     resolved_outline = _resolve_outline(constraints, outline, existing_pcb_path)
     resolved_constraints = _copy_constraints(constraints, resolved_outline)
 
     groups = extract_groups(circuit)
-    placed_parts = place_parts(groups, resolved_constraints, resolved_bboxes)
+    intent_plan = infer_placement_intents(circuit, outline=resolved_outline)
+    candidates = generate_placement_candidates(
+        groups,
+        resolved_constraints,
+        resolved_bboxes,
+        intent_plan=intent_plan,
+    )
+
+    candidate_scores: dict[str, LayoutScore] = {}
+    candidate_validations: dict[str, ValidationResult] = {}
+    for candidate in candidates:
+        refine_candidate_orientations(candidate, circuit, fp_geometries)
+        candidate_constraints = candidate.constraints or resolved_constraints
+        candidate_validations[candidate.name] = validate(
+            candidate.placed_parts,
+            circuit,
+            resolved_bboxes,
+            clearance_mm=clearance_mm,
+            outline=resolved_outline,
+            keepouts=candidate_constraints.keepouts,
+            fp_geometries=fp_geometries,
+        )
+        candidate_scores[candidate.name] = score_placement(
+            candidate.placed_parts,
+            circuit,
+            resolved_bboxes,
+            outline=resolved_outline,
+            keepouts=candidate_constraints.keepouts,
+            fp_geometries=fp_geometries,
+            clearance_mm=clearance_mm,
+            board_layers=board_layers,
+        )
+        candidate.score = candidate_scores[candidate.name].score
+
+    selected_candidate = max(
+        candidates,
+        key=lambda candidate: (
+            candidate.score if candidate.score is not None else 0.0,
+            candidate.name,
+        ),
+    )
+    placed_parts = selected_candidate.placed_parts
+    selected_constraints = selected_candidate.constraints or resolved_constraints
 
     if resolved_outline is None and derive_outline_if_missing:
         resolved_outline = derive_outline(
@@ -124,19 +196,32 @@ def plan_layout(
         resolved_bboxes,
         clearance_mm=clearance_mm,
         outline=resolved_outline,
+        keepouts=selected_constraints.keepouts,
+        fp_geometries=fp_geometries,
     )
     score = score_placement(
         placed_parts,
         circuit,
         resolved_bboxes,
         outline=resolved_outline,
+        keepouts=selected_constraints.keepouts,
+        fp_geometries=fp_geometries,
         clearance_mm=clearance_mm,
         board_layers=board_layers,
     )
+    selected_candidate.score = score.score
     power_plan = plan_power_routes(
         circuit,
         placed_parts,
         board_layers=board_layers,
+    )
+    candidate_validations[selected_candidate.name] = validation
+    candidate_scores[selected_candidate.name] = score
+    report = build_placement_report(
+        selected_candidate,
+        candidate_scores,
+        candidate_validations,
+        power_plan,
     )
 
     return LayoutResult(
@@ -147,4 +232,8 @@ def plan_layout(
         power_plan=power_plan,
         groups=groups,
         fp_bboxes=resolved_bboxes,
+        candidates=candidates,
+        intent_plan=intent_plan,
+        report=report,
+        fp_geometries=fp_geometries,
     )

@@ -19,7 +19,7 @@ class _Part:
         self,
         ref,
         value="",
-        foot="",
+        footprint="",
         name="",
         description="",
         nets=None,
@@ -27,7 +27,7 @@ class _Part:
     ):
         self.ref = ref
         self.value = value
-        self.foot = foot
+        self.footprint = footprint
         self.name = name
         self.description = description
         self.pins = [_Pin(self, _Net(net)) for net in (nets or [])]
@@ -47,7 +47,7 @@ def test_classify_decoupling_cap():
     part = _Part(
         "C1",
         value="100nF",
-        foot="Capacitor_SMD:C_0805_2012Metric",
+        footprint="Capacitor_SMD:C_0805_2012Metric",
         nets=["VCC", "GND"],
     )
     role = classify_part(part)
@@ -56,12 +56,12 @@ def test_classify_decoupling_cap():
 
 
 def test_classify_connector_from_ref_and_text():
-    part = _Part("J1", name="USB_C_Receptacle", foot="Connector_USB:USB_C")
+    part = _Part("J1", name="USB_C_Receptacle", footprint="Connector_USB:USB_C")
     assert classify_part(part).role == "connector"
 
 
 def test_classify_crystal_and_regulator():
-    crystal = _Part("Y1", value="16MHz", foot="Crystal:Crystal_SMD")
+    crystal = _Part("Y1", value="16MHz", footprint="Crystal:Crystal_SMD")
     regulator = _Part(
         "U2",
         name="AP2112 regulator",

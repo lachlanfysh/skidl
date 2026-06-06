@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 
+from .geometry import FootprintGeometry
 from .writer import PlacedPart
 
 
@@ -15,6 +16,7 @@ _MACOS_KICAD_CLI = "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"
 class ValidationResult:
     overlaps: list[tuple[str, str]] = field(default_factory=list)
     outline_violations: list[str] = field(default_factory=list)
+    keepout_violations: list[str] = field(default_factory=list)
     worst_hpwl_nets: list[tuple[str, float]] = field(default_factory=list)
     missing_refs: list[str] = field(default_factory=list)
     extra_refs: list[str] = field(default_factory=list)
@@ -27,6 +29,7 @@ class ValidationResult:
             not self.overlaps
             and not self.missing_refs
             and not self.outline_violations
+            and not self.keepout_violations
         )
 
     def summary(self) -> str:
@@ -44,6 +47,10 @@ class ValidationResult:
             lines.append(f"OUTSIDE OUTLINE ({len(self.outline_violations)}):")
             for ref in self.outline_violations[:20]:
                 lines.append(f"  {ref}")
+        if self.keepout_violations:
+            lines.append(f"INSIDE KEEPOUT ({len(self.keepout_violations)}):")
+            for ref in self.keepout_violations[:20]:
+                lines.append(f"  {ref}")
         if self.worst_hpwl_nets:
             lines.append("Worst HPWL nets:")
             for name, hpwl in self.worst_hpwl_nets[:10]:
@@ -51,40 +58,145 @@ class ValidationResult:
         return "\n".join(lines)
 
 
+def _fallback_bounds(
+    pp: PlacedPart,
+    fp_bboxes: dict[str, tuple[float, float]],
+) -> tuple[float, float, float, float]:
+    w, h = fp_bboxes.get(pp.footprint, (2.0, 2.0))
+    return pp.x_mm - w / 2, pp.y_mm - h / 2, pp.x_mm + w / 2, pp.y_mm + h / 2
+
+
+def _placed_bounds(
+    pp: PlacedPart,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
+) -> tuple[float, float, float, float]:
+    geometry = (fp_geometries or {}).get(pp.footprint)
+    if geometry is not None:
+        return geometry.transformed_bounds(pp)
+    return _fallback_bounds(pp, fp_bboxes)
+
+
+def _rects_overlap(a, b, clearance_mm: float = 0.0) -> bool:
+    ax_min, ay_min, ax_max, ay_max = a
+    bx_min, by_min, bx_max, by_max = b
+    return (
+        ax_min < bx_max + clearance_mm
+        and ax_max > bx_min - clearance_mm
+        and ay_min < by_max + clearance_mm
+        and ay_max > by_min - clearance_mm
+    )
+
+
 def _check_overlaps(
     placed: list[PlacedPart],
     fp_bboxes: dict[str, tuple[float, float]],
     clearance_mm: float,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
 ) -> list[tuple[str, str]]:
     overlaps = []
     for i, a in enumerate(placed):
-        wa, ha = fp_bboxes.get(a.footprint, (2.0, 2.0))
+        a_bounds = _placed_bounds(a, fp_bboxes, fp_geometries)
         for b in placed[i + 1:]:
-            wb, hb = fp_bboxes.get(b.footprint, (2.0, 2.0))
-            if (abs(a.x_mm - b.x_mm) < (wa + wb) / 2 + clearance_mm and
-                    abs(a.y_mm - b.y_mm) < (ha + hb) / 2 + clearance_mm):
+            b_bounds = _placed_bounds(b, fp_bboxes, fp_geometries)
+            if _rects_overlap(a_bounds, b_bounds, clearance_mm):
                 overlaps.append((a.ref, b.ref))
     return overlaps
+
+
+def _point_in_polygon(x: float, y: float, vertices: list[tuple[float, float]]) -> bool:
+    inside = False
+    count = len(vertices)
+    if count < 3:
+        return False
+    j = count - 1
+    for i in range(count):
+        xi, yi = vertices[i]
+        xj, yj = vertices[j]
+        intersects = ((yi > y) != (yj > y)) and (
+            x <= (xj - xi) * (y - yi) / ((yj - yi) or 1e-12) + xi
+        )
+        if intersects:
+            inside = not inside
+        j = i
+    return inside
+
+
+def _outline_contains_bounds(bounds, outline) -> bool:
+    x_min, y_min, x_max, y_max = bounds
+    if (
+        x_min < outline.x_min
+        or y_min < outline.y_min
+        or x_max > outline.x_max
+        or y_max > outline.y_max
+    ):
+        return False
+    vertices = getattr(outline, "vertices", []) or []
+    if len(vertices) <= 4:
+        return True
+    shapely_result = _shapely_outline_contains_bounds(bounds, vertices)
+    if shapely_result is not None:
+        return shapely_result
+    corners = [
+        (x_min, y_min),
+        (x_max, y_min),
+        (x_max, y_max),
+        (x_min, y_max),
+    ]
+    return all(_point_in_polygon(x, y, vertices) for x, y in corners)
+
+
+def _shapely_outline_contains_bounds(
+    bounds,
+    vertices: list[tuple[float, float]],
+) -> bool | None:
+    try:
+        from shapely.geometry import Polygon, box
+    except Exception:
+        return None
+    try:
+        polygon = Polygon(vertices)
+        if polygon.is_empty or not polygon.is_valid:
+            return None
+        return bool(polygon.covers(box(*bounds)))
+    except Exception:
+        return None
 
 
 def _check_outline_violations(
     placed: list[PlacedPart],
     fp_bboxes: dict[str, tuple[float, float]],
     outline,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
 ) -> list[str]:
     if outline is None:
         return []
 
     violations = []
     for pp in placed:
-        w, h = fp_bboxes.get(pp.footprint, (2.0, 2.0))
-        half_w, half_h = w / 2, h / 2
-        if (
-            pp.x_mm - half_w < outline.x_min
-            or pp.y_mm - half_h < outline.y_min
-            or pp.x_mm + half_w > outline.x_max
-            or pp.y_mm + half_h > outline.y_max
+        if not _outline_contains_bounds(
+            _placed_bounds(pp, fp_bboxes, fp_geometries), outline
         ):
+            violations.append(pp.ref)
+    return violations
+
+
+def _check_keepout_violations(
+    placed: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    keepouts=None,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
+) -> list[str]:
+    if not keepouts:
+        return []
+    violations = []
+    keepout_bounds = [
+        (keepout.x_min, keepout.y_min, keepout.x_max, keepout.y_max)
+        for keepout in keepouts
+    ]
+    for pp in placed:
+        bounds = _placed_bounds(pp, fp_bboxes, fp_geometries)
+        if any(_rects_overlap(bounds, keepout) for keepout in keepout_bounds):
             violations.append(pp.ref)
     return violations
 
@@ -123,12 +235,19 @@ def validate(
     fp_bboxes: dict[str, tuple[float, float]],
     clearance_mm: float = 0.5,
     outline=None,
+    keepouts=None,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
 ) -> ValidationResult:
     result = ValidationResult(placed_parts=len(placed_parts))
 
-    result.overlaps = _check_overlaps(placed_parts, fp_bboxes, clearance_mm)
+    result.overlaps = _check_overlaps(
+        placed_parts, fp_bboxes, clearance_mm, fp_geometries
+    )
     result.outline_violations = _check_outline_violations(
-        placed_parts, fp_bboxes, outline
+        placed_parts, fp_bboxes, outline, fp_geometries
+    )
+    result.keepout_violations = _check_keepout_violations(
+        placed_parts, fp_bboxes, keepouts, fp_geometries
     )
 
     if circuit is not None:

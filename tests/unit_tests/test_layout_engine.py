@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from skidl.layout.constraints import BoardOutline, FixedPosition, LayoutConstraints
+from skidl.layout.constraints import (
+    BoardOutline,
+    EdgeAnchor,
+    FixedPosition,
+    LayoutConstraints,
+)
 from skidl.layout.engine import LayoutResult, plan_layout
 
 
@@ -21,10 +26,10 @@ class _Pin:
 
 
 class _Part:
-    def __init__(self, ref, value="", foot="", name="", nets=None, pins=2):
+    def __init__(self, ref, value="", footprint="", name="", nets=None, pins=2):
         self.ref = ref
         self.value = value
-        self.foot = foot
+        self.footprint = footprint
         self.name = name
         self.node = None
         self.pins = []
@@ -57,9 +62,9 @@ def _circuit():
     vbus = _Net("VBUS")
     vcc = _Net("3V3")
     gnd = _Net("GND")
-    u1 = _Part("U1", name="MCU", foot="Package_QFP:MCU", nets=[vcc, gnd], pins=2)
-    c1 = _Part("C1", value="100nF", foot="Capacitor:C_0805", nets=[vcc, gnd])
-    j1 = _Part("J1", name="USB connector", foot="Connector:USB", nets=[vbus, gnd])
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=2)
+    c1 = _Part("C1", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    j1 = _Part("J1", name="USB connector", footprint="Connector:USB", nets=[vbus, gnd])
     return _Circuit([u1, c1, j1], [vbus, vcc, gnd])
 
 
@@ -131,3 +136,33 @@ def test_plan_layout_prefers_explicit_outline_over_existing_board(tmp_path):
     assert result.outline is explicit
     assert result.outline.width_mm == 50.0
     assert result.outline.height_mm == 40.0
+
+
+def test_plan_layout_returns_candidates_report_and_preserves_edge_anchors():
+    outline = BoardOutline(100.0, 60.0)
+    result = plan_layout(
+        _circuit(),
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=outline,
+            edge_anchors=[EdgeAnchor("J1", "bottom", offset_mm=50.0, rot_deg=180.0)],
+        ),
+    )
+
+    names = [candidate.name for candidate in result.candidates]
+    j1 = next(placed for placed in result.placed_parts if placed.ref == "J1")
+    _, h = BBOXES[j1.footprint]
+
+    assert names[:4] == [
+        "baseline",
+        "connector_edge_first",
+        "power_first",
+        "cluster_first",
+    ]
+    assert result.report.selected in names
+    assert result.intent_plan is not None
+    assert result.report.part_reasons["J1"]
+    assert result.report.power_corridors
+    assert j1.x_mm == 50.0
+    assert j1.y_mm + h / 2 == outline.y_max
+    assert j1.rot_deg == 180.0

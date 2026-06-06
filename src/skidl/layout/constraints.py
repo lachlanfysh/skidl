@@ -38,6 +38,42 @@ class EdgeAnchor:
     rot_deg: float | None = None
 
 
+@dataclass
+class AlignConstraint:
+    refs: list[str]
+    axis: str
+    value_mm: float | None = None
+
+
+@dataclass
+class DistributeConstraint:
+    refs: list[str]
+    axis: str
+    start_mm: float | None = None
+    end_mm: float | None = None
+
+
+@dataclass
+class NearConstraint:
+    ref: str
+    target_ref: str
+    distance_mm: float = 5.0
+
+
+@dataclass
+class FarConstraint:
+    ref: str
+    target_ref: str
+    distance_mm: float = 10.0
+
+
+@dataclass
+class FaceEdgeConstraint:
+    ref: str
+    edge: str
+    rot_deg: float | None = None
+
+
 @dataclass(init=False)
 class BoardOutline:
     vertices: list[tuple[float, float]] = field(default_factory=list)
@@ -101,4 +137,9 @@ class LayoutConstraints:
     zones: list = field(default_factory=list)
     edge_anchors: list = field(default_factory=list)
     keepouts: list = field(default_factory=list)
+    align: list = field(default_factory=list)
+    distribute: list = field(default_factory=list)
+    near: list = field(default_factory=list)
+    far: list = field(default_factory=list)
+    face_edges: list = field(default_factory=list)
     outline: BoardOutline = None

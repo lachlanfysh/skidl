@@ -17,7 +17,6 @@ from .writer import PlacedPart
 
 _DEFAULT_BBOX = (2.0, 2.0)
 
-# Smaller default for known 2-pin passives (0603-class)
 _PASSIVE_BBOX = (1.7, 0.9)
 
 
@@ -76,6 +75,20 @@ def _overlaps_any(x, y, w, h, occupied: list[tuple], clearance=0.5) -> bool:
     return False
 
 
+def _occupied_from_keepouts(keepouts: list[KeepOut] | None) -> list[tuple]:
+    occupied = []
+    for keepout in keepouts or []:
+        occupied.append(
+            (
+                (keepout.x_min + keepout.x_max) / 2,
+                (keepout.y_min + keepout.y_max) / 2,
+                keepout.x_max - keepout.x_min,
+                keepout.y_max - keepout.y_min,
+            )
+        )
+    return occupied
+
+
 def _fits_bounds(x, y, w, h, bounds) -> bool:
     if bounds is None:
         return True
@@ -96,7 +109,7 @@ def _find_clear_position(
     occupied: list[tuple],
     bounds=None,
     step: float = 1.0,
-    max_radius: float = 120.0,
+    max_radius: float = 50.0,
 ) -> tuple[float, float]:
     if _fits_bounds(target_x, target_y, width, height, bounds) and not _overlaps_any(
         target_x, target_y, width, height, occupied
@@ -129,12 +142,15 @@ def _find_near_parent(
     bounds=None,
 ) -> tuple[float, float]:
     """Try right/below/left/above offsets from parent, return closest clear position."""
+    # Use rotation-safe (square) dimensions so orientation refinement can't
+    # create overlaps by rotating a part after placement.
+    side = max(width, height)
     gap = 1.0
     offsets = [
-        (pw / 2 + width / 2 + gap + n * (width + 0.5), 0),
-        (0, ph / 2 + height / 2 + gap + n * (height + 0.5)),
-        (-(pw / 2 + width / 2 + gap + n * (width + 0.5)), 0),
-        (0, -(ph / 2 + height / 2 + gap + n * (height + 0.5))),
+        (pw / 2 + side / 2 + gap + n * (side + 0.5), 0),
+        (0, ph / 2 + side / 2 + gap + n * (side + 0.5)),
+        (-(pw / 2 + side / 2 + gap + n * (side + 0.5)), 0),
+        (0, -(ph / 2 + side / 2 + gap + n * (side + 0.5))),
     ]
 
     best, best_dist = None, float("inf")
@@ -142,13 +158,13 @@ def _find_near_parent(
         tx = parent_x + dx
         ty = parent_y + dy
         if bounds is not None:
-            tx, ty = _clamp_to_bounds(tx, ty, width, height, bounds)
+            tx, ty = _clamp_to_bounds(tx, ty, side, side, bounds)
         x, y = _find_clear_position(
-            tx, ty, width, height, occupied, bounds=bounds,
+            tx, ty, side, side, occupied, bounds=bounds,
             step=0.5, max_radius=25.0,
         )
         if bounds is not None:
-            x, y = _clamp_to_bounds(x, y, width, height, bounds)
+            x, y = _clamp_to_bounds(x, y, side, side, bounds)
         dist = math.hypot(x - parent_x, y - parent_y)
         if dist < best_dist:
             best = (x, y)
@@ -233,6 +249,13 @@ def _is_primary_part(part) -> bool:
     return len(part) != 2
 
 
+def _face_edge_rotation(ref: str, constraints: LayoutConstraints, default: float) -> float:
+    for face_edge in constraints.face_edges or []:
+        if face_edge.ref == ref and face_edge.rot_deg is not None:
+            return face_edge.rot_deg
+    return default
+
+
 def _most_adjacent_placed(
     ref: str,
     adjacency: dict,
@@ -268,6 +291,145 @@ def _largest_ic_ref(group: PlacementGroup) -> Optional[str]:
     return best_ref
 
 
+def _distance_xy(a: tuple[float, float], b: tuple[float, float]) -> float:
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _apply_soft_constraints(
+    placed_map: dict[str, PlacedPart],
+    all_parts: list[tuple],
+    constraints: LayoutConstraints,
+    fp_bboxes: dict[str, tuple[float, float]],
+) -> None:
+    """Apply alignment/proximity constraints after first-pass placement."""
+    if not placed_map:
+        return
+
+    part_by_ref = {part.ref: part for part, _ in all_parts}
+    group_by_ref = {part.ref: group for part, group in all_parts}
+    fixed_refs = {fp.ref for fp in (constraints.fixed or [])}
+
+    def _occupied_without(ref: str) -> list[tuple]:
+        occupied = _occupied_from_keepouts(constraints.keepouts)
+        for other_ref, pp in placed_map.items():
+            if other_ref == ref:
+                continue
+            part = part_by_ref.get(other_ref)
+            if part is None:
+                w, h = fp_bboxes.get(pp.footprint, _DEFAULT_BBOX)
+            else:
+                w, h = _bbox(part, fp_bboxes)
+            occupied.append((pp.x_mm, pp.y_mm, w, h))
+        return occupied
+
+    def _move(ref: str, target_x: float, target_y: float) -> None:
+        if ref in fixed_refs or ref not in placed_map or ref not in part_by_ref:
+            return
+        part = part_by_ref[ref]
+        group = group_by_ref[ref]
+        w, h = _bbox(part, fp_bboxes)
+        bounds = _bounds_for_part(part, group, constraints)
+        target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
+        x, y = _find_clear_position(
+            target_x,
+            target_y,
+            w,
+            h,
+            _occupied_without(ref),
+            bounds=bounds,
+        )
+        x, y = _clamp_to_bounds(x, y, w, h, bounds)
+        pp = placed_map[ref]
+        placed_map[ref] = PlacedPart(
+            ref=pp.ref,
+            x_mm=x,
+            y_mm=y,
+            rot_deg=pp.rot_deg,
+            footprint=pp.footprint,
+        )
+
+    def _apply_align_constraints() -> None:
+        for constraint in constraints.align or []:
+            refs = [ref for ref in constraint.refs if ref in placed_map]
+            if not refs:
+                continue
+            axis = constraint.axis.lower()
+            if axis not in {"x", "y"}:
+                continue
+            value = constraint.value_mm
+            if value is None:
+                first = placed_map[refs[0]]
+                value = first.x_mm if axis == "x" else first.y_mm
+            for ref in refs:
+                pp = placed_map[ref]
+                _move(
+                    ref,
+                    value if axis == "x" else pp.x_mm,
+                    value if axis == "y" else pp.y_mm,
+                )
+
+    _apply_align_constraints()
+
+    for constraint in constraints.distribute or []:
+        refs = [ref for ref in constraint.refs if ref in placed_map]
+        if len(refs) < 2:
+            continue
+        axis = constraint.axis.lower()
+        if axis not in {"x", "y"}:
+            continue
+        current = [
+            placed_map[ref].x_mm if axis == "x" else placed_map[ref].y_mm
+            for ref in refs
+        ]
+        start = constraint.start_mm if constraint.start_mm is not None else current[0]
+        end = constraint.end_mm if constraint.end_mm is not None else current[-1]
+        step = (end - start) / (len(refs) - 1)
+        for idx, ref in enumerate(refs):
+            pp = placed_map[ref]
+            value = start + step * idx
+            _move(
+                ref,
+                value if axis == "x" else pp.x_mm,
+                value if axis == "y" else pp.y_mm,
+            )
+
+    _apply_align_constraints()
+
+    for constraint in constraints.near or []:
+        if constraint.ref not in placed_map or constraint.target_ref not in placed_map:
+            continue
+        pp = placed_map[constraint.ref]
+        target = placed_map[constraint.target_ref]
+        current = _distance_xy((pp.x_mm, pp.y_mm), (target.x_mm, target.y_mm))
+        if current <= constraint.distance_mm:
+            continue
+        angle = math.atan2(pp.y_mm - target.y_mm, pp.x_mm - target.x_mm)
+        if current == 0:
+            angle = 0.0
+        _move(
+            constraint.ref,
+            target.x_mm + math.cos(angle) * constraint.distance_mm,
+            target.y_mm + math.sin(angle) * constraint.distance_mm,
+        )
+
+    for constraint in constraints.far or []:
+        if constraint.ref not in placed_map or constraint.target_ref not in placed_map:
+            continue
+        pp = placed_map[constraint.ref]
+        target = placed_map[constraint.target_ref]
+        current = _distance_xy((pp.x_mm, pp.y_mm), (target.x_mm, target.y_mm))
+        if current >= constraint.distance_mm:
+            continue
+        angle = math.atan2(pp.y_mm - target.y_mm, pp.x_mm - target.x_mm)
+        if current == 0:
+            angle = 0.0
+        _move(
+            constraint.ref,
+            target.x_mm + math.cos(angle) * constraint.distance_mm,
+            target.y_mm + math.sin(angle) * constraint.distance_mm,
+        )
+
+
 def place_parts(
     groups: dict,
     constraints: LayoutConstraints,
@@ -281,15 +443,7 @@ def place_parts(
     # placed_map: ref → PlacedPart
     placed_map: dict[str, PlacedPart] = {}
     # occupied: list of (x, y, w, h) tuples for overlap checks
-    occupied: list[tuple] = []
-
-    # Seed keepout zones as occupied regions
-    for ko in (constraints.keepouts or []):
-        cx = (ko.x_min + ko.x_max) / 2
-        cy = (ko.y_min + ko.y_max) / 2
-        w = ko.x_max - ko.x_min
-        h = ko.y_max - ko.y_min
-        occupied.append((cx, cy, w, h))
+    occupied: list[tuple] = _occupied_from_keepouts(constraints.keepouts)
 
     def _commit(pp: PlacedPart, w: float, h: float):
         placed_map[pp.ref] = pp
@@ -313,7 +467,9 @@ def place_parts(
                 ref=part.ref,
                 x_mm=fp_constraint.x_mm,
                 y_mm=fp_constraint.y_mm,
-                rot_deg=fp_constraint.rot_deg,
+                rot_deg=_face_edge_rotation(
+                    part.ref, constraints, fp_constraint.rot_deg
+                ),
                 footprint=_footprint_name(part),
             )
             _commit(pp, w, h)
@@ -372,7 +528,7 @@ def place_parts(
                     ref=part.ref,
                     x_mm=x,
                     y_mm=y,
-                    rot_deg=0.0,
+                    rot_deg=_face_edge_rotation(part.ref, constraints, 0.0),
                     footprint=_footprint_name(part),
                 ),
                 w,
@@ -461,6 +617,8 @@ def place_parts(
             x, y = _clamp_to_bounds(x, y, w, h, bounds)
         _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=rot,
                            footprint=_footprint_name(part)), w, h)
+
+    _apply_soft_constraints(placed_map, all_parts, constraints, fp_bboxes)
 
     return list(placed_map.values())
 
