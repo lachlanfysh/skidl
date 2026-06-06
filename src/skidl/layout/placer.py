@@ -20,11 +20,19 @@ _DEFAULT_BBOX = (2.0, 2.0)
 _PASSIVE_BBOX = (1.7, 0.9)
 
 
+def _is_mock_placeholder(value) -> bool:
+    return value.__class__.__module__.startswith("unittest.mock")
+
+
+def _footprint_attr(part, name: str) -> str:
+    fp = getattr(part, name, None)
+    if fp is None or _is_mock_placeholder(fp):
+        return ""
+    return str(fp or "")
+
+
 def _footprint_name(part) -> str:
-    fp = getattr(part, "footprint", None)
-    if fp:
-        return str(fp)
-    return ""
+    return _footprint_attr(part, "footprint") or _footprint_attr(part, "foot")
 
 
 def _pin_net_names(part) -> list[str]:

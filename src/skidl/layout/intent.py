@@ -33,12 +33,27 @@ class PlacementIntent:
 
 
 @dataclass
+class ChannelSlot:
+    channel_number: int
+    slot_index: int
+    refs: list[str] = field(default_factory=list)
+    sensor_refs: list[str] = field(default_factory=list)
+    passive_refs: list[str] = field(default_factory=list)
+    connector_refs: list[str] = field(default_factory=list)
+    other_refs: list[str] = field(default_factory=list)
+
+
+@dataclass
 class RepeatedChannelIntent:
     name: str
     refs: list[str] = field(default_factory=list)
     channel_numbers: list[int] = field(default_factory=list)
     refs_by_channel: dict[int, list[str]] = field(default_factory=dict)
     pattern: str = ""
+    shared_refs: list[str] = field(default_factory=list)
+    controller_refs: list[str] = field(default_factory=list)
+    slots: list[ChannelSlot] = field(default_factory=list)
+    backbone_nets: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -236,7 +251,44 @@ def _mating_intent_for_part(
     return None
 
 
-def _infer_repeated_channels(circuit) -> list[RepeatedChannelIntent]:
+def _slot_for_channel(
+    channel_number: int,
+    slot_index: int,
+    refs: list[str],
+    roles: dict[str, PartRole],
+) -> ChannelSlot:
+    sensor_refs: list[str] = []
+    passive_refs: list[str] = []
+    connector_refs: list[str] = []
+    other_refs: list[str] = []
+
+    for ref in refs:
+        role = roles.get(ref)
+        role_name = role.role if role is not None else "unknown"
+        if role_name == "connector":
+            connector_refs.append(ref)
+        elif role_name in {"signal_passive", "decoupling_cap"}:
+            passive_refs.append(ref)
+        elif role_name == "ic":
+            sensor_refs.append(ref)
+        else:
+            other_refs.append(ref)
+
+    return ChannelSlot(
+        channel_number=channel_number,
+        slot_index=slot_index,
+        refs=refs,
+        sensor_refs=sensor_refs,
+        passive_refs=passive_refs,
+        connector_refs=connector_refs,
+        other_refs=other_refs,
+    )
+
+
+def _infer_repeated_channels(
+    circuit,
+    roles: dict[str, PartRole],
+) -> list[RepeatedChannelIntent]:
     channel_refs: dict[int, set[str]] = {}
     for part in circuit.parts:
         for net_name in pin_net_names(part):
@@ -249,16 +301,39 @@ def _infer_repeated_channels(circuit) -> list[RepeatedChannelIntent]:
         return []
 
     refs = sorted({ref for refs_for_ch in channel_refs.values() for ref in refs_for_ch})
+    ref_counts: dict[str, int] = {}
+    for refs_for_ch in channel_refs.values():
+        for ref in refs_for_ch:
+            ref_counts[ref] = ref_counts.get(ref, 0) + 1
+    shared_refs = sorted(ref for ref, count in ref_counts.items() if count > 1)
+    controller_refs = sorted(
+        ref
+        for ref in shared_refs
+        if roles.get(ref) is not None and roles[ref].role in {"ic", "connector"}
+    )
+    slots = []
+    refs_by_channel = {
+        channel: sorted(refs_for_ch)
+        for channel, refs_for_ch in sorted(channel_refs.items())
+    }
+    for slot_index, channel in enumerate(sorted(refs_by_channel)):
+        slot_refs = [
+            ref
+            for ref in refs_by_channel[channel]
+            if ref_counts.get(ref, 0) == 1
+        ]
+        slots.append(_slot_for_channel(channel, slot_index, slot_refs, roles))
+
     return [
         RepeatedChannelIntent(
             name="channel",
             refs=refs,
             channel_numbers=sorted(channel_refs),
-            refs_by_channel={
-                channel: sorted(refs_for_ch)
-                for channel, refs_for_ch in sorted(channel_refs.items())
-            },
+            refs_by_channel=refs_by_channel,
             pattern="channel-numbered net names",
+            shared_refs=shared_refs,
+            controller_refs=controller_refs,
+            slots=slots,
         )
     ]
 
@@ -337,5 +412,5 @@ def infer_placement_intents(
         ):
             _add_intent(plan, ref, "power_input", 85, "connector on supply net")
 
-    plan.repeated_channels = _infer_repeated_channels(circuit)
+    plan.repeated_channels = _infer_repeated_channels(circuit, roles)
     return plan

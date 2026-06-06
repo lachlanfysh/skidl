@@ -16,6 +16,14 @@ Already implemented:
 - Keepouts, polygon outline validation, soft constraints, optional Shapely
   containment acceleration, and optional-backend detection.
 - Pad/net-pressure orientation refinement for unlocked parts.
+- Actual-pin-aware decap inference and refinement when footprint pad geometry is
+  available.
+- Coarse power topology chains for source/protection/conversion/storage/load
+  ordering, candidate biasing, and report summaries.
+- Channel slot metadata for repeated structures, including shared controller
+  refs and per-channel placement zones.
+- Deterministic congestion heatmap scoring/reporting for net spans, pin escape
+  density, keepouts, and power corridors.
 - Power route intents and reserved power corridor summaries.
 - Per-part candidate placement reasons in `PlacementReport`.
 
@@ -74,6 +82,12 @@ Tests:
 Goal: place decaps near the relevant IC/regulator power pins instead of near
 the parent package center.
 
+Status: implemented. `src/skidl/layout/decaps.py` infers cap-to-parent pad
+targets from SKiDL pin nets plus footprint geometry, refines candidate
+placements near the actual power/GND pad side, rotates caps toward parent pads,
+and records per-cap report reasons. Bbox-only boards still use the existing
+placement fallback.
+
 Implementation tasks:
 
 - Build a helper mapping SKiDL pin numbers and footprint pad numbers to nets and
@@ -99,6 +113,12 @@ Tests:
 
 Goal: understand mandatory high-current chains before placement/routing.
 
+Status: implemented. `PowerTopology` / `PowerChain` infer coarse directed
+chains from connector-like sources, protection parts, regulators, storage caps,
+and downstream loads. `power_topology_first` adds chain-aware placement
+constraints, `PowerRoutePlan` carries the topology, and placement reports
+summarize inferred chain order.
+
 Implementation tasks:
 
 - Add `PowerTopology` / `PowerChain` data structures:
@@ -123,6 +143,11 @@ Tests:
 
 Goal: make repeated structures look intentional and routable.
 
+Status: implemented. Repeated-channel intent now distinguishes shared/controller
+refs from per-channel slots, categorizes slot refs by role, and the
+`repeated_channel_array` candidate adds per-slot zones plus controller bank
+zones while preserving the older ordered-distribution behavior.
+
 Implementation tasks:
 
 - Expand repeated-channel intent to distinguish:
@@ -144,6 +169,11 @@ Tests:
 ## Phase 5: Congestion Heatmap
 
 Goal: score whether a placement is likely to route before autorouting exists.
+
+Status: implemented. `build_congestion_map()` creates a deterministic grid
+from net spans, pin escape density, power corridors, and keepouts. Scoring uses
+peak/average congestion with 4-layer relief, and reports include top congested
+regions with contributing reasons.
 
 Implementation tasks:
 
@@ -215,4 +245,3 @@ Definition of done:
 
 - A user can ask "why is this here?" and get a concrete answer.
 - A risky board explains the next physical fix, not just a score.
-

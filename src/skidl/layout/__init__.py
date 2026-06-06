@@ -13,6 +13,18 @@ from .constraints import (
 )
 from .backends import OptionalBackendStatus, optional_backend_status
 from .candidates import PlacementCandidate, generate_placement_candidates
+from .congestion import (
+    CongestionMap,
+    CongestionRegion,
+    build_congestion_map,
+)
+from .decaps import (
+    DecapPlacementIntent,
+    DecapRefinementResult,
+    infer_decap_placement_intents,
+    refine_candidate_decaps,
+    refine_decaps,
+)
 from .engine import LayoutResult, plan_layout
 from .geometry import (
     FootprintGeometry,
@@ -22,6 +34,7 @@ from .geometry import (
 )
 from .hierarchy import PlacementGroup, extract_groups
 from .intent import (
+    ChannelSlot,
     MatingIntent,
     PlacementIntent,
     PlacementIntentPlan,
@@ -35,11 +48,14 @@ from .orientation import (
     refine_orientations,
 )
 from .power import (
+    PowerChain,
     PowerCorridor,
     PowerNet,
     PowerRouteIntent,
     PowerRoutePlan,
+    PowerTopology,
     identify_power_nets,
+    infer_power_topology,
     plan_power_routes,
 )
 from .reader import read_board_outline, read_footprint_bboxes, read_placed_positions

@@ -26,7 +26,9 @@ class PlacementReport:
     candidates: list[CandidateReport] = field(default_factory=list)
     hard_violations: list[str] = field(default_factory=list)
     risky_nets: list[tuple[str, float]] = field(default_factory=list)
+    congestion_regions: list[str] = field(default_factory=list)
     power_corridors: list[str] = field(default_factory=list)
+    power_topology: list[str] = field(default_factory=list)
     part_reasons: dict[str, list[str]] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
@@ -55,10 +57,18 @@ class PlacementReport:
             lines.append("Top risky nets:")
             for name, hpwl in self.risky_nets[:10]:
                 lines.append(f"  {name}: {hpwl:.1f}mm")
+        if self.congestion_regions:
+            lines.append("Top congested regions:")
+            for region in self.congestion_regions[:5]:
+                lines.append(f"  {region}")
         if self.power_corridors:
             lines.append("Power corridors:")
             for corridor in self.power_corridors[:10]:
                 lines.append(f"  {corridor}")
+        if self.power_topology:
+            lines.append("Power topology:")
+            for chain in self.power_topology[:10]:
+                lines.append(f"  {chain}")
         if self.part_reasons:
             lines.append("Part placement reasons:")
             for ref in sorted(self.part_reasons)[:12]:
@@ -118,13 +128,22 @@ def build_placement_report(
         )
         for corridor in power_plan.corridors
     ]
+    power_topology = [
+        (
+            f"{chain.source_net}: "
+            + " -> ".join(chain.ordered_refs[:10])
+        )
+        for chain in power_plan.topology.chains
+    ]
 
     return PlacementReport(
         selected=selected.name,
         candidates=candidate_reports,
         hard_violations=hard_violations,
         risky_nets=list(selected_validation.worst_hpwl_nets),
+        congestion_regions=list(selected_score.congestion_regions[:5]),
         power_corridors=power_corridors,
+        power_topology=power_topology,
         part_reasons=dict(selected.ref_reasons),
         warnings=list(selected_score.warnings[:20]) + list(power_plan.warnings[:20]),
         reasons=reasons,

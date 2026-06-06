@@ -7,9 +7,11 @@ from .constraints import (
     AnchorZone,
     DistributeConstraint,
     LayoutConstraints,
+    NearConstraint,
 )
 from .intent import PlacementIntentPlan, RepeatedChannelIntent
 from .placer import place_parts
+from .power import PowerTopology
 from .writer import PlacedPart
 
 
@@ -101,6 +103,38 @@ def _with_power_zone(
     return zoned
 
 
+def _with_power_topology(
+    constraints: LayoutConstraints,
+    intent_plan: PlacementIntentPlan | None,
+    power_topology: PowerTopology | None,
+) -> LayoutConstraints:
+    powered = _with_power_zone(constraints, intent_plan)
+    if power_topology is None or not power_topology.chains:
+        return powered
+
+    refs = power_topology.refs()
+    if powered.outline is not None and refs:
+        outline = powered.outline
+        powered.zones.append(
+            AnchorZone(
+                group_name="",
+                x_min=outline.x_min,
+                y_min=outline.y_min + outline.height_mm * 0.55,
+                x_max=outline.x_min + outline.width_mm * 0.70,
+                y_max=outline.y_max,
+                refs=refs,
+            )
+        )
+
+    for chain in power_topology.chains:
+        ordered = chain.ordered_refs
+        for target_ref, ref in zip(ordered, ordered[1:]):
+            powered.near.append(
+                NearConstraint(ref=ref, target_ref=target_ref, distance_mm=10.0)
+            )
+    return powered
+
+
 def _with_cluster_zone(
     constraints: LayoutConstraints,
     intent_plan: PlacementIntentPlan | None,
@@ -169,12 +203,14 @@ def _with_repeated_channel_array(
 
         x_pad = outline.width_mm * 0.12
         y = outline.y_min + outline.height_mm * 0.25
+        start_x = outline.x_min + x_pad
+        end_x = outline.x_max - x_pad
         arrayed.distribute.append(
             DistributeConstraint(
                 refs=slot_refs,
                 axis="x",
-                start_mm=outline.x_min + x_pad,
-                end_mm=outline.x_max - x_pad,
+                start_mm=start_x,
+                end_mm=end_x,
             )
         )
         arrayed.align.append(AlignConstraint(refs=slot_refs, axis="y", value_mm=y))
@@ -188,6 +224,37 @@ def _with_repeated_channel_array(
                 refs=slot_refs,
             )
         )
+
+        slots = [slot for slot in channel.slots if slot.refs]
+        if slots:
+            slot_width = (end_x - start_x) / max(len(slots), 1)
+            for idx, slot in enumerate(slots):
+                slot_x_min = start_x + idx * slot_width - slot_width * 0.35
+                slot_x_max = start_x + (idx + 1) * slot_width + slot_width * 0.35
+                arrayed.zones.append(
+                    AnchorZone(
+                        group_name="",
+                        x_min=max(outline.x_min, slot_x_min),
+                        y_min=outline.y_min,
+                        x_max=min(outline.x_max, slot_x_max),
+                        y_max=outline.y_min + outline.height_mm * 0.62,
+                        refs=slot.refs,
+                    )
+                )
+
+        if channel.controller_refs:
+            bank_x_min = outline.x_min + outline.width_mm * 0.35
+            bank_x_max = outline.x_min + outline.width_mm * 0.65
+            arrayed.zones.append(
+                AnchorZone(
+                    group_name="",
+                    x_min=bank_x_min,
+                    y_min=outline.y_min + outline.height_mm * 0.42,
+                    x_max=bank_x_max,
+                    y_max=outline.y_min + outline.height_mm * 0.75,
+                    refs=channel.controller_refs,
+                )
+            )
     return arrayed
 
 
@@ -195,6 +262,7 @@ def _annotate_ref_reasons(
     candidate: PlacementCandidate,
     constraints: LayoutConstraints,
     intent_plan: PlacementIntentPlan | None,
+    power_topology: PowerTopology | None = None,
 ) -> None:
     fixed_refs = {fixed.ref for fixed in constraints.fixed or []}
     edge_by_ref = {anchor.ref: anchor for anchor in constraints.edge_anchors or []}
@@ -202,6 +270,16 @@ def _annotate_ref_reasons(
     mating_by_ref = {
         mating.ref: mating for mating in (intent_plan.mating_intents if intent_plan else [])
     }
+    power_chain_by_ref = {}
+    for chain in power_topology.chains if power_topology else []:
+        for ref in chain.ordered_refs:
+            power_chain_by_ref[ref] = chain
+    slot_by_ref = {}
+    if intent_plan is not None:
+        for channel in intent_plan.repeated_channels:
+            for slot in channel.slots:
+                for ref in slot.refs:
+                    slot_by_ref[ref] = slot
     zone_by_ref = {}
     for zone in constraints.zones or []:
         for ref in zone.refs or []:
@@ -225,6 +303,14 @@ def _annotate_ref_reasons(
             if mating.mating_side:
                 detail += f" ({mating.mating_side})"
             reasons.append(f"mating intent: {detail}")
+        if placed.ref in power_chain_by_ref:
+            chain = power_chain_by_ref[placed.ref]
+            reasons.append(
+                f"power chain: {chain.source_net} from {chain.source_ref}"
+            )
+        if placed.ref in slot_by_ref:
+            slot = slot_by_ref[placed.ref]
+            reasons.append(f"channel slot: CH{slot.channel_number}")
         if intent_plan is not None:
             kinds = sorted(
                 {intent.kind for intent in intent_plan.intents_for(placed.ref)}
@@ -244,6 +330,7 @@ def _append_candidate(
     fp_bboxes: dict[str, tuple[float, float]],
     reasons: list[str],
     intent_plan: PlacementIntentPlan | None = None,
+    power_topology: PowerTopology | None = None,
 ):
     placed = place_parts(groups, constraints, fp_bboxes)
     candidate = PlacementCandidate(
@@ -252,7 +339,7 @@ def _append_candidate(
         reasons=reasons,
         constraints=constraints,
     )
-    _annotate_ref_reasons(candidate, constraints, intent_plan)
+    _annotate_ref_reasons(candidate, constraints, intent_plan, power_topology)
     candidates.append(candidate)
 
 
@@ -261,6 +348,7 @@ def generate_placement_candidates(
     constraints: LayoutConstraints,
     fp_bboxes: dict[str, tuple[float, float]],
     intent_plan: PlacementIntentPlan | None = None,
+    power_topology: PowerTopology | None = None,
 ) -> list[PlacementCandidate]:
     """Generate deterministic placement candidates from available intent."""
     candidates: list[PlacementCandidate] = []
@@ -273,6 +361,7 @@ def generate_placement_candidates(
         fp_bboxes,
         ["explicit constraints and default placement order"],
         intent_plan,
+        power_topology,
     )
     _append_candidate(
         candidates,
@@ -282,6 +371,7 @@ def generate_placement_candidates(
         fp_bboxes,
         ["inferred connector edge anchors applied before primary parts"],
         intent_plan,
+        power_topology,
     )
     _append_candidate(
         candidates,
@@ -291,6 +381,17 @@ def generate_placement_candidates(
         fp_bboxes,
         ["power input and regulator-like parts biased into a power zone"],
         intent_plan,
+        power_topology,
+    )
+    _append_candidate(
+        candidates,
+        "power_topology_first",
+        groups,
+        _with_power_topology(constraints, intent_plan, power_topology),
+        fp_bboxes,
+        ["source/protection/conversion/storage/load power chains biased together"],
+        intent_plan,
+        power_topology,
     )
     _append_candidate(
         candidates,
@@ -300,6 +401,7 @@ def generate_placement_candidates(
         fp_bboxes,
         ["edge/UI/power/debug refs biased into a shared service zone"],
         intent_plan,
+        power_topology,
     )
     _append_candidate(
         candidates,
@@ -309,6 +411,7 @@ def generate_placement_candidates(
         fp_bboxes,
         ["repeated channel refs aligned and distributed as an ordered array"],
         intent_plan,
+        power_topology,
     )
 
     if intent_plan is not None and intent_plan.backend_status.enabled:
@@ -323,6 +426,7 @@ def generate_placement_candidates(
                 "core strategy until backend-specific solvers are enabled"
             ],
             intent_plan,
+            power_topology,
         )
 
     return candidates

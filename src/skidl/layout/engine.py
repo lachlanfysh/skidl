@@ -8,12 +8,13 @@ from .candidates import (
     generate_placement_candidates,
 )
 from .constraints import BoardOutline, LayoutConstraints
+from .decaps import refine_candidate_decaps
 from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometries
 from .hierarchy import PlacementGroup, extract_groups
 from .intent import PlacementIntentPlan, infer_placement_intents
 from .orientation import refine_candidate_orientations
-from .placer import derive_outline
-from .power import PowerRoutePlan, plan_power_routes
+from .placer import derive_outline, _footprint_name
+from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
 from .report import PlacementReport, build_placement_report
 from .scoring import LayoutScore, score_placement
@@ -72,9 +73,9 @@ def _copy_constraints(
 def _footprint_names(circuit) -> set[str]:
     names = set()
     for part in circuit.parts:
-        fp = getattr(part, "footprint", None)
+        fp = _footprint_name(part)
         if fp:
-            names.add(str(fp))
+            names.add(fp)
     return names
 
 
@@ -140,17 +141,25 @@ def plan_layout(
 
     groups = extract_groups(circuit)
     intent_plan = infer_placement_intents(circuit, outline=resolved_outline)
+    power_topology = infer_power_topology(circuit)
     candidates = generate_placement_candidates(
         groups,
         resolved_constraints,
         resolved_bboxes,
         intent_plan=intent_plan,
+        power_topology=power_topology,
     )
 
     candidate_scores: dict[str, LayoutScore] = {}
     candidate_validations: dict[str, ValidationResult] = {}
     for candidate in candidates:
         refine_candidate_orientations(candidate, circuit, fp_geometries)
+        refine_candidate_decaps(
+            candidate,
+            circuit,
+            fp_geometries,
+            resolved_bboxes,
+        )
         candidate_constraints = candidate.constraints or resolved_constraints
         candidate_validations[candidate.name] = validate(
             candidate.placed_parts,
