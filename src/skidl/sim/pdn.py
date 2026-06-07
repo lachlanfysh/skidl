@@ -1,9 +1,15 @@
-"""First-order PDN (Power Delivery Network) impedance model.
+"""First-order PDN (Power Delivery Network) impedance estimate.
 
 Computes per-rail target impedance, capacitor impedance curves (C+ESR+ESL),
 combined decoupling network impedance, and flags frequency bands where the
 network exceeds the target. Layout distance adds ESL penalty when placement
 data is available.
+
+Limitation: parallel impedance is computed from magnitudes only (not complex
+phasors). This means anti-resonance peaks between caps of different values
+are not modelled — the real impedance at those frequencies can be higher
+than reported. Treat results as a first-order inventory check, not a
+full frequency-domain PDN simulation.
 """
 from __future__ import annotations
 
@@ -137,7 +143,7 @@ class PDNReport:
         return sum(1 for r in self.rails if r.violations)
 
     def summary(self) -> str:
-        lines = ["PDN impedance report:"]
+        lines = ["PDN impedance report (first-order estimate, magnitude-only):"]
         lines.append(
             f"  Rails analyzed: {len(self.rails)} "
             f"({self.rails_passing} pass, {self.rails_failing} fail)"
@@ -257,15 +263,28 @@ def analyze_pdn(
     report = PDNReport()
 
     # Build placement lookup: ref → (x, y)
+    # Accepts either dict[str, (x,y)] or list of PlacedPart objects
     placement: dict[str, tuple[float, float]] | None = None
     if placed is not None:
-        placement = {}
-        for pp in placed:
-            placement[pp.ref] = (pp.x_mm, pp.y_mm)
+        if isinstance(placed, dict):
+            placement = placed
+        else:
+            placement = {}
+            for pp in placed:
+                placement[pp.ref] = (pp.x_mm, pp.y_mm)
 
     # Get rail voltages from harness
     from .rail_sanity import _build_node_voltages
     node_voltages = _build_node_voltages(circuit)
+
+    # Build per-rail load current from harness declarations
+    harness = getattr(circuit, "sim_harness", None)
+    rail_load_current: dict[str, float] = {}
+    if harness:
+        for load in harness.loads:
+            current = getattr(load, "current", None)
+            if current is not None and current > 0:
+                rail_load_current[load.net_name] = current
 
     # Get decoupling data
     from .decoupling import analyze_decoupling
@@ -282,11 +301,17 @@ def analyze_pdn(
         part_by_ref[part.ref] = part
 
     rails_with_caps: dict[str, list[CapModel]] = {}
+    seen_rail_cap: set[tuple[str, str]] = set()
 
     for assoc in decoupling.associations:
         rail = assoc.rail
         if not rail:
             continue
+        key = (rail, assoc.cap_ref)
+        if key in seen_rail_cap:
+            continue
+        seen_rail_cap.add(key)
+
         cap_info = cap_by_ref.get(assoc.cap_ref)
         if cap_info is None:
             continue
@@ -352,6 +377,11 @@ def analyze_pdn(
             z_target = (voltage * constraints.ripple_fraction
                         / constraints.transient_current)
             z_source = "user"
+        elif rail_name in rail_load_current:
+            # Use harness-declared load current with default 5% ripple
+            ripple = constraints.ripple_fraction or 0.05
+            z_target = voltage * ripple / rail_load_current[rail_name]
+            z_source = "harness_load"
         else:
             z_target = _tier_z_target(voltage)
             z_source = "tier_default"

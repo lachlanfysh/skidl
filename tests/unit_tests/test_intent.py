@@ -243,7 +243,7 @@ class TestStrictProvenanceConfidence:
         report = apply_simulation_intent(intent, circuit=ckt, strict=False)
 
         assert report.applied
-        assert "confidence=1.0" in ckt.sim_harness.sources[0].provenance
+        assert ckt.sim_harness.sources[0].confidence == 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -356,8 +356,8 @@ class TestConfidenceTracking:
 
         assert report.applied
         src = ckt.sim_harness.sources[0]
-        assert "agent:datasheet-parse" in src.provenance
-        assert "confidence=0.8" in src.provenance
+        assert src.provenance == "agent:datasheet-parse"
+        assert src.confidence == 0.8
 
 
 # ---------------------------------------------------------------------------

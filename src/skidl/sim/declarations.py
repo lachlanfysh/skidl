@@ -16,6 +16,7 @@ class DeclaredSource:
     voltage: float
     ref: str = ""
     provenance: str = "user"
+    confidence: float | None = None
 
 
 @dataclass
@@ -25,6 +26,7 @@ class DeclaredLoad:
     current: float | None = None
     ref: str = ""
     provenance: str = "user"
+    confidence: float | None = None
 
 
 @dataclass
@@ -32,6 +34,7 @@ class DeclaredProbe:
     net_name: str
     kind: str = "voltage"
     provenance: str = "user"
+    confidence: float | None = None
 
 
 @dataclass
@@ -40,6 +43,7 @@ class RailAssertion:
     nominal: float
     tolerance: float = 0.05
     provenance: str = "user"
+    confidence: float | None = None
 
 
 @dataclass
@@ -49,6 +53,7 @@ class RatioAssertion:
     ratio: float
     tolerance: float = 0.05
     provenance: str = "user"
+    confidence: float | None = None
 
 
 @dataclass

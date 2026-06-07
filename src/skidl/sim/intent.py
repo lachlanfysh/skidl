@@ -577,7 +577,8 @@ def apply_simulation_intent(
             net_name=_resolve_net_name(item["net"]),
             voltage=float(item["voltage"]),
             ref=item.get("ref", ""),
-            provenance=f"{prov} [confidence={conf}]",
+            provenance=prov,
+            confidence=conf,
         ))
 
     for item in intent.get("loads", []):
@@ -587,7 +588,8 @@ def apply_simulation_intent(
             net_name=_resolve_net_name(item["net"]),
             resistance=float(item["resistance"]) if item.get("resistance") is not None else None,
             current=float(item["current"]) if item.get("current") is not None else None,
-            provenance=f"{prov} [confidence={conf}]",
+            provenance=prov,
+            confidence=conf,
         ))
 
     for item in intent.get("probes", []):
@@ -596,7 +598,8 @@ def apply_simulation_intent(
         probes.append(DeclaredProbe(
             net_name=_resolve_net_name(item["net"]),
             kind=item.get("kind", "voltage"),
-            provenance=f"{prov} [confidence={conf}]",
+            provenance=prov,
+            confidence=conf,
         ))
 
     for item in intent.get("rail_assertions", []):
@@ -606,7 +609,8 @@ def apply_simulation_intent(
             net_name=_resolve_net_name(item["net"]),
             nominal=float(item["nominal"]),
             tolerance=float(item.get("tolerance", 0.05)),
-            provenance=f"{prov} [confidence={conf}]",
+            provenance=prov,
+            confidence=conf,
         ))
 
     for item in intent.get("ratio_assertions", []):
@@ -617,7 +621,8 @@ def apply_simulation_intent(
             input_net=_resolve_net_name(item["input_net"]),
             ratio=float(item["ratio"]),
             tolerance=float(item.get("tolerance", 0.05)),
-            provenance=f"{prov} [confidence={conf}]",
+            provenance=prov,
+            confidence=conf,
         ))
 
     # Apply transactionally

@@ -172,7 +172,7 @@ def analyze_layout_feedback(
     if harness and harness.sources:
         from .pdn import analyze_pdn, PDNConstraints
         pdn_report = analyze_pdn(
-            circuit, PDNConstraints(freq_points=50), placed=None,
+            circuit, PDNConstraints(freq_points=50), placed=placed,
             fp_bboxes=fp_bboxes,
         )
         report.pdn_analyzed = True

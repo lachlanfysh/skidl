@@ -334,6 +334,93 @@ class TestFrequencyRange:
         assert vcc_rail.frequencies[-1] <= 1.1e9
 
 
+class TestCapDedup:
+    def test_shared_cap_not_double_counted(self):
+        """Cap associated with multiple ICs on the same rail is counted once."""
+        from skidl.sim.pdn import analyze_pdn, PDNConstraints
+
+        vcc = MockNet("VCC")
+        gnd = MockNet("GND")
+        ckt = MockCircuit(
+            parts=[
+                _ic("U1", [vcc, gnd]),
+                _ic("U2", [vcc, gnd]),
+                _cap("C1", "100n", vcc, gnd),
+            ],
+            nets=[vcc, gnd],
+            sim_harness=_harness(sources=[
+                {"net_name": "VCC", "voltage": 3.3},
+            ]),
+        )
+
+        report = analyze_pdn(ckt, PDNConstraints(freq_points=5))
+
+        vcc_rail = next(r for r in report.rails if r.net_name == "VCC")
+        cap_refs = [c.ref for c in vcc_rail.caps]
+        assert cap_refs.count("C1") == 1
+
+
+class TestHarnessLoadDrivesPDN:
+    def test_harness_load_sets_z_target(self):
+        """sim_load() current declaration drives PDN target impedance."""
+        from skidl.sim.pdn import analyze_pdn, PDNConstraints
+        from skidl.sim.declarations import SimHarness, DeclaredSource, DeclaredLoad
+
+        vcc = MockNet("VCC")
+        gnd = MockNet("GND")
+        h = SimHarness()
+        h.sources.append(DeclaredSource(net_name="VCC", voltage=3.3))
+        h.loads.append(DeclaredLoad(net_name="VCC", current=0.5))
+
+        ckt = MockCircuit(
+            parts=[
+                _ic("U1", [vcc, gnd]),
+                _cap("C1", "100n", vcc, gnd),
+            ],
+            nets=[vcc, gnd],
+            sim_harness=h,
+        )
+
+        report = analyze_pdn(ckt, PDNConstraints(freq_points=5))
+
+        vcc_rail = next(r for r in report.rails if r.net_name == "VCC")
+        # Z = 3.3V * 0.05 / 0.5A = 0.33Ω
+        assert abs(vcc_rail.z_target - 0.33) < 0.01
+        assert vcc_rail.z_target_source == "harness_load"
+
+    def test_explicit_constraints_override_harness_load(self):
+        """User-provided constraints take priority over harness loads."""
+        from skidl.sim.pdn import analyze_pdn, PDNConstraints
+        from skidl.sim.declarations import SimHarness, DeclaredSource, DeclaredLoad
+
+        vcc = MockNet("VCC")
+        gnd = MockNet("GND")
+        h = SimHarness()
+        h.sources.append(DeclaredSource(net_name="VCC", voltage=3.3))
+        h.loads.append(DeclaredLoad(net_name="VCC", current=0.5))
+
+        ckt = MockCircuit(
+            parts=[
+                _ic("U1", [vcc, gnd]),
+                _cap("C1", "100n", vcc, gnd),
+            ],
+            nets=[vcc, gnd],
+            sim_harness=h,
+        )
+
+        constraints = PDNConstraints(
+            freq_points=5,
+            ripple_fraction=0.05,
+            transient_current=1.0,
+        )
+        report = analyze_pdn(ckt, constraints)
+
+        vcc_rail = next(r for r in report.rails if r.net_name == "VCC")
+        # Z = 3.3V * 0.05 / 1.0A = 0.165Ω (user override)
+        assert abs(vcc_rail.z_target - 0.165) < 0.01
+        assert vcc_rail.z_target_source == "user"
+
+
 class TestNoHarness:
     def test_no_harness_no_crash(self):
         from skidl.sim.pdn import analyze_pdn, PDNConstraints

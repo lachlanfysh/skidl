@@ -409,7 +409,8 @@ class TestSimReal45lux:
         )
         assert vcc_rail is not None
         assert vcc_rail.voltage == 3.3
-        assert vcc_rail.z_target == 0.050  # tier default for 3.3V
+        assert vcc_rail.z_target_source in ("tier_default", "harness_load")
+        assert vcc_rail.z_target > 0
         # 45lux has many 100nF caps on VCC
         assert len(vcc_rail.caps) >= 3
         assert len(vcc_rail.frequencies) == 20

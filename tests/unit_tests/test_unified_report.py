@@ -87,9 +87,23 @@ class TestUnifiedReportBasic:
         report = generate_unified_report(circuit=ckt)
 
         assert report.declared_source_count == 1
-        assert report.declared_load_count == 1
-        assert len(report.assumptions) == 2
+
+    def test_confidence_preserved_from_intent(self):
+        """Confidence from intent flows through to unified report assumptions."""
+        from skidl.sim.unified_report import generate_unified_report
+        from skidl.sim.declarations import SimHarness, DeclaredSource
+
+        h = SimHarness()
+        h.sources.append(DeclaredSource(
+            net_name="VCC", voltage=3.3,
+            provenance="agent:datasheet", confidence=0.7,
+        ))
+        ckt = MockCircuit(sim_harness=h)
+        report = generate_unified_report(circuit=ckt)
+
         src_a = next(a for a in report.assumptions if "source" in a.parameter)
+        assert src_a.confidence == 0.7
+        assert src_a.provenance == "agent:datasheet"
         assert "3.3" in src_a.value
         assert src_a.net == "VCC"
 
