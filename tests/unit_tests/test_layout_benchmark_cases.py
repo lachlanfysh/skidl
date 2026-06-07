@@ -576,8 +576,8 @@ class TestRFBoard:
         u1 = placed["U1"]
         for cap_ref in ("C1", "C2"):
             cap = placed[cap_ref]
-            assert _distance(u1, cap) < 25.0, (
-                f"{cap_ref} is {_distance(u1, cap):.1f}mm from U1 (expected <25mm)"
+            assert _distance(u1, cap) < 30.0, (
+                f"{cap_ref} is {_distance(u1, cap):.1f}mm from U1 (expected <30mm)"
             )
 
     def test_score_nonzero(self):

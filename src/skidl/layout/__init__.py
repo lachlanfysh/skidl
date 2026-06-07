@@ -26,6 +26,14 @@ from .decaps import (
     refine_decaps,
 )
 from .engine import LayoutResult, plan_layout
+from .explain import (
+    NetExplanation,
+    PartExplanation,
+    RiskItem,
+    explain_net,
+    explain_part,
+    top_risks,
+)
 from .geometry import (
     FootprintGeometry,
     PadGeometry,
