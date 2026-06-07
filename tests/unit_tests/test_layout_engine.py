@@ -259,6 +259,7 @@ def test_plan_layout_refines_decaps_to_actual_parent_pads(monkeypatch):
             fixed=[FixedPosition("U1", 20.0, 20.0)],
             outline=BoardOutline(60.0, 40.0),
         ),
+        anneal=False,
     )
     placed = {part.ref: part for part in result.placed_parts}
 

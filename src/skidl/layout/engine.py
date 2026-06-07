@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from .anneal import AnnealConfig, AnnealResult, anneal_placement
 from .candidates import (
     PlacementCandidate,
     copy_constraints,
@@ -15,6 +16,7 @@ from .intent import PlacementIntentPlan, infer_placement_intents
 from .orientation import refine_candidate_orientations
 from .placer import derive_outline, _footprint_name
 from .refinement import RefinementResult, refine_placement
+from .router import RoutingEstimate, estimate_routing
 from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
 from .report import PlacementReport, build_placement_report
@@ -37,6 +39,8 @@ class LayoutResult:
     report: PlacementReport | None = None
     fp_geometries: dict[str, FootprintGeometry] | None = None
     refinement: RefinementResult | None = None
+    anneal: AnnealResult | None = None
+    routing: RoutingEstimate | None = None
 
     @property
     def ok(self) -> bool:
@@ -54,6 +58,10 @@ class LayoutResult:
             lines.append(self.intent_plan.summary())
         if self.refinement is not None:
             lines.append(self.refinement.summary())
+        if self.anneal is not None:
+            lines.append(self.anneal.summary())
+        if self.routing is not None:
+            lines.append(self.routing.summary())
         if self.outline is not None:
             lines.insert(
                 0,
@@ -118,6 +126,77 @@ def _resolve_outline(
     return None
 
 
+def _copy_placed(parts: list[PlacedPart]) -> list[PlacedPart]:
+    return [
+        PlacedPart(p.ref, p.x_mm, p.y_mm, p.rot_deg, p.footprint)
+        for p in parts
+    ]
+
+
+def _run_tournament(
+    top_candidates: list[PlacementCandidate],
+    circuit,
+    resolved_bboxes: dict[str, tuple[float, float]],
+    resolved_outline: BoardOutline | None,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    clearance_mm: float,
+    board_layers: int,
+    anneal_config: AnnealConfig | None,
+) -> tuple[PlacementCandidate, list[PlacedPart], AnnealResult, RoutingEstimate]:
+    """Run SA on each top candidate and select the best by score + routing."""
+    best_candidate = None
+    best_parts = None
+    best_anneal = None
+    best_routing = None
+    best_composite = -1.0
+
+    for candidate in top_candidates:
+        parts_copy = _copy_placed(candidate.placed_parts)
+        c = candidate.constraints
+
+        anneal_result = anneal_placement(
+            parts_copy,
+            circuit,
+            resolved_bboxes,
+            constraints=c,
+            outline=resolved_outline,
+            keepouts=c.keepouts if c else None,
+            fp_geometries=fp_geometries,
+            clearance_mm=clearance_mm,
+            board_layers=board_layers,
+            config=anneal_config,
+        )
+
+        final_score = score_placement(
+            parts_copy,
+            circuit,
+            resolved_bboxes,
+            outline=resolved_outline,
+            keepouts=c.keepouts if c else None,
+            fp_geometries=fp_geometries,
+            clearance_mm=clearance_mm,
+            board_layers=board_layers,
+        )
+
+        routing = estimate_routing(
+            parts_copy,
+            circuit,
+            resolved_bboxes,
+            outline=resolved_outline,
+            board_layers=board_layers,
+        )
+
+        composite = final_score.score - routing.congestion_penalty
+        if composite > best_composite:
+            best_composite = composite
+            best_candidate = candidate
+            best_parts = parts_copy
+            best_anneal = anneal_result
+            best_routing = routing
+
+    return best_candidate, best_parts, best_anneal, best_routing
+
+
 def plan_layout(
     circuit,
     fp_bboxes: dict[str, tuple[float, float]] | None = None,
@@ -129,8 +208,16 @@ def plan_layout(
     margin_mm: float = 3.0,
     clearance_mm: float = 0.5,
     derive_outline_if_missing: bool = True,
+    anneal: bool = True,
+    anneal_config: AnnealConfig | None = None,
+    tournament_top_n: int = 3,
 ) -> LayoutResult:
-    """Place and score a board attempt without writing copper geometry."""
+    """Place and score a board attempt without writing copper geometry.
+
+    When anneal=True (default), runs simulated annealing on the top N
+    candidates and selects the best by score minus routing congestion
+    penalty. Set anneal=False for the original greedy refinement.
+    """
     fp_geometries = _resolve_geometries(circuit, fp_lib_dirs)
     resolved_bboxes = _resolve_bboxes(circuit, fp_bboxes, fp_lib_dirs)
     geometry_boxes = geometry_bboxes(fp_geometries)
@@ -186,35 +273,80 @@ def plan_layout(
         )
         candidate.score = candidate_scores[candidate.name].score
 
-    selected_candidate = max(
-        candidates,
-        key=lambda candidate: (
-            candidate.score if candidate.score is not None else 0.0,
-            candidate.name,
-        ),
-    )
-    placed_parts = selected_candidate.placed_parts
-    selected_constraints = selected_candidate.constraints or resolved_constraints
+    if anneal:
+        sorted_candidates = sorted(
+            candidates,
+            key=lambda c: (c.score if c.score is not None else 0.0, c.name),
+            reverse=True,
+        )
+        top_n = min(tournament_top_n, len(sorted_candidates))
+        top_candidates = sorted_candidates[:top_n]
 
-    if resolved_outline is None and derive_outline_if_missing:
-        resolved_outline = derive_outline(
-            placed_parts,
-            resolved_bboxes,
-            margin_mm=margin_mm,
+        selected_candidate, placed_parts, anneal_result, routing_result = (
+            _run_tournament(
+                top_candidates,
+                circuit,
+                resolved_bboxes,
+                resolved_outline,
+                fp_geometries,
+                clearance_mm,
+                board_layers,
+                anneal_config,
+            )
+        )
+        selected_constraints = (
+            selected_candidate.constraints or resolved_constraints
         )
 
-    refinement_result = refine_placement(
-        placed_parts,
-        circuit,
-        resolved_bboxes,
-        constraints=selected_constraints,
-        outline=resolved_outline,
-        keepouts=selected_constraints.keepouts,
-        fp_geometries=fp_geometries,
-        clearance_mm=clearance_mm,
-        board_layers=board_layers,
-        max_iterations=3,
-    )
+        if resolved_outline is None and derive_outline_if_missing:
+            resolved_outline = derive_outline(
+                placed_parts,
+                resolved_bboxes,
+                margin_mm=margin_mm,
+            )
+
+        selected_candidate.placed_parts = placed_parts
+        refinement_result = None
+    else:
+        selected_candidate = max(
+            candidates,
+            key=lambda candidate: (
+                candidate.score if candidate.score is not None else 0.0,
+                candidate.name,
+            ),
+        )
+        placed_parts = selected_candidate.placed_parts
+        selected_constraints = (
+            selected_candidate.constraints or resolved_constraints
+        )
+
+        if resolved_outline is None and derive_outline_if_missing:
+            resolved_outline = derive_outline(
+                placed_parts,
+                resolved_bboxes,
+                margin_mm=margin_mm,
+            )
+
+        refinement_result = refine_placement(
+            placed_parts,
+            circuit,
+            resolved_bboxes,
+            constraints=selected_constraints,
+            outline=resolved_outline,
+            keepouts=selected_constraints.keepouts,
+            fp_geometries=fp_geometries,
+            clearance_mm=clearance_mm,
+            board_layers=board_layers,
+            max_iterations=3,
+        )
+        anneal_result = None
+        routing_result = estimate_routing(
+            placed_parts,
+            circuit,
+            resolved_bboxes,
+            outline=resolved_outline,
+            board_layers=board_layers,
+        )
 
     validation = validate(
         placed_parts,
@@ -263,4 +395,6 @@ def plan_layout(
         report=report,
         fp_geometries=fp_geometries,
         refinement=refinement_result,
+        anneal=anneal_result,
+        routing=routing_result,
     )
