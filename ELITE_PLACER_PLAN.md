@@ -195,6 +195,12 @@ Tests:
 Goal: improve candidates after first placement without adding required heavy
 dependencies.
 
+Status: implemented. `src/skidl/layout/refinement.py` adds a deterministic
+greedy refinement loop that tries small moves (0.5/1.0/2.0mm), rotations
+(90/180/270°), and same-footprint swaps. Only accepts score improvements.
+Respects FixedPosition, EdgeAnchor, and FaceEdgeConstraint locks. Integrated
+into `plan_layout()` after candidate selection, before final scoring. 9 tests.
+
 Implementation tasks:
 
 - Add a deterministic refinement loop for small moves, rotations, and compatible
@@ -212,6 +218,12 @@ Tests:
 ## Phase 7: Golden Board Corpus
 
 Goal: stop optimizing only toy examples.
+
+Status: implemented. 5 mock board cases (USB MCU, sensor array, guitar pedal,
+devboard, RF module) with 41 invariant tests and 33 diagnostic tests.
+`tests/unit_tests/test_layout_benchmark_cases.py`,
+`tests/unit_tests/test_layout_benchmark_diagnostics.py`, and
+`docs/layout_benchmark_corpus.md`.
 
 Add real-ish fixtures:
 
@@ -232,6 +244,14 @@ For each:
 ## Phase 8: Explainability Per Net And Part
 
 Goal: make the placer useful as a design reviewer.
+
+Status: implemented. `src/skidl/layout/explain.py` provides `explain_part()`,
+`explain_net()`, and `top_risks()`. Per-part explanations include role, placement
+reasons, nearby parts, edge distances, and suggestions. Per-net explanations
+include HPWL, span, power/ground classification, risks, and suggestions. Risk
+items are severity-sorted (HIGH/MEDIUM/LOW) with categories for overlaps,
+outline violations, keepouts, decap distance, wirelength, and congestion.
+19 tests.
 
 Implementation tasks:
 
