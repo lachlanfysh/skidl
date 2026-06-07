@@ -277,14 +277,25 @@ def analyze_pdn(
     from .rail_sanity import _build_node_voltages
     node_voltages = _build_node_voltages(circuit)
 
-    # Build per-rail load current from harness declarations
+    # Build per-rail total load current from harness declarations
+    # Multiple loads on the same rail sum; resistance loads derive I = V/R
     harness = getattr(circuit, "sim_harness", None)
     rail_load_current: dict[str, float] = {}
     if harness:
         for load in harness.loads:
             current = getattr(load, "current", None)
+            resistance = getattr(load, "resistance", None)
             if current is not None and current > 0:
-                rail_load_current[load.net_name] = current
+                rail_load_current[load.net_name] = (
+                    rail_load_current.get(load.net_name, 0.0) + current
+                )
+            elif resistance is not None and resistance > 0:
+                v_info = node_voltages.get(load.net_name)
+                if v_info is not None and v_info[0] != 0:
+                    i_derived = abs(v_info[0]) / resistance
+                    rail_load_current[load.net_name] = (
+                        rail_load_current.get(load.net_name, 0.0) + i_derived
+                    )
 
     # Get decoupling data
     from .decoupling import analyze_decoupling
@@ -301,37 +312,40 @@ def analyze_pdn(
         part_by_ref[part.ref] = part
 
     rails_with_caps: dict[str, list[CapModel]] = {}
-    seen_rail_cap: set[tuple[str, str]] = set()
 
+    # Collect minimum distance per (rail, cap_ref) across all associations
+    best_dist: dict[tuple[str, str], float | None] = {}
     for assoc in decoupling.associations:
         rail = assoc.rail
         if not rail:
             continue
         key = (rail, assoc.cap_ref)
-        if key in seen_rail_cap:
-            continue
-        seen_rail_cap.add(key)
+        d = assoc.distance_mm
+        if key not in best_dist:
+            best_dist[key] = d
+        elif d is not None and (best_dist[key] is None or d < best_dist[key]):
+            best_dist[key] = d
 
-        cap_info = cap_by_ref.get(assoc.cap_ref)
+    for (rail, cap_ref), dist_mm in best_dist.items():
+        cap_info = cap_by_ref.get(cap_ref)
         if cap_info is None:
             continue
         cap_val = cap_info.value_f
         if cap_val is None or cap_val <= 0:
             continue
 
-        part = part_by_ref.get(assoc.cap_ref)
+        part = part_by_ref.get(cap_ref)
         footprint = str(getattr(part, "footprint", "") or "") if part else ""
         package = _detect_package(footprint)
         esr, esl = _lookup_parasitics(package)
         prov = f"{'lookup:' + package if package else 'default'}"
 
-        dist_mm = assoc.distance_mm
         dist_penalty = 0.0
         if dist_mm is not None and dist_mm > 0:
             dist_penalty = dist_mm * _TRACE_ESL_PER_MM * 1e-9
 
         cap_model = CapModel(
-            ref=assoc.cap_ref,
+            ref=cap_ref,
             capacitance=cap_val,
             esr=esr,
             esl=esl,

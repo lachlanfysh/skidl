@@ -82,7 +82,8 @@ def _get_harness(circuit=None) -> SimHarness:
     return harness
 
 
-def sim_source(net_or_name, voltage, ref=None, provenance="user", circuit=None):
+def sim_source(net_or_name, voltage, ref=None, provenance="user",
+               confidence=None, circuit=None):
     """Declare a shadow voltage source for simulation.
 
     Does not add a part to the schematic or PCB — only affects the
@@ -94,11 +95,12 @@ def sim_source(net_or_name, voltage, ref=None, provenance="user", circuit=None):
         voltage=voltage,
         ref=ref or "",
         provenance=provenance,
+        confidence=confidence,
     ))
 
 
 def sim_load(net_or_name, resistance=None, current=None, ref=None,
-             provenance="user", circuit=None):
+             provenance="user", confidence=None, circuit=None):
     """Declare a simulation load on a net.
 
     Specify *resistance* (ohms, adds a resistor to GND) or *current*
@@ -114,10 +116,12 @@ def sim_load(net_or_name, resistance=None, current=None, ref=None,
         current=current,
         ref=ref or "",
         provenance=provenance,
+        confidence=confidence,
     ))
 
 
-def sim_probe(net_or_name, kind="voltage", provenance="user", circuit=None):
+def sim_probe(net_or_name, kind="voltage", provenance="user",
+              confidence=None, circuit=None):
     """Declare a simulation probe point.
 
     The probe is recorded in the plan and its value reported in the
@@ -128,11 +132,12 @@ def sim_probe(net_or_name, kind="voltage", provenance="user", circuit=None):
         net_name=_resolve_net_name(net_or_name),
         kind=kind,
         provenance=provenance,
+        confidence=confidence,
     ))
 
 
 def sim_assert_rail(net_or_name, nominal, tolerance=0.05, provenance="user",
-                    circuit=None):
+                    confidence=None, circuit=None):
     """Assert that a rail should measure *nominal* volts ± *tolerance* (fraction).
 
     Only executes when a source exists on the rail (either a circuit
@@ -144,11 +149,12 @@ def sim_assert_rail(net_or_name, nominal, tolerance=0.05, provenance="user",
         nominal=nominal,
         tolerance=tolerance,
         provenance=provenance,
+        confidence=confidence,
     ))
 
 
 def sim_assert_node_ratio(output, input, ratio, tolerance=0.05,
-                          provenance="user", circuit=None):
+                          provenance="user", confidence=None, circuit=None):
     """Assert that V(output)/V(input) ≈ *ratio* ± *tolerance*."""
     harness = _get_harness(circuit)
     harness.ratio_assertions.append(RatioAssertion(
@@ -157,4 +163,5 @@ def sim_assert_node_ratio(output, input, ratio, tolerance=0.05,
         ratio=ratio,
         tolerance=tolerance,
         provenance=provenance,
+        confidence=confidence,
     ))

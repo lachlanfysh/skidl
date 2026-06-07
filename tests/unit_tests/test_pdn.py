@@ -388,6 +388,61 @@ class TestHarnessLoadDrivesPDN:
         assert abs(vcc_rail.z_target - 0.33) < 0.01
         assert vcc_rail.z_target_source == "harness_load"
 
+    def test_multiple_loads_sum(self):
+        """Two current loads on same rail sum for Z_target calculation."""
+        from skidl.sim.pdn import analyze_pdn, PDNConstraints
+        from skidl.sim.declarations import SimHarness, DeclaredSource, DeclaredLoad
+
+        vcc = MockNet("VCC")
+        gnd = MockNet("GND")
+        h = SimHarness()
+        h.sources.append(DeclaredSource(net_name="VCC", voltage=3.3))
+        h.loads.append(DeclaredLoad(net_name="VCC", current=0.1))
+        h.loads.append(DeclaredLoad(net_name="VCC", current=0.1))
+
+        ckt = MockCircuit(
+            parts=[
+                _ic("U1", [vcc, gnd]),
+                _cap("C1", "100n", vcc, gnd),
+            ],
+            nets=[vcc, gnd],
+            sim_harness=h,
+        )
+
+        report = analyze_pdn(ckt, PDNConstraints(freq_points=5))
+
+        vcc_rail = next(r for r in report.rails if r.net_name == "VCC")
+        # Z = 3.3V * 0.05 / 0.2A = 0.825Ω
+        assert abs(vcc_rail.z_target - 0.825) < 0.01
+        assert vcc_rail.z_target_source == "harness_load"
+
+    def test_resistance_load_derives_current(self):
+        """Resistance load with known voltage derives I = V/R for Z_target."""
+        from skidl.sim.pdn import analyze_pdn, PDNConstraints
+        from skidl.sim.declarations import SimHarness, DeclaredSource, DeclaredLoad
+
+        vcc = MockNet("VCC")
+        gnd = MockNet("GND")
+        h = SimHarness()
+        h.sources.append(DeclaredSource(net_name="VCC", voltage=3.3))
+        h.loads.append(DeclaredLoad(net_name="VCC", resistance=33.0))
+
+        ckt = MockCircuit(
+            parts=[
+                _ic("U1", [vcc, gnd]),
+                _cap("C1", "100n", vcc, gnd),
+            ],
+            nets=[vcc, gnd],
+            sim_harness=h,
+        )
+
+        report = analyze_pdn(ckt, PDNConstraints(freq_points=5))
+
+        vcc_rail = next(r for r in report.rails if r.net_name == "VCC")
+        # I = 3.3V / 33Ω = 0.1A, Z = 3.3 * 0.05 / 0.1 = 1.65Ω
+        assert abs(vcc_rail.z_target - 1.65) < 0.01
+        assert vcc_rail.z_target_source == "harness_load"
+
     def test_explicit_constraints_override_harness_load(self):
         """User-provided constraints take priority over harness loads."""
         from skidl.sim.pdn import analyze_pdn, PDNConstraints
