@@ -26,3 +26,8 @@ from .power_tree import (
     analyze_power_tree,
     PowerTreeReport,
 )
+from .intent import (
+    apply_simulation_intent,
+    SimulationIntentReport,
+    INTENT_VERSION,
+)
