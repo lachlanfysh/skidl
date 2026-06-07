@@ -622,3 +622,112 @@ class TestBulkCapNearRegulator:
         vbat_assocs = [a for a in report.associations
                        if a.ic_ref == "U1" and a.rail == "VBAT"]
         assert len(vbat_assocs) >= 1
+
+
+# ---------------------------------------------------------------------------
+# ADVERSARIAL: tiny cap not counted as decap
+# ---------------------------------------------------------------------------
+class TestTinyCapNotLocal:
+    def test_10pf_classified_as_filter(self):
+        """A 10pF rail-to-ground cap should not satisfy local decoupling."""
+        from skidl.pin import pin_types
+        from skidl.sim.decoupling import analyze_decoupling
+
+        mcu = _make_part("U1", "STM32", pins_spec=[
+            (1, "VDD", "VCC", pin_types.PWRIN),
+            (2, "VSS", "GND", pin_types.PWRIN),
+            (3, "PA0", "SIG", pin_types.BIDIR),
+        ])
+        tiny_cap = _make_part("C1", "10pF", pins_spec=[
+            (1, "1", "VCC", None),
+            (2, "2", "GND", None),
+        ])
+        ckt = _make_circuit([mcu, tiny_cap])
+
+        report = analyze_decoupling(circuit=ckt)
+
+        filters = [c for c in report.caps if c.classification == "filter"]
+        assert len(filters) == 1
+        assert filters[0].ref == "C1"
+
+        # Should NOT satisfy local decoupling requirement
+        missing_local = [f for f in report.findings
+                         if f.category == "missing_local"]
+        assert len(missing_local) == 1
+
+    def test_1nf_classified_as_filter(self):
+        from skidl.pin import pin_types
+        from skidl.sim.decoupling import analyze_decoupling
+
+        mcu = _make_part("U1", "STM32", pins_spec=[
+            (1, "VDD", "VCC", pin_types.PWRIN),
+            (2, "VSS", "GND", pin_types.PWRIN),
+            (3, "PA0", "SIG", pin_types.BIDIR),
+        ])
+        cap = _make_part("C1", "1nF", pins_spec=[
+            (1, "1", "VCC", None),
+            (2, "2", "GND", None),
+        ])
+        ckt = _make_circuit([mcu, cap])
+
+        report = analyze_decoupling(circuit=ckt)
+
+        filters = [c for c in report.caps if c.classification == "filter"]
+        assert len(filters) == 1
+
+    def test_22nf_counts_as_local(self):
+        """22nF is above the 10nF threshold — should be classified as local."""
+        from skidl.pin import pin_types
+        from skidl.sim.decoupling import analyze_decoupling
+
+        mcu = _make_part("U1", "STM32", pins_spec=[
+            (1, "VDD", "VCC", pin_types.PWRIN),
+            (2, "VSS", "GND", pin_types.PWRIN),
+            (3, "PA0", "SIG", pin_types.BIDIR),
+        ])
+        cap = _make_part("C1", "22nF", pins_spec=[
+            (1, "1", "VCC", None),
+            (2, "2", "GND", None),
+        ])
+        ckt = _make_circuit([mcu, cap])
+
+        report = analyze_decoupling(circuit=ckt)
+
+        local_caps = [c for c in report.caps if c.classification == "local"]
+        assert len(local_caps) == 1
+
+
+# ---------------------------------------------------------------------------
+# ADVERSARIAL: one cap shared across many ICs
+# ---------------------------------------------------------------------------
+class TestOneCapManyICs:
+    def test_single_cap_associates_with_all_ics_on_rail(self):
+        from skidl.pin import pin_types
+        from skidl.sim.decoupling import analyze_decoupling
+
+        parts = []
+        for i in range(5):
+            ic = _make_part(f"U{i+1}", f"IC{i}", pins_spec=[
+                (1, "VDD", "VCC", pin_types.PWRIN),
+                (2, "GND", "GND", pin_types.PWRIN),
+                (3, "IO", f"SIG{i}", pin_types.BIDIR),
+            ])
+            parts.append(ic)
+
+        # Only ONE decoupling cap for all 5 ICs
+        cap = _make_part("C1", "100nF", pins_spec=[
+            (1, "1", "VCC", None),
+            (2, "2", "GND", None),
+        ])
+        parts.append(cap)
+        ckt = _make_circuit(parts)
+
+        report = analyze_decoupling(circuit=ckt)
+
+        # The single cap should associate with all 5 ICs
+        assocs = [a for a in report.associations if a.cap_ref == "C1"]
+        assert len(assocs) == 5
+
+        # No missing_decap — technically there IS a cap on VCC
+        missing = [f for f in report.findings if f.category == "missing_decap"]
+        assert len(missing) == 0

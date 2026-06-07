@@ -23,6 +23,7 @@ POWER_NET_RE = re.compile(
 )
 GND_NET_RE = re.compile(r"^(GND|VSS|DGND|AGND|GNDA|GNDD|0)$", re.IGNORECASE)
 LOCAL_CAP_RE = re.compile(r"^(100n|0\.1u)", re.IGNORECASE)
+LOCAL_CAP_VALUE_MIN = 10e-9  # 10nF — below this is filter/coupling, not decoupling
 BULK_CAP_VALUE_MIN = 1e-6  # 1uF
 
 
@@ -94,7 +95,7 @@ class DecouplingReport:
 class DecouplingThresholds:
     local_distance_warn_mm: float = 5.0
     bulk_distance_warn_mm: float = 15.0
-    require_local_per_power_pin: bool = True
+    require_local_per_rail: bool = True
     require_bulk_per_ic: bool = False
 
 
@@ -195,8 +196,10 @@ def _find_power_caps(circuit) -> list[CapInfo]:
             classification = "local"
         elif val_f is not None and val_f >= BULK_CAP_VALUE_MIN:
             classification = "bulk"
-        elif val_f is not None:
+        elif val_f is not None and val_f >= LOCAL_CAP_VALUE_MIN:
             classification = "local"
+        elif val_f is not None:
+            classification = "filter"
         else:
             classification = "unknown"
 
@@ -271,7 +274,7 @@ def _generate_findings(
                 ))
                 continue
 
-            if thresholds.require_local_per_power_pin and not local_assocs:
+            if thresholds.require_local_per_rail and not local_assocs:
                 findings.append(DecouplingFinding(
                     severity="warning",
                     message=f"No local (~100nF) cap on {rail} for {ic_ref}",

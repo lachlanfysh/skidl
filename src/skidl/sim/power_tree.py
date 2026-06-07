@@ -47,7 +47,8 @@ class PowerNode:
 @dataclass
 class RailInfo:
     name: str
-    sources: list[str] = field(default_factory=list)  # refs of source-like parts
+    sources: list[str] = field(default_factory=list)  # refs of true source parts (batteries, harness)
+    derived_sources: list[str] = field(default_factory=list)  # refs of regulators that output here
     loads: list[str] = field(default_factory=list)  # refs of parts consuming from this rail
     caps: list[str] = field(default_factory=list)  # refs of caps on this rail
     voltage: float | None = None
@@ -277,7 +278,7 @@ def analyze_power_tree(circuit=None) -> PowerTreeReport:
             for r in out_rails:
                 if r not in rails:
                     rails[r] = RailInfo(name=r)
-                rails[r].sources.append(part.ref)
+                rails[r].derived_sources.append(part.ref)
 
             for ir in in_rails:
                 for orr in out_rails:
@@ -314,11 +315,25 @@ def analyze_power_tree(circuit=None) -> PowerTreeReport:
                     if part.ref not in rails[net].sources:
                         rails[net].loads.append(part.ref)
 
-    # Generate findings
+    # Build bidirectional adjacency for passive pass-through components
+    passthrough_types = {"ferrite", "fuse", "switch", "jumper"}
+    bidir_edges: list[tuple[str, str]] = []
+    for node in nodes:
+        if node.node_type in passthrough_types:
+            for ir in node.parents:
+                for orr in node.children:
+                    bidir_edges.append((ir, orr))
+                    bidir_edges.append((orr, ir))
+
+    # Generate findings — reachability only from TRUE sources
+    true_sources = {name for name, rail in rails.items() if rail.sources}
+
     for rail_name, rail in rails.items():
-        if rail.loads and not rail.sources:
-            # Check if reachable via edges from a sourced rail
-            reachable = _is_reachable_from_source(rail_name, rails, edges)
+        has_any_source = rail.sources or rail.derived_sources
+        if rail.loads and not has_any_source:
+            reachable = _is_reachable_from_true_source(
+                rail_name, true_sources, edges, bidir_edges,
+            )
             if not reachable:
                 findings.append(PowerTreeFinding(
                     severity="warning",
@@ -328,13 +343,28 @@ def analyze_power_tree(circuit=None) -> PowerTreeReport:
                     category="missing_source",
                 ))
 
-    # Check regulators for missing caps
+    # Check regulators: input rail must be reachable from a true source
     for node in nodes:
         if node.node_type != "regulator":
             continue
         for ir in node.parents:
             rail = rails.get(ir)
-            if rail and not rail.caps:
+            if rail is None:
+                continue
+            if not rail.sources:
+                reachable = _is_reachable_from_true_source(
+                    ir, true_sources, edges, bidir_edges,
+                )
+                if not reachable:
+                    findings.append(PowerTreeFinding(
+                        severity="warning",
+                        message=f"Regulator {node.ref} input rail {ir} has no "
+                                f"true source (battery/harness/upstream)",
+                        rail=ir,
+                        ref=node.ref,
+                        category="unsourced_regulator_input",
+                    ))
+            if not rail.caps:
                 findings.append(PowerTreeFinding(
                     severity="warning",
                     message=f"Regulator {node.ref} input rail {ir} has no decoupling cap",
@@ -361,22 +391,24 @@ def analyze_power_tree(circuit=None) -> PowerTreeReport:
     )
 
 
-def _is_reachable_from_source(
+def _is_reachable_from_true_source(
     rail_name: str,
-    rails: dict[str, RailInfo],
-    edges: list[tuple[str, str]],
+    true_sources: set[str],
+    directed_edges: list[tuple[str, str]],
+    bidir_edges: list[tuple[str, str]],
 ) -> bool:
-    """BFS from sourced rails through edges to see if rail_name is reachable."""
-    sourced = {name for name, rail in rails.items() if rail.sources}
-    if rail_name in sourced:
+    """BFS from true-source rails through directed + bidirectional edges."""
+    if rail_name in true_sources:
         return True
 
     adj: dict[str, list[str]] = {}
-    for a, b in edges:
+    for a, b in directed_edges:
+        adj.setdefault(a, []).append(b)
+    for a, b in bidir_edges:
         adj.setdefault(a, []).append(b)
 
-    visited = set()
-    queue = list(sourced)
+    visited: set[str] = set()
+    queue = list(true_sources)
     while queue:
         current = queue.pop(0)
         if current in visited:

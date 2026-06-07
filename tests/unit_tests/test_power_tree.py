@@ -524,3 +524,188 @@ class TestRegulatorChain:
         # VDDA is reachable from battery through two regulators
         missing = [f for f in report.findings if f.category == "missing_source"]
         assert len(missing) == 0
+
+
+# ---------------------------------------------------------------------------
+# ADVERSARIAL: P1 — unsourced regulator input
+# ---------------------------------------------------------------------------
+class TestUnsourcedRegulatorInput:
+    def test_ldo_without_battery_warns(self):
+        """LDO output should not mask that its input has no true source."""
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+
+        ldo = _make_part("U1", "AP2112K", pins_spec=[
+            (1, "VIN", "VBAT", pin_types.PWRIN),
+            (2, "GND", "GND", pin_types.PWRIN),
+            (5, "VOUT", "VCC", pin_types.PWROUT),
+        ], description="LDO Regulator")
+        mcu = _make_part("U2", "STM32", pins_spec=[
+            (1, "VDD", "VCC", pin_types.PWRIN),
+            (2, "VSS", "GND", pin_types.PWRIN),
+            (3, "PA0", "SIG", pin_types.BIDIR),
+        ])
+        c1 = _make_part("C1", "100nF", pins_spec=[
+            (1, "1", "VBAT", None), (2, "2", "GND", None),
+        ])
+        c2 = _make_part("C2", "100nF", pins_spec=[
+            (1, "1", "VCC", None), (2, "2", "GND", None),
+        ])
+        ckt = _make_circuit([ldo, mcu, c1, c2])
+
+        report = analyze_power_tree(circuit=ckt)
+
+        # VCC looks "derived sourced" via LDO, but VBAT has no true source
+        unsourced = [f for f in report.findings
+                     if f.category == "unsourced_regulator_input"]
+        assert len(unsourced) >= 1
+        assert unsourced[0].rail == "VBAT"
+        assert unsourced[0].ref == "U1"
+
+        # VCC should NOT have a missing_source warning — it's derived
+        vcc_missing = [f for f in report.findings
+                       if f.category == "missing_source" and f.rail == "VCC"]
+        assert len(vcc_missing) == 0
+
+    def test_cascaded_regulators_both_unsourced(self):
+        """Two cascaded regulators with no battery — both inputs unsourced."""
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+
+        reg1 = _make_part("U1", "Buck", pins_spec=[
+            (1, "VIN", "VBAT", pin_types.PWRIN),
+            (2, "GND", "GND", pin_types.PWRIN),
+            (3, "VOUT", "VCC", pin_types.PWROUT),
+        ], description="Buck Converter")
+        reg2 = _make_part("U2", "LDO", pins_spec=[
+            (1, "VIN", "VCC", pin_types.PWRIN),
+            (2, "GND", "GND", pin_types.PWRIN),
+            (3, "VOUT", "VDDA", pin_types.PWROUT),
+        ], description="LDO Regulator")
+        c1 = _make_part("C1", "100nF", pins_spec=[
+            (1, "1", "VBAT", None), (2, "2", "GND", None),
+        ])
+        c2 = _make_part("C2", "100nF", pins_spec=[
+            (1, "1", "VCC", None), (2, "2", "GND", None),
+        ])
+        c3 = _make_part("C3", "100nF", pins_spec=[
+            (1, "1", "VDDA", None), (2, "2", "GND", None),
+        ])
+        ckt = _make_circuit([reg1, reg2, c1, c2, c3])
+
+        report = analyze_power_tree(circuit=ckt)
+
+        unsourced = [f for f in report.findings
+                     if f.category == "unsourced_regulator_input"]
+        # U1 input (VBAT) has no source. U2 input (VCC) is derived from U1
+        # but U1 input is unsourced — so VCC is also ultimately unsourced.
+        assert any(f.rail == "VBAT" and f.ref == "U1" for f in unsourced)
+        # VCC is reachable from VBAT through an edge, but VBAT has no true
+        # source, so U2's input should also be flagged
+        assert any(f.rail == "VCC" and f.ref == "U2" for f in unsourced)
+
+
+# ---------------------------------------------------------------------------
+# ADVERSARIAL: P2c — reversed ferrite pins
+# ---------------------------------------------------------------------------
+class TestReversedFerritePins:
+    def test_ferrite_reversed_pin_order(self):
+        """Ferrite with pin 1=AVCC, pin 2=VCC should still create reachability."""
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+
+        bat = _make_part("BT1", "Battery", pins_spec=[
+            (1, "+", "VCC", pin_types.PASSIVE),
+            (2, "-", "GND", pin_types.PASSIVE),
+        ])
+        # Pin order reversed: AVCC first, VCC second
+        fb = _make_part("FB1", "600R", pins_spec=[
+            (1, "1", "AVCC", None),
+            (2, "2", "VCC", None),
+        ], description="Ferrite Bead")
+        adc = _make_part("U1", "ADS1115", pins_spec=[
+            (1, "VDD", "AVCC", pin_types.PWRIN),
+            (2, "GND", "GND", pin_types.PWRIN),
+            (3, "SCL", "SCL", pin_types.INPUT),
+        ])
+        c1 = _make_part("C1", "100nF", pins_spec=[
+            (1, "1", "AVCC", None), (2, "2", "GND", None),
+        ])
+        ckt = _make_circuit([bat, fb, adc, c1])
+
+        report = analyze_power_tree(circuit=ckt)
+
+        # AVCC should be reachable from VCC despite reversed pin order
+        missing = [f for f in report.findings if f.category == "missing_source"
+                   and f.rail == "AVCC"]
+        assert len(missing) == 0
+
+
+# ---------------------------------------------------------------------------
+# ADVERSARIAL: USB/barrel connector not a source unless declared
+# ---------------------------------------------------------------------------
+class TestConnectorNeedsDeclaredSource:
+    def test_usb_connector_not_auto_source(self):
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+
+        conn = _make_part("J1", "USB_C_Receptacle", pins_spec=[
+            (1, "VBUS", "VBUS", pin_types.PASSIVE),
+            (4, "GND", "GND", pin_types.PASSIVE),
+            (5, "CC1", "CC1", pin_types.BIDIR),
+        ])
+        reg = _make_part("U1", "LDO", pins_spec=[
+            (1, "VIN", "VBUS", pin_types.PWRIN),
+            (2, "GND", "GND", pin_types.PWRIN),
+            (3, "VOUT", "VCC", pin_types.PWROUT),
+        ], description="LDO")
+        c1 = _make_part("C1", "100nF", pins_spec=[
+            (1, "1", "VBUS", None), (2, "2", "GND", None),
+        ])
+        c2 = _make_part("C2", "100nF", pins_spec=[
+            (1, "1", "VCC", None), (2, "2", "GND", None),
+        ])
+        ckt = _make_circuit([conn, reg, c1, c2])
+
+        report = analyze_power_tree(circuit=ckt)
+
+        # Connector is NOT a source — regulator input VBUS should be unsourced
+        unsourced = [f for f in report.findings
+                     if f.category == "unsourced_regulator_input"]
+        assert any(f.rail == "VBUS" for f in unsourced)
+
+    def test_usb_with_harness_source_clean(self):
+        """Same circuit but with sim_source('VBUS', 5.0) — no warnings."""
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+        from skidl.sim.declarations import SimHarness, DeclaredSource
+
+        conn = _make_part("J1", "USB_C_Receptacle", pins_spec=[
+            (1, "VBUS", "VBUS", pin_types.PASSIVE),
+            (4, "GND", "GND", pin_types.PASSIVE),
+            (5, "CC1", "CC1", pin_types.BIDIR),
+        ])
+        reg = _make_part("U1", "LDO", pins_spec=[
+            (1, "VIN", "VBUS", pin_types.PWRIN),
+            (2, "GND", "GND", pin_types.PWRIN),
+            (3, "VOUT", "VCC", pin_types.PWROUT),
+        ], description="LDO")
+        c1 = _make_part("C1", "100nF", pins_spec=[
+            (1, "1", "VBUS", None), (2, "2", "GND", None),
+        ])
+        c2 = _make_part("C2", "100nF", pins_spec=[
+            (1, "1", "VCC", None), (2, "2", "GND", None),
+        ])
+        harness = SimHarness()
+        harness.sources.append(DeclaredSource(
+            net_name="VBUS", voltage=5.0, ref="", provenance="user",
+        ))
+        ckt = _make_circuit([conn, reg, c1, c2], sim_harness=harness)
+
+        report = analyze_power_tree(circuit=ckt)
+
+        unsourced = [f for f in report.findings
+                     if f.category == "unsourced_regulator_input"]
+        assert len(unsourced) == 0
+        missing = [f for f in report.findings if f.category == "missing_source"]
+        assert len(missing) == 0
