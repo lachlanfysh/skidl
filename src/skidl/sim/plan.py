@@ -323,10 +323,16 @@ def plan_simulation(
         registry.has_model(ref) for c in checks for ref in c.refs
     )
     all_spice_ready = len(not_ready) == 0
-    executable = (
+
+    # Static checks (RC tau, divider ratio from values) can run without
+    # simulation.  Full SPICE requires source + all parts mapped + ready.
+    _STATIC_TYPES = {"rc_time_constant", "divider_ratio"}
+    has_static_checks = any(c.check_type in _STATIC_TYPES for c in checks)
+    simulation_ready = (
         has_ground and has_source and all_checks_have_models
         and len(unmapped) == 0 and all_spice_ready
     )
+    executable = simulation_ready or (has_static_checks and all_checks_have_models)
 
     return SimulationPlan(
         profile=profile,

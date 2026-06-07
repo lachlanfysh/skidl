@@ -306,7 +306,8 @@ class TestSimulationPlan:
         assert plan.profile == "power_sanity"
         assert len(plan.eligible_parts) == 3
         assert len(plan.skipped_parts) == 0
-        assert not plan.executable
+        # Executable because divider_ratio is a static check and all refs have models
+        assert plan.executable
         not_ready = [f for f in plan.findings if f.category == "not_spice_ready"]
         # R1 and R2 are auto-ready (2-pin, parseable value); only V1 lacks auto-ready
         assert len(not_ready) == 1
@@ -797,3 +798,216 @@ class TestHarness:
         circuit = _Circuit([r1], [vcc, gnd])
         plan = plan_simulation(circuit=circuit)
         assert not _has_auto_primitives(plan)
+
+
+# ---------------------------------------------------------------------------
+# Static execution tests (no InSpice needed)
+# ---------------------------------------------------------------------------
+
+class TestStaticExecution:
+    def test_rc_tau_runs_without_inspice(self):
+        from skidl.sim.runner import run_simulation
+        vcc = _Net("VCC")
+        gnd = _Net("GND")
+        sig = _Net("SIG")
+        v1 = _Part("V1", value="5V", nets=[vcc, gnd], pins=2)
+        r1 = _Part("R1", value="1K", nets=[vcc, sig])
+        c1 = _Part("C1", value="100nF", nets=[sig, gnd])
+        circuit = _Circuit([v1, r1, c1], [vcc, gnd, sig])
+
+        report = run_simulation(circuit=circuit)
+        assert report.executable
+        rc_checks = [c for c in report.checks if "rc_" in c.name]
+        assert len(rc_checks) >= 1
+        assert rc_checks[0].passed
+        assert rc_checks[0].expected == pytest.approx(1e3 * 100e-9, rel=0.01)
+
+    def test_divider_runs_statically(self):
+        from skidl.sim.runner import run_simulation
+        vcc = _Net("VCC")
+        gnd = _Net("GND")
+        mid = _Net("MID")
+        v1 = _Part("V1", value="5V", nets=[vcc, gnd], pins=2)
+        r1 = _Part("R1", value="20K", nets=[vcc, mid])
+        r2 = _Part("R2", value="10K", nets=[mid, gnd])
+        circuit = _Circuit([v1, r1, r2], [vcc, gnd, mid])
+
+        report = run_simulation(circuit=circuit)
+        assert report.executable
+        div_checks = [c for c in report.checks if "divider" in c.name]
+        assert len(div_checks) == 1
+        assert div_checks[0].passed
+        assert div_checks[0].expected == pytest.approx(10e3 / 30e3, rel=0.01)
+        assert "Static" in (div_checks[0].reason or "")
+
+    def test_simulation_checks_skipped_without_source(self):
+        from skidl.sim.runner import run_simulation
+        vcc = _Net("VCC")
+        gnd = _Net("GND")
+        sig = _Net("SIG")
+        r1 = _Part("R1", value="1K", nets=[vcc, sig])
+        c1 = _Part("C1", value="100nF", nets=[sig, gnd])
+        circuit = _Circuit([r1, c1], [vcc, gnd, sig])
+
+        report = run_simulation(circuit=circuit)
+        assert report.executable
+        # RC tau is static — should run
+        rc_checks = [c for c in report.checks if "rc_" in c.name]
+        assert len(rc_checks) >= 1
+        # No simulation measurements (no source, no simulation)
+        assert len(report.measurements) == 0
+
+    def test_45lux_gets_executable_checks(self):
+        """45lux circuit should produce executable RC time constant checks."""
+        from skidl.sim.runner import run_simulation
+        from skidl.sim.plan import plan_simulation
+        import os
+        os.environ.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
+        from skidl import reset, Part, Net, POWER, KICAD9, set_default_tool, subcircuit
+        reset()
+        set_default_tool(KICAD9)
+
+        FP_R = "Resistor_SMD:R_0603_1608Metric"
+        FP_C = "Capacitor_SMD:C_0603_1608Metric"
+        FP_C_BULK = "Capacitor_SMD:C_0805_2012Metric"
+        FP_ESP32 = "RF_Module:ESP32-C6-MINI-1"
+        FP_OPT = "Package_DFN_QFN:DFN-6-1EP_2x2mm_P0.65mm_EP1x1.6mm"
+        FP_MUX = "Package_SO:TSSOP-16_4.4x5mm_P0.65mm"
+        FP_IMU = "Package_LGA:Bosch_LGA-14_3x2.5mm_P0.5mm"
+        FP_LDO = "Package_TO_SOT_SMD:SOT-23-5"
+        FP_SW = "Button_Switch_THT:SW_TH_Tactile_Omron_B3F-106x"
+        FP_BAT = "Battery:BatteryHolder_Keystone_2479_3xAAA"
+        FP_OLED = "Connector_FFC-FPC:Molex_200528-0040_1x04-1MP_P1.00mm_Horizontal"
+        FP_TAG = "Connector_Generic:Conn_02x03_Odd_Even"
+        FP_SPECTRAL = "Package_LGA:AMS_OLGA-8_2x3.1mm_P0.8mm"
+
+        @subcircuit
+        def power_supply(vbat, vcc, gnd):
+            bat = Part("Device", "Battery_Cell", value="3xAAA", footprint=FP_BAT)
+            bat[1] += vbat; bat[2] += gnd
+            c_bat = Part("Device", "C", value="10uF", footprint=FP_C_BULK)
+            c_bat[1] += vbat; c_bat[2] += gnd
+            ldo = Part("Regulator_Linear", "AP2112K-3.3", footprint=FP_LDO)
+            ldo[1] += vbat; ldo[2] += gnd; ldo[3] += vbat; ldo[5] += vcc
+            c_in = Part("Device", "C", value="100nF", footprint=FP_C)
+            c_in[1] += vbat; c_in[2] += gnd
+            c_out = Part("Device", "C", value="100nF", footprint=FP_C)
+            c_out[1] += vcc; c_out[2] += gnd
+
+        @subcircuit
+        def mcu_esp32c6(vcc, gnd, sda, scl, btn_up, btn_down, uart_tx, uart_rx,
+                        en_net, boot_net):
+            esp = Part("RF_Module", "ESP32-C6-MINI-1", footprint=FP_ESP32)
+            esp[3] += vcc; esp[1] += gnd; esp[2] += gnd; esp[11] += gnd; esp[14] += gnd
+            for p in range(36, 54): esp[p] += gnd
+            esp[8] += en_net
+            r_en = Part("Device", "R", value="10K", footprint=FP_R)
+            r_en[1] += vcc; r_en[2] += en_net
+            c_en = Part("Device", "C", value="100nF", footprint=FP_C)
+            c_en[1] += en_net; c_en[2] += gnd
+            esp[15] += sda; esp[16] += scl
+            esp[9] += btn_up; esp[10] += btn_down
+            esp[31] += uart_tx; esp[30] += uart_rx
+            esp[23] += boot_net
+            r_boot = Part("Device", "R", value="10K", footprint=FP_R)
+            r_boot[1] += vcc; r_boot[2] += boot_net
+            for _ in range(2):
+                c = Part("Device", "C", value="100nF", footprint=FP_C)
+                c[1] += vcc; c[2] += gnd
+            c_bulk = Part("Device", "C", value="10uF", footprint=FP_C_BULK)
+            c_bulk[1] += vcc; c_bulk[2] += gnd
+            unused = [4,5,6,7,12,13,17,18,19,20,21,22,24,25,26,27,28,29,32,33,34,35]
+            for p in unused: esp[p] += Net(f"ESP_P{p}_NC")
+
+        @subcircuit
+        def sensor_array(vcc, gnd, sda, scl):
+            mux = Part("Interface_Expansion", "TCA9546APW", footprint=FP_MUX)
+            mux[16] += vcc; mux[8] += gnd; mux[14] += scl; mux[15] += sda
+            mux[1] += gnd; mux[2] += gnd; mux[13] += gnd
+            r_rst = Part("Device", "R", value="10K", footprint=FP_R)
+            r_rst[1] += vcc; r_rst[2] += mux[3]
+            c_mux = Part("Device", "C", value="100nF", footprint=FP_C)
+            c_mux[1] += vcc; c_mux[2] += gnd
+            sd_pins = [4, 6, 9, 11]; sc_pins = [5, 7, 10, 12]
+            for ch in range(4):
+                ch_sda = Net(f"MUX_CH{ch}_SDA"); ch_scl = Net(f"MUX_CH{ch}_SCL")
+                mux[sd_pins[ch]] += ch_sda; mux[sc_pins[ch]] += ch_scl
+                addr_nets = [gnd, vcc, ch_sda, ch_scl]
+                for addr_idx in range(4):
+                    sensor = Part("Sensor_Optical", "TSL25911FN", footprint=FP_OPT,
+                                  value="OPT3004")
+                    sensor[1] += vcc; sensor[2] += addr_nets[addr_idx]
+                    sensor[3] += gnd; sensor[4] += ch_scl
+                    sensor[5] += Net(f"OPT_CH{ch}_{addr_idx}_INT"); sensor[6] += ch_sda
+                    c_s = Part("Device", "C", value="100nF", footprint=FP_C)
+                    c_s[1] += vcc; c_s[2] += gnd
+
+        @subcircuit
+        def imu_accel(vcc, gnd, sda, scl):
+            imu = Part("Sensor_Motion", "LIS2DH", footprint=FP_IMU)
+            imu[8] += vcc; imu[7] += vcc
+            for p in [9,10,11,12,13,14]: imu[p] += gnd
+            imu[1] += scl; imu[2] += sda; imu[4] += vcc; imu[3] += gnd
+            imu[5] += Net("IMU_INT2_NC"); imu[6] += Net("IMU_INT1_NC")
+            c_imu = Part("Device", "C", value="100nF", footprint=FP_C)
+            c_imu[1] += vcc; c_imu[2] += gnd
+
+        @subcircuit
+        def color_temp_sensor(vcc, gnd, sda, scl):
+            spec = Part("Sensor_Optical", "AS7343xDLG", footprint=FP_SPECTRAL)
+            spec[1] += vcc; spec[2] += scl; spec[3] += gnd
+            spec[4] += Net("AS7343_LDR_NC"); spec[5] += gnd
+            spec[6] += Net("AS7343_GPIO_NC"); spec[7] += Net("AS7343_INT_NC")
+            spec[8] += sda
+            c_spec = Part("Device", "C", value="100nF", footprint=FP_C)
+            c_spec[1] += vcc; c_spec[2] += gnd
+
+        @subcircuit
+        def oled_connector(vcc, gnd, sda, scl):
+            conn = Part("Connector", "Conn_01x04_Pin", footprint=FP_OLED)
+            conn[1] += gnd; conn[2] += vcc; conn[3] += scl; conn[4] += sda
+
+        @subcircuit
+        def user_interface(vcc, gnd, btn_up, btn_down):
+            for btn_net in [btn_up, btn_down]:
+                sw = Part("Switch", "SW_Push", footprint=FP_SW)
+                sw[1] += btn_net; sw[2] += gnd
+                r = Part("Device", "R", value="10K", footprint=FP_R)
+                r[1] += vcc; r[2] += btn_net
+
+        @subcircuit
+        def debug_connector(vcc, gnd, uart_tx, uart_rx, en_net, boot_net):
+            tag = Part("Connector_Generic", "Conn_02x03_Odd_Even", footprint=FP_TAG)
+            tag[1] += vcc; tag[2] += uart_tx; tag[3] += uart_rx
+            tag[4] += gnd; tag[5] += en_net; tag[6] += boot_net
+
+        vbat = Net("VBAT")
+        vcc = Net("VCC"); vcc.drive = POWER
+        gnd = Net("GND"); gnd.drive = POWER
+        sda = Net("I2C_SDA"); scl = Net("I2C_SCL")
+        btn_up = Net("BTN_UP"); btn_down = Net("BTN_DOWN")
+        uart_tx = Net("UART_TX"); uart_rx = Net("UART_RX")
+        en_net = Net("ESP_EN"); boot_net = Net("ESP_BOOT")
+        for net in [sda, scl]:
+            r = Part("Device", "R", value="4.7K", footprint=FP_R)
+            r[1] += vcc; r[2] += net
+        power_supply(vbat, vcc, gnd)
+        mcu_esp32c6(vcc, gnd, sda, scl, btn_up, btn_down, uart_tx, uart_rx,
+                    en_net, boot_net)
+        sensor_array(vcc, gnd, sda, scl)
+        imu_accel(vcc, gnd, sda, scl)
+        color_temp_sensor(vcc, gnd, sda, scl)
+        oled_connector(vcc, gnd, sda, scl)
+        user_interface(vcc, gnd, btn_up, btn_down)
+        debug_connector(vcc, gnd, uart_tx, uart_rx, en_net, boot_net)
+
+        import builtins
+        ckt = builtins.default_circuit
+        report = run_simulation(circuit=ckt)
+        assert report.executable
+        # Should have RC time constant checks that actually ran
+        rc_checks = [c for c in report.checks if "rc_" in c.name]
+        assert len(rc_checks) >= 1
+        assert all(c.passed for c in rc_checks)
+        # No simulation-requiring checks should have run (no source)
+        assert len(report.measurements) == 0

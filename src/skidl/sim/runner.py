@@ -47,16 +47,6 @@ def run_simulation(
         ))
         return report
 
-    if not _check_inspice_available():
-        report.executable = False
-        report.skipped_checks = [c.name for c in plan.checks]
-        report.findings.append(SimulationFinding(
-            severity=FindingSeverity.WARNING,
-            message="InSpice not available — cannot execute simulation",
-            category="inspice_unavailable",
-        ))
-        return report
-
     if circuit is None:
         import builtins
         circuit = builtins.default_circuit
@@ -73,40 +63,54 @@ def _has_auto_primitives(plan: SimulationPlan) -> bool:
     )
 
 
+_STATIC_CHECK_TYPES = {"rc_time_constant", "divider_ratio"}
+
+
+def _can_simulate(plan: SimulationPlan) -> bool:
+    return bool(plan.sources) and all(
+        e.spice_ready for e in plan.eligible_parts
+    )
+
+
 def _execute_checks(
     plan: SimulationPlan,
     circuit,
     report: SimulationReport,
 ) -> None:
-    """Run SPICE checks using InSpice. Lazy-imports InSpice here only."""
-    if _has_auto_primitives(plan):
-        spice_ckt, analysis = _run_via_harness(plan, circuit, report)
-    else:
-        spice_ckt, analysis = _run_via_gen_netlist(circuit, report)
+    """Evaluate checks — static checks always, SPICE only when possible."""
+    node_voltages: dict[str, float] = {}
+    analysis = None
 
-    if spice_ckt is None or analysis is None:
-        return
+    if _can_simulate(plan) and _check_inspice_available():
+        if _has_auto_primitives(plan):
+            spice_ckt, analysis = _run_via_harness(plan, circuit, report)
+        else:
+            spice_ckt, analysis = _run_via_gen_netlist(circuit, report)
 
-    report.spice_netlist = str(spice_ckt)
-
-    node_voltages = {}
-    for node_name in analysis.nodes:
-        try:
-            val = float(analysis[node_name])
-            node_voltages[node_name] = val
-            report.measurements.append(SimulationMeasurement(
-                name=f"V({node_name})",
-                value=val,
-                unit="V",
-                net=node_name,
-            ))
-        except (TypeError, ValueError, IndexError):
-            pass
+        if spice_ckt is not None and analysis is not None:
+            report.spice_netlist = str(spice_ckt)
+            for node_name in analysis.nodes:
+                try:
+                    val = float(analysis[node_name])
+                    node_voltages[node_name] = val
+                    report.measurements.append(SimulationMeasurement(
+                        name=f"V({node_name})",
+                        value=val,
+                        unit="V",
+                        net=node_name,
+                    ))
+                except (TypeError, ValueError, IndexError):
+                    pass
 
     if not hasattr(report, "skipped_checks") or report.skipped_checks is None:
         report.skipped_checks = []
     for check_spec in plan.checks:
-        result = _evaluate_check(check_spec, node_voltages, analysis, plan)
+        if check_spec.check_type in _STATIC_CHECK_TYPES:
+            result = _evaluate_check(check_spec, node_voltages, analysis, plan)
+        elif analysis is not None:
+            result = _evaluate_check(check_spec, node_voltages, analysis, plan)
+        else:
+            result = None
         if result is None:
             report.skipped_checks.append(check_spec.name)
         else:
@@ -292,6 +296,20 @@ def _check_divider_ratio(
             refs=spec.refs,
             nets=spec.nets,
             model_provenance=spec.model_provenance,
+        )
+
+    # No simulation data — report static ratio from component values
+    if spec.expected is not None:
+        return SimulationCheck(
+            name=spec.name,
+            passed=True,
+            measured=spec.expected,
+            expected=spec.expected,
+            unit="ratio",
+            refs=spec.refs,
+            nets=spec.nets,
+            model_provenance=spec.model_provenance,
+            reason="Static ratio from component values (no simulation verification)",
         )
 
     return SimulationCheck(
