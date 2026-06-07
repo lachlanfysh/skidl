@@ -50,7 +50,7 @@ Use the explicit harness APIs:
 
 Rules for agents:
 - Do not silently infer exact voltages/currents from ambiguous physical descriptions.
-- Translate natural phrases into proposed assumptions with confidence and provenance. Example: "3xAAA" may become a suggested `VBAT` source with nominal 4.5V and range 3.0V-4.8V, provenance `"user said 3xAAA"`, confidence medium.
+- Translate natural phrases into proposed assumptions with confidence and provenance. Example: "3xAAA" may become a suggested `VBAT` source with voltage 4.5, provenance `"user said 3xAAA"`, confidence 0.85.
 - Example: "3.3V MCU" may become `sim_assert_rail("3V3", nominal=3.3, tolerance=0.05, provenance="user said 3.3V MCU")`.
 - Prefer ranges or low-confidence load estimates when the datasheet is unknown; make them visible in the report.
 - Never guess SPICE models for ICs, regulators, optos, sensors, MCUs, op-amps, or transistors.
