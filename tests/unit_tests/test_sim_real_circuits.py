@@ -576,3 +576,169 @@ class TestSimReal45lux:
 
         print("=== Unified Report ===")
         print(unified.summary())
+
+
+# ======================================================================
+# MR-1 (Motion Rhythm) — Daisy Seed carrier board (~223 parts)
+# ======================================================================
+
+_MR1_SCRIPT = os.path.expanduser(
+    "~/Projects/son-of-er1/hardware/generate_pcb.py"
+)
+
+
+def _build_mr1():
+    """Build the MR-1 circuit from son-of-er1/hardware/generate_pcb.py."""
+    if not os.path.exists(_MR1_SCRIPT):
+        pytest.skip("MR-1 source not found at " + _MR1_SCRIPT)
+
+    src = open(_MR1_SCRIPT).read()
+    build_code = src.split("# ── Generate")[0]
+    lines = build_code.split("\n")
+    filtered = [
+        l for l in lines
+        if not l.startswith("import os")
+        and "os.environ" not in l
+        and "from skidl" not in l
+        and "set_default_tool" not in l
+    ]
+
+    from skidl import Part, Net, POWER, KICAD9, set_default_tool, subcircuit
+    from skidl.net import NCNet
+    set_default_tool(KICAD9)
+
+    exec("\n".join(filtered), {
+        "Part": Part, "Net": Net, "POWER": POWER, "NCNet": NCNet,
+        "subcircuit": subcircuit, "__builtins__": __builtins__,
+    })
+
+
+class TestSimRealMR1:
+    def setup_method(self):
+        _reset_circuit()
+
+    def test_mr1_builds(self):
+        """Smoke: MR-1 circuit builds without error."""
+        _build_mr1()
+        ckt = builtins.default_circuit
+        assert len(ckt.parts) > 200
+        assert len(ckt.get_nets()) > 100
+
+    def test_mr1_decoupling(self):
+        """MR-1 has many 100nF decoupling caps on ICs."""
+        from skidl.sim.decoupling import analyze_decoupling
+
+        _build_mr1()
+        ckt = builtins.default_circuit
+
+        report = analyze_decoupling(circuit=ckt)
+
+        assert len(report.caps) > 5
+        local_caps = [c for c in report.caps if c.classification == "local"]
+        assert len(local_caps) >= 5
+        print(report.summary())
+
+    def test_mr1_power_tree(self):
+        """MR-1 has +5V, +3.3V rails and an LDO regulator."""
+        from skidl.sim.power_tree import analyze_power_tree
+
+        _build_mr1()
+        ckt = builtins.default_circuit
+
+        report = analyze_power_tree(circuit=ckt)
+
+        rail_names = {r.name for r in report.rails}
+        assert "+5V" in rail_names or "+3.3V" in rail_names
+        print(report.summary())
+
+    def test_mr1_rail_sanity(self):
+        """MR-1 with declared sources produces resistor power checks."""
+        from skidl.sim.declarations import sim_source
+        from skidl.sim.rail_sanity import analyze_rail_sanity
+
+        _build_mr1()
+        ckt = builtins.default_circuit
+
+        sim_source("+5V", voltage=5.0, circuit=ckt)
+        sim_source("+3.3V", voltage=3.3, circuit=ckt)
+
+        report = analyze_rail_sanity(circuit=ckt)
+
+        assert len(report.rails) > 0
+        assert len(report.resistor_checks) > 0
+        print(report.summary())
+
+    def test_mr1_pdn(self):
+        """MR-1 PDN analysis finds caps on power rails."""
+        from skidl.sim.declarations import sim_source
+        from skidl.sim.pdn import analyze_pdn, PDNConstraints
+
+        _build_mr1()
+        ckt = builtins.default_circuit
+
+        sim_source("+5V", voltage=5.0, circuit=ckt)
+        sim_source("+3.3V", voltage=3.3, circuit=ckt)
+
+        report = analyze_pdn(
+            circuit=ckt,
+            constraints=PDNConstraints(freq_points=10),
+        )
+
+        assert len(report.rails) > 0
+        rail_names = {r.net_name for r in report.rails}
+        assert "+5V" in rail_names or "+3.3V" in rail_names
+        print(report.summary())
+
+    def test_mr1_unified_report(self):
+        """Full pipeline on MR-1 produces unified report."""
+        from skidl.sim.declarations import sim_source, sim_load
+        from skidl.sim.erc import simulation_erc
+        from skidl.sim.decoupling import analyze_decoupling
+        from skidl.sim.power_tree import analyze_power_tree
+        from skidl.sim.rail_sanity import analyze_rail_sanity
+        from skidl.sim.pdn import analyze_pdn, PDNConstraints
+        from skidl.sim.layout_feedback import analyze_layout_feedback
+        from skidl.sim.unified_report import generate_unified_report
+
+        _build_mr1()
+        ckt = builtins.default_circuit
+
+        sim_source("+5V", voltage=5.0, provenance="USB VBUS", circuit=ckt)
+        sim_source("+3.3V", voltage=3.3, provenance="LD33V LDO", circuit=ckt)
+        sim_load("+3.3V", current=0.15, provenance="Daisy Seed estimate",
+                 confidence=0.4, circuit=ckt)
+
+        erc = simulation_erc(circuit=ckt, execute=True)
+        decoupling = analyze_decoupling(circuit=ckt)
+        power_tree = analyze_power_tree(circuit=ckt)
+        rail_sanity = analyze_rail_sanity(circuit=ckt)
+        pdn = analyze_pdn(circuit=ckt, constraints=PDNConstraints(freq_points=10))
+        feedback = analyze_layout_feedback(circuit=ckt)
+
+        unified = generate_unified_report(
+            circuit=ckt,
+            erc_report=erc,
+            decoupling_report=decoupling,
+            power_tree_report=power_tree,
+            rail_sanity_report=rail_sanity,
+            pdn_report=pdn,
+            layout_feedback_report=feedback,
+        )
+
+        assert unified.coverage.count == 6
+        assert unified.part_count > 200
+        assert unified.declared_source_count >= 2
+        assert unified.declared_load_count >= 1
+        # Confidence should flow through
+        load_assumptions = [
+            a for a in unified.assumptions if "load" in a.parameter
+        ]
+        assert any(a.confidence == 0.4 for a in load_assumptions)
+
+        import json
+        data = json.loads(unified.to_json())
+        assert data["coverage"]["count"] == 6
+        assert data["part_count"] > 200
+
+        print("=== MR-1 Unified Report ===")
+        print(unified.summary())
