@@ -31,3 +31,7 @@ from .intent import (
     SimulationIntentReport,
     INTENT_VERSION,
 )
+from .rail_sanity import (
+    analyze_rail_sanity,
+    RailSanityReport,
+)
