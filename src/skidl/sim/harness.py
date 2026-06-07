@@ -59,19 +59,47 @@ def _ref_suffix(ref: str, element: str) -> str:
     return ref
 
 
+def _build_name_nodes(circuit, net_nodes, spice_gnd) -> dict[str, object]:
+    """Map net names (lowercase) to SPICE node identifiers."""
+    name_nodes: dict[str, object] = {}
+    for net in circuit.get_nets():
+        name = str(getattr(net, "name", "") or "")
+        if not name:
+            continue
+        if _GND_RE.match(name):
+            name_nodes[name.lower()] = spice_gnd
+        else:
+            name_nodes[name.lower()] = _safe_node_name(name)
+    for part in circuit.parts:
+        for pin in getattr(part, "pins", []):
+            net = getattr(pin, "net", None)
+            if net is None:
+                continue
+            name = str(getattr(net, "name", "") or "")
+            if name and name.lower() not in name_nodes:
+                if _GND_RE.match(name):
+                    name_nodes[name.lower()] = spice_gnd
+                else:
+                    name_nodes[name.lower()] = _safe_node_name(name)
+    return name_nodes
+
+
 def build_simulation_circuit(plan, circuit):
     """Build an InSpice Circuit for simulation without mutating user parts.
 
-    Returns an InSpice ``Circuit`` object ready for ``.simulator()``.
-    Only includes parts that are ``spice_ready`` in the plan.
+    Returns ``(SpiceCircuit, set_of_added_ref_strings)``.
+    Includes auto-ready parts, pyspice parts, and harness-declared
+    shadow sources and loads.
     """
     from InSpice.Spice.Netlist import Circuit as SpiceCircuit
 
     ckt = SpiceCircuit("simulation_erc")
     net_nodes = _map_nets(circuit, ckt.gnd)
+    name_nodes = _build_name_nodes(circuit, net_nodes, ckt.gnd)
     part_map = {p.ref: p for p in circuit.parts}
     added = set()
 
+    # 1. Add circuit parts that are spice-ready
     for entry in plan.eligible_parts:
         if not entry.spice_ready:
             continue
@@ -127,5 +155,31 @@ def build_simulation_circuit(plan, circuit):
             else:
                 continue
             added.add(entry.ref)
+
+    # 2. Add harness-declared shadow sources
+    for src in plan.sources:
+        if not src.harness_declared:
+            continue
+        node = name_nodes.get(src.net_name.lower())
+        if node is None:
+            node = _safe_node_name(src.net_name)
+        suffix = f"_sim_{_safe_node_name(src.net_name)}"
+        ckt.V(suffix, node, ckt.gnd, src.value)
+        added.add(src.ref)
+
+    # 3. Add harness-declared loads
+    sim_harness = getattr(circuit, "sim_harness", None)
+    if sim_harness is not None:
+        for i, load in enumerate(sim_harness.loads):
+            node = name_nodes.get(load.net_name.lower())
+            if node is None:
+                node = _safe_node_name(load.net_name)
+            suffix = f"_load_{i}_{_safe_node_name(load.net_name)}"
+            if load.resistance is not None and load.resistance > 0:
+                ckt.R(suffix, node, ckt.gnd, load.resistance)
+                added.add(f"R_load_{load.net_name}")
+            elif load.current is not None:
+                ckt.I(suffix, node, ckt.gnd, load.current)
+                added.add(f"I_load_{load.net_name}")
 
     return ckt, added

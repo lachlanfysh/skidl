@@ -25,6 +25,7 @@ class SourceSpec:
     source_type: str = "dc"
     value: float | None = None
     unit: str = "V"
+    harness_declared: bool = False
 
 
 @dataclass
@@ -276,16 +277,33 @@ def plan_simulation(
         ))
 
     sources = _find_voltage_sources(circuit, registry)
+
+    # Merge harness-declared sources, probes, and assertions
+    sim_harness = getattr(circuit, "sim_harness", None)
+    if sim_harness is not None:
+        for decl in sim_harness.sources:
+            sources.append(SourceSpec(
+                ref=f"__sim_{decl.net_name}",
+                net_name=decl.net_name,
+                source_type="dc",
+                value=decl.voltage,
+                unit="V",
+                harness_declared=True,
+            ))
+
     if not sources and power_nets:
         findings.append(SimulationFinding(
             severity=FindingSeverity.WARNING,
             message="Power nets found but no explicit voltage source — "
-                    "cannot determine rail voltages without a source model",
+                    "use sim_source() to declare rail voltages",
             nets=power_nets[:5],
             category="missing_source",
         ))
 
     probes = [ProbeSpec(net_name=n) for n in power_nets + ground_nets]
+    if sim_harness is not None:
+        for decl in sim_harness.probes:
+            probes.append(ProbeSpec(net_name=decl.net_name, probe_type=decl.kind))
 
     checks: list[CheckSpec] = []
     if profile == "power_sanity":
@@ -294,16 +312,53 @@ def plan_simulation(
                 checks.append(CheckSpec(
                     name=f"rail_{src.net_name}_presence",
                     check_type="rail_presence",
-                    refs=[src.ref],
+                    refs=[src.ref] if not src.harness_declared else [],
                     nets=[src.net_name],
                     expected=src.value,
                     tolerance=0.01,
                     unit="V",
-                    model_provenance=f"source {src.ref} value",
+                    model_provenance=(
+                        f"sim_source({src.net_name!r}, voltage={src.value})"
+                        if src.harness_declared
+                        else f"source {src.ref} value"
+                    ),
                 ))
         checks.extend(_find_dividers(circuit, registry))
         checks.extend(_find_rc_networks(circuit, registry))
         checks.extend(_passive_power_checks(circuit, registry))
+
+    # Harness-declared rail assertions
+    if sim_harness is not None:
+        for assertion in sim_harness.rail_assertions:
+            already = any(
+                c.check_type == "rail_presence"
+                and c.nets == [assertion.net_name]
+                for c in checks
+            )
+            if not already:
+                checks.append(CheckSpec(
+                    name=f"harness_rail_{assertion.net_name}",
+                    check_type="rail_presence",
+                    refs=[],
+                    nets=[assertion.net_name],
+                    expected=assertion.nominal,
+                    tolerance=assertion.tolerance,
+                    unit="V",
+                    model_provenance=f"sim_assert_rail({assertion.net_name!r}, "
+                                     f"nominal={assertion.nominal})",
+                ))
+        for assertion in sim_harness.ratio_assertions:
+            checks.append(CheckSpec(
+                name=f"harness_ratio_{assertion.output_net}_{assertion.input_net}",
+                check_type="node_ratio",
+                refs=[],
+                nets=[assertion.output_net, assertion.input_net],
+                expected=assertion.ratio,
+                tolerance=assertion.tolerance,
+                unit="ratio",
+                model_provenance=f"sim_assert_node_ratio({assertion.output_net!r}, "
+                                 f"{assertion.input_net!r}, ratio={assertion.ratio})",
+            ))
 
     not_ready = []
     for entry in eligible:
@@ -324,15 +379,20 @@ def plan_simulation(
     )
     all_spice_ready = len(not_ready) == 0
 
-    # Static checks (RC tau, divider ratio from values) can run without
-    # simulation.  Full SPICE requires source + all parts mapped + ready.
+    # Static checks can run without simulation.  Harness-declared sources
+    # enable simulation even with unmapped ICs.
     _STATIC_TYPES = {"rc_time_constant", "divider_ratio"}
     has_static_checks = any(c.check_type in _STATIC_TYPES for c in checks)
-    simulation_ready = (
-        has_ground and has_source and all_checks_have_models
-        and len(unmapped) == 0 and all_spice_ready
+    has_harness_sources = any(s.harness_declared for s in sources)
+    has_simulation_checks = any(
+        c.check_type not in _STATIC_TYPES for c in checks
     )
-    executable = simulation_ready or (has_static_checks and all_checks_have_models)
+    simulation_ready = has_ground and has_source and all_checks_have_models
+    executable = (
+        (has_static_checks and all_checks_have_models)
+        or (simulation_ready and has_harness_sources)
+        or (simulation_ready and all_spice_ready and len(unmapped) == 0)
+    )
 
     return SimulationPlan(
         profile=profile,

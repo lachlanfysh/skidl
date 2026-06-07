@@ -67,8 +67,12 @@ _STATIC_CHECK_TYPES = {"rc_time_constant", "divider_ratio"}
 
 
 def _can_simulate(plan: SimulationPlan) -> bool:
-    return bool(plan.sources) and all(
-        e.spice_ready for e in plan.eligible_parts
+    return bool(plan.sources)
+
+
+def _use_harness_path(plan: SimulationPlan) -> bool:
+    return _has_auto_primitives(plan) or any(
+        s.harness_declared for s in plan.sources
     )
 
 
@@ -82,7 +86,7 @@ def _execute_checks(
     analysis = None
 
     if _can_simulate(plan) and _check_inspice_available():
-        if _has_auto_primitives(plan):
+        if _use_harness_path(plan):
             spice_ckt, analysis = _run_via_harness(plan, circuit, report)
         else:
             spice_ckt, analysis = _run_via_gen_netlist(circuit, report)
@@ -124,20 +128,18 @@ def _run_via_harness(plan, circuit, report):
         spice_ckt, added = build_simulation_circuit(plan, circuit)
     except Exception as exc:
         report.findings.append(SimulationFinding(
-            severity=FindingSeverity.ERROR,
+            severity=FindingSeverity.WARNING,
             message=f"Harness netlist build failed: {exc}",
             category="netlist_error",
         ))
-        report.executable = False
         return None, None
 
     if not added:
         report.findings.append(SimulationFinding(
-            severity=FindingSeverity.ERROR,
+            severity=FindingSeverity.WARNING,
             message="No parts could be added to simulation circuit",
             category="netlist_error",
         ))
-        report.executable = False
         return None, None
 
     try:
@@ -145,11 +147,10 @@ def _run_via_harness(plan, circuit, report):
         analysis = simulator.operating_point()
     except Exception as exc:
         report.findings.append(SimulationFinding(
-            severity=FindingSeverity.ERROR,
+            severity=FindingSeverity.WARNING,
             message=f"Operating point simulation failed: {exc}",
             category="simulation_error",
         ))
-        report.executable = False
         return None, None
 
     return spice_ckt, analysis
@@ -161,7 +162,7 @@ def _run_via_gen_netlist(circuit, report):
         from ..tools.spice.spice import gen_netlist
     except ImportError:
         report.findings.append(SimulationFinding(
-            severity=FindingSeverity.ERROR,
+            severity=FindingSeverity.WARNING,
             message="Cannot import SPICE netlist generator",
             category="import_error",
         ))
@@ -171,11 +172,10 @@ def _run_via_gen_netlist(circuit, report):
         spice_ckt = gen_netlist(circuit)
     except Exception as exc:
         report.findings.append(SimulationFinding(
-            severity=FindingSeverity.ERROR,
+            severity=FindingSeverity.WARNING,
             message=f"SPICE netlist generation failed: {exc}",
             category="netlist_error",
         ))
-        report.executable = False
         return None, None
 
     try:
@@ -183,11 +183,10 @@ def _run_via_gen_netlist(circuit, report):
         analysis = simulator.operating_point()
     except Exception as exc:
         report.findings.append(SimulationFinding(
-            severity=FindingSeverity.ERROR,
+            severity=FindingSeverity.WARNING,
             message=f"Operating point simulation failed: {exc}",
             category="simulation_error",
         ))
-        report.executable = False
         return None, None
 
     return spice_ckt, analysis
@@ -203,6 +202,8 @@ def _evaluate_check(
         return _check_rail_presence(spec, node_voltages)
     elif spec.check_type == "divider_ratio":
         return _check_divider_ratio(spec, node_voltages, plan)
+    elif spec.check_type == "node_ratio":
+        return _check_node_ratio(spec, node_voltages)
     elif spec.check_type == "passive_power":
         return None
     elif spec.check_type == "rc_time_constant":
@@ -321,4 +322,68 @@ def _check_divider_ratio(
         nets=spec.nets,
         model_provenance=spec.model_provenance,
         reason="Could not measure divider output node",
+    )
+
+
+def _check_node_ratio(
+    spec, node_voltages: dict[str, float],
+) -> SimulationCheck | None:
+    if len(spec.nets) < 2:
+        return SimulationCheck(
+            name=spec.name,
+            passed=False,
+            refs=spec.refs,
+            nets=spec.nets,
+            reason="node_ratio check requires output and input nets",
+        )
+    out_net = spec.nets[0].lower()
+    in_net = spec.nets[1].lower()
+    out_v = node_voltages.get(out_net)
+    in_v = node_voltages.get(in_net)
+    if out_v is None:
+        for node, val in node_voltages.items():
+            if out_net in node.lower():
+                out_v = val
+                break
+    if in_v is None:
+        for node, val in node_voltages.items():
+            if in_net in node.lower():
+                in_v = val
+                break
+    if out_v is None or in_v is None:
+        return SimulationCheck(
+            name=spec.name,
+            passed=False,
+            expected=spec.expected,
+            unit="ratio",
+            refs=spec.refs,
+            nets=spec.nets,
+            model_provenance=spec.model_provenance,
+            reason=f"Node voltage not found for "
+                   f"{'output' if out_v is None else 'input'} net",
+        )
+    if in_v == 0:
+        return SimulationCheck(
+            name=spec.name,
+            passed=False,
+            expected=spec.expected,
+            unit="ratio",
+            refs=spec.refs,
+            nets=spec.nets,
+            model_provenance=spec.model_provenance,
+            reason="Input net voltage is 0 — cannot compute ratio",
+        )
+    measured = out_v / in_v
+    tol = spec.tolerance or 0.05
+    passed = spec.expected is None or abs(measured - spec.expected) <= tol
+    return SimulationCheck(
+        name=spec.name,
+        passed=passed,
+        measured=measured,
+        expected=spec.expected,
+        tolerance=tol,
+        unit="ratio",
+        refs=spec.refs,
+        nets=spec.nets,
+        model_provenance=spec.model_provenance,
     )
