@@ -93,3 +93,4 @@ from .skidl import (  # Core SKiDL functionality
 )
 from .utilities import Rgx  # Regular expression utilities
 from . import scripts  # Necessary to get access to netlist_to_skidl_main.
+from .sim import plan_simulation, run_simulation, simulation_erc, enable_simulation_erc
