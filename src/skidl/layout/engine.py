@@ -14,6 +14,7 @@ from .hierarchy import PlacementGroup, extract_groups
 from .intent import PlacementIntentPlan, infer_placement_intents
 from .orientation import refine_candidate_orientations
 from .placer import derive_outline, _footprint_name
+from .refinement import RefinementResult, refine_placement
 from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
 from .report import PlacementReport, build_placement_report
@@ -35,6 +36,7 @@ class LayoutResult:
     intent_plan: PlacementIntentPlan | None = None
     report: PlacementReport | None = None
     fp_geometries: dict[str, FootprintGeometry] | None = None
+    refinement: RefinementResult | None = None
 
     @property
     def ok(self) -> bool:
@@ -50,6 +52,8 @@ class LayoutResult:
             lines.append(self.report.summary())
         if self.intent_plan is not None:
             lines.append(self.intent_plan.summary())
+        if self.refinement is not None:
+            lines.append(self.refinement.summary())
         if self.outline is not None:
             lines.insert(
                 0,
@@ -199,6 +203,19 @@ def plan_layout(
             margin_mm=margin_mm,
         )
 
+    refinement_result = refine_placement(
+        placed_parts,
+        circuit,
+        resolved_bboxes,
+        constraints=selected_constraints,
+        outline=resolved_outline,
+        keepouts=selected_constraints.keepouts,
+        fp_geometries=fp_geometries,
+        clearance_mm=clearance_mm,
+        board_layers=board_layers,
+        max_iterations=3,
+    )
+
     validation = validate(
         placed_parts,
         circuit,
@@ -245,4 +262,5 @@ def plan_layout(
         intent_plan=intent_plan,
         report=report,
         fp_geometries=fp_geometries,
+        refinement=refinement_result,
     )

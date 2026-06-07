@@ -42,6 +42,7 @@ from .intent import (
     infer_placement_intents,
 )
 from .placer import derive_outline, place_parts
+from .refinement import RefinementResult, refine_placement
 from .orientation import (
     OrientationResult,
     refine_candidate_orientations,
