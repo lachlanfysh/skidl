@@ -304,3 +304,256 @@ class TestSimReal45lux:
         summary = report.summary()
         assert "rails" in summary
         print(summary)
+
+    # ------------------------------------------------------------------
+    # Step 5: Intent contract on real circuit
+    # ------------------------------------------------------------------
+    def test_intent_applies_to_45lux(self):
+        """Acceptance: apply_simulation_intent on 45lux wires up harness."""
+        from skidl.sim.intent import apply_simulation_intent
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        intent = {
+            "version": 1,
+            "sources": [
+                {"net": "VBAT", "voltage": 4.5,
+                 "provenance": "3xAAA battery", "confidence": 0.9},
+            ],
+            "rail_assertions": [
+                {"net": "VCC", "nominal": 3.3, "tolerance": 0.05,
+                 "provenance": "AP2112K-3.3 LDO output", "confidence": 0.95},
+            ],
+            "loads": [
+                {"net": "VCC", "current": 0.15,
+                 "provenance": "ESP32-C6 typical", "confidence": 0.5},
+            ],
+        }
+
+        report = apply_simulation_intent(intent, circuit=ckt)
+
+        assert report.applied
+        assert report.sources_added >= 1
+        assert report.rail_assertions_added >= 1
+        assert report.loads_added >= 1
+        assert not any(f.severity == "error" for f in report.findings)
+        assert ckt.sim_harness is not None
+        vbat_sources = [s for s in ckt.sim_harness.sources
+                        if s.net_name == "VBAT"]
+        assert len(vbat_sources) >= 1
+
+    # ------------------------------------------------------------------
+    # Step 6: Rail sanity on real circuit
+    # ------------------------------------------------------------------
+    def test_rail_sanity_45lux(self):
+        """Acceptance: rail sanity with declared VBAT finds R power checks."""
+        from skidl.sim.declarations import sim_source
+        from skidl.sim.rail_sanity import analyze_rail_sanity
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        sim_source("VBAT", voltage=4.5, circuit=ckt)
+        sim_source("VCC", voltage=3.3, circuit=ckt)
+
+        report = analyze_rail_sanity(circuit=ckt)
+
+        rail_names = {r.net_name for r in report.rails}
+        assert len(rail_names) > 0
+        assert "VCC" in rail_names or "VBAT" in rail_names
+        # 45lux has pull-ups (10K on VCC) — should produce resistor checks
+        assert len(report.resistor_checks) > 0
+        # Summary should not crash
+        summary = report.summary()
+        assert "Rail sanity" in summary
+        print(summary)
+
+    def test_rail_sanity_assertion_pass(self):
+        """Acceptance: rail assertion on declared VBAT passes."""
+        from skidl.sim.declarations import sim_source, sim_assert_rail
+        from skidl.sim.rail_sanity import analyze_rail_sanity
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        sim_source("VBAT", voltage=4.5, circuit=ckt)
+        sim_assert_rail("VBAT", 4.5, circuit=ckt)
+
+        report = analyze_rail_sanity(circuit=ckt)
+
+        assert len(report.rail_assertions) >= 1
+        assert any(a.passed for a in report.rail_assertions)
+
+    # ------------------------------------------------------------------
+    # Step 7: PDN on real circuit
+    # ------------------------------------------------------------------
+    def test_pdn_45lux(self):
+        """Acceptance: PDN analysis on 45lux with declared VCC finds caps."""
+        from skidl.sim.declarations import sim_source
+        from skidl.sim.pdn import analyze_pdn, PDNConstraints
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        sim_source("VCC", voltage=3.3, circuit=ckt)
+
+        report = analyze_pdn(
+            circuit=ckt,
+            constraints=PDNConstraints(freq_points=20),
+        )
+
+        # Should find VCC rail
+        vcc_rail = next(
+            (r for r in report.rails if r.net_name == "VCC"), None
+        )
+        assert vcc_rail is not None
+        assert vcc_rail.voltage == 3.3
+        assert vcc_rail.z_target == 0.050  # tier default for 3.3V
+        # 45lux has many 100nF caps on VCC
+        assert len(vcc_rail.caps) >= 3
+        assert len(vcc_rail.frequencies) == 20
+        assert len(vcc_rail.combined_impedance) == 20
+        # Summary should be non-empty
+        summary = report.summary()
+        assert "PDN impedance report" in summary
+        print(summary)
+
+    # ------------------------------------------------------------------
+    # Step 8: Layout feedback on real circuit
+    # ------------------------------------------------------------------
+    def test_layout_feedback_45lux_no_placement(self):
+        """Acceptance: layout feedback without placement data still analyzes."""
+        from skidl.sim.declarations import sim_source
+        from skidl.sim.layout_feedback import analyze_layout_feedback
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        sim_source("VCC", voltage=3.3, circuit=ckt)
+
+        report = analyze_layout_feedback(circuit=ckt)
+
+        assert report.decoupling_analyzed
+        assert report.rail_sanity_analyzed
+        # Without placement, no distance-based suggestions
+        dist_suggestions = [
+            s for s in report.suggestions
+            if s.category in ("decap_far", "decap_too_far")
+        ]
+        assert len(dist_suggestions) == 0
+        summary = report.summary()
+        assert "Layout feedback" in summary
+        print(summary)
+
+    def test_layout_feedback_45lux_with_placement(self):
+        """Acceptance: layout feedback with mock placement produces suggestions."""
+        from skidl.sim.declarations import sim_source
+        from skidl.sim.layout_feedback import analyze_layout_feedback
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        sim_source("VCC", voltage=3.3, circuit=ckt)
+
+        # Build mock placement: ICs at origin, caps scattered far away
+        placed = {}
+        for part in ckt.parts:
+            ref = part.ref
+            if ref.startswith("U") or ref.startswith("BT"):
+                placed[ref] = (50.0, 50.0)
+            elif ref.startswith("C"):
+                placed[ref] = (200.0, 200.0)  # far away
+            elif ref.startswith("R"):
+                placed[ref] = (60.0, 50.0)
+            else:
+                placed[ref] = (50.0, 60.0)
+
+        report = analyze_layout_feedback(circuit=ckt, placed=placed)
+
+        assert report.decoupling_analyzed
+        assert report.rail_sanity_analyzed
+        # Caps placed 200mm away should trigger suggestions
+        far_suggestions = [
+            s for s in report.suggestions
+            if s.category in ("decap_far", "decap_too_far")
+        ]
+        assert len(far_suggestions) > 0
+        assert report.sim_penalty > 0
+        summary = report.summary()
+        assert "Layout feedback" in summary
+        print(summary)
+
+    # ------------------------------------------------------------------
+    # Full pipeline acceptance
+    # ------------------------------------------------------------------
+    def test_full_pipeline_45lux(self):
+        """Acceptance: full sim analysis pipeline runs end-to-end on 45lux."""
+        from skidl.sim.intent import apply_simulation_intent
+        from skidl.sim.erc import simulation_erc
+        from skidl.sim.decoupling import analyze_decoupling
+        from skidl.sim.power_tree import analyze_power_tree
+        from skidl.sim.rail_sanity import analyze_rail_sanity
+        from skidl.sim.pdn import analyze_pdn, PDNConstraints
+        from skidl.sim.layout_feedback import analyze_layout_feedback
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        # Step 5: Apply intent
+        intent = {
+            "version": 1,
+            "sources": [
+                {"net": "VBAT", "voltage": 4.5,
+                 "provenance": "3xAAA", "confidence": 0.9},
+                {"net": "VCC", "voltage": 3.3,
+                 "provenance": "LDO output", "confidence": 0.95},
+            ],
+            "rail_assertions": [
+                {"net": "VCC", "nominal": 3.3, "tolerance": 0.05,
+                 "provenance": "AP2112K spec", "confidence": 0.95},
+            ],
+            "loads": [
+                {"net": "VCC", "current": 0.15,
+                 "provenance": "ESP32-C6 typical", "confidence": 0.5},
+            ],
+        }
+        intent_report = apply_simulation_intent(intent, circuit=ckt)
+        assert intent_report.applied
+
+        # Steps 1-2: ERC with execution
+        erc_report = simulation_erc(circuit=ckt, execute=True)
+        assert erc_report is not None
+
+        # Step 3: Decoupling
+        decoupling = analyze_decoupling(circuit=ckt)
+        assert len(decoupling.caps) > 0
+
+        # Step 4: Power tree
+        power_tree = analyze_power_tree(circuit=ckt)
+        assert len(power_tree.rails) > 0
+
+        # Step 6: Rail sanity
+        rail_sanity = analyze_rail_sanity(circuit=ckt)
+        assert len(rail_sanity.rails) > 0
+
+        # Step 7: PDN
+        pdn = analyze_pdn(circuit=ckt, constraints=PDNConstraints(freq_points=10))
+        assert len(pdn.rails) > 0
+
+        # Step 8: Layout feedback
+        feedback = analyze_layout_feedback(circuit=ckt)
+        assert feedback.decoupling_analyzed
+        assert feedback.rail_sanity_analyzed
+
+        # All summaries should produce non-empty strings
+        for report_obj in [erc_report, decoupling, power_tree,
+                           rail_sanity, pdn, feedback]:
+            summary = report_obj.summary()
+            assert len(summary) > 10, f"Empty summary from {type(report_obj)}"
+
+        print("=== Full Pipeline Results ===")
+        print(intent_report.summary())
+        print(rail_sanity.summary())
+        print(pdn.summary())
+        print(feedback.summary())
