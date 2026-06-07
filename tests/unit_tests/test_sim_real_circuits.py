@@ -1,0 +1,208 @@
+"""Smoke tests: run simulation ERC readiness on real circuits (45lux, MR-1).
+
+These tests build the actual circuits from project scripts, then run
+simulation_erc(execute=False) to verify the sim module handles
+real-world part counts, hierarchies, and net topologies without crashing.
+"""
+from __future__ import annotations
+
+import builtins
+import os
+import sys
+
+import pytest
+
+os.environ.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
+
+
+def _reset_circuit():
+    """Reset global circuit state between tests."""
+    from skidl import reset
+    reset()
+
+
+def _build_45lux():
+    """Build the 45lux circuit without generating schematic/PCB."""
+    from skidl import Part, Net, POWER, KICAD9, set_default_tool, subcircuit
+    set_default_tool(KICAD9)
+
+    FP_R = "Resistor_SMD:R_0603_1608Metric"
+    FP_C = "Capacitor_SMD:C_0603_1608Metric"
+    FP_C_BULK = "Capacitor_SMD:C_0805_2012Metric"
+    FP_ESP32 = "RF_Module:ESP32-C6-MINI-1"
+    FP_OPT = "Package_DFN_QFN:DFN-6-1EP_2x2mm_P0.65mm_EP1x1.6mm"
+    FP_MUX = "Package_SO:TSSOP-16_4.4x5mm_P0.65mm"
+    FP_IMU = "Package_LGA:Bosch_LGA-14_3x2.5mm_P0.5mm"
+    FP_LDO = "Package_TO_SOT_SMD:SOT-23-5"
+    FP_SW = "Button_Switch_THT:SW_TH_Tactile_Omron_B3F-106x"
+    FP_BAT = "Battery:BatteryHolder_Keystone_2479_3xAAA"
+    FP_OLED = "Connector_FFC-FPC:Molex_200528-0040_1x04-1MP_P1.00mm_Horizontal"
+    FP_TAG = "Connector:Tag-Connect_TC2030-IDC-FP_2x03_P1.27mm_Vertical"
+    FP_SPECTRAL = "Package_LGA:AMS_OLGA-8_2x3.1mm_P0.8mm"
+
+    @subcircuit
+    def power_supply(vbat, vcc, gnd):
+        bat = Part("Device", "Battery_Cell", value="3xAAA", footprint=FP_BAT)
+        bat[1] += vbat; bat[2] += gnd
+        c_bat = Part("Device", "C", value="10uF", footprint=FP_C_BULK)
+        c_bat[1] += vbat; c_bat[2] += gnd
+        ldo = Part("Regulator_Linear", "AP2112K-3.3", footprint=FP_LDO)
+        ldo[1] += vbat; ldo[2] += gnd; ldo[3] += vbat; ldo[5] += vcc
+        c_in = Part("Device", "C", value="100nF", footprint=FP_C)
+        c_in[1] += vbat; c_in[2] += gnd
+        c_out = Part("Device", "C", value="100nF", footprint=FP_C)
+        c_out[1] += vcc; c_out[2] += gnd
+
+    @subcircuit
+    def mcu_esp32c6(vcc, gnd, sda, scl, btn_up, btn_down, uart_tx, uart_rx,
+                    en_net, boot_net):
+        esp = Part("RF_Module", "ESP32-C6-MINI-1", footprint=FP_ESP32)
+        esp[3] += vcc; esp[1] += gnd; esp[2] += gnd; esp[11] += gnd; esp[14] += gnd
+        for p in range(36, 54): esp[p] += gnd
+        esp[8] += en_net
+        r_en = Part("Device", "R", value="10K", footprint=FP_R)
+        r_en[1] += vcc; r_en[2] += en_net
+        c_en = Part("Device", "C", value="100nF", footprint=FP_C)
+        c_en[1] += en_net; c_en[2] += gnd
+        esp[15] += sda; esp[16] += scl
+        esp[9] += btn_up; esp[10] += btn_down
+        esp[31] += uart_tx; esp[30] += uart_rx
+        esp[23] += boot_net
+        r_boot = Part("Device", "R", value="10K", footprint=FP_R)
+        r_boot[1] += vcc; r_boot[2] += boot_net
+        for _ in range(2):
+            c = Part("Device", "C", value="100nF", footprint=FP_C)
+            c[1] += vcc; c[2] += gnd
+        c_bulk = Part("Device", "C", value="10uF", footprint=FP_C_BULK)
+        c_bulk[1] += vcc; c_bulk[2] += gnd
+        unused = [4,5,6,7,12,13,17,18,19,20,21,22,24,25,26,27,28,29,32,33,34,35]
+        for p in unused: esp[p] += Net(f"ESP_P{p}_NC")
+
+    @subcircuit
+    def sensor_array(vcc, gnd, sda, scl):
+        mux = Part("Interface_Expansion", "TCA9546APW", footprint=FP_MUX)
+        mux[16] += vcc; mux[8] += gnd; mux[14] += scl; mux[15] += sda
+        mux[1] += gnd; mux[2] += gnd; mux[13] += gnd
+        r_rst = Part("Device", "R", value="10K", footprint=FP_R)
+        r_rst[1] += vcc; r_rst[2] += mux[3]
+        c_mux = Part("Device", "C", value="100nF", footprint=FP_C)
+        c_mux[1] += vcc; c_mux[2] += gnd
+        sd_pins = [4, 6, 9, 11]; sc_pins = [5, 7, 10, 12]
+        for ch in range(4):
+            ch_sda = Net(f"MUX_CH{ch}_SDA"); ch_scl = Net(f"MUX_CH{ch}_SCL")
+            mux[sd_pins[ch]] += ch_sda; mux[sc_pins[ch]] += ch_scl
+            addr_nets = [gnd, vcc, ch_sda, ch_scl]
+            for addr_idx in range(4):
+                sensor = Part("Sensor_Optical", "TSL25911FN", footprint=FP_OPT,
+                              value="OPT3004")
+                sensor[1] += vcc; sensor[2] += addr_nets[addr_idx]
+                sensor[3] += gnd; sensor[4] += ch_scl
+                sensor[5] += Net(f"OPT_CH{ch}_{addr_idx}_INT"); sensor[6] += ch_sda
+                c_s = Part("Device", "C", value="100nF", footprint=FP_C)
+                c_s[1] += vcc; c_s[2] += gnd
+
+    @subcircuit
+    def imu_accel(vcc, gnd, sda, scl):
+        imu = Part("Sensor_Motion", "LIS2DH", footprint=FP_IMU)
+        imu[8] += vcc; imu[7] += vcc
+        for p in [9,10,11,12,13,14]: imu[p] += gnd
+        imu[1] += scl; imu[2] += sda; imu[4] += vcc; imu[3] += gnd
+        imu[5] += Net("IMU_INT2_NC"); imu[6] += Net("IMU_INT1_NC")
+        c_imu = Part("Device", "C", value="100nF", footprint=FP_C)
+        c_imu[1] += vcc; c_imu[2] += gnd
+
+    @subcircuit
+    def color_temp_sensor(vcc, gnd, sda, scl):
+        spec = Part("Sensor_Optical", "AS7343xDLG", footprint=FP_SPECTRAL)
+        spec[1] += vcc; spec[2] += scl; spec[3] += gnd
+        spec[4] += Net("AS7343_LDR_NC"); spec[5] += gnd
+        spec[6] += Net("AS7343_GPIO_NC"); spec[7] += Net("AS7343_INT_NC")
+        spec[8] += sda
+        c_spec = Part("Device", "C", value="100nF", footprint=FP_C)
+        c_spec[1] += vcc; c_spec[2] += gnd
+
+    @subcircuit
+    def oled_connector(vcc, gnd, sda, scl):
+        conn = Part("Connector", "Conn_01x04_Pin", footprint=FP_OLED)
+        conn[1] += gnd; conn[2] += vcc; conn[3] += scl; conn[4] += sda
+
+    @subcircuit
+    def user_interface(vcc, gnd, btn_up, btn_down):
+        for btn_net in [btn_up, btn_down]:
+            sw = Part("Switch", "SW_Push", footprint=FP_SW)
+            sw[1] += btn_net; sw[2] += gnd
+            r = Part("Device", "R", value="10K", footprint=FP_R)
+            r[1] += vcc; r[2] += btn_net
+
+    @subcircuit
+    def debug_connector(vcc, gnd, uart_tx, uart_rx, en_net, boot_net):
+        tag = Part("Connector_Generic", "Conn_02x03_Odd_Even", footprint=FP_TAG)
+        tag[1] += vcc; tag[2] += uart_tx; tag[3] += uart_rx
+        tag[4] += gnd; tag[5] += en_net; tag[6] += boot_net
+
+    # Top level
+    vbat = Net("VBAT")
+    vcc = Net("VCC"); vcc.drive = POWER
+    gnd = Net("GND"); gnd.drive = POWER
+    sda = Net("I2C_SDA"); scl = Net("I2C_SCL")
+    btn_up = Net("BTN_UP"); btn_down = Net("BTN_DOWN")
+    uart_tx = Net("UART_TX"); uart_rx = Net("UART_RX")
+    en_net = Net("ESP_EN"); boot_net = Net("ESP_BOOT")
+
+    for net in [sda, scl]:
+        r = Part("Device", "R", value="4.7K", footprint=FP_R)
+        r[1] += vcc; r[2] += net
+
+    power_supply(vbat, vcc, gnd)
+    mcu_esp32c6(vcc, gnd, sda, scl, btn_up, btn_down, uart_tx, uart_rx, en_net, boot_net)
+    sensor_array(vcc, gnd, sda, scl)
+    imu_accel(vcc, gnd, sda, scl)
+    color_temp_sensor(vcc, gnd, sda, scl)
+    oled_connector(vcc, gnd, sda, scl)
+    user_interface(vcc, gnd, btn_up, btn_down)
+    debug_connector(vcc, gnd, uart_tx, uart_rx, en_net, boot_net)
+
+
+class TestSimReal45lux:
+    def setup_method(self):
+        _reset_circuit()
+
+    def test_readiness_report(self):
+        from skidl.sim.erc import simulation_erc
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        report = simulation_erc(circuit=ckt, execute=False)
+
+        assert report is not None
+        assert not report.executable
+        assert ckt.last_simulation_report is report
+
+        # Should identify R/C as eligible, skip ICs/sensors/connectors
+        assert len(report.missing_models) > 0
+        # Should have missing_model findings for unmapped ICs
+        model_findings = [f for f in report.findings if f.category == "missing_model"]
+        assert len(model_findings) > 0
+        # Should NOT crash on ~80+ part circuit
+        print(report.summary())
+
+    def test_plan_stats(self):
+        from skidl.sim.plan import plan_simulation
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        plan = plan_simulation(circuit=ckt)
+
+        assert len(plan.eligible_parts) > 0
+        assert len(plan.skipped_parts) > 0
+        # R and C parts should be eligible
+        r_entries = [e for e in plan.eligible_parts if e.spice_element == "R"]
+        c_entries = [e for e in plan.eligible_parts if e.spice_element == "C"]
+        assert len(r_entries) > 0
+        assert len(c_entries) > 0
+        # ICs, sensors, connectors should be skipped
+        assert any("U" in ref or "J" in ref or "BT" in ref
+                    for ref in plan.skipped_parts)
+        print(plan.summary())
