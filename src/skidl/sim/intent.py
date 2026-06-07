@@ -183,6 +183,7 @@ def _validate_string(
     *,
     required: bool = True,
     default: str = "",
+    nonempty: bool = False,
 ) -> str | None:
     if key not in d:
         if required:
@@ -203,6 +204,15 @@ def _validate_string(
                     f"got {type(val).__name__}",
             path=path,
             category="type_error",
+        ))
+        return None
+
+    if nonempty and not val.strip():
+        findings.append(IntentFinding(
+            severity="error",
+            message=f"Field '{key}' at {path} must be a non-empty string",
+            path=path,
+            category="invalid_value",
         ))
         return None
 
@@ -266,6 +276,14 @@ def _check_provenance(
                 category="invalid_value",
             ))
             return None
+        if not (0.0 <= confidence <= 1.0):
+            findings.append(IntentFinding(
+                severity="error",
+                message=f"'confidence' at {path} must be 0.0–1.0, got {confidence}",
+                path=path,
+                category="invalid_value",
+            ))
+            return None
     else:
         if provenance is None or (isinstance(provenance, str) and not provenance.strip()):
             provenance = ""
@@ -291,6 +309,14 @@ def _check_provenance(
             findings.append(IntentFinding(
                 severity="error",
                 message=f"'confidence' at {path} must be finite, got {confidence}",
+                path=path,
+                category="invalid_value",
+            ))
+            return None
+        elif not (0.0 <= confidence <= 1.0):
+            findings.append(IntentFinding(
+                severity="error",
+                message=f"'confidence' at {path} must be 0.0–1.0, got {confidence}",
                 path=path,
                 category="invalid_value",
             ))
@@ -360,7 +386,7 @@ def _validate_intent(
             return False
         if not _validate_keys(item, _KNOWN_SOURCE_KEYS, path, strict, findings):
             return False
-        if _validate_string(item, "net", path, findings) is None:
+        if _validate_string(item, "net", path, findings, nonempty=True) is None:
             return False
         if _validate_numeric(item, "voltage", path, findings) is None:
             return False
@@ -380,7 +406,7 @@ def _validate_intent(
             return False
         if not _validate_keys(item, _KNOWN_LOAD_KEYS, path, strict, findings):
             return False
-        if _validate_string(item, "net", path, findings) is None:
+        if _validate_string(item, "net", path, findings, nonempty=True) is None:
             return False
         has_r = "resistance" in item and item["resistance"] is not None
         has_i = "current" in item and item["current"] is not None
@@ -423,7 +449,7 @@ def _validate_intent(
             return False
         if not _validate_keys(item, _KNOWN_PROBE_KEYS, path, strict, findings):
             return False
-        if _validate_string(item, "net", path, findings) is None:
+        if _validate_string(item, "net", path, findings, nonempty=True) is None:
             return False
         if _check_provenance(item, path, strict, findings, low_confidence) is None:
             return False
@@ -441,7 +467,7 @@ def _validate_intent(
             return False
         if not _validate_keys(item, _KNOWN_RAIL_ASSERTION_KEYS, path, strict, findings):
             return False
-        if _validate_string(item, "net", path, findings) is None:
+        if _validate_string(item, "net", path, findings, nonempty=True) is None:
             return False
         if _validate_numeric(item, "nominal", path, findings) is None:
             return False
@@ -465,9 +491,9 @@ def _validate_intent(
             return False
         if not _validate_keys(item, _KNOWN_RATIO_ASSERTION_KEYS, path, strict, findings):
             return False
-        if _validate_string(item, "output_net", path, findings) is None:
+        if _validate_string(item, "output_net", path, findings, nonempty=True) is None:
             return False
-        if _validate_string(item, "input_net", path, findings) is None:
+        if _validate_string(item, "input_net", path, findings, nonempty=True) is None:
             return False
         if _validate_numeric(item, "ratio", path, findings) is None:
             return False

@@ -57,31 +57,40 @@ Rules for agents:
 - Passive R/C/L checks may be inferred from values because those are exact primitive models.
 - Harness declarations are simulation-only and must not mutate schematic, PCB, or production netlist output.
 
-When proposing assumptions, use a rigid reviewable shape before emitting code:
+When proposing assumptions, build a structured intent dict and apply it via `apply_simulation_intent()`:
 
-```yaml
-simulation_intent:
-  sources:
-    - net: VBAT
-      nominal_v: 4.5
-      min_v: 3.0
-      max_v: 4.8
-      provenance: "user said 3xAAA"
-      confidence: medium
-  rails:
-    - net: 3V3
-      nominal_v: 3.3
-      tolerance: 0.05
-      provenance: "user said 3.3V MCU"
-      confidence: high
-  loads:
-    - net: 3V3
-      current_a: 0.15
-      min_a: 0.02
-      max_a: 0.25
-      provenance: "generic MCU estimate"
-      confidence: low
+```python
+from skidl.sim import apply_simulation_intent
+
+intent = {
+    "version": 1,
+    "sources": [
+        {"net": "VBAT", "voltage": 4.5,
+         "provenance": "user said 3xAAA, nominal 1.5V × 3",
+         "confidence": 0.85},
+    ],
+    "loads": [
+        {"net": "3V3", "current": 0.15,
+         "provenance": "generic MCU estimate, no datasheet",
+         "confidence": 0.3},
+    ],
+    "rail_assertions": [
+        {"net": "3V3", "nominal": 3.3, "tolerance": 0.05,
+         "provenance": "user said 3.3V MCU", "confidence": 0.9},
+    ],
+}
+
+report = apply_simulation_intent(intent, circuit=ckt, strict=True)
 ```
+
+**Intent v1 rules:**
+- `version` (required): must be `1`.
+- All items require `provenance` (non-empty string) and `confidence` (float, 0.0–1.0) in strict mode.
+- Sources: `voltage` (float, finite). Loads: exactly one of `resistance` or `current` (positive float).
+- Rail assertions: `nominal` (float), optional `tolerance` (positive float, default 0.05).
+- All numeric fields must be actual numbers — not strings like `"10mA"` or `"5%"`.
+- Net names must be non-empty strings.
+- Unknown keys error in strict mode. Validation is transactional.
 
 ### Layout Engine (`src/skidl/layout/`)
 Automatic PCB part placement with decoupling cap awareness, power net detection, and validation. This is a separate pipeline from schematic generation — always run both.

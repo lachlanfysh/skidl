@@ -442,6 +442,131 @@ class TestTypeErrors:
 
         assert not report.applied
 
+    def test_confidence_above_one_rejects(self):
+        from skidl.sim.intent import apply_simulation_intent
+
+        ckt = _make_circuit()
+        intent = _intent(sources=[
+            {"net": "VCC", "voltage": 3.3,
+             "provenance": "test", "confidence": 2.0},
+        ])
+
+        report = apply_simulation_intent(intent, circuit=ckt)
+
+        assert not report.applied
+        assert any(f.category == "invalid_value" for f in report.findings)
+
+    def test_confidence_negative_rejects(self):
+        from skidl.sim.intent import apply_simulation_intent
+
+        ckt = _make_circuit()
+        intent = _intent(sources=[
+            {"net": "VCC", "voltage": 3.3,
+             "provenance": "test", "confidence": -0.5},
+        ])
+
+        report = apply_simulation_intent(intent, circuit=ckt)
+
+        assert not report.applied
+        assert any(f.category == "invalid_value" for f in report.findings)
+
+    def test_confidence_above_one_non_strict_also_rejects(self):
+        from skidl.sim.intent import apply_simulation_intent
+
+        ckt = _make_circuit()
+        intent = _intent(sources=[
+            {"net": "VCC", "voltage": 3.3,
+             "provenance": "test", "confidence": 1.5},
+        ])
+
+        report = apply_simulation_intent(intent, circuit=ckt, strict=False)
+
+        assert not report.applied
+
+    def test_confidence_zero_passes(self):
+        from skidl.sim.intent import apply_simulation_intent
+
+        ckt = _make_circuit()
+        intent = _intent(sources=[
+            {"net": "VCC", "voltage": 3.3,
+             "provenance": "test", "confidence": 0.0},
+        ])
+
+        report = apply_simulation_intent(intent, circuit=ckt)
+
+        assert report.applied
+
+    def test_confidence_one_passes(self):
+        from skidl.sim.intent import apply_simulation_intent
+
+        ckt = _make_circuit()
+        intent = _intent(sources=[
+            {"net": "VCC", "voltage": 3.3,
+             "provenance": "test", "confidence": 1.0},
+        ])
+
+        report = apply_simulation_intent(intent, circuit=ckt)
+
+        assert report.applied
+
+
+# ---------------------------------------------------------------------------
+# Empty net names
+# ---------------------------------------------------------------------------
+class TestEmptyNetNames:
+    def test_empty_source_net_rejects(self):
+        from skidl.sim.intent import apply_simulation_intent
+
+        ckt = _make_circuit()
+        intent = _intent(sources=[
+            {"net": "", "voltage": 3.3,
+             "provenance": "test", "confidence": 1.0},
+        ])
+
+        report = apply_simulation_intent(intent, circuit=ckt)
+
+        assert not report.applied
+        assert any(f.category == "invalid_value" for f in report.findings)
+
+    def test_whitespace_net_rejects(self):
+        from skidl.sim.intent import apply_simulation_intent
+
+        ckt = _make_circuit()
+        intent = _intent(sources=[
+            {"net": "   ", "voltage": 3.3,
+             "provenance": "test", "confidence": 1.0},
+        ])
+
+        report = apply_simulation_intent(intent, circuit=ckt)
+
+        assert not report.applied
+
+    def test_empty_load_net_rejects(self):
+        from skidl.sim.intent import apply_simulation_intent
+
+        ckt = _make_circuit()
+        intent = _intent(loads=[
+            {"net": "", "resistance": 100.0,
+             "provenance": "test", "confidence": 1.0},
+        ])
+
+        report = apply_simulation_intent(intent, circuit=ckt)
+
+        assert not report.applied
+
+    def test_empty_ratio_output_net_rejects(self):
+        from skidl.sim.intent import apply_simulation_intent
+
+        ckt = _make_circuit()
+        intent = _intent(ratio_assertions=[
+            {"output_net": "", "input_net": "VIN", "ratio": 0.5,
+             "provenance": "test", "confidence": 1.0},
+        ])
+
+        report = apply_simulation_intent(intent, circuit=ckt)
+
+        assert not report.applied
+
 
 # ---------------------------------------------------------------------------
 # ADVERSARIAL: numeric field validation
