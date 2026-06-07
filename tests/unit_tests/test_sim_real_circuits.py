@@ -206,3 +206,50 @@ class TestSimReal45lux:
         assert any("U" in ref or "J" in ref or "BT" in ref
                     for ref in plan.skipped_parts)
         print(plan.summary())
+
+    def test_harness_source_makes_executable(self):
+        """Acceptance: sim_source('VBAT', 4.5) + sim_assert_rail('VBAT', 4.5)
+        produces an executable plan with a rail_presence check."""
+        from skidl.sim.declarations import sim_source, sim_assert_rail
+        from skidl.sim.plan import plan_simulation
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        sim_source("VBAT", voltage=4.5, circuit=ckt)
+        sim_assert_rail("VBAT", 4.5, circuit=ckt)
+
+        plan = plan_simulation(circuit=ckt)
+
+        assert plan.executable
+        # Harness source should appear
+        harness_sources = [s for s in plan.sources if s.harness_declared]
+        assert len(harness_sources) == 1
+        assert harness_sources[0].net_name == "VBAT"
+        assert harness_sources[0].value == 4.5
+        # Rail check should exist (deduplicated — source creates one)
+        rail_checks = [c for c in plan.checks if c.check_type == "rail_presence"
+                       and "VBAT" in c.nets]
+        assert len(rail_checks) == 1
+        assert rail_checks[0].expected == 4.5
+        # No missing_source warning
+        assert not any(f.category == "missing_source" for f in plan.findings)
+
+    def test_harness_execution(self):
+        """Acceptance: executing with sim_source produces checks (static + sim)."""
+        from skidl.sim.declarations import sim_source, sim_assert_rail
+        from skidl.sim.erc import simulation_erc
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        sim_source("VBAT", voltage=4.5, circuit=ckt)
+        sim_assert_rail("VBAT", 4.5, circuit=ckt)
+
+        report = simulation_erc(circuit=ckt, execute=True)
+
+        assert report.executable
+        # Static checks (RC tau) should always produce results
+        rc_checks = [c for c in report.checks if "rc_" in c.name]
+        assert len(rc_checks) > 0
+        assert all(c.passed for c in rc_checks)
