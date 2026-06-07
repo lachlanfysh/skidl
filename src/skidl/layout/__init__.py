@@ -71,6 +71,8 @@ from .power import (
 from .reader import read_board_outline, read_footprint_bboxes, read_placed_positions
 from .router import RoutingEstimate, estimate_routing, rmst_length
 from .report import CandidateReport, PlacementReport
+from .report import NetExplanation as ReportNetExplanation
+from .report import PartExplanation as ReportPartExplanation
 from .roles import PartRole, classify_part, classify_parts
 from .scoring import LayoutScore, score_placement
 from .validator import ValidationResult, find_kicad_cli, run_kicad_drc, validate

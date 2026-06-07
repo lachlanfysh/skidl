@@ -178,6 +178,31 @@ def _run_tournament(
             board_layers=board_layers,
         )
 
+        pre_anneal_score = candidate.score if candidate.score is not None else 0.0
+        if final_score.score < pre_anneal_score:
+            parts_copy = _copy_placed(candidate.placed_parts)
+            final_score = score_placement(
+                parts_copy,
+                circuit,
+                resolved_bboxes,
+                outline=resolved_outline,
+                keepouts=c.keepouts if c else None,
+                fp_geometries=fp_geometries,
+                clearance_mm=clearance_mm,
+                board_layers=board_layers,
+            )
+            anneal_result = AnnealResult(
+                improved=False,
+                iterations=anneal_result.iterations,
+                accepted_moves=anneal_result.accepted_moves,
+                rejected_moves=anneal_result.rejected_moves,
+                score_before=anneal_result.score_before,
+                score_after=pre_anneal_score,
+                best_score=pre_anneal_score,
+                temperature_steps=anneal_result.temperature_steps,
+                final_temp=anneal_result.final_temp,
+            )
+
         routing = estimate_routing(
             parts_copy,
             circuit,

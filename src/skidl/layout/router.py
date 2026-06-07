@@ -190,9 +190,10 @@ def estimate_routing(
     rows = max(1, int(math.ceil((y_max - y_min) / cell_size_mm)))
     capacity = board_layers * 3
 
-    grid = [[0] * cols for _ in range(rows)]
+    demand_grid = [[0] * cols for _ in range(rows)]
+    block_grid = [[0] * cols for _ in range(rows)]
     blocked = _block_part_cells(
-        placed_parts, fp_bboxes, grid, x_min, y_min, cell_size_mm
+        placed_parts, fp_bboxes, block_grid, x_min, y_min, cell_size_mm
     )
 
     pos_by_ref = {p.ref: (p.x_mm, p.y_mm) for p in placed_parts}
@@ -219,7 +220,7 @@ def estimate_routing(
             for i, j in edges:
                 total_rmst += _manhattan(points[i], points[j])
                 _trace_l_path(
-                    points[i], points[j], grid, x_min, y_min, cell_size_mm
+                    points[i], points[j], demand_grid, x_min, y_min, cell_size_mm
                 )
 
     max_demand = 0
@@ -227,11 +228,12 @@ def estimate_routing(
     overflow = 0
     for r in range(rows):
         for c in range(cols):
-            d = grid[r][c]
+            d = demand_grid[r][c]
+            effective_cap = max(0, capacity - block_grid[r][c])
             total_demand += d
             if d > max_demand:
                 max_demand = d
-            if d > capacity:
+            if d > effective_cap:
                 overflow += 1
 
     avg_demand = total_demand / max(rows * cols, 1)

@@ -218,21 +218,25 @@ def explain_net(
                 if ref and ref not in part_refs:
                     part_refs.append(ref)
 
-    hpwl_mm = 0.0
+    positions = [placed_map[ref] for ref in part_refs if ref in placed_map]
     span_x = 0.0
     span_y = 0.0
-    if result.report:
-        for net_name, hpwl in result.report.risky_nets:
-            if net_name == name:
-                hpwl_mm = hpwl
-                break
-
-    positions = [placed_map[ref] for ref in part_refs if ref in placed_map]
     if len(positions) >= 2:
         xs = [p.x_mm for p in positions]
         ys = [p.y_mm for p in positions]
         span_x = max(xs) - min(xs)
         span_y = max(ys) - min(ys)
+
+    hpwl_mm = 0.0
+    if result.report:
+        for net_name, hpwl in result.report.risky_nets:
+            if net_name == name:
+                hpwl_mm = hpwl
+                break
+    if hpwl_mm == 0.0 and len(positions) >= 2:
+        xs = [p.x_mm for p in positions]
+        ys = [p.y_mm for p in positions]
+        hpwl_mm = (max(xs) - min(xs)) + (max(ys) - min(ys))
 
     risks = []
     suggestions = []

@@ -96,10 +96,12 @@ class _FastScorer:
         fp_bboxes: dict[str, tuple[float, float]],
         outline: BoardOutline | None,
         clearance_mm: float,
+        keepouts: list | None = None,
     ):
         self._fp_bboxes = fp_bboxes
         self._outline = outline
         self._clearance = clearance_mm
+        self._keepouts = keepouts or []
         self._has_outline = outline is not None and bool(
             getattr(outline, "vertices", None)
         )
@@ -152,12 +154,14 @@ class _FastScorer:
 
         overlap_count = self._count_overlaps(parts)
         outline_count = self._count_outline_violations(parts) if self._has_outline else 0
+        keepout_count = self._count_keepout_violations(parts) if self._keepouts else 0
         total_hpwl, weighted_hpwl = self._compute_hpwl(pos)
         decap_penalty = self._decap_penalty(pos)
 
         penalty = 0.0
         penalty += overlap_count * 25.0
         penalty += outline_count * 20.0
+        penalty += keepout_count * 25.0
         penalty += min(total_hpwl / 50.0, 30.0)
         penalty += min(weighted_hpwl / 120.0, 20.0)
         penalty += min(decap_penalty, 15.0)
@@ -198,6 +202,18 @@ class _FastScorer:
                 or p.y_mm + h / 2 > self._oy_max + tol
             ):
                 count += 1
+        return count
+
+    def _count_keepout_violations(self, parts: list[PlacedPart]) -> int:
+        count = 0
+        for p in parts:
+            w, h = self._fp_bboxes.get(p.footprint, (2.0, 2.0))
+            for ko in self._keepouts:
+                # Part center-based check with half-dimensions
+                if (p.x_mm + w/2 > ko.x_min and p.x_mm - w/2 < ko.x_max and
+                        p.y_mm + h/2 > ko.y_min and p.y_mm - h/2 < ko.y_max):
+                    count += 1
+                    break  # one violation per part is enough
         return count
 
     def _compute_hpwl(
@@ -340,7 +356,7 @@ def anneal_placement(
     locked = _locked_refs(constraints)
     unlocked = [p.ref for p in placed_parts if p.ref not in locked]
     if not unlocked:
-        scorer = _FastScorer(circuit, fp_bboxes, outline, clearance_mm)
+        scorer = _FastScorer(circuit, fp_bboxes, outline, clearance_mm, keepouts=keepouts)
         s = scorer.score(placed_parts)
         return AnnealResult(
             improved=False,
@@ -355,7 +371,7 @@ def anneal_placement(
         )
 
     rng = random.Random(config.seed)
-    scorer = _FastScorer(circuit, fp_bboxes, outline, clearance_mm)
+    scorer = _FastScorer(circuit, fp_bboxes, outline, clearance_mm, keepouts=keepouts)
     swap_map = _build_swap_map(placed_parts, locked)
 
     current_parts = [
