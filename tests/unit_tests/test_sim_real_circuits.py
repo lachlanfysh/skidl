@@ -552,8 +552,26 @@ class TestSimReal45lux:
             summary = report_obj.summary()
             assert len(summary) > 10, f"Empty summary from {type(report_obj)}"
 
-        print("=== Full Pipeline Results ===")
-        print(intent_report.summary())
-        print(rail_sanity.summary())
-        print(pdn.summary())
-        print(feedback.summary())
+        # Step 10: Unified report
+        from skidl.sim.unified_report import generate_unified_report
+        unified = generate_unified_report(
+            circuit=ckt,
+            erc_report=erc_report,
+            decoupling_report=decoupling,
+            power_tree_report=power_tree,
+            rail_sanity_report=rail_sanity,
+            pdn_report=pdn,
+            layout_feedback_report=feedback,
+        )
+        assert unified.coverage.count == 6
+        assert unified.part_count > 50
+        assert unified.net_count > 10
+        assert unified.declared_source_count >= 2
+        assert len(unified.assumptions) >= 2
+        # JSON export should be valid
+        import json
+        data = json.loads(unified.to_json())
+        assert data["coverage"]["count"] == 6
+
+        print("=== Unified Report ===")
+        print(unified.summary())

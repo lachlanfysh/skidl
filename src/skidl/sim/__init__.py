@@ -44,3 +44,7 @@ from .layout_feedback import (
     analyze_layout_feedback,
     LayoutFeedbackReport,
 )
+from .unified_report import (
+    generate_unified_report,
+    UnifiedReport,
+)
