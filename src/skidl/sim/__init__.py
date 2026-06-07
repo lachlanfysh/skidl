@@ -17,3 +17,8 @@ from .declarations import (
     sim_assert_rail,
     sim_assert_node_ratio,
 )
+from .decoupling import (
+    analyze_decoupling,
+    DecouplingReport,
+    DecouplingThresholds,
+)

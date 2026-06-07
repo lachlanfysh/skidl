@@ -253,3 +253,29 @@ class TestSimReal45lux:
         rc_checks = [c for c in report.checks if "rc_" in c.name]
         assert len(rc_checks) > 0
         assert all(c.passed for c in rc_checks)
+
+    def test_decoupling_report(self):
+        """Smoke: decoupling analysis on 45lux produces useful counts."""
+        from skidl.sim.decoupling import analyze_decoupling
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        report = analyze_decoupling(circuit=ckt)
+
+        # 45lux has ICs (ESP32, TCA9546, sensors, LDO) with power pins
+        assert len(report.ic_power_pins) > 0
+        ic_refs = {p.ic_ref for p in report.ic_power_pins}
+        assert len(ic_refs) >= 3  # at least ESP32, mux, some sensors
+
+        # Should find decoupling caps (many 100nF caps in 45lux)
+        local_caps = [c for c in report.caps if c.classification == "local"]
+        assert len(local_caps) >= 5
+
+        # Should have associations
+        assert len(report.associations) > 0
+
+        # Should not crash
+        summary = report.summary()
+        assert "ICs" in summary
+        print(summary)
