@@ -244,5 +244,3 @@ def _check_divider_ratio(
         model_provenance=spec.model_provenance,
         reason="Could not measure divider output node",
     )
-
-
