@@ -308,7 +308,9 @@ class TestSimulationPlan:
         assert len(plan.skipped_parts) == 0
         assert not plan.executable
         not_ready = [f for f in plan.findings if f.category == "not_spice_ready"]
-        assert len(not_ready) == 3
+        # R1 and R2 are auto-ready (2-pin, parseable value); only V1 lacks auto-ready
+        assert len(not_ready) == 1
+        assert not_ready[0].refs == ["V1"]
         assert any(c.check_type == "divider_ratio" for c in plan.checks)
 
     def test_plan_executable_with_pyspice(self):
@@ -656,3 +658,142 @@ class TestImportSafety:
         import skidl.sim  # noqa: F401
         if not had_pyspice_before:
             assert "skidl.pyspice" not in sys.modules
+
+
+# ---------------------------------------------------------------------------
+# Auto-primitive tests
+# ---------------------------------------------------------------------------
+
+class TestAutoPrimitive:
+    def test_2pin_resistor_auto_ready(self):
+        from skidl.sim.registry import ModelRegistry, ModelSource
+        gnd = _Net("GND")
+        r1 = _Part("R1", value="10K", nets=[gnd, _Net("A")])
+        circuit = _Circuit([r1], [gnd])
+        reg = ModelRegistry()
+        reg.build(circuit)
+        entry = reg.get("R1")
+        assert entry.spice_ready
+        assert entry.source == ModelSource.BUILTIN_PRIMITIVE
+        assert entry.value == pytest.approx(10e3)
+
+    def test_2pin_capacitor_auto_ready(self):
+        from skidl.sim.registry import ModelRegistry
+        c1 = _Part("C1", value="100nF", nets=[_Net("A"), _Net("B")])
+        circuit = _Circuit([c1], [])
+        reg = ModelRegistry()
+        reg.build(circuit)
+        assert reg.get("C1").spice_ready
+        assert reg.get("C1").value == pytest.approx(100e-9)
+
+    def test_2pin_inductor_auto_ready(self):
+        from skidl.sim.registry import ModelRegistry
+        l1 = _Part("L1", value="10uH", nets=[_Net("A"), _Net("B")])
+        circuit = _Circuit([l1], [])
+        reg = ModelRegistry()
+        reg.build(circuit)
+        assert reg.get("L1").spice_ready
+        assert reg.get("L1").value == pytest.approx(10e-6)
+
+    def test_3pin_potentiometer_not_auto_ready(self):
+        from skidl.sim.registry import ModelRegistry
+        rv1 = _Part("R1", value="10K", nets=[_Net("A"), _Net("B"), _Net("W")], pins=3)
+        circuit = _Circuit([rv1], [])
+        reg = ModelRegistry()
+        reg.build(circuit)
+        entry = reg.get("R1")
+        assert not entry.spice_ready
+        assert entry.value is None
+
+    def test_unparseable_value_not_auto_ready(self):
+        from skidl.sim.registry import ModelRegistry
+        r1 = _Part("R1", value="DNP", nets=[_Net("A"), _Net("B")])
+        circuit = _Circuit([r1], [])
+        reg = ModelRegistry()
+        reg.build(circuit)
+        entry = reg.get("R1")
+        assert not entry.spice_ready
+
+    def test_voltage_source_not_auto_ready(self):
+        from skidl.sim.registry import ModelRegistry
+        v1 = _Part("V1", value="5V", nets=[_Net("VCC"), _Net("GND")], pins=2)
+        circuit = _Circuit([v1], [])
+        reg = ModelRegistry()
+        reg.build(circuit)
+        entry = reg.get("V1")
+        assert not entry.spice_ready
+        assert entry.spice_element == "V"
+
+    def test_plan_auto_ready_primitives_reduce_not_ready(self):
+        from skidl.sim.plan import plan_simulation
+        vcc = _Net("VCC")
+        gnd = _Net("GND")
+        mid = _Net("MID")
+        v1 = _Part("V1", value="5V", nets=[vcc, gnd], pins=2)
+        r1 = _Part("R1", value="20K", nets=[vcc, mid])
+        r2 = _Part("R2", value="10K", nets=[mid, gnd])
+        c1 = _Part("C1", value="100nF", nets=[vcc, gnd])
+        circuit = _Circuit([v1, r1, r2, c1], [vcc, gnd, mid])
+
+        plan = plan_simulation(circuit=circuit)
+        not_ready = [f for f in plan.findings if f.category == "not_spice_ready"]
+        # Only V1 is not ready; R1, R2, C1 are auto-ready
+        assert len(not_ready) == 1
+        assert not_ready[0].refs == ["V1"]
+        ready = [e for e in plan.eligible_parts if e.spice_ready]
+        assert len(ready) == 3
+
+
+# ---------------------------------------------------------------------------
+# Harness tests
+# ---------------------------------------------------------------------------
+
+class TestHarness:
+    def test_safe_node_name(self):
+        from skidl.sim.harness import _safe_node_name
+        assert _safe_node_name("VCC") == "vcc"
+        assert _safe_node_name("I2C_SDA") == "i2c_sda"
+        assert _safe_node_name("3.3V") == "n_3_3v"
+        assert _safe_node_name("+5V") == "_5v"
+
+    def test_ref_suffix(self):
+        from skidl.sim.harness import _ref_suffix
+        assert _ref_suffix("R1", "R") == "1"
+        assert _ref_suffix("R10", "R") == "10"
+        assert _ref_suffix("C1", "C") == "1"
+        assert _ref_suffix("X1", "R") == "X1"
+
+    def test_map_nets_gnd_detection(self):
+        from skidl.sim.harness import _map_nets
+        gnd = _Net("GND")
+        vcc = _Net("VCC")
+        parts = [_Part("R1", nets=[vcc, gnd])]
+        circuit = _Circuit(parts, [gnd, vcc])
+
+        class FakeGnd:
+            pass
+
+        fake_gnd = FakeGnd()
+        nodes = _map_nets(circuit, fake_gnd)
+        assert nodes[id(gnd)] is fake_gnd
+        assert nodes[id(vcc)] == "vcc"
+
+    def test_runner_selects_harness_for_auto_primitives(self):
+        from skidl.sim.runner import _has_auto_primitives
+        from skidl.sim.plan import plan_simulation
+        vcc = _Net("VCC")
+        gnd = _Net("GND")
+        r1 = _Part("R1", value="10K", nets=[vcc, gnd])
+        circuit = _Circuit([r1], [vcc, gnd])
+        plan = plan_simulation(circuit=circuit)
+        assert _has_auto_primitives(plan)
+
+    def test_runner_skips_harness_for_pyspice_only(self):
+        from skidl.sim.runner import _has_auto_primitives
+        from skidl.sim.plan import plan_simulation
+        vcc = _Net("VCC")
+        gnd = _Net("GND")
+        r1 = _Part("R1", value="10K", nets=[vcc, gnd], pyspice={"name": "R"})
+        circuit = _Circuit([r1], [vcc, gnd])
+        plan = plan_simulation(circuit=circuit)
+        assert not _has_auto_primitives(plan)

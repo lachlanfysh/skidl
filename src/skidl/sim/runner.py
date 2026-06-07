@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .plan import SimulationPlan, plan_simulation
+from .registry import ModelSource
 from .report import (
     FindingSeverity,
     SimulationCheck,
@@ -65,45 +66,28 @@ def run_simulation(
     return report
 
 
+def _has_auto_primitives(plan: SimulationPlan) -> bool:
+    return any(
+        e.spice_ready and e.source == ModelSource.BUILTIN_PRIMITIVE
+        for e in plan.eligible_parts
+    )
+
+
 def _execute_checks(
     plan: SimulationPlan,
     circuit,
     report: SimulationReport,
 ) -> None:
     """Run SPICE checks using InSpice. Lazy-imports InSpice here only."""
-    try:
-        from ..tools.spice.spice import gen_netlist
-    except ImportError:
-        report.findings.append(SimulationFinding(
-            severity=FindingSeverity.ERROR,
-            message="Cannot import SPICE netlist generator",
-            category="import_error",
-        ))
+    if _has_auto_primitives(plan):
+        spice_ckt, analysis = _run_via_harness(plan, circuit, report)
+    else:
+        spice_ckt, analysis = _run_via_gen_netlist(circuit, report)
+
+    if spice_ckt is None or analysis is None:
         return
 
-    try:
-        spice_ckt = gen_netlist(circuit)
-        report.spice_netlist = str(spice_ckt)
-    except Exception as exc:
-        report.findings.append(SimulationFinding(
-            severity=FindingSeverity.ERROR,
-            message=f"SPICE netlist generation failed: {exc}",
-            category="netlist_error",
-        ))
-        report.executable = False
-        return
-
-    try:
-        simulator = spice_ckt.simulator()
-        analysis = simulator.operating_point()
-    except Exception as exc:
-        report.findings.append(SimulationFinding(
-            severity=FindingSeverity.ERROR,
-            message=f"Operating point simulation failed: {exc}",
-            category="simulation_error",
-        ))
-        report.executable = False
-        return
+    report.spice_netlist = str(spice_ckt)
 
     node_voltages = {}
     for node_name in analysis.nodes:
@@ -127,6 +111,82 @@ def _execute_checks(
             report.skipped_checks.append(check_spec.name)
         else:
             report.checks.append(result)
+
+
+def _run_via_harness(plan, circuit, report):
+    """Build and simulate via the non-mutating harness."""
+    try:
+        from .harness import build_simulation_circuit
+        spice_ckt, added = build_simulation_circuit(plan, circuit)
+    except Exception as exc:
+        report.findings.append(SimulationFinding(
+            severity=FindingSeverity.ERROR,
+            message=f"Harness netlist build failed: {exc}",
+            category="netlist_error",
+        ))
+        report.executable = False
+        return None, None
+
+    if not added:
+        report.findings.append(SimulationFinding(
+            severity=FindingSeverity.ERROR,
+            message="No parts could be added to simulation circuit",
+            category="netlist_error",
+        ))
+        report.executable = False
+        return None, None
+
+    try:
+        simulator = spice_ckt.simulator()
+        analysis = simulator.operating_point()
+    except Exception as exc:
+        report.findings.append(SimulationFinding(
+            severity=FindingSeverity.ERROR,
+            message=f"Operating point simulation failed: {exc}",
+            category="simulation_error",
+        ))
+        report.executable = False
+        return None, None
+
+    return spice_ckt, analysis
+
+
+def _run_via_gen_netlist(circuit, report):
+    """Build and simulate via the existing gen_netlist path (requires part.pyspice)."""
+    try:
+        from ..tools.spice.spice import gen_netlist
+    except ImportError:
+        report.findings.append(SimulationFinding(
+            severity=FindingSeverity.ERROR,
+            message="Cannot import SPICE netlist generator",
+            category="import_error",
+        ))
+        return None, None
+
+    try:
+        spice_ckt = gen_netlist(circuit)
+    except Exception as exc:
+        report.findings.append(SimulationFinding(
+            severity=FindingSeverity.ERROR,
+            message=f"SPICE netlist generation failed: {exc}",
+            category="netlist_error",
+        ))
+        report.executable = False
+        return None, None
+
+    try:
+        simulator = spice_ckt.simulator()
+        analysis = simulator.operating_point()
+    except Exception as exc:
+        report.findings.append(SimulationFinding(
+            severity=FindingSeverity.ERROR,
+            message=f"Operating point simulation failed: {exc}",
+            category="simulation_error",
+        ))
+        report.executable = False
+        return None, None
+
+    return spice_ckt, analysis
 
 
 def _evaluate_check(

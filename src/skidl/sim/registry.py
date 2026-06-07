@@ -19,6 +19,32 @@ class ModelEntry:
     spice_element: str
     description: str = ""
     spice_ready: bool = False
+    value: float | None = None
+
+
+def parse_value(value_str) -> float | None:
+    if value_str is None:
+        return None
+    try:
+        return float(value_str)
+    except (TypeError, ValueError):
+        pass
+    value_str = str(value_str).strip()
+    if not value_str:
+        return None
+    multipliers = {
+        "T": 1e12, "G": 1e9, "M": 1e6, "k": 1e3, "K": 1e3,
+        "m": 1e-3, "u": 1e-6, "µ": 1e-6, "n": 1e-9, "p": 1e-12,
+        "f": 1e-15,
+    }
+    m = re.match(r"^([0-9]*\.?[0-9]+)\s*([TGMkKmuµnpf])?", value_str)
+    if not m:
+        return None
+    num = float(m.group(1))
+    suffix = m.group(2)
+    if suffix and suffix in multipliers:
+        num *= multipliers[suffix]
+    return num
 
 
 _RESISTOR_RE = re.compile(r"^R", re.IGNORECASE)
@@ -127,6 +153,20 @@ class ModelRegistry:
         all_refs = {p.ref for p in circuit.parts}
         return all_refs - self._entries.keys()
 
+    @staticmethod
+    def _auto_primitive(ref, part, element, desc) -> ModelEntry:
+        pins = getattr(part, "pins", [])
+        val = parse_value(getattr(part, "value", None))
+        auto_ready = len(pins) == 2 and val is not None and val > 0
+        return ModelEntry(
+            ref=ref,
+            source=ModelSource.BUILTIN_PRIMITIVE,
+            spice_element=element,
+            description=desc,
+            spice_ready=auto_ready,
+            value=val if auto_ready else None,
+        )
+
     def _classify(self, part) -> ModelEntry | None:
         ref = getattr(part, "ref", None)
         if ref is None:
@@ -150,26 +190,11 @@ class ModelRegistry:
             )
 
         if _is_resistor(part):
-            return ModelEntry(
-                ref=ref,
-                source=ModelSource.BUILTIN_PRIMITIVE,
-                spice_element="R",
-                description="ideal resistor",
-            )
+            return self._auto_primitive(ref, part, "R", "ideal resistor")
         if _is_capacitor(part):
-            return ModelEntry(
-                ref=ref,
-                source=ModelSource.BUILTIN_PRIMITIVE,
-                spice_element="C",
-                description="ideal capacitor",
-            )
+            return self._auto_primitive(ref, part, "C", "ideal capacitor")
         if _is_inductor(part):
-            return ModelEntry(
-                ref=ref,
-                source=ModelSource.BUILTIN_PRIMITIVE,
-                spice_element="L",
-                description="ideal inductor",
-            )
+            return self._auto_primitive(ref, part, "L", "ideal inductor")
         if _is_voltage_source(part):
             return ModelEntry(
                 ref=ref,

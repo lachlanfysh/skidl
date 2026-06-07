@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from .registry import ModelRegistry, ModelEntry
+from .registry import ModelRegistry, ModelEntry, parse_value as _parse_value
 from .report import (
     FindingSeverity,
     SimulationCheck,
@@ -70,30 +70,6 @@ _POWER_RE = re.compile(
     re.IGNORECASE,
 )
 
-
-def _parse_value(value_str) -> float | None:
-    if value_str is None:
-        return None
-    try:
-        return float(value_str)
-    except (TypeError, ValueError):
-        pass
-    value_str = str(value_str).strip()
-    if not value_str:
-        return None
-    multipliers = {
-        "T": 1e12, "G": 1e9, "M": 1e6, "k": 1e3, "K": 1e3,
-        "m": 1e-3, "u": 1e-6, "µ": 1e-6, "n": 1e-9, "p": 1e-12,
-        "f": 1e-15,
-    }
-    m = re.match(r"^([0-9]*\.?[0-9]+)\s*([TGMkKmuµnpf])?", value_str)
-    if not m:
-        return None
-    num = float(m.group(1))
-    suffix = m.group(2)
-    if suffix and suffix in multipliers:
-        num *= multipliers[suffix]
-    return num
 
 
 def _net_name(net) -> str:
