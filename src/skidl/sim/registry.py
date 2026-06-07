@@ -137,7 +137,7 @@ class ModelRegistry:
                 return ModelEntry(
                     ref=ref,
                     source=ModelSource.CONVERT_FOR_SPICE,
-                    spice_element="X",
+                    spice_element=part.pyspice.get("name", "X"),
                     description="converted via convert_for_spice()",
                     spice_ready=True,
                 )

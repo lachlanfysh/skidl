@@ -222,7 +222,57 @@ class TestModelRegistry:
         reg = ModelRegistry()
         reg.build(circuit)
         assert reg.has_model("D1")
-        assert reg.get("D1").source == ModelSource.CONVERT_FOR_SPICE
+        entry = reg.get("D1")
+        assert entry.source == ModelSource.CONVERT_FOR_SPICE
+        assert entry.spice_element == "D"
+        assert entry.spice_ready
+
+    def test_convert_for_spice_preserves_element_type(self):
+        from skidl.sim.registry import ModelRegistry, ModelSource
+        vcc = _Net("VCC")
+        gnd = _Net("GND")
+        mid = _Net("MID")
+        v1 = _Part("V1", value="5V", nets=[vcc, gnd], pins=2,
+                    pyspice={"name": "V", "add": None})
+        v1.reordered_part_pins = [v1.pins[0], v1.pins[1]]
+        r1 = _Part("R1", value="10K", nets=[vcc, mid],
+                    pyspice={"name": "R", "add": None})
+        r1.reordered_part_pins = [r1.pins[0], r1.pins[1]]
+        r2 = _Part("R2", value="10K", nets=[mid, gnd],
+                    pyspice={"name": "R", "add": None})
+        r2.reordered_part_pins = [r2.pins[0], r2.pins[1]]
+        circuit = _Circuit([v1, r1, r2], [vcc, gnd, mid])
+
+        reg = ModelRegistry()
+        reg.build(circuit)
+        assert reg.get("V1").spice_element == "V"
+        assert reg.get("R1").spice_element == "R"
+        assert reg.get("R2").spice_element == "R"
+        assert all(reg.get(r).spice_ready for r in ["V1", "R1", "R2"])
+
+    def test_convert_for_spice_divider_detected(self):
+        from skidl.sim.plan import plan_simulation
+        vcc = _Net("VCC")
+        gnd = _Net("GND")
+        mid = _Net("MID")
+        v1 = _Part("V1", value="5V", nets=[vcc, gnd], pins=2,
+                    pyspice={"name": "V", "add": None})
+        v1.reordered_part_pins = [v1.pins[0], v1.pins[1]]
+        r1 = _Part("R1", value="20K", nets=[vcc, mid],
+                    pyspice={"name": "R", "add": None})
+        r1.reordered_part_pins = [r1.pins[0], r1.pins[1]]
+        r2 = _Part("R2", value="10K", nets=[mid, gnd],
+                    pyspice={"name": "R", "add": None})
+        r2.reordered_part_pins = [r2.pins[0], r2.pins[1]]
+        circuit = _Circuit([v1, r1, r2], [vcc, gnd, mid])
+
+        plan = plan_simulation(circuit=circuit)
+        assert plan.executable
+        assert len(plan.sources) == 1
+        assert plan.sources[0].ref == "V1"
+        div_checks = [c for c in plan.checks if c.check_type == "divider_ratio"]
+        assert len(div_checks) == 1
+        assert div_checks[0].expected == pytest.approx(10e3 / 30e3, rel=0.01)
 
     def test_unmapped_refs(self):
         from skidl.sim.registry import ModelRegistry
@@ -416,7 +466,7 @@ class TestERCIntegration:
         assert len(report1.skipped_checks) == len(report2.skipped_checks)
 
     def test_severity_error_escalates_findings(self):
-        from skidl.sim.erc import simulation_erc, _log_findings, _is_error_severity
+        from skidl.sim.erc import _log_findings, _is_error_severity
         from skidl.sim.report import SimulationReport, SimulationFinding, FindingSeverity
 
         assert _is_error_severity("ERROR")
@@ -438,6 +488,14 @@ class TestERCIntegration:
             ],
         )
         _log_findings(report, "ERROR")
+
+    def test_severity_integer_error_constant(self):
+        from skidl.sim.erc import _is_error_severity
+        from skidl.skidlbaseobj import ERROR, WARNING, OK
+
+        assert _is_error_severity(ERROR)
+        assert not _is_error_severity(WARNING)
+        assert not _is_error_severity(OK)
 
 
 # ---------------------------------------------------------------------------

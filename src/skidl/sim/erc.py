@@ -53,7 +53,7 @@ def _is_error_severity(severity) -> bool:
     if isinstance(severity, str):
         return severity.upper() == "ERROR"
     try:
-        from ..skidl import ERROR as SKIDL_ERROR
+        from ..skidlbaseobj import ERROR as SKIDL_ERROR
         return severity == SKIDL_ERROR
     except ImportError:
         return False
