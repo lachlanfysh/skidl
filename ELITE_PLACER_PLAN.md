@@ -265,3 +265,37 @@ Definition of done:
 
 - A user can ask "why is this here?" and get a concrete answer.
 - A risky board explains the next physical fix, not just a score.
+
+## Phase 9: Simulated Annealing Refinement
+
+Goal: escape local minima that the greedy refinement gets stuck in.
+
+Status: implemented. `src/skidl/layout/anneal.py` replaces the greedy Phase 6
+refinement with a temperature-controlled stochastic optimizer. Uses a fast
+inner-loop scorer (HPWL + overlaps + outline + decap distance) that skips
+expensive congestion/power/crossing computations. Seeded PRNG for
+reproducibility. Configurable via `AnnealConfig` (initial temp, cooling rate,
+move probabilities, seed). 22 tests covering config, scorer, swap map, and
+placement quality.
+
+## Phase 10: Global Routing Estimation
+
+Goal: score placement by actual routing feasibility, not just HPWL proxy.
+
+Status: implemented. `src/skidl/layout/router.py` computes a rectilinear
+minimum spanning tree (RMST) per net via Prim's algorithm, traces edges on a
+coarse 1mm grid with L-shaped paths, tracks demand per cell and blocked cells
+from part bodies, and reports overflow where demand exceeds layer-aware
+capacity. `RoutingEstimate.congestion_penalty` feeds into candidate tournament
+scoring. 20 tests covering RMST, grid tracing, and routing estimation.
+
+## Phase 11: Iterative Candidate Tournament
+
+Goal: explore different starting positions rather than betting on one candidate.
+
+Status: implemented in `engine.py`. After generating and scoring all candidates,
+the top N (default 3) are each refined by SA independently. Each SA result is
+scored with the full scorer plus routing estimation; the winner is selected by
+`score - routing.congestion_penalty`. `plan_layout(anneal=True)` is the new
+default; `anneal=False` preserves the original greedy refinement path. Both
+paths compute a routing estimate. 274 tests pass.
