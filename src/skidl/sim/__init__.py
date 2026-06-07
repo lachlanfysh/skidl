@@ -22,3 +22,7 @@ from .decoupling import (
     DecouplingReport,
     DecouplingThresholds,
 )
+from .power_tree import (
+    analyze_power_tree,
+    PowerTreeReport,
+)

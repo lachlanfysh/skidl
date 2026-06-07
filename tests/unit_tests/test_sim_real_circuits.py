@@ -279,3 +279,28 @@ class TestSimReal45lux:
         summary = report.summary()
         assert "ICs" in summary
         print(summary)
+
+    def test_power_tree_report(self):
+        """Smoke: power tree analysis on 45lux produces useful structure."""
+        from skidl.sim.power_tree import analyze_power_tree
+
+        _build_45lux()
+        ckt = builtins.default_circuit
+
+        report = analyze_power_tree(circuit=ckt)
+
+        # Should find rails
+        rail_names = {r.name for r in report.rails}
+        assert "VCC" in rail_names or "VBAT" in rail_names
+
+        # Should find at least the LDO as a regulator
+        regs = [n for n in report.nodes if n.node_type == "regulator"]
+        assert len(regs) >= 1
+
+        # Should have edges
+        assert len(report.edges) >= 1
+
+        # Should not crash
+        summary = report.summary()
+        assert "rails" in summary
+        print(summary)
