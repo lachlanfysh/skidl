@@ -1018,15 +1018,16 @@ def node_to_sexp_schematic(node, uuid_path, sheet_tx=Tx(), version=20230409):
 
     # Re-scan for power symbols that may have been discovered during label
     # generation (labels reference nets not present in node.wires).
+    # Always set pwr_symbols for this sheet — _used_power_symbols is global
+    # so a child sheet may have seeded it without adding to our local dict.
     for part in node.parts:
         if isinstance(part, NetTerminal):
             continue
         for pin in part:
             if pin.is_connected() and pin.net.name in pwr_symbol_names:
                 pwr_name = pin.net.name
-                if pwr_name not in _used_power_symbols:
-                    _used_power_symbols.add(pwr_name)
-                    pwr_symbols[f"power:{pwr_name}"] = pwr_name
+                _used_power_symbols.add(pwr_name)
+                pwr_symbols[f"power:{pwr_name}"] = pwr_name
 
     if node.flattened:
         # This node is flattened, so return elements for inclusion in the parent sheet.
