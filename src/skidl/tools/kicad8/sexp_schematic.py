@@ -46,14 +46,17 @@ def init_power_symbol_data():
     _used_power_symbols = set()
     _pwr_counter = [0]
 
-    # Just read in the power symbols at the start.
-    pwr_lib = SchLib("power")
-    with open(pwr_lib.filepath, "r") as f:
-        pwr_lib_text = f.read()
-    pwr_lib_sexp = Sexp(pwr_lib_text)
-    pwr_symbol_sexps = pwr_lib_sexp.search("/kicad_symbol_lib/symbol")
-    pwr_symbol_sexp_dict = {sym[1]:sym for sym in pwr_symbol_sexps}
-    pwr_symbol_names = set([p.name for p in pwr_lib])
+    try:
+        pwr_lib = SchLib("power")
+        with open(pwr_lib.filepath, "r") as f:
+            pwr_lib_text = f.read()
+        pwr_lib_sexp = Sexp(pwr_lib_text)
+        pwr_symbol_sexps = pwr_lib_sexp.search("/kicad_symbol_lib/symbol")
+        pwr_symbol_sexp_dict = {sym[1]:sym for sym in pwr_symbol_sexps}
+        pwr_symbol_names = set([p.name for p in pwr_lib])
+    except Exception:
+        pwr_symbol_sexp_dict = {}
+        pwr_symbol_names = set()
 
 
 def _extract_power_lib_symbol(name):

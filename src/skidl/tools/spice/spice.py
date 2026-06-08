@@ -471,7 +471,7 @@ def _get_kwargs(part, kw):
                 param_name = kw[spice_pin.name]
             except KeyError:
                 active_logger.error(
-                    f"Part {part.ref}-{part.name} has no {spice_pin_name} pin: {part}"
+                    f"Part {part.ref}-{part.name} has no {spice_pin.name} pin: {part}"
                     )
             else:
                 kwargs.update({param_name: node(part_pin)})

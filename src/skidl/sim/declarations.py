@@ -109,6 +109,8 @@ def sim_load(net_or_name, resistance=None, current=None, ref=None,
     """
     if resistance is None and current is None:
         raise ValueError("sim_load requires resistance or current")
+    if resistance is not None and current is not None:
+        raise ValueError("sim_load requires exactly one of resistance or current, not both")
     harness = _get_harness(circuit)
     harness.loads.append(DeclaredLoad(
         net_name=_resolve_net_name(net_or_name),

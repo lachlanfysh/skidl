@@ -194,6 +194,8 @@ def plan_layout(
     selected_candidate = max(
         candidates,
         key=lambda candidate: (
+            1 if candidate_scores.get(candidate.name, None) is not None
+            and candidate_scores[candidate.name].ok else 0,
             candidate.score if candidate.score is not None else 0.0,
             candidate.name,
         ),
