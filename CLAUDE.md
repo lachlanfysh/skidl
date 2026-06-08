@@ -245,3 +245,120 @@ For production boards:
 `scoring.py` additionally warns if:
 - Decoupling caps are >5mm from their parent IC
 - Power nets have excessive wirelength
+
+## Routability Testing (Freerouting CLI)
+
+After placement and validation, test whether the board is actually routable using Freerouting headlessly. This is the final quality gate — good placement should produce a fully-routed board.
+
+**Requirements**: Docker (preferred) or Java 21+ with Freerouting 2.0.1 JAR, plus pcbnew Python bindings (system KiCad install).
+
+**Docker** (recommended — bundles correct JRE, respects `-mp` as hard limit):
+```bash
+docker run --rm -v /path/to/board:/work --entrypoint "" \
+  ghcr.io/freerouting/freerouting:latest \
+  java -jar /app/freerouting-executable.jar \
+  -de /work/board.dsn -do /work/board.ses -mp 10 -mt 4
+```
+
+**Local JAR** (needs Java 21, Freerouting 2.0.1 — v2.2.4+ requires Java 25):
+```bash
+java -jar freerouting-2.0.1.jar -de board.dsn -do board.ses -mp 10 -mt 4
+```
+
+### Routability Iteration Loop
+
+This is the core LLM-driven design loop. Each cycle takes 2-10 minutes depending on board complexity.
+
+```
+1. ROUTE — export DSN, run Freerouting, import SES
+2. ANALYZE — DRC JSON → which nets failed, where are the breaks
+3. DIAGNOSE — map breaks to physical constraints (bridges, congestion, layer count)
+4. ADJUST — modify outline, fillets, placement, layer count, or constraints
+5. RE-ROUTE — go to step 1
+```
+
+**Step 1: Route (traces first, zones after)**
+```python
+import pcbnew, subprocess, json, re, os
+from collections import Counter
+
+# Export — do NOT fill copper zones before export.
+# Filled zones block signal routing. Route first, pour after.
+board = pcbnew.LoadBoard("board.kicad_pcb")
+pcbnew.ExportSpecctraDSN(board, "board.dsn")
+
+# Route headlessly
+subprocess.run(
+    ["docker", "run", "--rm", "-v", f"{os.getcwd()}:/work",
+     "--entrypoint", "", "ghcr.io/freerouting/freerouting:latest",
+     "java", "-jar", "/app/freerouting-executable.jar",
+     "-de", "/work/board.dsn", "-do", "/work/board.ses",
+     "-mp", "10", "-mt", "4"],
+    timeout=600,
+)
+
+# Import routed traces
+board = pcbnew.LoadBoard("board.kicad_pcb")
+pcbnew.ImportSpecctraSES(board, "board.ses")
+pcbnew.SaveBoard("board_routed.kicad_pcb", board)
+```
+
+**Step 2: Analyze**
+```python
+# Run DRC to get structured failure data
+subprocess.run(
+    ["kicad-cli", "pcb", "drc", "--exit-code-violations",
+     "-o", "drc.json", "--format", "json", "board_routed.kicad_pcb"],
+    capture_output=True, timeout=30,
+)
+
+with open("drc.json") as f:
+    drc = json.load(f)
+
+# Extract failing nets and positions
+unconnected = drc.get("unconnected_items", [])
+nets = Counter()
+for item in unconnected:
+    for sub in item.get("items", []):
+        m = re.search(r'\[([^\]]+)\]', sub.get("description", ""))
+        if m:
+            nets[m.group(1)] += 1
+
+# Also check Y-span to identify bridge-crossing failures
+# Large Y-span + unrouted = signal can't cross a physical bottleneck
+```
+
+**Step 3: Diagnose — common failure patterns:**
+
+| Pattern | Symptom | Fix |
+|---------|---------|-----|
+| Power nets (VCC/GND) dominate failures | Many breaks, large Y-span | Add copper zones AFTER routing, or go 4-layer |
+| Signal nets fail at bridge zones | Breaks span narrow board sections | Widen bridges, increase fillet radius on cutouts |
+| ICs blocking routing channels | IC pads fill inter-cutout gaps | Increase cutout corner fillets (r=5→r=8) to taper walls |
+| Local congestion near dense IC | Short Y-span breaks | Move nearby passives, widen trace/space rules |
+| Everything fails | >50% unrouted | Board outline too small, or layer count insufficient |
+
+**Step 4: Adjust — use pcbnew API to modify the board programmatically:**
+```python
+# Example: widen bridges by moving cutout edges
+# Example: increase cutout fillet radius
+# Example: add copper layer count
+setup = board.GetDesignSettings()
+setup.SetCopperLayerCount(4)  # 2 → 4 layers
+
+# Example: add power zones AFTER routing is clean
+zone = pcbnew.ZONE(board)
+zone.SetNet(gnd_net)
+zone.SetLayer(board.GetLayerID('In1.Cu'))
+# ... define outline, add to board, fill
+```
+
+### Critical Rules
+
+- **Route first, pour after.** Never fill copper zones before DSN export — filled zones consume inner layers and block signal routing. Export with empty zones, route all signals, import SES, THEN add/fill power zones in KiCad.
+- **4-layer with open routing.** When using 4 layers, let Freerouting use all layers for signals. Add GND/VCC planes after routing — KiCad pours around existing traces automatically.
+- **`ExportSpecctraDSN` returns `False`** if the board outline is malformed — fix outline geometry first.
+- **Parse Freerouting stdout** for pass-by-pass progress: `Auto-router pass #N ... (K unrouted)`. If unrouted count plateaus for 3+ passes, stop early — more passes won't help, the board needs physical changes.
+- **DRC JSON is the feedback signal.** `unconnected_items[].items[].description` contains `[NetName]` and `pos.x/y` — extract both to map failures to physical locations.
+- **kicad-cli has NO specctra export** — must use pcbnew Python API (`ExportSpecctraDSN` / `ImportSpecctraSES`).
+- **Typical timing:** Simple boards (<50 parts): 5-30s. Dense boards (70+ parts, constrained outline): 2-10 min per iteration.
