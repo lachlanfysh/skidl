@@ -70,6 +70,23 @@ def _merge_inferred_edge_anchors(
         if key not in explicit_keepouts:
             merged.keepouts.append(keepout)
             explicit_keepouts.add(key)
+
+    # Merge near/far constraints from RF path inference and other intent
+    # sources.  Avoid duplicates by (ref, target_ref) pair.
+    existing_near = {(nc.ref, nc.target_ref) for nc in merged.near}
+    for nc in intent_plan.near_constraints:
+        key = (nc.ref, nc.target_ref)
+        if key not in existing_near:
+            merged.near.append(nc)
+            existing_near.add(key)
+
+    existing_far = {(fc.ref, fc.target_ref) for fc in merged.far}
+    for fc in intent_plan.far_constraints:
+        key = (fc.ref, fc.target_ref)
+        if key not in existing_far:
+            merged.far.append(fc)
+            existing_far.add(key)
+
     return merged
 
 

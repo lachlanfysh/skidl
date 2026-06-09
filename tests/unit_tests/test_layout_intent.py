@@ -14,24 +14,29 @@ class _Net:
 
 
 class _Pin:
-    def __init__(self, part, net):
+    def __init__(self, part, net, name=""):
         self.part = part
         self.net = net
+        self.name = name
         net._pins.append(self)
 
 
 class _Part:
-    def __init__(self, ref, value="", footprint="", name="", nets=None, pins=2):
+    def __init__(self, ref, value="", footprint="", name="", nets=None, pins=2,
+                 pin_names=None):
         self.ref = ref
         self.value = value
         self.footprint = footprint
         self.name = name
         self.node = None
         self.pins = []
-        for net in nets or []:
-            self.pins.append(_Pin(self, net))
+        for i, net in enumerate(nets or []):
+            pname = pin_names[i] if pin_names and i < len(pin_names) else ""
+            self.pins.append(_Pin(self, net, name=pname))
         while len(self.pins) < pins:
-            self.pins.append(_Pin(self, _Net(f"{ref}_N{len(self.pins)}")))
+            idx = len(self.pins)
+            pname = pin_names[idx] if pin_names and idx < len(pin_names) else ""
+            self.pins.append(_Pin(self, _Net(f"{ref}_N{idx}"), name=pname))
 
     def __len__(self):
         return len(self.pins)
@@ -131,3 +136,306 @@ def test_infers_mux_and_repeated_channel_intent():
     assert slots[0].sensor_refs == ["U2"]
     assert slots[1].sensor_refs == ["U3"]
     assert slots[2].refs == []
+
+
+# ---------------------------------------------------------------------------
+# Task 2: Display + controls co-location
+# ---------------------------------------------------------------------------
+
+
+class TestDisplayControlsColocation:
+    """Tests for display FPC detection, nav switch detection, and co-location."""
+
+    def test_display_fpc_gets_top_edge(self):
+        """FPC connector with display nets should get top edge, not bottom."""
+        eink_cs = _Net("EINK_CS")
+        eink_dc = _Net("EINK_DC")
+        eink_busy = _Net("EINK_BUSY")
+        eink_mosi = _Net("EINK_MOSI")
+        gnd = _Net("GND")
+        fpc = _Part(
+            "J3",
+            name="FPC connector",
+            footprint="Connector:FPC_24",
+            nets=[eink_cs, eink_dc, eink_busy, eink_mosi, gnd],
+            pins=24,
+        )
+        circuit = _Circuit([fpc], [eink_cs, eink_dc, eink_busy, eink_mosi, gnd])
+
+        plan = infer_placement_intents(circuit, outline=BoardOutline(60.0, 40.0))
+
+        mating = next(m for m in plan.mating_intents if m.ref == "J3")
+        assert mating.kind == "ffc"
+        assert mating.edge_preference == "top", (
+            f"Display FPC should be top edge, got {mating.edge_preference}"
+        )
+        assert "display" in " ".join(mating.reasons).lower()
+
+    def test_display_and_navswitch_same_edge(self):
+        """Display FPC and nav switch should be co-located on same edge."""
+        eink_dc = _Net("EINK_DC")
+        eink_busy = _Net("EINK_BUSY")
+        gnd = _Net("GND")
+        fpc = _Part(
+            "J3",
+            name="FPC connector",
+            footprint="Connector:FPC_24",
+            nets=[eink_dc, eink_busy, gnd],
+            pins=24,
+        )
+        nav = _Part(
+            "SW2",
+            name="5-way nav switch",
+            footprint="Button:JS1300",
+            nets=[gnd],
+            pins=6,
+        )
+        circuit = _Circuit([fpc, nav], [eink_dc, eink_busy, gnd])
+
+        plan = infer_placement_intents(circuit, outline=BoardOutline(60.0, 40.0))
+
+        fpc_mating = next(m for m in plan.mating_intents if m.ref == "J3")
+        nav_mating = next(m for m in plan.mating_intents if m.ref == "SW2")
+        assert fpc_mating.edge_preference == nav_mating.edge_preference, (
+            f"Display ({fpc_mating.edge_preference}) and nav switch "
+            f"({nav_mating.edge_preference}) should share the same edge"
+        )
+        # Both should be on the display's preferred edge (top).
+        assert fpc_mating.edge_preference == "top"
+
+    def test_controls_follow_display_edge(self):
+        """When display is top-edge, buttons/encoders should also be top-edge
+        and an AlignConstraint should be emitted."""
+        disp_dc = _Net("DISP_DC")
+        gnd = _Net("GND")
+        fpc = _Part(
+            "J3",
+            name="FPC connector",
+            footprint="Connector:FPC_24",
+            nets=[disp_dc, gnd],
+            pins=24,
+        )
+        btn = _Part(
+            "SW1",
+            name="tact switch",
+            footprint="Button_Switch_SMD:SW_SPST",
+            nets=[gnd],
+        )
+        enc = _Part(
+            "SW3",
+            name="rotary encoder",
+            footprint="Encoder:EC11",
+            nets=[gnd],
+            pins=5,
+        )
+        circuit = _Circuit([fpc, btn, enc], [disp_dc, gnd])
+
+        plan = infer_placement_intents(circuit, outline=BoardOutline(60.0, 40.0))
+
+        # All controls should follow the display edge.
+        fpc_mating = next(m for m in plan.mating_intents if m.ref == "J3")
+        btn_mating = next(m for m in plan.mating_intents if m.ref == "SW1")
+        enc_mating = next(m for m in plan.mating_intents if m.ref == "SW3")
+        assert fpc_mating.edge_preference == "top"
+        assert btn_mating.edge_preference == "top"
+        assert enc_mating.edge_preference == "top"
+
+        # AlignConstraint should be emitted with all refs.
+        assert len(plan.align_constraints) >= 1
+        align = plan.align_constraints[0]
+        assert "J3" in align.refs
+        assert "SW1" in align.refs
+        assert "SW3" in align.refs
+        # Top/bottom edge => y-axis alignment.
+        assert align.axis == "y"
+
+    def test_nav_switch_detected_as_control(self):
+        """JS1300-style nav switch should match as nav_control kind."""
+        gnd = _Net("GND")
+        nav = _Part(
+            "SW2",
+            name="5-way joystick nav switch",
+            footprint="Button:JS1300",
+            nets=[gnd],
+            pins=6,
+        )
+        circuit = _Circuit([nav], [gnd])
+
+        plan = infer_placement_intents(circuit)
+
+        mating = next(m for m in plan.mating_intents if m.ref == "SW2")
+        assert mating.kind == "nav_control"
+        assert mating.mating_side == "user_control"
+        assert mating.edge_preference is not None
+
+
+# ---------------------------------------------------------------------------
+# Task 1: RF path clustering and antenna edge anchoring
+# ---------------------------------------------------------------------------
+
+
+def test_coaxial_gets_edge_anchor():
+    """Conn_Coaxial should be inferred as edge-anchored on the top edge."""
+    ant_net = _Net("ANT")
+    gnd = _Net("GND")
+    coax = _Part(
+        "J1",
+        name="Conn_Coaxial",
+        footprint="Connector_Coaxial:SMA_Amphenol",
+        nets=[ant_net, gnd],
+        pins=2,
+        pin_names=["Signal", "GND"],
+    )
+    rf_ic = _Part(
+        "U1",
+        name="Si4684 RF receiver",
+        footprint="Package_QFN:QFN-20",
+        nets=[ant_net, gnd],
+        pins=20,
+        pin_names=["ANT_IN", "GND"],
+    )
+    circuit = _Circuit([coax, rf_ic], [ant_net, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(60.0, 40.0))
+
+    # EdgeAnchor emitted for the coaxial ref
+    coax_anchors = [a for a in plan.edge_anchors if a.ref == "J1"]
+    assert len(coax_anchors) >= 1, "Expected EdgeAnchor for coaxial connector"
+    assert coax_anchors[0].edge == "top"
+
+    # Mating intent emitted
+    coax_mating = [m for m in plan.mating_intents if m.ref == "J1" and m.kind == "coaxial"]
+    assert len(coax_mating) >= 1, "Expected coaxial mating intent"
+    assert coax_mating[0].edge_preference == "top"
+    assert coax_mating[0].mating_side == "outside_board"
+
+    # FaceEdge constraint
+    assert any(fe.ref == "J1" and fe.edge == "top" for fe in plan.face_edges)
+
+
+def test_rf_ic_near_antenna():
+    """RF IC should get NearConstraint to antenna connector (~8mm)."""
+    ant_net = _Net("ANT")
+    gnd = _Net("GND")
+    coax = _Part(
+        "J1",
+        name="Conn_Coaxial SMA",
+        footprint="Connector_Coaxial:SMA",
+        nets=[ant_net, gnd],
+        pins=2,
+        pin_names=["Signal", "GND"],
+    )
+    rf_ic = _Part(
+        "U1",
+        name="Si4684",
+        footprint="Package_QFN:QFN-20",
+        nets=[ant_net, gnd],
+        pins=20,
+        pin_names=["ANT_IN", "GND"],
+    )
+    circuit = _Circuit([coax, rf_ic], [ant_net, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(60.0, 40.0))
+
+    # NearConstraint: RF IC near antenna
+    near = [
+        nc for nc in plan.near_constraints
+        if nc.ref == "U1" and nc.target_ref == "J1"
+    ]
+    assert len(near) == 1, f"Expected NearConstraint(U1->J1), got {plan.near_constraints}"
+    assert near[0].distance_mm == 8.0
+
+    # RF IC should have rf_module intent
+    assert "rf_module" in _kinds(plan, "U1")
+
+
+def test_crystal_near_rf_ic():
+    """Crystal on RF IC's XTAL pins should get NearConstraint (~4mm)."""
+    ant_net = _Net("ANT")
+    xtal_net = _Net("XTAL_OUT")
+    gnd = _Net("GND")
+    coax = _Part(
+        "J1",
+        name="Conn_Coaxial",
+        footprint="Connector_Coaxial:SMA",
+        nets=[ant_net, gnd],
+        pins=2,
+        pin_names=["Signal", "GND"],
+    )
+    rf_ic = _Part(
+        "U1",
+        name="Si4684",
+        footprint="Package_QFN:QFN-20",
+        nets=[ant_net, xtal_net, gnd],
+        pins=20,
+        pin_names=["ANT_IN", "XTALO", "GND"],
+    )
+    crystal = _Part(
+        "Y1",
+        name="Crystal 32.768kHz",
+        footprint="Crystal:Crystal_SMD",
+        nets=[xtal_net, gnd],
+        pins=2,
+        pin_names=["1", "2"],
+    )
+    circuit = _Circuit([coax, rf_ic, crystal], [ant_net, xtal_net, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(60.0, 40.0))
+
+    # NearConstraint: crystal near RF IC
+    near_xtal = [
+        nc for nc in plan.near_constraints
+        if nc.ref == "Y1" and nc.target_ref == "U1"
+    ]
+    assert len(near_xtal) == 1, (
+        f"Expected NearConstraint(Y1->U1), got {plan.near_constraints}"
+    )
+    assert near_xtal[0].distance_mm == 4.0
+
+    # Crystal should have crystal_network intent
+    assert "crystal_network" in _kinds(plan, "Y1")
+
+
+def test_audio_ic_far_from_rf():
+    """DAC/codec should get FarConstraint from RF IC (~15mm)."""
+    ant_net = _Net("ANT")
+    i2s_net = _Net("I2S_DATA")
+    gnd = _Net("GND")
+    coax = _Part(
+        "J1",
+        name="Conn_Coaxial",
+        footprint="Connector_Coaxial:SMA",
+        nets=[ant_net, gnd],
+        pins=2,
+        pin_names=["Signal", "GND"],
+    )
+    rf_ic = _Part(
+        "U1",
+        name="Si4684",
+        footprint="Package_QFN:QFN-20",
+        nets=[ant_net, gnd],
+        pins=20,
+        pin_names=["ANT_IN", "GND"],
+    )
+    dac = _Part(
+        "U2",
+        name="PCM5102 audio DAC",
+        footprint="Package_SO:TSSOP-20",
+        nets=[i2s_net, gnd],
+        pins=20,
+        pin_names=["DOUT", "GND"],
+    )
+    circuit = _Circuit([coax, rf_ic, dac], [ant_net, i2s_net, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+
+    # FarConstraint: audio DAC far from RF IC
+    far = [
+        fc for fc in plan.far_constraints
+        if fc.ref == "U2" and fc.target_ref == "U1"
+    ]
+    assert len(far) == 1, f"Expected FarConstraint(U2->U1), got {plan.far_constraints}"
+    assert far[0].distance_mm == 15.0
+
+    # Audio IC should have analog_separation intent
+    assert "analog_separation" in _kinds(plan, "U2")
