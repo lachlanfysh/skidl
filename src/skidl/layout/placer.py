@@ -466,8 +466,20 @@ def place_parts(
     groups: dict,
     constraints: LayoutConstraints,
     fp_bboxes: dict[str, tuple[float, float]],
+    circuit=None,
 ) -> list[PlacedPart]:
-    """Place all parts, honoring fixed positions and filling in the rest."""
+    """Place all parts, honoring fixed positions and filling in the rest.
+
+    When *circuit* is provided, connector edge anchors and face-edge
+    constraints are inferred automatically.  User-supplied constraints
+    take priority — inferred anchors never override explicit ones.
+    """
+    if circuit is not None:
+        from .candidates import _merge_inferred_edge_anchors
+        from .intent import infer_placement_intents
+
+        intent_plan = infer_placement_intents(circuit, outline=constraints.outline)
+        constraints = _merge_inferred_edge_anchors(constraints, intent_plan)
 
     fixed_map = {fp.ref: fp for fp in (constraints.fixed or [])}
     edge_map = {ea.ref: ea for ea in (constraints.edge_anchors or [])}
