@@ -38,6 +38,26 @@ class LayoutScore:
             and self.missing_count == 0
         )
 
+    def to_dict(self) -> dict:
+        return {
+            "score": self.score,
+            "total_hpwl_mm": self.total_hpwl_mm,
+            "overlap_count": self.overlap_count,
+            "outline_violation_count": self.outline_violation_count,
+            "keepout_violation_count": self.keepout_violation_count,
+            "missing_count": self.missing_count,
+            "warning_count": self.warning_count,
+            "weighted_hpwl_mm": self.weighted_hpwl_mm,
+            "crossing_count": self.crossing_count,
+            "congestion_score": self.congestion_score,
+            "power_corridor_count": self.power_corridor_count,
+            "role_counts": dict(self.role_counts),
+            "power_net_count": self.power_net_count,
+            "congestion_regions": list(self.congestion_regions),
+            "warnings": list(self.warnings),
+            "ok": self.ok,
+        }
+
     def summary(self) -> str:
         lines = [f"Layout score: {self.score:.1f}/100"]
         lines.append(f"Total HPWL: {self.total_hpwl_mm:.1f}mm")
@@ -299,6 +319,55 @@ def _role_warnings(
     return warnings
 
 
+def score_placement_quick(
+    placed_parts: list[PlacedPart],
+    circuit,
+    fp_bboxes: dict[str, tuple[float, float]],
+    outline=None,
+    keepouts=None,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
+    clearance_mm: float = 0.5,
+    ctx=None,
+) -> LayoutScore:
+    """Cheap scorer for candidates with known violations.
+
+    Runs only validate + HPWL + penalty. Skips congestion, crossings, and
+    power corridor analysis.
+    """
+    validation = validate(
+        placed_parts,
+        circuit,
+        fp_bboxes,
+        clearance_mm=clearance_mm,
+        outline=outline,
+        keepouts=keepouts,
+        fp_geometries=fp_geometries,
+    )
+    roles = ctx.roles if ctx is not None else (classify_parts(circuit) if circuit is not None else {})
+    warnings = _role_warnings(placed_parts, circuit, roles, fp_bboxes, outline)
+    total_hpwl = _total_hpwl(placed_parts, circuit)
+
+    penalty = 0.0
+    penalty += len(validation.overlaps) * 25.0
+    penalty += len(validation.outline_violations) * 20.0
+    penalty += len(validation.keepout_violations) * 25.0
+    penalty += len(validation.missing_refs) * 10.0
+    penalty += min(total_hpwl / 50.0, 30.0)
+    penalty += min(len(warnings) * 5.0, 25.0)
+
+    return LayoutScore(
+        score=max(0.0, 100.0 - penalty),
+        total_hpwl_mm=total_hpwl,
+        overlap_count=len(validation.overlaps),
+        outline_violation_count=len(validation.outline_violations),
+        keepout_violation_count=len(validation.keepout_violations),
+        missing_count=len(validation.missing_refs),
+        warning_count=len(warnings),
+        role_counts=_role_counts(roles),
+        warnings=warnings,
+    )
+
+
 def score_placement(
     placed_parts: list[PlacedPart],
     circuit,
@@ -308,6 +377,7 @@ def score_placement(
     fp_geometries: dict[str, FootprintGeometry] | None = None,
     clearance_mm: float = 0.5,
     board_layers: int = 2,
+    ctx=None,
 ) -> LayoutScore:
     validation = validate(
         placed_parts,
@@ -318,7 +388,7 @@ def score_placement(
         keepouts=keepouts,
         fp_geometries=fp_geometries,
     )
-    roles = classify_parts(circuit) if circuit is not None else {}
+    roles = ctx.roles if ctx is not None else (classify_parts(circuit) if circuit is not None else {})
     warnings = _role_warnings(placed_parts, circuit, roles, fp_bboxes, outline)
     power_plan = None
     if circuit is not None:

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from .candidates import PlacementCandidate
 from .power import PowerRoutePlan
+from .routability import RoutabilityFeedback
 from .scoring import LayoutScore
 from .validator import ValidationResult
 
@@ -20,6 +21,18 @@ class CandidateReport:
     reasons: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "score": self.score,
+            "overlap_count": self.overlap_count,
+            "outline_violation_count": self.outline_violation_count,
+            "keepout_violation_count": self.keepout_violation_count,
+            "total_hpwl_mm": self.total_hpwl_mm,
+            "reasons": list(self.reasons),
+            "warnings": list(self.warnings),
+        }
+
 
 @dataclass
 class PartExplanation:
@@ -27,6 +40,14 @@ class PartExplanation:
     reasons: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     violations: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "ref": self.ref,
+            "reasons": list(self.reasons),
+            "warnings": list(self.warnings),
+            "violations": list(self.violations),
+        }
 
     def summary(self) -> str:
         lines = [f"Part {self.ref}:"]
@@ -62,6 +83,19 @@ class NetExplanation:
             + len(self.risks) * 6.0
             + len(self.next_actions) * 4.0
         )
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "hpwl_mm": self.hpwl_mm,
+            "refs": list(self.refs),
+            "power_corridors": list(self.power_corridors),
+            "congestion_regions": list(self.congestion_regions),
+            "warnings": list(self.warnings),
+            "risks": list(self.risks),
+            "next_actions": list(self.next_actions),
+            "risk_score": self.risk_score,
+        }
 
     def summary(self) -> str:
         lines = [f"Net {self.name}:"]
@@ -101,6 +135,7 @@ class PlacementReport:
     net_explanations: dict[str, NetExplanation] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
+    routability: RoutabilityFeedback | None = None
 
     def part(self, ref: str) -> PartExplanation:
         ref_text = str(ref)
@@ -152,6 +187,9 @@ class PlacementReport:
 
     def top_risks(self, limit: int = 10) -> list[str]:
         risks: list[tuple[float, str]] = []
+        if self.routability is not None and self.routability.unrouted_count > 0:
+            for net in self.routability.unrouted_nets[:10]:
+                risks.append((900.0, f"unrouted net: {net}"))
         for idx, violation in enumerate(self.hard_violations):
             risks.append((1000.0 - idx, f"hard violation: {violation}"))
         for warning in self.warnings:
@@ -186,6 +224,25 @@ class PlacementReport:
             if len(ordered) >= limit:
                 break
         return ordered
+
+    def to_dict(self) -> dict:
+        result = {
+            "selected": self.selected,
+            "candidates": [c.to_dict() for c in self.candidates],
+            "hard_violations": list(self.hard_violations),
+            "risky_nets": [
+                {"name": name, "hpwl_mm": hpwl} for name, hpwl in self.risky_nets
+            ],
+            "congestion_regions": list(self.congestion_regions),
+            "power_corridors": list(self.power_corridors),
+            "power_topology": list(self.power_topology),
+            "warnings": list(self.warnings),
+            "reasons": list(self.reasons),
+            "top_risks": self.top_risks(),
+        }
+        if self.routability is not None:
+            result["routability"] = self.routability.to_dict()
+        return result
 
     def summary(self) -> str:
         lines = [f"Selected placement candidate: {self.selected}"]

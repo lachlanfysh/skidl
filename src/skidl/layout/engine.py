@@ -8,6 +8,7 @@ from .candidates import (
     generate_placement_candidates,
 )
 from .constraints import BoardOutline, LayoutConstraints
+from .context import LayoutContext
 from .decaps import refine_candidate_decaps
 from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometries
 from .hierarchy import PlacementGroup, extract_groups
@@ -18,7 +19,8 @@ from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
 from .refinement import refine_candidate_placement
 from .report import PlacementReport, build_placement_report
-from .scoring import LayoutScore, score_placement
+from .routability import RoutabilityFeedback
+from .scoring import LayoutScore, score_placement, score_placement_quick
 from .validator import ValidationResult, validate
 from .writer import PlacedPart, load_footprint_bboxes
 
@@ -36,10 +38,36 @@ class LayoutResult:
     intent_plan: PlacementIntentPlan | None = None
     report: PlacementReport | None = None
     fp_geometries: dict[str, FootprintGeometry] | None = None
+    routability: RoutabilityFeedback | None = None
 
     @property
     def ok(self) -> bool:
         return self.validation.ok and self.score.ok
+
+    def to_dict(self) -> dict:
+        result = {
+            "ok": self.ok,
+            "score": self.score.to_dict(),
+            "validation": {
+                "ok": self.validation.ok,
+                "overlaps": list(self.validation.overlaps),
+                "outline_violations": list(self.validation.outline_violations),
+                "keepout_violations": list(self.validation.keepout_violations),
+                "missing_refs": list(self.validation.missing_refs),
+                "total_parts": self.validation.total_parts,
+                "placed_parts": self.validation.placed_parts,
+            },
+        }
+        if self.report is not None:
+            result["report"] = self.report.to_dict()
+        if self.routability is not None:
+            result["routability"] = self.routability.to_dict()
+        if self.outline is not None:
+            result["outline"] = {
+                "width_mm": self.outline.width_mm,
+                "height_mm": self.outline.height_mm,
+            }
+        return result
 
     def summary(self) -> str:
         lines = [
@@ -49,6 +77,8 @@ class LayoutResult:
         ]
         if self.report is not None:
             lines.append(self.report.summary())
+        if self.routability is not None:
+            lines.append(self.routability.summary())
         if self.intent_plan is not None:
             lines.append(self.intent_plan.summary())
         if self.outline is not None:
@@ -151,6 +181,8 @@ def plan_layout(
         power_topology=power_topology,
     )
 
+    ctx = LayoutContext.from_circuit(circuit)
+
     candidate_scores: dict[str, LayoutScore] = {}
     candidate_validations: dict[str, ValidationResult] = {}
     for candidate in candidates:
@@ -179,17 +211,49 @@ def plan_layout(
             keepouts=candidate_constraints.keepouts,
             fp_geometries=fp_geometries,
         )
-        candidate_scores[candidate.name] = score_placement(
-            candidate.placed_parts,
-            circuit,
-            resolved_bboxes,
-            outline=resolved_outline,
-            keepouts=candidate_constraints.keepouts,
-            fp_geometries=fp_geometries,
-            clearance_mm=clearance_mm,
-            board_layers=board_layers,
-        )
+        if not candidate_validations[candidate.name].ok:
+            candidate_scores[candidate.name] = score_placement_quick(
+                candidate.placed_parts,
+                circuit,
+                resolved_bboxes,
+                outline=resolved_outline,
+                keepouts=candidate_constraints.keepouts,
+                fp_geometries=fp_geometries,
+                clearance_mm=clearance_mm,
+                ctx=ctx,
+            )
+        else:
+            candidate_scores[candidate.name] = score_placement(
+                candidate.placed_parts,
+                circuit,
+                resolved_bboxes,
+                outline=resolved_outline,
+                keepouts=candidate_constraints.keepouts,
+                fp_geometries=fp_geometries,
+                clearance_mm=clearance_mm,
+                board_layers=board_layers,
+                ctx=ctx,
+            )
         candidate.score = candidate_scores[candidate.name].score
+
+    any_valid = any(
+        candidate_validations[c.name].ok for c in candidates
+    )
+    if not any_valid:
+        for candidate in candidates:
+            candidate_constraints = candidate.constraints or resolved_constraints
+            candidate_scores[candidate.name] = score_placement(
+                candidate.placed_parts,
+                circuit,
+                resolved_bboxes,
+                outline=resolved_outline,
+                keepouts=candidate_constraints.keepouts,
+                fp_geometries=fp_geometries,
+                clearance_mm=clearance_mm,
+                board_layers=board_layers,
+                ctx=ctx,
+            )
+            candidate.score = candidate_scores[candidate.name].score
 
     selected_candidate = max(
         candidates,
@@ -228,6 +292,7 @@ def plan_layout(
         fp_geometries=fp_geometries,
         clearance_mm=clearance_mm,
         board_layers=board_layers,
+        ctx=ctx,
     )
     selected_candidate.score = score.score
     power_plan = plan_power_routes(

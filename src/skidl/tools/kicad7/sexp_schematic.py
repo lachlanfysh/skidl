@@ -18,6 +18,7 @@ Sources:
 
 import copy
 import datetime
+import logging
 import os
 import uuid
 from collections import OrderedDict
@@ -30,12 +31,23 @@ from skidl.schematics.net_terminal import NetTerminal
 from skidl.schlib import SchLib
 from skidl.utilities import export_to_all
 
+logger = logging.getLogger(__name__)
+
 # UUID namespace — same as gen_netlist.py so UUIDs are cross-referenceable.
 _NAMESPACE_UUID = uuid.UUID("7026fcc6-e1a0-409e-aaf4-6a17ea82654f")
 
 # ---------------------------------------------------------------------------
 # Power symbol support
 # ---------------------------------------------------------------------------
+
+_FALLBACK_POWER_SYMBOLS = {
+    "GND": '(symbol GND (power) (pin_numbers (hide yes)) (pin_names (offset 0) (hide yes)) (exclude_from_sim no) (in_bom yes) (on_board yes) (property Reference #PWR (at 0 -6.35 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Value GND (at 0 -3.81 0) (effects (font (size 1.27 1.27)))) (property Footprint (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Datasheet (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (symbol GND_0_1 (polyline (pts (xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)) (stroke (width 0) (type default)) (fill (type none)))) (symbol GND_1_1 (pin power_in line (at 0 0 270) (length 0) (name ~ (effects (font (size 1.27 1.27)))) (number 1 (effects (font (size 1.27 1.27)))))))',
+    "VCC": '(symbol VCC (power) (pin_numbers (hide yes)) (pin_names (offset 0) (hide yes)) (exclude_from_sim no) (in_bom yes) (on_board yes) (property Reference #PWR (at 0 -3.81 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Value VCC (at 0 3.556 0) (effects (font (size 1.27 1.27)))) (property Footprint (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Datasheet (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (symbol VCC_0_1 (polyline (pts (xy -0.762 1.27) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 2.54) (xy 0.762 1.27)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 0) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none)))) (symbol VCC_1_1 (pin power_in line (at 0 0 90) (length 0) (name ~ (effects (font (size 1.27 1.27)))) (number 1 (effects (font (size 1.27 1.27)))))))',
+    "VDD": '(symbol VDD (power) (pin_numbers (hide yes)) (pin_names (offset 0) (hide yes)) (exclude_from_sim no) (in_bom yes) (on_board yes) (property Reference #PWR (at 0 -3.81 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Value VDD (at 0 3.556 0) (effects (font (size 1.27 1.27)))) (property Footprint (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Datasheet (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (symbol VDD_0_1 (polyline (pts (xy -0.762 1.27) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 2.54) (xy 0.762 1.27)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 0) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none)))) (symbol VDD_1_1 (pin power_in line (at 0 0 90) (length 0) (name ~ (effects (font (size 1.27 1.27)))) (number 1 (effects (font (size 1.27 1.27)))))))',
+    "+3V3": '(symbol +3V3 (power) (pin_numbers (hide yes)) (pin_names (offset 0) (hide yes)) (exclude_from_sim no) (in_bom yes) (on_board yes) (property Reference #PWR (at 0 -3.81 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Value +3V3 (at 0 3.556 0) (effects (font (size 1.27 1.27)))) (property Footprint (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Datasheet (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (symbol +3V3_0_1 (polyline (pts (xy -0.762 1.27) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 2.54) (xy 0.762 1.27)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 0) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none)))) (symbol +3V3_1_1 (pin power_in line (at 0 0 90) (length 0) (name ~ (effects (font (size 1.27 1.27)))) (number 1 (effects (font (size 1.27 1.27)))))))',
+    "+5V": '(symbol +5V (power) (pin_numbers (hide yes)) (pin_names (offset 0) (hide yes)) (exclude_from_sim no) (in_bom yes) (on_board yes) (property Reference #PWR (at 0 -3.81 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Value +5V (at 0 3.556 0) (effects (font (size 1.27 1.27)))) (property Footprint (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Datasheet (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (symbol +5V_0_1 (polyline (pts (xy -0.762 1.27) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 2.54) (xy 0.762 1.27)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 0) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none)))) (symbol +5V_1_1 (pin power_in line (at 0 0 90) (length 0) (name ~ (effects (font (size 1.27 1.27)))) (number 1 (effects (font (size 1.27 1.27)))))))',
+    "+12V": '(symbol +12V (power) (pin_numbers (hide yes)) (pin_names (offset 0) (hide yes)) (exclude_from_sim no) (in_bom yes) (on_board yes) (property Reference #PWR (at 0 -3.81 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Value +12V (at 0 3.556 0) (effects (font (size 1.27 1.27)))) (property Footprint (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (property Datasheet (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))) (symbol +12V_0_1 (polyline (pts (xy -0.762 1.27) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 2.54) (xy 0.762 1.27)) (stroke (width 0) (type default)) (fill (type none))) (polyline (pts (xy 0 0) (xy 0 2.54)) (stroke (width 0) (type default)) (fill (type none)))) (symbol +12V_1_1 (pin power_in line (at 0 0 90) (length 0) (name ~ (effects (font (size 1.27 1.27)))) (number 1 (effects (font (size 1.27 1.27)))))))',
+}
 
 
 def init_power_symbol_data():
@@ -55,8 +67,15 @@ def init_power_symbol_data():
         pwr_symbol_sexp_dict = {sym[1]:sym for sym in pwr_symbol_sexps}
         pwr_symbol_names = set([p.name for p in pwr_lib])
     except Exception:
-        pwr_symbol_sexp_dict = {}
-        pwr_symbol_names = set()
+        logger.warning(
+            "KiCad power library unavailable, using built-in definitions "
+            "for common symbols"
+        )
+        pwr_symbol_sexp_dict = {
+            name: Sexp(sexp_text)
+            for name, sexp_text in _FALLBACK_POWER_SYMBOLS.items()
+        }
+        pwr_symbol_names = set(_FALLBACK_POWER_SYMBOLS.keys())
 
 
 def _extract_power_lib_symbol(name):
@@ -1018,6 +1037,19 @@ def node_to_sexp_schematic(node, uuid_path, sheet_tx=Tx(), version=20230409):
             label = net_label_to_sexp(pin, tx=tx)
             if label:
                 elements.append(label)
+
+    # Re-scan for power symbols that may have been discovered during label
+    # generation (labels reference nets not present in node.wires).
+    # Always set pwr_symbols for this sheet — _used_power_symbols is global
+    # so a child sheet may have seeded it without adding to our local dict.
+    for part in node.parts:
+        if isinstance(part, NetTerminal):
+            continue
+        for pin in part:
+            if pin.is_connected() and pin.net.name in pwr_symbol_names:
+                pwr_name = pin.net.name
+                _used_power_symbols.add(pwr_name)
+                pwr_symbols[f"power:{pwr_name}"] = pwr_name
 
     if node.flattened:
         # This node is flattened, so return elements for inclusion in the parent sheet.

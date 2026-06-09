@@ -95,6 +95,21 @@ def _check_overlaps(
     clearance_mm: float,
     fp_geometries: dict[str, FootprintGeometry] | None = None,
 ) -> list[tuple[str, str]]:
+    if len(placed) >= 20:
+        from .spatial import SpatialGrid
+
+        grid = SpatialGrid(cell_size_mm=10.0)
+        bounds_by_ref: dict[str, tuple[float, float, float, float]] = {}
+        for pp in placed:
+            b = _placed_bounds(pp, fp_bboxes, fp_geometries)
+            bounds_by_ref[pp.ref] = b
+            cx = (b[0] + b[2]) / 2
+            cy = (b[1] + b[3]) / 2
+            w = b[2] - b[0]
+            h = b[3] - b[1]
+            grid.insert(pp.ref, cx, cy, w, h)
+        return grid.all_overlapping_pairs(clearance=clearance_mm)
+
     overlaps = []
     for i, a in enumerate(placed):
         a_bounds = _placed_bounds(a, fp_bboxes, fp_geometries)

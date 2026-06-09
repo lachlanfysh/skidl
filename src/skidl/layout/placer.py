@@ -13,6 +13,7 @@ from .constraints import (
 )
 from .hierarchy import PlacementGroup
 from .roles import DECAP_VALUE_RE, GND_NET_RE, POWER_NET_RE
+from .spatial import SpatialGrid
 from .writer import PlacedPart
 
 _DEFAULT_BBOX = (2.0, 2.0)
@@ -76,7 +77,9 @@ def _overlaps(x1, y1, w1, h1, x2, y2, w2, h2, clearance=0.5) -> bool:
             abs(y1 - y2) < (h1 + h2) / 2 + clearance)
 
 
-def _overlaps_any(x, y, w, h, occupied: list[tuple], clearance=0.5) -> bool:
+def _overlaps_any(x, y, w, h, occupied, clearance=0.5) -> bool:
+    if isinstance(occupied, SpatialGrid):
+        return occupied.check_any_overlap(x, y, w, h, clearance)
     for ox, oy, ow, oh in occupied:
         if _overlaps(x, y, w, h, ox, oy, ow, oh, clearance):
             return True
@@ -114,7 +117,7 @@ def _find_clear_position(
     target_y: float,
     width: float,
     height: float,
-    occupied: list[tuple],
+    occupied,
     bounds=None,
     step: float = 1.0,
     max_radius: float = 120.0,
@@ -146,7 +149,7 @@ def _find_near_parent(
     width: float,
     height: float,
     n: int,
-    occupied: list[tuple],
+    occupied,
     bounds=None,
 ) -> tuple[float, float]:
     """Try right/below/left/above offsets from parent, return closest clear position."""
@@ -450,12 +453,17 @@ def place_parts(
 
     # placed_map: ref → PlacedPart
     placed_map: dict[str, PlacedPart] = {}
-    # occupied: list of (x, y, w, h) tuples for overlap checks
-    occupied: list[tuple] = _occupied_from_keepouts(constraints.keepouts)
+    # Grid-based overlap index — also maintains a flat list for legacy callers.
+    _grid = SpatialGrid(cell_size_mm=10.0)
+    occupied: list[tuple] = []
+    for ko_entry in _occupied_from_keepouts(constraints.keepouts):
+        occupied.append(ko_entry)
+        _grid.insert(f"__ko_{len(occupied)}", ko_entry[0], ko_entry[1], ko_entry[2], ko_entry[3])
 
     def _commit(pp: PlacedPart, w: float, h: float):
         placed_map[pp.ref] = pp
         occupied.append((pp.x_mm, pp.y_mm, w, h))
+        _grid.insert(pp.ref, pp.x_mm, pp.y_mm, w, h)
 
     all_parts = []
     for group in groups.values():
@@ -493,7 +501,7 @@ def place_parts(
         bounds = constraints.outline
         target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
         x, y = _find_clear_position(
-            target_x, target_y, w, h, occupied, bounds=bounds
+            target_x, target_y, w, h, _grid, bounds=bounds
         )
         x, y = _clamp_to_bounds(x, y, w, h, bounds)
         _commit(
@@ -528,7 +536,7 @@ def place_parts(
                 target_x, target_y = _spillover_position(placed_map, constraints)
             target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
             x, y = _find_clear_position(
-                target_x, target_y, w, h, occupied, bounds=bounds
+                target_x, target_y, w, h, _grid, bounds=bounds
             )
             x, y = _clamp_to_bounds(x, y, w, h, bounds)
             _commit(
@@ -567,7 +575,7 @@ def place_parts(
             pw, ph = _bbox_for_ref(parent_ref, all_parts, fp_bboxes)
             n = decap_parent_counts[parent_ref] - 1
             x, y = _find_near_parent(
-                parent.x_mm, parent.y_mm, pw, ph, w, h, n, occupied, bounds,
+                parent.x_mm, parent.y_mm, pw, ph, w, h, n, _grid, bounds,
             )
             rot = parent.rot_deg
         else:
@@ -579,7 +587,7 @@ def place_parts(
             rot = 0.0
             target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
             x, y = _find_clear_position(
-                target_x, target_y, w, h, occupied, bounds=bounds
+                target_x, target_y, w, h, _grid, bounds=bounds
             )
             x, y = _clamp_to_bounds(x, y, w, h, bounds)
         _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=rot,
@@ -608,7 +616,7 @@ def place_parts(
             n = stack_count.get(parent_ref, 0)
             stack_count[parent_ref] = n + 1
             x, y = _find_near_parent(
-                parent.x_mm, parent.y_mm, pw, ph, w, h, n, occupied, bounds,
+                parent.x_mm, parent.y_mm, pw, ph, w, h, n, _grid, bounds,
             )
             rot = parent.rot_deg
         else:
@@ -620,7 +628,7 @@ def place_parts(
             rot = 0.0
             target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
             x, y = _find_clear_position(
-                target_x, target_y, w, h, occupied, bounds=bounds
+                target_x, target_y, w, h, _grid, bounds=bounds
             )
             x, y = _clamp_to_bounds(x, y, w, h, bounds)
         _commit(PlacedPart(ref=part.ref, x_mm=x, y_mm=y, rot_deg=rot,

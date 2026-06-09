@@ -25,6 +25,7 @@ from .decaps import (
     refine_candidate_decaps,
     refine_decaps,
 )
+from .context import LayoutContext
 from .engine import LayoutResult, plan_layout
 from .geometry import (
     FootprintGeometry,
@@ -66,6 +67,8 @@ from .refinement import (
 )
 from .report import CandidateReport, NetExplanation, PartExplanation, PlacementReport
 from .roles import PartRole, classify_part, classify_parts
-from .scoring import LayoutScore, score_placement
+from .routability import RoutabilityFeedback
+from .scoring import LayoutScore, score_placement, score_placement_quick
+from .spatial import SpatialGrid
 from .validator import ValidationResult, find_kicad_cli, run_kicad_drc, validate
 from .writer import PlacedPart, load_footprint_bboxes, write_kicad_pcb

@@ -22,6 +22,17 @@ class PlacementSuggestion:
     recommended_distance_mm: float | None = None
     category: str = ""
 
+    def to_dict(self) -> dict:
+        return {
+            "severity": self.severity,
+            "ref": self.ref,
+            "message": self.message,
+            "target_ref": self.target_ref,
+            "current_distance_mm": self.current_distance_mm,
+            "recommended_distance_mm": self.recommended_distance_mm,
+            "category": self.category,
+        }
+
 
 @dataclass
 class LayoutFeedbackReport:
@@ -43,6 +54,18 @@ class LayoutFeedbackReport:
     @property
     def warning_count(self) -> int:
         return sum(1 for s in self.suggestions if s.severity == "warning")
+
+    def to_dict(self) -> dict:
+        return {
+            "suggestions": [s.to_dict() for s in self.suggestions],
+            "sim_penalty": self.sim_penalty,
+            "suggestion_count": self.suggestion_count,
+            "error_count": self.error_count,
+            "warning_count": self.warning_count,
+            "decoupling_analyzed": self.decoupling_analyzed,
+            "pdn_analyzed": self.pdn_analyzed,
+            "rail_sanity_analyzed": self.rail_sanity_analyzed,
+        }
 
     def summary(self) -> str:
         lines = ["Layout feedback:"]
