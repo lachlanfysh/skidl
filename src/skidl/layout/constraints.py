@@ -131,6 +131,17 @@ class BoardOutline:
         return self.y_max - self.y_min
 
 
+FORM_FACTORS: dict[str, BoardOutline] = {
+    "feather": BoardOutline(50.8, 22.86),
+    "qt_py": BoardOutline(17.78, 17.78),
+    "metro": BoardOutline(82.55, 53.34),
+    "metro_mini": BoardOutline(68.58, 53.34),
+    "trinket": BoardOutline(27.0, 15.3),
+    "itsybitsy": BoardOutline(35.56, 17.78),
+    "shield_uno": BoardOutline(68.58, 53.34),
+}
+
+
 @dataclass
 class LayoutConstraints:
     fixed: list = field(default_factory=list)
@@ -143,3 +154,4 @@ class LayoutConstraints:
     far: list = field(default_factory=list)
     face_edges: list = field(default_factory=list)
     outline: BoardOutline = None
+    form_factor: str | None = None

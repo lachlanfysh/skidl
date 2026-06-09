@@ -14,7 +14,7 @@ from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometr
 from .hierarchy import PlacementGroup, extract_groups
 from .intent import PlacementIntentPlan, infer_placement_intents
 from .orientation import refine_candidate_orientations
-from .placer import derive_outline, _footprint_name
+from .placer import derive_outline, derive_outline_from_circuit, _footprint_name
 from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
 from .refinement import refine_candidate_placement
@@ -269,10 +269,19 @@ def plan_layout(
     selected_constraints = selected_candidate.constraints or resolved_constraints
 
     if resolved_outline is None and derive_outline_if_missing:
+        form_factor = getattr(resolved_constraints, "form_factor", None)
+        min_area = 0.0
+        if not form_factor:
+            density_outline = derive_outline_from_circuit(
+                circuit, resolved_bboxes
+            )
+            min_area = density_outline.width_mm * density_outline.height_mm
         resolved_outline = derive_outline(
             placed_parts,
             resolved_bboxes,
             margin_mm=margin_mm,
+            form_factor=form_factor,
+            min_area_mm2=min_area,
         )
 
     validation = validate(

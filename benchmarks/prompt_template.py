@@ -73,6 +73,20 @@ ic = Part(name="MY_IC", tool=SKIDL, pins=[
 ```
 This avoids pin name mismatches with the KiCad library.
 
+## Footprint Validation
+Before using any footprint, verify it exists on disk:
+  ls /usr/share/kicad/footprints/{Library}.pretty/{Name}.kicad_mod
+Common mistakes:
+- Package_LGA does NOT exist in standard KiCad — use Package_DFN_QFN instead
+- Button_Switch_Keyboard footprints may not exist — use Button_Switch_SMD
+- SOIC-8 is SOIC-8_3.9x4.9mm_P1.27mm (not 5.23x5.23)
+If unsure, run `ls /usr/share/kicad/footprints/{Library}.pretty/` to see available names.
+
+## SKIDL-Tool Parts and ERC
+Parts defined with tool=SKIDL will produce lib_symbol_issues/lib_symbol_mismatch
+ERC warnings — this is expected and benign. Focus on real ERC errors like
+pin_not_connected and pin_not_driven.
+
 ## When in doubt
 - Use generic Part("Device", "R"/"C"/"L") for passives
 - Use Part(tool=SKIDL, pins=[...]) for unfamiliar ICs
@@ -129,13 +143,13 @@ Report your final results as a JSON object:
 """
 
 
-def build_prompt(board_name, description, output_dir):
+def build_prompt(board_name, description, output_dir, enriched_description=None):
     """Build the full generation prompt for a board."""
     import os
     output_path = os.path.join(output_dir, "circuit.py")
     return GENERATION_PROMPT.format(
         system_context=SYSTEM_CONTEXT,
         board_name=board_name,
-        description=description,
+        description=enriched_description or description,
         output_path=output_path,
     )

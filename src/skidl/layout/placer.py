@@ -7,6 +7,7 @@ from .constraints import (
     AnchorZone,
     BoardOutline,
     EdgeAnchor,
+    FORM_FACTORS,
     FixedPosition,
     KeepOut,
     LayoutConstraints,
@@ -683,8 +684,20 @@ def derive_outline(
     placed_parts: list[PlacedPart],
     fp_bboxes: dict[str, tuple[float, float]],
     margin_mm: float = 3.0,
+    form_factor: str | None = None,
+    min_area_mm2: float = 0.0,
 ) -> BoardOutline:
-    """Return a rectangular outline enclosing placed parts plus margin."""
+    """Return a rectangular outline enclosing placed parts plus margin.
+
+    If *form_factor* matches a key in ``FORM_FACTORS``, the standard
+    board dimensions are returned instead of auto-sizing.
+
+    If *min_area_mm2* is positive and the auto-derived area is smaller,
+    the outline is expanded proportionally to meet the minimum.
+    """
+    if form_factor and form_factor in FORM_FACTORS:
+        return FORM_FACTORS[form_factor]
+
     if not placed_parts:
         return BoardOutline(50.0, 50.0)
 
@@ -703,6 +716,19 @@ def derive_outline(
     y_min -= margin_mm
     x_max += margin_mm
     y_max += margin_mm
+
+    width = x_max - x_min
+    height = y_max - y_min
+    if min_area_mm2 > 0 and width * height < min_area_mm2:
+        scale = math.sqrt(min_area_mm2 / (width * height))
+        cx, cy = (x_min + x_max) / 2, (y_min + y_max) / 2
+        width *= scale
+        height *= scale
+        x_min = cx - width / 2
+        x_max = cx + width / 2
+        y_min = cy - height / 2
+        y_max = cy + height / 2
+
     return BoardOutline(
         vertices=[
             (x_min, y_min),
@@ -711,6 +737,34 @@ def derive_outline(
             (x_min, y_max),
         ]
     )
+
+
+def derive_outline_from_circuit(
+    circuit,
+    fp_bboxes: dict[str, tuple[float, float]],
+    packing_factor: float = 0.35,
+    margin_mm: float = 3.0,
+) -> BoardOutline:
+    """Estimate board outline from circuit part areas before placement.
+
+    Uses component footprint areas divided by *packing_factor* to estimate
+    the minimum board area needed.  Returns a 4:3 aspect ratio rectangle.
+    """
+    total_area = 0.0
+    for part in circuit.parts:
+        fp = str(getattr(part, "footprint", ""))
+        w, h = fp_bboxes.get(fp, _DEFAULT_BBOX)
+        total_area += w * h
+
+    if total_area <= 0:
+        return BoardOutline(50.0, 50.0)
+
+    board_area = total_area / packing_factor
+    height = math.sqrt(board_area / (4.0 / 3.0))
+    width = height * (4.0 / 3.0)
+    width += 2 * margin_mm
+    height += 2 * margin_mm
+    return BoardOutline(width, height)
 
 
 def _spillover_position(placed_map: dict, constraints) -> tuple[float, float]:

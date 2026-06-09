@@ -63,6 +63,9 @@ FIXABLE_ERROR_TYPES = frozenset(
     {"pin_not_connected", "pin_not_driven", "wire_not_connected"}
 )
 
+# ERC types that always fire for SKIDL-tool parts (no KiCad library backing).
+SKIDL_NOISE_TYPES = frozenset({"lib_symbol_issues", "lib_symbol_mismatch"})
+
 
 def auto_stub_nets(circuit, **options):
     """Auto-stub power nets and high-fanout nets before generation.
@@ -182,6 +185,36 @@ def _parse_erc_report(report_path):
                     current_error_type = None
 
     return errors
+
+
+def classify_erc_errors(errors, circuit=None):
+    """Split ERC errors into real errors and SKIDL-tool noise.
+
+    Returns (real, noise) where each is a list of (error_type, ref, pin) tuples.
+    Noise = errors whose type is in SKIDL_NOISE_TYPES and (if circuit is
+    provided) whose symbol ref belongs to a tool=SKIDL part.
+    """
+    if not errors:
+        return [], []
+
+    skidl_refs = set()
+    if circuit is not None:
+        from skidl import SKIDL
+        for part in circuit.parts:
+            if getattr(part, "tool", None) == SKIDL:
+                skidl_refs.add(part.ref)
+
+    real = []
+    noise = []
+    for err in errors:
+        error_type, ref, pin = err
+        if error_type in SKIDL_NOISE_TYPES:
+            if not skidl_refs or ref in skidl_refs:
+                noise.append(err)
+                continue
+        real.append(err)
+
+    return real, noise
 
 
 def _stub_nets_for_erc_errors(circuit, errors):
@@ -629,7 +662,12 @@ def gen_schematic(
             for erc_attempt in range(max_erc_iterations):
                 erc_report = _run_erc(output_file)
                 errors = _parse_erc_report(erc_report)
-                fixable = [e for e in errors if e[0] in FIXABLE_ERROR_TYPES]
+                real_errors, noise = classify_erc_errors(errors, circuit)
+                if noise:
+                    active_logger.info(
+                        f"ERC: {len(noise)} lib_symbol warnings from SKIDL-tool parts (expected, suppressed)"
+                    )
+                fixable = [e for e in real_errors if e[0] in FIXABLE_ERROR_TYPES]
 
                 if not fixable:
                     active_logger.info(

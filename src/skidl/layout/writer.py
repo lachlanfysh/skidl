@@ -191,6 +191,26 @@ def load_footprint_bboxes(
     return result
 
 
+def validate_footprints(
+    fp_names: set[str],
+    fp_lib_dirs: list[str],
+    lib_table: dict[str, str] = None,
+) -> tuple[set[str], set[str]]:
+    """Check which footprints exist on the filesystem.
+
+    Returns (valid, missing) sets of footprint names.
+    """
+    valid: set[str] = set()
+    missing: set[str] = set()
+    for name in fp_names:
+        try:
+            _fp_file_path(name, fp_lib_dirs, lib_table)
+            valid.add(name)
+        except FileNotFoundError:
+            missing.add(name)
+    return valid, missing
+
+
 def _default_setup() -> Sexp:
     return Sexp([
         "setup",

@@ -6,6 +6,7 @@ from .constraints import (
     EdgeAnchor,
     FaceEdgeConstraint,
     FarConstraint,
+    FORM_FACTORS,
     FixedPosition,
     KeepOut,
     LayoutConstraints,
@@ -42,7 +43,7 @@ from .intent import (
     RepeatedChannelIntent,
     infer_placement_intents,
 )
-from .placer import derive_outline, place_parts
+from .placer import derive_outline, derive_outline_from_circuit, place_parts
 from .orientation import (
     OrientationResult,
     refine_candidate_orientations,
@@ -71,4 +72,4 @@ from .routability import RoutabilityFeedback
 from .scoring import LayoutScore, score_placement, score_placement_quick
 from .spatial import SpatialGrid
 from .validator import ValidationResult, find_kicad_cli, run_kicad_drc, validate
-from .writer import PlacedPart, load_footprint_bboxes, parse_fp_lib_table, write_kicad_pcb
+from .writer import PlacedPart, load_footprint_bboxes, parse_fp_lib_table, validate_footprints, write_kicad_pcb
