@@ -156,6 +156,7 @@ def plan_layout(
     margin_mm: float = 3.0,
     clearance_mm: float = 0.5,
     derive_outline_if_missing: bool = True,
+    routability: RoutabilityFeedback | None = None,
 ) -> LayoutResult:
     """Place and score a board attempt without writing copper geometry."""
     fp_geometries = _resolve_geometries(circuit, fp_lib_dirs)
@@ -307,6 +308,7 @@ def plan_layout(
         candidate_scores,
         candidate_validations,
         power_plan,
+        routability=routability,
     )
 
     return LayoutResult(
@@ -321,4 +323,5 @@ def plan_layout(
         intent_plan=intent_plan,
         report=report,
         fp_geometries=fp_geometries,
+        routability=routability,
     )

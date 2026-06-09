@@ -236,6 +236,13 @@ class PlacementReport:
             "congestion_regions": list(self.congestion_regions),
             "power_corridors": list(self.power_corridors),
             "power_topology": list(self.power_topology),
+            "part_reasons": {
+                ref: list(reasons) for ref, reasons in self.part_reasons.items()
+            },
+            "net_explanations": {
+                name: explanation.to_dict()
+                for name, explanation in self.net_explanations.items()
+            },
             "warnings": list(self.warnings),
             "reasons": list(self.reasons),
             "top_risks": self.top_risks(),
@@ -334,11 +341,15 @@ def build_placement_report(
     candidate_scores: dict[str, LayoutScore],
     candidate_validations: dict[str, ValidationResult],
     power_plan: PowerRoutePlan,
+    routability: RoutabilityFeedback | None = None,
 ) -> PlacementReport:
     candidate_reports: list[CandidateReport] = []
     for candidate in sorted(
         candidate_scores,
-        key=lambda name: candidate_scores[name].score,
+        key=lambda name: (
+            1 if candidate_scores[name].ok else 0,
+            candidate_scores[name].score,
+        ),
         reverse=True,
     ):
         score = candidate_scores[candidate]
@@ -368,7 +379,16 @@ def build_placement_report(
         *(f"inside keepout: {ref}" for ref in selected_validation.keepout_violations),
     ]
     reasons = list(selected.reasons)
-    reasons.append(f"highest score among {len(candidate_scores)} candidate(s)")
+    valid_count = sum(1 for s in candidate_scores.values() if s.ok)
+    if valid_count > 0:
+        reasons.append(
+            f"best valid candidate ({valid_count} valid of "
+            f"{len(candidate_scores)})"
+        )
+    else:
+        reasons.append(
+            f"best candidate of {len(candidate_scores)} (none fully valid)"
+        )
     power_corridors = [
         (
             f"{corridor.net_name}: {corridor.width_mm:.2f}mm on {corridor.layer} "
@@ -429,4 +449,5 @@ def build_placement_report(
         net_explanations=net_explanations,
         warnings=list(selected_score.warnings[:20]) + list(power_plan.warnings[:20]),
         reasons=reasons,
+        routability=routability,
     )
