@@ -138,6 +138,17 @@ def _find_clear_position(
                 x, y, width, height, occupied
             ):
                 return x, y
+    # Bounds may be the limiting factor — retry ignoring bounds.
+    if bounds is not None:
+        for i in range(1, max(1, int(max_radius / step))):
+            radius = step * i
+            angle_count = max(4, int(radius * 2 * math.pi))
+            for j in range(angle_count):
+                angle = j * (2 * math.pi / angle_count)
+                x = target_x + radius * math.cos(angle)
+                y = target_y + radius * math.sin(angle)
+                if not _overlaps_any(x, y, width, height, occupied):
+                    return x, y
     return target_x, target_y
 
 
@@ -180,6 +191,16 @@ def _find_near_parent(
         if dist < best_dist:
             best = (x, y)
             best_dist = dist
+
+    # If best position still overlaps, widen search from parent center.
+    if best is not None and _overlaps_any(best[0], best[1], side, side, occupied):
+        x, y = _find_clear_position(
+            parent_x, parent_y, side, side, occupied,
+            bounds=bounds, step=1.0, max_radius=80.0,
+        )
+        if not _overlaps_any(x, y, side, side, occupied):
+            best = (x, y)
+
     return best
 
 

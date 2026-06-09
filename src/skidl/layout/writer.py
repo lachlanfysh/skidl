@@ -348,7 +348,7 @@ def _place_footprint(
         net_name = None
         if part is not None:
             try:
-                pins = part[pad_num]
+                pins = part.get_pins(pad_num, silent=True)
                 if pins:
                     pin = pins[0] if isinstance(pins, list) else pins
                     n = getattr(pin, "net", None)

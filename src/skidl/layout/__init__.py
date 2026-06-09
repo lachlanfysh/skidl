@@ -71,4 +71,4 @@ from .routability import RoutabilityFeedback
 from .scoring import LayoutScore, score_placement, score_placement_quick
 from .spatial import SpatialGrid
 from .validator import ValidationResult, find_kicad_cli, run_kicad_drc, validate
-from .writer import PlacedPart, load_footprint_bboxes, write_kicad_pcb
+from .writer import PlacedPart, load_footprint_bboxes, parse_fp_lib_table, write_kicad_pcb
