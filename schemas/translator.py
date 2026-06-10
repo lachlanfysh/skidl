@@ -479,6 +479,31 @@ def translate(spec: CircuitSpec,
                                params={"old": fp, "new": m},
                                human_summary=f"use footprint {m!r}")
                      for i, m in enumerate(_footprint_candidates(fp, fp_dirs))]
+
+            # JLC candidates: lower confidence, surfaced for LLM review
+            try:
+                from corpus.jlc.footprint_resolver import jlc_footprint_candidates
+                parts_with_fp = [p for p in spec.parts if p.footprint == fp]
+                jlc_cands = jlc_footprint_candidates(
+                    fp,
+                    parts_with_fp[0].value if parts_with_fp else "",
+                    parts_with_fp[0].part if parts_with_fp else "",
+                )
+                seen_fps = {c.params["new"] for c in cands}
+                for jc in jlc_cands:
+                    if jc.new_fp and jc.new_fp not in seen_fps:
+                        seen_fps.add(jc.new_fp)
+                        cands.append(Candidate(
+                            id=f"c{len(cands)+1}",
+                            action=ActionType.REPLACE_FOOTPRINT,
+                            params={"old": fp, "new": jc.new_fp, "lcsc": jc.lcsc},
+                            human_summary=jc.description,
+                            confidence=jc.confidence,
+                            source=jc.source,
+                        ))
+            except ImportError:
+                pass
+
             excs.append(_exc(
                 next_id(), ExcCode.SPEC_BAD_FOOTPRINT,
                 f"footprint {fp!r} does not exist on disk",

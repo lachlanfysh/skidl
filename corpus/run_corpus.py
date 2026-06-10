@@ -259,13 +259,15 @@ def load_cached_spec(row: dict) -> CircuitSpec | None:
     return CircuitSpec.model_validate_json(path.read_text())
 
 
-def deterministic_choices(exceptions: list[DesignException]) -> list[dict]:
+def deterministic_choices(exceptions: list[DesignException], min_confidence: float = 0.8) -> list[dict]:
     choices = []
     for exc in exceptions:
         if exc.candidates:
-            choices.append(
-                {"exception_id": exc.id, "candidate_id": exc.candidates[0].id}
-            )
+            best = exc.candidates[0]
+            if getattr(best, "confidence", 0.9) >= min_confidence:
+                choices.append(
+                    {"exception_id": exc.id, "candidate_id": best.id}
+                )
     return choices
 
 

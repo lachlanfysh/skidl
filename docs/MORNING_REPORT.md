@@ -1,99 +1,81 @@
-# Run Report: runs_v1
+# Run Report: runs_a
 
-**143 records**
+**173 records**
 
 
 ## Status Summary
 
-- **failed**: 50 (35%)
-- **timeout**: 43 (30%)
-- **succeeded_with_warnings**: 34 (24%)
-- **succeeded**: 16 (11%)
+- **failed**: 125 (72%)
+- **succeeded**: 25 (14%)
+- **timeout**: 15 (9%)
+- **crashed**: 6 (3%)
+- **succeeded_with_warnings**: 2 (1%)
 
-**Overall success rate: 35%**
+**Overall success rate: 16%**
 
 ## Per-Mode Breakdown
 
-### engine_only (68 boards)
-- Success: 12/68 (18%)
-- Wall time: p50=2.4s, p90=4.8s, max=4.8s
-- Correction iterations: avg=3.4, max=8
-### external (10 boards)
-- Success: 7/10 (70%)
-- Cost: $0.0140 total, $0.0014/board avg
-  - p50=$0.0014, p90=$0.0018, p99=$0.0018
-- Correction iterations: avg=2.9, max=4
-### internal (65 boards)
-- Success: 31/65 (48%)
-- Cost: $0.1499 total, $0.0023/board avg
-  - p50=$0.0021, p90=$0.0038, p99=$0.0064
-- Correction iterations: avg=5.0, max=8
+### engine_only (173 boards)
+- Success: 27/173 (16%)
+- Correction iterations: avg=2.0, max=7
 
 ## Failure Taxonomy
 
-- **43x** per-board timeout exceeded (300.0s)
-- **22x** correction loop hit max_iters=8
-- **15x** no cached spec_path for engine-only run
-- **3x** correction loop hit max_iters=4
-- **2x** 1 placement overlap(s): R1/R2
-- **1x** placed parts overlap: R1 and R2
-- **1x** KiCad symbol library 'Bosch' does not exist
-- **1x** footprint 'Package_DIP:Rotary_Encoder_5mm_P1.27mm' does not exist on disk
-- **1x** footprint 'Display_TFT:TFT_3.2inch_320x240' does not exist on disk; footprint 'S
-- **1x** KiCad symbol library 'FTDI' does not exist
-- **1x** footprint 'Display_TFT:IPS_240x135_1.54inch' does not exist on disk
-- **1x** footprint 'Package_SMD:RV0603T10K' does not exist on disk
-- **1x** KiCad symbol library 'IC_IR2103' does not exist
+- **15x** per-board timeout exceeded (300.0s)
+- **10x** no cached spec_path for engine-only run
+- **10x** correction loop stalled: LAYOUT_OUTLINE_VIOLATION|LAYOUT_OVERLAP repeated 4 time
+- **6x** KeyError: 'pop from an empty set'
+- **6x** footprint 'FreeModular:THONKICONN' does not exist on disk
+- **5x** footprint 'Connector_Thonk:ThonkiconnJack' does not exist on disk
+- **4x** footprint 'pedals:Pot_Underside' does not exist on disk
+- **4x** footprint 'pedals:Pot_Underside' does not exist on disk; footprint 'pedals:SWITC
+- **4x** footprint 'PCM_marbastlib-choc:LED_choc_6028R' does not exist on disk; footprint
+- **3x** footprint 'Potentiometer_Thonk:AlphaPot9ShaftD' does not exist on disk
+- **3x** footprint 'Switch:MTS-102_MTS-103_MTS-112_MTS-113_MTS-123' does not exist on dis
+- **3x** footprint 'winterbloom:AudioJack_WQP518MA' does not exist on disk; footprint 'wi
+- **3x** footprint 'KiCad-SSD1306-0.91-OLED-4pin-128x32.pretty-master:SSD1306-0.91-OLED-4
+- **2x** footprint 'local:PEC11R-4220F-N0024' does not exist on disk
+- **2x** footprint 'local:PEC11R-4220F-S0024' does not exist on disk
 
 ### Exception codes in failed runs
-- LAYOUT_OVERLAP: 305
-- LONG_POWER_NET: 171
-- LAYOUT_OUTLINE_VIOLATION: 71
-- HIGH_CONGESTION: 55
-- SPEC_UNKNOWN_PIN: 35
-- SPEC_BAD_FOOTPRINT: 5
-- SPEC_UNKNOWN_LIB: 3
+- SPEC_BAD_FOOTPRINT: 446
+- SPEC_UNKNOWN_PIN: 68
+- LAYOUT_OVERLAP: 24
+- LONG_POWER_NET: 21
+- LAYOUT_OUTLINE_VIOLATION: 19
+- HIGH_CONGESTION: 17
+- ENGINE_CRASH: 6
 
 ## By Difficulty Axis
 
-- ****: 0/3 (0%)
-- **analog_mixed**: 20/33 (61%)
-- **digital**: 30/101 (30%)
-- **high_complexity**: 0/4 (0%)
-- **high_power**: 0/2 (0%)
+- **digital**: 27/173 (16%)
 
 ## By Tier
 
-- **Tier 0**: 0/3 (0%)
-- **Tier 1**: 28/53 (53%)
-- **Tier 2**: 16/39 (41%)
-- **Tier 3**: 4/30 (13%)
-- **Tier 4**: 2/18 (11%)
+- **Tier 1**: 27/173 (16%)
 
 ## Hardest Failures (most iterations, still failed)
 
-- **bmp180-barometer**: 8 iters, status=failed, reason=correction loop hit max_iters=8
-- **lsm303-compass-accelerometer**: 8 iters, status=failed, reason=correction loop hit max_iters=8
-- **trinket**: 8 iters, status=failed, reason=correction loop hit max_iters=8
-- **ds3231-rtc**: 8 iters, status=failed, reason=correction loop hit max_iters=8
-- **max31865-rtd-amplifier**: 8 iters, status=failed, reason=correction loop hit max_iters=8
-- **4-channel-level-shifter**: 8 iters, status=failed, reason=correction loop hit max_iters=8
-- **feather-m0-basic-proto**: 8 iters, status=failed, reason=correction loop hit max_iters=8
-- **vs1053**: 8 iters, status=failed, reason=correction loop hit max_iters=8
-- **circuit-playground-express**: 8 iters, status=failed, reason=correction loop hit max_iters=8
-- **feather-esp32-s3**: 8 iters, status=failed, reason=correction loop hit max_iters=8
+- **ref-buffered-multiple-smd-main**: 7 iters, status=failed, reason=correction loop stalled: LAYOUT_OUTLINE_VIOLATION|LAYOUT_OVE
+- **ref-envelope-follower-main**: 7 iters, status=failed, reason=correction loop stalled: LAYOUT_OUTLINE_VIOLATION|LAYOUT_OVE
+- **ref-rectifier-main**: 7 iters, status=failed, reason=correction loop stalled: LAYOUT_OUTLINE_VIOLATION|LAYOUT_OVE
+- **ref-envelope-01-mutronv**: 6 iters, status=failed, reason=correction loop stalled: LAYOUT_OUTLINE_VIOLATION|LAYOUT_OVE
+- **ref-hagiwo-sync-lfo-main**: 6 iters, status=timeout, reason=per-board timeout exceeded (300.0s)
+- **ref-mixer**: 6 iters, status=failed, reason=correction loop stalled: LAYOUT_OUTLINE_VIOLATION|LAYOUT_OVE
+- **ref-white-noise**: 6 iters, status=failed, reason=correction loop stalled: LAYOUT_OUTLINE_VIOLATION|LAYOUT_OVE
+- **ref-mult**: 5 iters, status=timeout, reason=per-board timeout exceeded (300.0s)
+- **ref-slimline-clock-divider-smd-main**: 5 iters, status=timeout, reason=per-board timeout exceeded (300.0s)
+- **ref-stomp-chargepump**: 5 iters, status=failed, reason=correction loop stalled: LAYOUT_OUTLINE_VIOLATION|LAYOUT_OVE
 
 ## LLM Rescue (succeeded after corrections)
 
-**43 boards rescued by correction loop**
+**8 boards rescued by correction loop**
 
-- **max31856-thermocouple**: 8 iters, wall=0.0s, cost=$0.0024
-- **bme680-air-quality**: 7 iters, wall=0.0s, cost=$0.0014
-- **qt-py-samd21**: 7 iters, wall=0.0s, cost=$0.0028
-- **max31865-rtd-amplifier**: 6 iters, wall=0.0s, cost=$0.0032
-- **ref-stm32-bluepill-kicad-stm32-bluepill**: 6 iters, wall=0.0s, cost=$0.0015
-- **si5351a**: 5 iters, wall=0.0s, cost=$0.0064
-- **ref-kicad-arduino-boards-arduino-uno-r4-minima**: 5 iters, wall=0.0s, cost=$0.0022
-- **ads1115-adc**: 4 iters, wall=0.0s, cost=$0.0000
-- **max31856-thermocouple**: 4 iters, wall=0.0s, cost=$0.0000
-- **feather-nrf52840-sense**: 4 iters, wall=0.0s, cost=$0.0042
+- **ref-ck-d6r-black-manual**: 1 iters, wall=0.0s, cost=$0.0000
+- **ref-ck-d6r-black-wire**: 1 iters, wall=0.0s, cost=$0.0000
+- **ref-dailywell-2ms1-manual**: 1 iters, wall=0.0s, cost=$0.0000
+- **ref-dailywell-2ms1-wire**: 1 iters, wall=0.0s, cost=$0.0000
+- **ref-dailywell-2ms3-manual**: 1 iters, wall=0.0s, cost=$0.0000
+- **ref-dailywell-2ms3-wire**: 1 iters, wall=0.0s, cost=$0.0000
+- **ref-er-display-spi-128x64-manual**: 1 iters, wall=0.0s, cost=$0.0000
+- **ref-tiliqua-panel**: 1 iters, wall=0.0s, cost=$0.0000

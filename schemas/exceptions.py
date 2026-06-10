@@ -70,6 +70,8 @@ class Candidate(BaseModel):
     params: dict = Field(default_factory=dict, description="Typed parameters for the action")
     human_summary: str = Field(description="One sentence describing the fix, for the reviewing agent")
     cost_hint: str = Field(default="free", description="Relative cost of applying: free | cheap | expensive")
+    confidence: float = Field(default=0.9, description="0.0-1.0; deterministic policy auto-applies >=0.8, LLM reviews <0.8")
+    source: str = Field(default="deterministic", description="Where this candidate came from: deterministic | jlc_package | jlc_search | jlc_lcsc")
 
 
 class DesignException(BaseModel):
