@@ -21,6 +21,7 @@ from mcp_server.runs import RunStore
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import DesignException, Severity
 from telemetry.features import extract_geometry
+from telemetry.models import LLMStage
 from telemetry.store import session
 
 
@@ -78,15 +79,92 @@ def _kill_process_group(proc: subprocess.Popen) -> None:
         pass
 
 
+def _validation_mode(value: object) -> str:
+    if value in {"internal", "reference", "none"}:
+        return str(value)
+    return "none"
+
+
+def _record_fields(
+    record_fields: dict | None,
+    *,
+    validation_mode: str | None,
+    model_tier: str | None,
+    correction_iterations: int,
+    corrections_applied: list[str] | None,
+    llm_stages: list[dict | LLMStage] | None,
+    parent_run_id: str | None,
+    bom_match_score: float | None,
+    netlist_match_score: float | None,
+) -> dict:
+    source = record_fields or {}
+    fields: dict = {
+        "tier": int(source.get("tier", 0) or 0),
+        "source": str(source.get("source", "") or ""),
+        "difficulty_axis": str(source.get("difficulty_axis", "") or ""),
+        "nl_source": str(source.get("nl_source", "") or ""),
+        "validation_mode": _validation_mode(validation_mode or source.get("validation_mode")),
+        "correction_iterations": int(correction_iterations or 0),
+        "corrections_applied": list(corrections_applied or []),
+        "llm_stages": [
+            stage if isinstance(stage, LLMStage) else LLMStage.model_validate(stage)
+            for stage in (llm_stages or [])
+        ],
+    }
+    if model_tier is not None:
+        fields["model_tier"] = str(model_tier)
+    if parent_run_id is not None:
+        fields["parent_run_id"] = str(parent_run_id)
+    if bom_match_score is not None:
+        fields["bom_match_score"] = float(bom_match_score)
+    if netlist_match_score is not None:
+        fields["netlist_match_score"] = float(netlist_match_score)
+    return fields
+
+
+def _populate_record(record, circuit_spec: CircuitSpec, response: DesignResponse) -> None:
+    record.geometry = extract_geometry(
+        circuit_spec.model_dump(mode="json"),
+        response.metrics,
+    )
+    record.cpu_time_s = float(response.metrics.get("cpu_time_s", 0.0) or 0.0)
+    record.peak_rss_mb = float(response.metrics.get("peak_rss_mb", 0.0) or 0.0)
+    record.layout_score = response.metrics.get("layout_score")
+    record.total_hpwl_mm = response.metrics.get("total_hpwl_mm")
+    record.congestion_score = response.metrics.get("congestion_score")
+    record.candidates_scored = int(response.metrics.get("candidates_scored", 0) or 0)
+    record.erc_iterations = int(response.metrics.get("erc_iterations", 0) or 0)
+    record.schematic_retries = int(response.metrics.get("schematic_retries", 0) or 0)
+    record.exceptions_raised = [exc.code.value for exc in response.exceptions]
+    record.status = response.status
+    if response.exceptions:
+        record.failure_reason = "; ".join(exc.message for exc in response.exceptions[:3])
+
+
 def run_pipeline(
     spec,
     out_dir,
     timeout_s: float = 300,
+    *,
+    mode: str = "engine_only",
+    run_id: str | None = None,
+    board_id: str | None = None,
+    telemetry_path: str | Path | None = None,
+    record_telemetry: bool = True,
+    record_fields: dict | None = None,
+    validation_mode: str | None = None,
+    model_tier: str | None = None,
+    correction_iterations: int = 0,
+    corrections_applied: list[str] | None = None,
+    llm_stages: list[dict | LLMStage] | None = None,
+    parent_run_id: str | None = None,
+    bom_match_score: float | None = None,
+    netlist_match_score: float | None = None,
 ) -> DesignResponse:
     """Run translate -> schematic -> layout -> PCB in an isolated worker."""
 
     circuit_spec = spec if isinstance(spec, CircuitSpec) else CircuitSpec.model_validate(spec)
-    run_id = uuid.uuid4().hex[:12]
+    run_id = run_id or uuid.uuid4().hex[:12]
     store = RunStore(out_dir)
     run_dir = store.run_dir(run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -110,7 +188,9 @@ def run_pipeline(
     timed_out = False
     payload: dict = {}
     stderr = ""
-    with session(circuit_spec.board.name, "engine_only", run_id=run_id) as record:
+
+    def _execute_worker() -> DesignResponse:
+        nonlocal timed_out, payload, stderr
         try:
             stdout, stderr = proc.communicate(
                 json.dumps(envelope),
@@ -167,20 +247,26 @@ def run_pipeline(
                 summary=str(payload.get("summary", "")),
                 stderr=stderr[-4000:],
             )
+        return response
 
-        record.geometry = extract_geometry(
-            circuit_spec.model_dump(mode="json"),
-            response.metrics,
+    if record_telemetry:
+        fields = _record_fields(
+            record_fields,
+            validation_mode=validation_mode,
+            model_tier=model_tier,
+            correction_iterations=correction_iterations,
+            corrections_applied=corrections_applied,
+            llm_stages=llm_stages,
+            parent_run_id=parent_run_id,
+            bom_match_score=bom_match_score,
+            netlist_match_score=netlist_match_score,
         )
-        record.cpu_time_s = float(response.metrics.get("cpu_time_s", 0.0) or 0.0)
-        record.peak_rss_mb = float(response.metrics.get("peak_rss_mb", 0.0) or 0.0)
-        record.layout_score = response.metrics.get("layout_score")
-        record.total_hpwl_mm = response.metrics.get("total_hpwl_mm")
-        record.congestion_score = response.metrics.get("congestion_score")
-        record.exceptions_raised = [exc.code.value for exc in response.exceptions]
-        record.status = response.status
-        if response.exceptions:
-            record.failure_reason = "; ".join(exc.message for exc in response.exceptions[:3])
+        record_board_id = board_id or (record_fields or {}).get("board_id") or circuit_spec.board.name
+        with session(record_board_id, mode, run_id=run_id, path=telemetry_path, **fields) as record:
+            response = _execute_worker()
+            _populate_record(record, circuit_spec, response)
+    else:
+        response = _execute_worker()
 
     store.save(run_id, circuit_spec, response.exceptions, response)
     return response
