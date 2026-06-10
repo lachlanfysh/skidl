@@ -82,7 +82,7 @@ class RunnerConfig:
     limit: int | None = None
     boards: set[str] = field(default_factory=set)
     validation_modes: set[str] = field(default_factory=set)
-    timeout_s: float = 300.0
+    timeout_s: float = 1200.0
     max_iters: int = 8
     concurrency: int = 2
     max_runtime_hours: float = 8.0
@@ -833,7 +833,7 @@ def parse_args(argv: list[str] | None = None) -> RunnerConfig:
     parser.add_argument("--board", action="append", default=[])
     parser.add_argument("--validation-mode", action="append", default=[],
                         help="Filter by validation_mode (internal, reference, indexed_only)")
-    parser.add_argument("--timeout-s", type=float, default=300.0)
+    parser.add_argument("--timeout-s", type=float, default=1200.0)
     parser.add_argument("--max-iters", type=int, default=8)
     parser.add_argument("--concurrency", type=int, default=2)
     parser.add_argument(
