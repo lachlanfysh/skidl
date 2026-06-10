@@ -1,0 +1,251 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "classicboost_v2"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1UF",
+      "footprint": "Capacitor_THT:C_Rect_L7.2mm_W2.5mm_P5.00mm_FKS2_FKP2_MKS2_MKP2",
+      "group": null
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1UF",
+      "footprint": "Capacitor_THT:C_Rect_L7.2mm_W2.5mm_P5.00mm_FKS2_FKP2_MKS2_MKP2",
+      "group": null
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "D",
+      "value": "1N5817",
+      "footprint": "Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "Gnd1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x01",
+      "value": "~",
+      "footprint": "TestPoint:TestPoint_THTPad_D2.0mm_Drill1.0mm",
+      "group": null
+    },
+    {
+      "ref": "In1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x01",
+      "value": "~",
+      "footprint": "TestPoint:TestPoint_THTPad_D2.0mm_Drill1.0mm",
+      "group": null
+    },
+    {
+      "ref": "InG1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x01",
+      "value": "~",
+      "footprint": "TestPoint:TestPoint_THTPad_D2.0mm_Drill1.0mm",
+      "group": null
+    },
+    {
+      "ref": "LED1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "~",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "Out1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x01",
+      "value": "~",
+      "footprint": "TestPoint:TestPoint_THTPad_D2.0mm_Drill1.0mm",
+      "group": null
+    },
+    {
+      "ref": "OutG1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x01",
+      "value": "~",
+      "footprint": "TestPoint:TestPoint_THTPad_D2.0mm_Drill1.0mm",
+      "group": null
+    },
+    {
+      "ref": "POT1",
+      "lib": "Device",
+      "part": "R_Potentiometer_US",
+      "value": "100K",
+      "footprint": "Potentiometer_THT:Potentiometer_Omeg_PC16BU_Vertical",
+      "group": null
+    },
+    {
+      "ref": "Q2",
+      "lib": "Transistor_BJT",
+      "part": "2N3904",
+      "value": "2N5088",
+      "footprint": "Package_TO_SOT_THT:TO-92_Inline",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "430k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "43k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "390",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "SW1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x01",
+      "value": " ",
+      "footprint": "TestPoint:TestPoint_THTPad_D2.0mm_Drill1.0mm",
+      "group": null
+    },
+    {
+      "ref": "swGnd1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x01",
+      "value": "~",
+      "footprint": "TestPoint:TestPoint_THTPad_D2.0mm_Drill1.0mm",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "Gnd1.Pin_1",
+        "InG1.Pin_1",
+        "LED1.K",
+        "OutG1.Pin_1",
+        "POT1.1",
+        "R2.1",
+        "R4.1"
+      ]
+    },
+    {
+      "name": "Net-(9v1-Pin_1)",
+      "power": false,
+      "pins": [
+        "D1.A"
+      ]
+    },
+    {
+      "name": "Net-(C2-Pad2)",
+      "power": false,
+      "pins": [
+        "C2.2",
+        "POT1.3"
+      ]
+    },
+    {
+      "name": "Net-(D1-K)",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "R1.2",
+        "R3.2",
+        "SW1.Pin_1"
+      ]
+    },
+    {
+      "name": "Net-(In1-Pin_1)",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "In1.Pin_1"
+      ]
+    },
+    {
+      "name": "Net-(LED1-A)",
+      "power": false,
+      "pins": [
+        "LED1.A",
+        "R5.1"
+      ]
+    },
+    {
+      "name": "Net-(Out1-Pin_1)",
+      "power": false,
+      "pins": [
+        "Out1.Pin_1",
+        "POT1.2"
+      ]
+    },
+    {
+      "name": "Net-(Q2-B)",
+      "power": false,
+      "pins": [
+        "C1.2",
+        "Q2.B",
+        "R1.1",
+        "R2.2"
+      ]
+    },
+    {
+      "name": "Net-(Q2-C)",
+      "power": false,
+      "pins": [
+        "C2.1",
+        "Q2.C",
+        "R3.1"
+      ]
+    },
+    {
+      "name": "Net-(Q2-E)",
+      "power": false,
+      "pins": [
+        "Q2.E",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "Net-(swGnd1-Pin_1)",
+      "power": false,
+      "pins": [
+        "R5.2",
+        "swGnd1.Pin_1"
+      ]
+    }
+  ]
+}

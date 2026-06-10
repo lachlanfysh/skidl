@@ -1,0 +1,258 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "harmonicpercolator"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100p",
+      "footprint": "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P2.50mm",
+      "group": null
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "50n",
+      "footprint": "Capacitor_THT:C_Disc_D7.5mm_W2.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_THT:C_Disc_D7.5mm_W2.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "47U",
+      "footprint": "Capacitor_THT:CP_Radial_D5.0mm_P2.50mm",
+      "group": null
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_THT:C_Disc_D7.5mm_W2.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "D",
+      "value": "1n4148",
+      "footprint": "Diode_THT:D_A-405_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "D",
+      "value": "1n4148",
+      "footprint": "Diode_THT:D_A-405_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "Conn_01x04_Female",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_BJT",
+      "part": "2N3906",
+      "value": "AC128",
+      "footprint": "Package_TO_SOT_THT:TO-5-3",
+      "group": null
+    },
+    {
+      "ref": "Q2",
+      "lib": "Transistor_BJT",
+      "part": "2N3904",
+      "value": null,
+      "footprint": "Package_TO_SOT_THT:TO-92_Inline",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "750K",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "220k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "100K",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "20K",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "4K7",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "RV1",
+      "lib": "Device",
+      "part": "R_Potentiometer",
+      "value": "100Ka",
+      "footprint": "pedals:Pot_Underside",
+      "group": null
+    },
+    {
+      "ref": "RV2",
+      "lib": "Device",
+      "part": "R_Potentiometer",
+      "value": "50Ka",
+      "footprint": "pedals:Pot_Underside",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "9V",
+      "power": false,
+      "pins": [
+        "J1.Pin_1",
+        "R3.1"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C4.2",
+        "D1.A",
+        "D2.K",
+        "J1.Pin_4",
+        "R4.1",
+        "RV1.1",
+        "RV2.1"
+      ]
+    },
+    {
+      "name": "IN",
+      "power": false,
+      "pins": [
+        "J1.Pin_3",
+        "RV1.3"
+      ]
+    },
+    {
+      "name": "Net-(C1-Pad1)",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "C2.1",
+        "RV1.2"
+      ]
+    },
+    {
+      "name": "Net-(D1-K)",
+      "power": false,
+      "pins": [
+        "C5.1",
+        "D1.K",
+        "R5.2",
+        "RV2.3"
+      ]
+    },
+    {
+      "name": "Net-(D2-A)",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "R5.1"
+      ]
+    },
+    {
+      "name": "Net-(Q1-B)",
+      "power": false,
+      "pins": [
+        "C2.2",
+        "Q1.B",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "Net-(Q1-C)",
+      "power": false,
+      "pins": [
+        "C3.1",
+        "Q1.C",
+        "R2.2",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "Net-(Q1-E)",
+      "power": false,
+      "pins": [
+        "C4.1",
+        "Q1.E",
+        "Q2.E"
+      ]
+    },
+    {
+      "name": "Net-(Q2-B)",
+      "power": false,
+      "pins": [
+        "C3.2",
+        "Q2.B",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "Net-(Q2-C)",
+      "power": false,
+      "pins": [
+        "C5.2",
+        "Q2.C",
+        "R1.2",
+        "R3.2"
+      ]
+    },
+    {
+      "name": "OUT",
+      "power": false,
+      "pins": [
+        "J1.Pin_2",
+        "RV2.2"
+      ]
+    }
+  ]
+}

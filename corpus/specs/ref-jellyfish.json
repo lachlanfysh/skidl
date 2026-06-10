@@ -1,0 +1,3258 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "jellyfish"
+  },
+  "parts": [
+    {
+      "ref": "H1",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H2",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H3",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "4.7u",
+      "footprint": "winterbloom:C_0805_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22u",
+      "footprint": "winterbloom:C_0805_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22u",
+      "footprint": "winterbloom:C_0805_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C_Polarized_Small_US",
+      "value": "100u",
+      "footprint": "Capacitor_SMD:CP_Elec_6.3x7.7",
+      "group": "power"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1u",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1u",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C22",
+      "lib": "Device",
+      "part": "C_Polarized_Small_US",
+      "value": "100u",
+      "footprint": "Capacitor_SMD:CP_Elec_6.3x7.7",
+      "group": "power"
+    },
+    {
+      "ref": "FB1",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "FB14",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "RV1",
+      "lib": "Device",
+      "part": "Varistor",
+      "value": "35V",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint_Small",
+      "value": "GND",
+      "footprint": "TestPoint:TestPoint_Pad_1.0x1.0mm",
+      "group": "power"
+    },
+    {
+      "ref": "TP2",
+      "lib": "Connector",
+      "part": "TestPoint_Small",
+      "value": "24V",
+      "footprint": "TestPoint:TestPoint_Pad_1.0x1.0mm",
+      "group": "power"
+    },
+    {
+      "ref": "TP3",
+      "lib": "Connector",
+      "part": "TestPoint_Small",
+      "value": "5V",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "power"
+    },
+    {
+      "ref": "TP4",
+      "lib": "Connector",
+      "part": "TestPoint_Small",
+      "value": "3V3",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "power"
+    },
+    {
+      "ref": "U1",
+      "lib": null,
+      "part": null,
+      "value": "VX7805-500",
+      "footprint": "winterbloom:Converter_DCDC_CUI_VX78-500_THT",
+      "group": "power",
+      "pins": [
+        {
+          "num": "1",
+          "name": "Vin",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "Vout",
+          "func": "power_out"
+        }
+      ]
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": "MIC5317-3.3",
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power",
+      "pins": [
+        {
+          "num": "1",
+          "name": "IN",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "EN",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "NC",
+          "func": "no_connect"
+        },
+        {
+          "num": "5",
+          "name": "OUT",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_0805_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C15",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C16",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C17",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C18",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1u",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C19",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1u",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C20",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C21",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C23",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "15p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C24",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "15p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C25",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C26",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1u",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED_Filled",
+      "value": "AUX",
+      "footprint": "winterbloom:LED_0805_Kingbright_APT2012",
+      "group": "mcu"
+    },
+    {
+      "ref": "D4",
+      "lib": "Device",
+      "part": "LED_Filled",
+      "value": "ACT",
+      "footprint": "winterbloom:LED_0805_Kingbright_APT2012",
+      "group": "mcu"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "27R",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "27R",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R11",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R12",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R28",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R29",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "SW1",
+      "lib": null,
+      "part": null,
+      "value": "BOOTSEL",
+      "footprint": "winterbloom:Tactile_Switch_4.2mm",
+      "group": "mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "SW2",
+      "lib": null,
+      "part": null,
+      "value": "RESET",
+      "footprint": "winterbloom:Tactile_Switch_4.2mm",
+      "group": "mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "TP5",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "GND",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP6",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "3V3",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP7",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "~{RST}",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP8",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "SWD",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP9",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "SWC",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP17",
+      "lib": "Connector",
+      "part": "TestPoint_Small",
+      "value": "UART",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "U3",
+      "lib": null,
+      "part": null,
+      "value": "RP2040",
+      "footprint": "winterbloom:RP2040-QFN-56",
+      "group": "mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "IOVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GPIO0",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GPIO1",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "GPIO2",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "GPIO3",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "GPIO4",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "GPIO5",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "GPIO6",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "GPIO7",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "IOVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "GPIO8",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "GPIO9",
+          "func": "passive"
+        },
+        {
+          "num": "13",
+          "name": "GPIO10",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "GPIO11",
+          "func": "passive"
+        },
+        {
+          "num": "15",
+          "name": "GPIO12",
+          "func": "passive"
+        },
+        {
+          "num": "16",
+          "name": "GPIO13",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "GPIO14",
+          "func": "passive"
+        },
+        {
+          "num": "18",
+          "name": "GPIO15",
+          "func": "passive"
+        },
+        {
+          "num": "19",
+          "name": "TESTEN",
+          "func": "power_in"
+        },
+        {
+          "num": "20",
+          "name": "XIN",
+          "func": "input"
+        },
+        {
+          "num": "21",
+          "name": "XOUT",
+          "func": "output"
+        },
+        {
+          "num": "22",
+          "name": "IOVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "23",
+          "name": "DVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "24",
+          "name": "SWCLK",
+          "func": "input"
+        },
+        {
+          "num": "25",
+          "name": "SWD",
+          "func": "passive"
+        },
+        {
+          "num": "26",
+          "name": "RUN",
+          "func": "passive"
+        },
+        {
+          "num": "27",
+          "name": "GPIO16",
+          "func": "passive"
+        },
+        {
+          "num": "28",
+          "name": "GPIO17",
+          "func": "passive"
+        },
+        {
+          "num": "29",
+          "name": "GPIO18",
+          "func": "passive"
+        },
+        {
+          "num": "30",
+          "name": "GPIO19",
+          "func": "passive"
+        },
+        {
+          "num": "31",
+          "name": "GPIO20",
+          "func": "passive"
+        },
+        {
+          "num": "32",
+          "name": "GPIO21",
+          "func": "passive"
+        },
+        {
+          "num": "33",
+          "name": "IOVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "34",
+          "name": "GPIO22",
+          "func": "passive"
+        },
+        {
+          "num": "35",
+          "name": "GPIO23",
+          "func": "passive"
+        },
+        {
+          "num": "36",
+          "name": "GPIO24",
+          "func": "passive"
+        },
+        {
+          "num": "37",
+          "name": "GPIO25",
+          "func": "passive"
+        },
+        {
+          "num": "38",
+          "name": "GPIO26_ADC0",
+          "func": "passive"
+        },
+        {
+          "num": "39",
+          "name": "GPIO27_ADC1",
+          "func": "passive"
+        },
+        {
+          "num": "40",
+          "name": "GPIO28_ADC2",
+          "func": "passive"
+        },
+        {
+          "num": "41",
+          "name": "GPIO29_ADC3",
+          "func": "passive"
+        },
+        {
+          "num": "42",
+          "name": "IOVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "43",
+          "name": "ADC_AVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "44",
+          "name": "VREG_IN",
+          "func": "input"
+        },
+        {
+          "num": "45",
+          "name": "VREG_VOUT",
+          "func": "power_out"
+        },
+        {
+          "num": "46",
+          "name": "USB_DM",
+          "func": "passive"
+        },
+        {
+          "num": "47",
+          "name": "USB_DP",
+          "func": "passive"
+        },
+        {
+          "num": "48",
+          "name": "USB_VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "49",
+          "name": "IOVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "50",
+          "name": "DVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "51",
+          "name": "QSPI_SD3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "52",
+          "name": "QSPI_SCLK",
+          "func": "bidirectional"
+        },
+        {
+          "num": "53",
+          "name": "QSPI_SD0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "54",
+          "name": "QSPI_SD2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "55",
+          "name": "QSPI_SD1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "56",
+          "name": "QSPI_SS",
+          "func": "bidirectional"
+        },
+        {
+          "num": "57",
+          "name": "GND",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "U4",
+      "lib": "Memory_Flash",
+      "part": "W25Q128JVS",
+      "value": null,
+      "footprint": "Package_SO:SOIC-8_5.23x5.23mm_P1.27mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "Y1",
+      "lib": null,
+      "part": null,
+      "value": "12MHz",
+      "footprint": "Crystal:Crystal_SMD_Abracon_ABM8G-4Pin_3.2x2.5mm",
+      "group": "mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "4",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "C27",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "D_Zener_Filled",
+      "value": "SMAJ28A",
+      "footprint": "winterbloom:D_SMA",
+      "group": "connections"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic_MountingPin",
+      "part": "Conn_01x04_MountingPin",
+      "value": "INS",
+      "footprint": "winterbloom:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+      "group": "connections"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector",
+      "part": "8P8C_LED_Shielded",
+      "value": null,
+      "footprint": "winterbloom:RJ45_Amphenol_RJE45-188-1411_Vertical",
+      "group": "connections"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic_MountingPin",
+      "part": "Conn_01x04_MountingPin",
+      "value": "CAM",
+      "footprint": "winterbloom:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+      "group": "connections"
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic_MountingPin",
+      "part": "Conn_01x03_MountingPin",
+      "value": "CAMLED",
+      "footprint": "Connector_JST:JST_SH_SM03B-SRSS-TB_1x03-1MP_P1.00mm_Horizontal",
+      "group": "connections"
+    },
+    {
+      "ref": "J5",
+      "lib": "Connector_Generic_MountingPin",
+      "part": "Conn_01x03_MountingPin",
+      "value": "OUT1",
+      "footprint": "Connector_JST:JST_SH_SM03B-SRSS-TB_1x03-1MP_P1.00mm_Horizontal",
+      "group": "connections"
+    },
+    {
+      "ref": "J6",
+      "lib": "Connector_Generic_MountingPin",
+      "part": "Conn_01x05_MountingPin",
+      "value": "BLTOUCH",
+      "footprint": "Connector_JST:JST_SH_SM05B-SRSS-TB_1x05-1MP_P1.00mm_Horizontal",
+      "group": "connections"
+    },
+    {
+      "ref": "J10",
+      "lib": "Connector_Generic_MountingPin",
+      "part": "Conn_01x04_MountingPin",
+      "value": "Stemma QT",
+      "footprint": "winterbloom:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+      "group": "connections"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "5.1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "5.1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "R13",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "R14",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "R15",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "5.1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "R16",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "R26",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "5.1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "R27",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "5.1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "connections"
+    },
+    {
+      "ref": "U5",
+      "lib": null,
+      "part": null,
+      "value": "74HC2G34",
+      "footprint": "Package_TO_SOT_SMD:SOT-363_SC-70-6",
+      "group": "connections",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1A",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "2A",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "2Y",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "1Y",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U6",
+      "lib": null,
+      "part": null,
+      "value": "TVS",
+      "footprint": "Package_TO_SOT_SMD:SOT-23-6",
+      "group": "connections",
+      "pins": [
+        {
+          "num": "1",
+          "name": "D-",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "D+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "D+",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "VBUS",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "D-",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U7",
+      "lib": null,
+      "part": null,
+      "value": "74HC2G34",
+      "footprint": "Package_TO_SOT_SMD:SOT-363_SC-70-6",
+      "group": "connections",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1A",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "2A",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "2Y",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "1Y",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C28",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C29",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C30",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C31",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "4.7u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C32",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C33",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C35",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_1210_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C36",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C37",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C38",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C39",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C40",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "C41",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "FB2",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "FB3",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "FB4",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "FB5",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "J7",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": "MOTOR",
+      "footprint": "winterbloom:JST_XH_B4B-XH-AM_1x04_P2.50mm_Vertical",
+      "group": "motor"
+    },
+    {
+      "ref": "R17",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "R18",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "220m",
+      "footprint": "winterbloom:R_1206_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "R19",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "220m",
+      "footprint": "winterbloom:R_1206_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "RV2",
+      "lib": "Device",
+      "part": "Varistor",
+      "value": "35V",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "RV3",
+      "lib": "Device",
+      "part": "Varistor",
+      "value": "35V",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "motor"
+    },
+    {
+      "ref": "U8",
+      "lib": null,
+      "part": null,
+      "value": "TMC2209",
+      "footprint": "winterbloom:TMC2209-LA",
+      "group": "motor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "OB2",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "ENN",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "CPO",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "CPI",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "VCP",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "SPREAD",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "5VOUT",
+          "func": "power_out"
+        },
+        {
+          "num": "9",
+          "name": "MS1_AD0",
+          "func": "power_in"
+        },
+        {
+          "num": "10",
+          "name": "MS2_AD1",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "DIAG",
+          "func": "input"
+        },
+        {
+          "num": "12",
+          "name": "INDEX",
+          "func": "input"
+        },
+        {
+          "num": "13",
+          "name": "CLK",
+          "func": "power_in"
+        },
+        {
+          "num": "14",
+          "name": "PDN_UART",
+          "func": "passive"
+        },
+        {
+          "num": "15",
+          "name": "VCC_IO",
+          "func": "power_in"
+        },
+        {
+          "num": "16",
+          "name": "STEP",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "VREF",
+          "func": "passive"
+        },
+        {
+          "num": "18",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "19",
+          "name": "DIR",
+          "func": "input"
+        },
+        {
+          "num": "20",
+          "name": "STDBY",
+          "func": "passive"
+        },
+        {
+          "num": "21",
+          "name": "OA2",
+          "func": "passive"
+        },
+        {
+          "num": "22",
+          "name": "VS",
+          "func": "power_in"
+        },
+        {
+          "num": "23",
+          "name": "BRA",
+          "func": "passive"
+        },
+        {
+          "num": "24",
+          "name": "OA1",
+          "func": "passive"
+        },
+        {
+          "num": "25",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "26",
+          "name": "OB1",
+          "func": "passive"
+        },
+        {
+          "num": "27",
+          "name": "BRB",
+          "func": "passive"
+        },
+        {
+          "num": "28",
+          "name": "VS",
+          "func": "power_in"
+        },
+        {
+          "num": "29",
+          "name": "PAD",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C42",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C43",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C44",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C45",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "4.7u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C46",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C47",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C49",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_1210_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C50",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C51",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C52",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C53",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C54",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C55",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "FB6",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "FB7",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "FB8",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "FB9",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "J8",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": "MOTOR",
+      "footprint": "winterbloom:JST_XH_B4B-XH-AM_1x04_P2.50mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "R20",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R21",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "220m",
+      "footprint": "winterbloom:R_1206_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R22",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "220m",
+      "footprint": "winterbloom:R_1206_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "RV4",
+      "lib": "Device",
+      "part": "Varistor",
+      "value": "35V",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "RV5",
+      "lib": "Device",
+      "part": "Varistor",
+      "value": "35V",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "U9",
+      "lib": null,
+      "part": null,
+      "value": "TMC2209",
+      "footprint": "winterbloom:TMC2209-LA",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "OB2",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "ENN",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "CPO",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "CPI",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "VCP",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "SPREAD",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "5VOUT",
+          "func": "power_out"
+        },
+        {
+          "num": "9",
+          "name": "MS1_AD0",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "MS2_AD1",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "DIAG",
+          "func": "input"
+        },
+        {
+          "num": "12",
+          "name": "INDEX",
+          "func": "input"
+        },
+        {
+          "num": "13",
+          "name": "CLK",
+          "func": "power_in"
+        },
+        {
+          "num": "14",
+          "name": "PDN_UART",
+          "func": "passive"
+        },
+        {
+          "num": "15",
+          "name": "VCC_IO",
+          "func": "power_in"
+        },
+        {
+          "num": "16",
+          "name": "STEP",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "VREF",
+          "func": "passive"
+        },
+        {
+          "num": "18",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "19",
+          "name": "DIR",
+          "func": "input"
+        },
+        {
+          "num": "20",
+          "name": "STDBY",
+          "func": "passive"
+        },
+        {
+          "num": "21",
+          "name": "OA2",
+          "func": "passive"
+        },
+        {
+          "num": "22",
+          "name": "VS",
+          "func": "power_in"
+        },
+        {
+          "num": "23",
+          "name": "BRA",
+          "func": "passive"
+        },
+        {
+          "num": "24",
+          "name": "OA1",
+          "func": "passive"
+        },
+        {
+          "num": "25",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "26",
+          "name": "OB1",
+          "func": "passive"
+        },
+        {
+          "num": "27",
+          "name": "BRB",
+          "func": "passive"
+        },
+        {
+          "num": "28",
+          "name": "VS",
+          "func": "power_in"
+        },
+        {
+          "num": "29",
+          "name": "PAD",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C56",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C57",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C58",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C59",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "4.7u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C60",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C61",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C63",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_1210_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C64",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C65",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C66",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C67",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C68",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C69",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "470p",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "FB10",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "FB11",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "FB12",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "FB13",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "50\u03a9 @ 100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "J9",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": "MOTOR",
+      "footprint": "winterbloom:JST_XH_B4B-XH-AM_1x04_P2.50mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "R23",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R24",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "220m",
+      "footprint": "winterbloom:R_1206_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R25",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "220m",
+      "footprint": "winterbloom:R_1206_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "RV6",
+      "lib": "Device",
+      "part": "Varistor",
+      "value": "35V",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "RV7",
+      "lib": "Device",
+      "part": "Varistor",
+      "value": "35V",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "U10",
+      "lib": null,
+      "part": null,
+      "value": "TMC2209",
+      "footprint": "winterbloom:TMC2209-LA",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "OB2",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "ENN",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "CPO",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "CPI",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "VCP",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "SPREAD",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "5VOUT",
+          "func": "power_out"
+        },
+        {
+          "num": "9",
+          "name": "MS1_AD0",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "MS2_AD1",
+          "func": "passive"
+        },
+        {
+          "num": "11",
+          "name": "DIAG",
+          "func": "input"
+        },
+        {
+          "num": "12",
+          "name": "INDEX",
+          "func": "input"
+        },
+        {
+          "num": "13",
+          "name": "CLK",
+          "func": "power_in"
+        },
+        {
+          "num": "14",
+          "name": "PDN_UART",
+          "func": "passive"
+        },
+        {
+          "num": "15",
+          "name": "VCC_IO",
+          "func": "power_in"
+        },
+        {
+          "num": "16",
+          "name": "STEP",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "VREF",
+          "func": "passive"
+        },
+        {
+          "num": "18",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "19",
+          "name": "DIR",
+          "func": "input"
+        },
+        {
+          "num": "20",
+          "name": "STDBY",
+          "func": "passive"
+        },
+        {
+          "num": "21",
+          "name": "OA2",
+          "func": "passive"
+        },
+        {
+          "num": "22",
+          "name": "VS",
+          "func": "power_in"
+        },
+        {
+          "num": "23",
+          "name": "BRA",
+          "func": "passive"
+        },
+        {
+          "num": "24",
+          "name": "OA1",
+          "func": "passive"
+        },
+        {
+          "num": "25",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "26",
+          "name": "OB1",
+          "func": "passive"
+        },
+        {
+          "num": "27",
+          "name": "BRB",
+          "func": "passive"
+        },
+        {
+          "num": "28",
+          "name": "VS",
+          "func": "power_in"
+        },
+        {
+          "num": "29",
+          "name": "PAD",
+          "func": "power_in"
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "+1V1",
+      "power": false,
+      "pins": [
+        "C19.1",
+        "C20.1",
+        "C21.1",
+        "U3.DVDD",
+        "U3.VREG_VOUT"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "C10.1",
+        "C11.1",
+        "C12.1",
+        "C13.1",
+        "C14.1",
+        "C15.1",
+        "C16.1",
+        "C17.1",
+        "C18.1",
+        "C25.1",
+        "C26.1",
+        "C29.1",
+        "C43.1",
+        "C57.1",
+        "C7.1",
+        "J10.Pin_2",
+        "R12.2",
+        "R15.2",
+        "R17.2",
+        "R20.2",
+        "R23.2",
+        "R26.2",
+        "R27.2",
+        "R4.2",
+        "R5.1",
+        "TP4.1",
+        "TP6.1",
+        "U10.MS1_AD0",
+        "U10.MS2_AD1",
+        "U10.VCC_IO",
+        "U2.OUT",
+        "U3.ADC_AVDD",
+        "U3.IOVDD",
+        "U3.USB_VDD",
+        "U3.VREG_IN",
+        "U4.VCC",
+        "U5.VCC",
+        "U8.VCC_IO",
+        "U9.MS1_AD0",
+        "U9.VCC_IO"
+      ]
+    },
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "C27.1",
+        "C4.1",
+        "C6.1",
+        "J1.Pin_1",
+        "J3.Pin_1",
+        "J4.Pin_2",
+        "J5.Pin_2",
+        "J6.Pin_4",
+        "R1.2",
+        "TP3.1",
+        "U1.Vout",
+        "U2.EN",
+        "U2.IN",
+        "U6.VBUS",
+        "U7.VCC"
+      ]
+    },
+    {
+      "name": "+24V",
+      "power": true,
+      "pins": [
+        "C22.1",
+        "C30.1",
+        "C35.1",
+        "C36.1",
+        "C37.1",
+        "C44.1",
+        "C49.1",
+        "C5.1",
+        "C50.1",
+        "C51.1",
+        "C58.1",
+        "C63.1",
+        "C64.1",
+        "C65.1",
+        "C9.1",
+        "FB1.2",
+        "U10.VS",
+        "U8.VS",
+        "U9.VS"
+      ]
+    },
+    {
+      "name": "/Connections/AUX_OUT",
+      "power": false,
+      "pins": [
+        "R14.2",
+        "U3.GPIO1",
+        "U7.2A"
+      ]
+    },
+    {
+      "name": "/Connections/BLTOUCH_CONTROL",
+      "power": false,
+      "pins": [
+        "J6.Pin_3",
+        "U3.GPIO4"
+      ]
+    },
+    {
+      "name": "/Connections/BLTOUCH_OUT",
+      "power": false,
+      "pins": [
+        "J6.Pin_1",
+        "R15.1",
+        "U3.GPIO5"
+      ]
+    },
+    {
+      "name": "/Connections/CAM_D+",
+      "power": false,
+      "pins": [
+        "J2.1",
+        "J3.Pin_3"
+      ]
+    },
+    {
+      "name": "/Connections/CAM_D-",
+      "power": false,
+      "pins": [
+        "J2.2",
+        "J3.Pin_2"
+      ]
+    },
+    {
+      "name": "/Connections/CAM_LED",
+      "power": false,
+      "pins": [
+        "R13.2",
+        "U3.GPIO0",
+        "U7.1A"
+      ]
+    },
+    {
+      "name": "/Connections/IN_1",
+      "power": false,
+      "pins": [
+        "U3.GPIO2",
+        "U5.1Y"
+      ]
+    },
+    {
+      "name": "/Connections/IN_2",
+      "power": false,
+      "pins": [
+        "U3.GPIO3",
+        "U5.2Y"
+      ]
+    },
+    {
+      "name": "/Connections/MCU_D+",
+      "power": false,
+      "pins": [
+        "J2.4",
+        "R6.1",
+        "U6.D+"
+      ]
+    },
+    {
+      "name": "/Connections/MCU_D-",
+      "power": false,
+      "pins": [
+        "J2.5",
+        "R7.1",
+        "U6.D-"
+      ]
+    },
+    {
+      "name": "/Connections/QWIIC_SCL",
+      "power": false,
+      "pins": [
+        "J10.Pin_4",
+        "R27.1",
+        "U3.GPIO11"
+      ]
+    },
+    {
+      "name": "/Connections/QWIIC_SDA",
+      "power": false,
+      "pins": [
+        "J10.Pin_3",
+        "R26.1",
+        "U3.GPIO10"
+      ]
+    },
+    {
+      "name": "/Left Motor/5VOUT",
+      "power": false,
+      "pins": [
+        "C31.1",
+        "U8.5VOUT"
+      ]
+    },
+    {
+      "name": "/Left Motor/BRA",
+      "power": false,
+      "pins": [
+        "C33.1",
+        "R19.2",
+        "U8.BRA"
+      ]
+    },
+    {
+      "name": "/Left Motor/BRB",
+      "power": false,
+      "pins": [
+        "C32.1",
+        "R18.2",
+        "U8.BRB"
+      ]
+    },
+    {
+      "name": "/Left Motor/CPI",
+      "power": false,
+      "pins": [
+        "C28.2",
+        "U8.CPI"
+      ]
+    },
+    {
+      "name": "/Left Motor/CPO",
+      "power": false,
+      "pins": [
+        "C28.1",
+        "U8.CPO"
+      ]
+    },
+    {
+      "name": "/Left Motor/DIAG",
+      "power": false,
+      "pins": [
+        "U3.GPIO20",
+        "U8.DIAG"
+      ]
+    },
+    {
+      "name": "/Left Motor/DIR",
+      "power": false,
+      "pins": [
+        "U3.GPIO18",
+        "U8.DIR"
+      ]
+    },
+    {
+      "name": "/Left Motor/ENN",
+      "power": false,
+      "pins": [
+        "R17.1",
+        "U3.GPIO21",
+        "U8.ENN"
+      ]
+    },
+    {
+      "name": "/Left Motor/OA1",
+      "power": false,
+      "pins": [
+        "FB4.1",
+        "U8.OA1"
+      ]
+    },
+    {
+      "name": "/Left Motor/OA2",
+      "power": false,
+      "pins": [
+        "FB5.1",
+        "U8.OA2"
+      ]
+    },
+    {
+      "name": "/Left Motor/OB1",
+      "power": false,
+      "pins": [
+        "FB3.1",
+        "U8.OB1"
+      ]
+    },
+    {
+      "name": "/Left Motor/OB2",
+      "power": false,
+      "pins": [
+        "FB2.1",
+        "U8.OB2"
+      ]
+    },
+    {
+      "name": "/Left Motor/STEP",
+      "power": false,
+      "pins": [
+        "U3.GPIO19",
+        "U8.STEP"
+      ]
+    },
+    {
+      "name": "/Left Motor/VCP",
+      "power": false,
+      "pins": [
+        "C30.2",
+        "U8.VCP"
+      ]
+    },
+    {
+      "name": "/Microcontroller/ACT_LED",
+      "power": false,
+      "pins": [
+        "D4.A",
+        "U3.GPIO15"
+      ]
+    },
+    {
+      "name": "/Microcontroller/AUX_LED",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "U3.GPIO13"
+      ]
+    },
+    {
+      "name": "/Microcontroller/M1_DIAG",
+      "power": false,
+      "pins": [
+        "U3.GPIO24",
+        "U9.DIAG"
+      ]
+    },
+    {
+      "name": "/Microcontroller/M1_DIR",
+      "power": false,
+      "pins": [
+        "U3.GPIO22",
+        "U9.DIR"
+      ]
+    },
+    {
+      "name": "/Microcontroller/M1_EN",
+      "power": false,
+      "pins": [
+        "R20.1",
+        "U3.GPIO25",
+        "U9.ENN"
+      ]
+    },
+    {
+      "name": "/Microcontroller/M1_STEP",
+      "power": false,
+      "pins": [
+        "U3.GPIO23",
+        "U9.STEP"
+      ]
+    },
+    {
+      "name": "/Microcontroller/M2_DIAG",
+      "power": false,
+      "pins": [
+        "U10.DIAG",
+        "U3.GPIO28_ADC2"
+      ]
+    },
+    {
+      "name": "/Microcontroller/M2_DIR",
+      "power": false,
+      "pins": [
+        "U10.DIR",
+        "U3.GPIO26_ADC0"
+      ]
+    },
+    {
+      "name": "/Microcontroller/M2_EN",
+      "power": false,
+      "pins": [
+        "R23.1",
+        "U10.ENN",
+        "U3.GPIO29_ADC3"
+      ]
+    },
+    {
+      "name": "/Microcontroller/M2_STEP",
+      "power": false,
+      "pins": [
+        "U10.STEP",
+        "U3.GPIO27_ADC1"
+      ]
+    },
+    {
+      "name": "/Microcontroller/QSPI_CS",
+      "power": false,
+      "pins": [
+        "R12.1",
+        "SW1.1",
+        "U3.QSPI_SS",
+        "U4.~{CS}"
+      ]
+    },
+    {
+      "name": "/Microcontroller/QSPI_SCLK",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SCLK",
+        "U4.CLK"
+      ]
+    },
+    {
+      "name": "/Microcontroller/QSPI_SD0",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SD0",
+        "U4.DI(IO0)"
+      ]
+    },
+    {
+      "name": "/Microcontroller/QSPI_SD1",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SD1",
+        "U4.DO(IO1)"
+      ]
+    },
+    {
+      "name": "/Microcontroller/QSPI_SD2",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SD2",
+        "U4.IO2"
+      ]
+    },
+    {
+      "name": "/Microcontroller/QSPI_SD3",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SD3",
+        "U4.IO3"
+      ]
+    },
+    {
+      "name": "/Microcontroller/RUN",
+      "power": false,
+      "pins": [
+        "R4.1",
+        "SW2.1",
+        "TP7.1",
+        "U3.RUN"
+      ]
+    },
+    {
+      "name": "/Microcontroller/SWCLK",
+      "power": false,
+      "pins": [
+        "TP9.1",
+        "U3.SWCLK"
+      ]
+    },
+    {
+      "name": "/Microcontroller/SWD",
+      "power": false,
+      "pins": [
+        "R5.2",
+        "TP8.1",
+        "U3.SWD"
+      ]
+    },
+    {
+      "name": "/Microcontroller/UART1_TX",
+      "power": false,
+      "pins": [
+        "R8.1",
+        "U3.GPIO16"
+      ]
+    },
+    {
+      "name": "/Microcontroller/USB_D+",
+      "power": false,
+      "pins": [
+        "R6.2",
+        "U3.USB_DP"
+      ]
+    },
+    {
+      "name": "/Microcontroller/USB_D-",
+      "power": false,
+      "pins": [
+        "R7.2",
+        "U3.USB_DM"
+      ]
+    },
+    {
+      "name": "/Microcontroller/XIN",
+      "power": false,
+      "pins": [
+        "C23.1",
+        "U3.XIN",
+        "Y1.1"
+      ]
+    },
+    {
+      "name": "/Microcontroller/XOUT",
+      "power": false,
+      "pins": [
+        "R11.1",
+        "U3.XOUT"
+      ]
+    },
+    {
+      "name": "/Power/VIN_FILTERED",
+      "power": false,
+      "pins": [
+        "C2.1",
+        "C3.1",
+        "FB14.2",
+        "U1.Vin"
+      ]
+    },
+    {
+      "name": "/Right Motor/5VOUT",
+      "power": false,
+      "pins": [
+        "C59.1",
+        "U10.5VOUT"
+      ]
+    },
+    {
+      "name": "/Right Motor/BRA",
+      "power": false,
+      "pins": [
+        "C61.1",
+        "R25.2",
+        "U10.BRA"
+      ]
+    },
+    {
+      "name": "/Right Motor/BRB",
+      "power": false,
+      "pins": [
+        "C60.1",
+        "R24.2",
+        "U10.BRB"
+      ]
+    },
+    {
+      "name": "/Right Motor/CPI",
+      "power": false,
+      "pins": [
+        "C56.2",
+        "U10.CPI"
+      ]
+    },
+    {
+      "name": "/Right Motor/CPO",
+      "power": false,
+      "pins": [
+        "C56.1",
+        "U10.CPO"
+      ]
+    },
+    {
+      "name": "/Right Motor/OA1",
+      "power": false,
+      "pins": [
+        "FB12.1",
+        "U10.OA1"
+      ]
+    },
+    {
+      "name": "/Right Motor/OA2",
+      "power": false,
+      "pins": [
+        "FB13.1",
+        "U10.OA2"
+      ]
+    },
+    {
+      "name": "/Right Motor/OB1",
+      "power": false,
+      "pins": [
+        "FB11.1",
+        "U10.OB1"
+      ]
+    },
+    {
+      "name": "/Right Motor/OB2",
+      "power": false,
+      "pins": [
+        "FB10.1",
+        "U10.OB2"
+      ]
+    },
+    {
+      "name": "/Right Motor/VCP",
+      "power": false,
+      "pins": [
+        "C58.2",
+        "U10.VCP"
+      ]
+    },
+    {
+      "name": "/TMC_UART",
+      "power": false,
+      "pins": [
+        "R8.2",
+        "TP17.1",
+        "U10.PDN_UART",
+        "U3.GPIO17",
+        "U8.PDN_UART",
+        "U9.PDN_UART"
+      ]
+    },
+    {
+      "name": "/Z Motor/5VOUT",
+      "power": false,
+      "pins": [
+        "C45.1",
+        "U9.5VOUT"
+      ]
+    },
+    {
+      "name": "/Z Motor/BRA",
+      "power": false,
+      "pins": [
+        "C47.1",
+        "R22.2",
+        "U9.BRA"
+      ]
+    },
+    {
+      "name": "/Z Motor/BRB",
+      "power": false,
+      "pins": [
+        "C46.1",
+        "R21.2",
+        "U9.BRB"
+      ]
+    },
+    {
+      "name": "/Z Motor/CPI",
+      "power": false,
+      "pins": [
+        "C42.2",
+        "U9.CPI"
+      ]
+    },
+    {
+      "name": "/Z Motor/CPO",
+      "power": false,
+      "pins": [
+        "C42.1",
+        "U9.CPO"
+      ]
+    },
+    {
+      "name": "/Z Motor/OA1",
+      "power": false,
+      "pins": [
+        "FB8.1",
+        "U9.OA1"
+      ]
+    },
+    {
+      "name": "/Z Motor/OA2",
+      "power": false,
+      "pins": [
+        "FB9.1",
+        "U9.OA2"
+      ]
+    },
+    {
+      "name": "/Z Motor/OB1",
+      "power": false,
+      "pins": [
+        "FB7.1",
+        "U9.OB1"
+      ]
+    },
+    {
+      "name": "/Z Motor/OB2",
+      "power": false,
+      "pins": [
+        "FB6.1",
+        "U9.OB2"
+      ]
+    },
+    {
+      "name": "/Z Motor/VCP",
+      "power": false,
+      "pins": [
+        "C44.2",
+        "U9.VCP"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.2",
+        "C12.2",
+        "C13.2",
+        "C14.2",
+        "C15.2",
+        "C16.2",
+        "C17.2",
+        "C18.2",
+        "C19.2",
+        "C2.2",
+        "C20.2",
+        "C21.2",
+        "C22.2",
+        "C23.2",
+        "C24.2",
+        "C25.2",
+        "C26.2",
+        "C27.2",
+        "C29.2",
+        "C3.2",
+        "C31.2",
+        "C32.2",
+        "C33.2",
+        "C35.2",
+        "C36.2",
+        "C37.2",
+        "C38.2",
+        "C39.2",
+        "C4.2",
+        "C40.2",
+        "C41.2",
+        "C43.2",
+        "C45.2",
+        "C46.2",
+        "C47.2",
+        "C49.2",
+        "C5.2",
+        "C50.2",
+        "C51.2",
+        "C52.2",
+        "C53.2",
+        "C54.2",
+        "C55.2",
+        "C57.2",
+        "C59.2",
+        "C6.2",
+        "C60.2",
+        "C61.2",
+        "C63.2",
+        "C64.2",
+        "C65.2",
+        "C66.2",
+        "C67.2",
+        "C68.2",
+        "C69.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "D2.A",
+        "H1.1",
+        "H2.1",
+        "H3.1",
+        "J1.MountPin",
+        "J1.Pin_4",
+        "J10.MountPin",
+        "J10.Pin_1",
+        "J2.11",
+        "J2.3",
+        "J2.7",
+        "J2.9",
+        "J2.SH",
+        "J3.MountPin",
+        "J3.Pin_4",
+        "J4.MountPin",
+        "J4.Pin_3",
+        "J5.MountPin",
+        "J5.Pin_3",
+        "J6.MountPin",
+        "J6.Pin_2",
+        "J6.Pin_5",
+        "R10.2",
+        "R13.1",
+        "R14.1",
+        "R18.1",
+        "R19.1",
+        "R21.1",
+        "R22.1",
+        "R24.1",
+        "R25.1",
+        "R28.2",
+        "R29.1",
+        "R9.1",
+        "RV1.2",
+        "TP1.1",
+        "TP5.1",
+        "U1.GND",
+        "U10.CLK",
+        "U10.GND",
+        "U10.PAD",
+        "U2.GND",
+        "U3.GND",
+        "U3.TESTEN",
+        "U4.GND",
+        "U5.GND",
+        "U6.GND",
+        "U7.GND",
+        "U8.CLK",
+        "U8.GND",
+        "U8.MS1_AD0",
+        "U8.MS2_AD1",
+        "U8.PAD",
+        "U9.CLK",
+        "U9.GND",
+        "U9.MS2_AD1",
+        "U9.PAD",
+        "Y1.2",
+        "Y1.4"
+      ]
+    },
+    {
+      "name": "Net-(C24-Pad1)",
+      "power": false,
+      "pins": [
+        "C24.1",
+        "R11.2",
+        "Y1.3"
+      ]
+    },
+    {
+      "name": "Net-(D1-K)",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "R28.1"
+      ]
+    },
+    {
+      "name": "Net-(D4-K)",
+      "power": false,
+      "pins": [
+        "D4.K",
+        "R10.1"
+      ]
+    },
+    {
+      "name": "Net-(J1-Pin_2)",
+      "power": false,
+      "pins": [
+        "J1.Pin_2",
+        "R3.2"
+      ]
+    },
+    {
+      "name": "Net-(J1-Pin_3)",
+      "power": false,
+      "pins": [
+        "J1.Pin_3",
+        "R16.2"
+      ]
+    },
+    {
+      "name": "Net-(J2-Pad10)",
+      "power": false,
+      "pins": [
+        "J2.10",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "Net-(J2-Pad12)",
+      "power": false,
+      "pins": [
+        "J2.12",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "Net-(J4-Pin_1)",
+      "power": false,
+      "pins": [
+        "J4.Pin_1",
+        "U7.1Y"
+      ]
+    },
+    {
+      "name": "Net-(J5-Pin_1)",
+      "power": false,
+      "pins": [
+        "J5.Pin_1",
+        "U7.2Y"
+      ]
+    },
+    {
+      "name": "Net-(J7-Pin_1)",
+      "power": false,
+      "pins": [
+        "C39.1",
+        "FB5.2",
+        "J7.Pin_1",
+        "RV3.2"
+      ]
+    },
+    {
+      "name": "Net-(J7-Pin_2)",
+      "power": false,
+      "pins": [
+        "C41.1",
+        "FB4.2",
+        "J7.Pin_2",
+        "RV3.1"
+      ]
+    },
+    {
+      "name": "Net-(J7-Pin_3)",
+      "power": false,
+      "pins": [
+        "C38.1",
+        "FB3.2",
+        "J7.Pin_3",
+        "RV2.2"
+      ]
+    },
+    {
+      "name": "Net-(J7-Pin_4)",
+      "power": false,
+      "pins": [
+        "C40.1",
+        "FB2.2",
+        "J7.Pin_4",
+        "RV2.1"
+      ]
+    },
+    {
+      "name": "Net-(J8-Pin_1)",
+      "power": false,
+      "pins": [
+        "C53.1",
+        "FB9.2",
+        "J8.Pin_1",
+        "RV5.2"
+      ]
+    },
+    {
+      "name": "Net-(J8-Pin_2)",
+      "power": false,
+      "pins": [
+        "C55.1",
+        "FB8.2",
+        "J8.Pin_2",
+        "RV5.1"
+      ]
+    },
+    {
+      "name": "Net-(J8-Pin_3)",
+      "power": false,
+      "pins": [
+        "C52.1",
+        "FB7.2",
+        "J8.Pin_3",
+        "RV4.2"
+      ]
+    },
+    {
+      "name": "Net-(J8-Pin_4)",
+      "power": false,
+      "pins": [
+        "C54.1",
+        "FB6.2",
+        "J8.Pin_4",
+        "RV4.1"
+      ]
+    },
+    {
+      "name": "Net-(J9-Pin_1)",
+      "power": false,
+      "pins": [
+        "C67.1",
+        "FB13.2",
+        "J9.Pin_1",
+        "RV7.2"
+      ]
+    },
+    {
+      "name": "Net-(J9-Pin_2)",
+      "power": false,
+      "pins": [
+        "C69.1",
+        "FB12.2",
+        "J9.Pin_2",
+        "RV7.1"
+      ]
+    },
+    {
+      "name": "Net-(J9-Pin_3)",
+      "power": false,
+      "pins": [
+        "C66.1",
+        "FB11.2",
+        "J9.Pin_3",
+        "RV6.2"
+      ]
+    },
+    {
+      "name": "Net-(J9-Pin_4)",
+      "power": false,
+      "pins": [
+        "C68.1",
+        "FB10.2",
+        "J9.Pin_4",
+        "RV6.1"
+      ]
+    },
+    {
+      "name": "Net-(R9-Pad2)",
+      "power": false,
+      "pins": [
+        "R9.2",
+        "SW1.2"
+      ]
+    },
+    {
+      "name": "Net-(R29-Pad2)",
+      "power": false,
+      "pins": [
+        "R29.2",
+        "SW2.2"
+      ]
+    },
+    {
+      "name": "Net-(U5-1A)",
+      "power": false,
+      "pins": [
+        "R3.1",
+        "U5.1A"
+      ]
+    },
+    {
+      "name": "Net-(U5-2A)",
+      "power": false,
+      "pins": [
+        "R16.1",
+        "U5.2A"
+      ]
+    },
+    {
+      "name": "VDC",
+      "power": false,
+      "pins": [
+        "C8.1",
+        "D2.K",
+        "FB1.1",
+        "FB14.1",
+        "J2.6",
+        "J2.8",
+        "R2.2",
+        "RV1.1",
+        "TP2.1"
+      ]
+    }
+  ]
+}

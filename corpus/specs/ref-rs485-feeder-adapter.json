@@ -1,0 +1,224 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "rs485-feeder-adapter"
+  },
+  "parts": [
+    {
+      "ref": "C101",
+      "lib": "Device",
+      "part": "C_Polarized_Small_US",
+      "value": "100u",
+      "footprint": "Capacitor_SMD:CP_Elec_6.3x9.9",
+      "group": null
+    },
+    {
+      "ref": "D101",
+      "lib": "Device",
+      "part": "D_TVS_Filled",
+      "value": "SMAJ28CA",
+      "footprint": "winterbloom:D_SMA",
+      "group": null
+    },
+    {
+      "ref": "D102",
+      "lib": "Device",
+      "part": "D_Schottky_Filled",
+      "value": "PMEG3030EP",
+      "footprint": "winterbloom:D_SOD-128",
+      "group": null
+    },
+    {
+      "ref": "D103",
+      "lib": "Device",
+      "part": "LED_Filled",
+      "value": "24V",
+      "footprint": "winterbloom:LED_0805_Kingbright_APT2012",
+      "group": null
+    },
+    {
+      "ref": "H101",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H102",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H103",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H104",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J101",
+      "lib": "Connector",
+      "part": "Screw_Terminal_01x02",
+      "value": "DC in",
+      "footprint": "winterbloom:TerminalBlock_CUI_TB002-500_1x02_P5.00mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J102",
+      "lib": "Connector",
+      "part": "Screw_Terminal_01x02",
+      "value": "DC thru",
+      "footprint": "winterbloom:TerminalBlock_CUI_TB002-500_1x02_P5.00mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J103",
+      "lib": "Connector",
+      "part": "Screw_Terminal_01x02",
+      "value": "RS-485",
+      "footprint": "winterbloom:TerminalBlock_4UCON_1x02_P3.50mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "J104",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x03_Odd_Even",
+      "value": "Feeders",
+      "footprint": "Connector_IDC:IDC-Header_2x03_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "R101",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "120R",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R102",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "5k1",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R103",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "120R",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+24V",
+      "power": true,
+      "pins": [
+        "C101.1",
+        "D102.K",
+        "D103.A",
+        "J104.Pin_3",
+        "J104.Pin_4"
+      ]
+    },
+    {
+      "name": "/DCIN",
+      "power": false,
+      "pins": [
+        "D101.A1",
+        "D102.A",
+        "J101.Pin_1",
+        "J102.Pin_1"
+      ]
+    },
+    {
+      "name": "/RS485+",
+      "power": false,
+      "pins": [
+        "J103.Pin_1",
+        "J104.Pin_5",
+        "R101.1",
+        "R103.1"
+      ]
+    },
+    {
+      "name": "/RS485-",
+      "power": false,
+      "pins": [
+        "J103.Pin_2",
+        "J104.Pin_6",
+        "R101.2",
+        "R103.2"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C101.2",
+        "D101.A2",
+        "H101.1",
+        "H102.1",
+        "H103.1",
+        "H104.1",
+        "J101.Pin_2",
+        "J102.Pin_2",
+        "J104.Pin_1",
+        "J104.Pin_2",
+        "R102.2"
+      ]
+    },
+    {
+      "name": "Net-(D103-K)",
+      "power": false,
+      "pins": [
+        "D103.K",
+        "R102.1"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "dailywell.2ms3.manual"
+  },
+  "parts": [
+    {
+      "ref": "SW1",
+      "lib": "Switch",
+      "part": "SW_SPDT",
+      "value": null,
+      "footprint": "Switch_Thonk:SW_SPDT_Dailywell",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "SW1.B"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "SW1.A"
+      ]
+    },
+    {
+      "name": "Pin1",
+      "power": false,
+      "pins": [
+        "SW1.C"
+      ]
+    }
+  ]
+}

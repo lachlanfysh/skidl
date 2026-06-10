@@ -1,0 +1,124 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "sdmmc.vertical.manual"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x08",
+      "value": "MicroSD Vertical",
+      "footprint": "local:VERT_MICROSD_CENTERED",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "47k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "47k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "47k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "47k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "47k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "3V3D",
+      "power": false,
+      "pins": [
+        "J1.Pin_2",
+        "R1.1",
+        "R2.1",
+        "R3.1",
+        "R4.1",
+        "R5.1"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "J1.Pin_1"
+      ]
+    },
+    {
+      "name": "Pin0.CMD",
+      "power": false,
+      "pins": [
+        "J1.Pin_4",
+        "R5.2"
+      ]
+    },
+    {
+      "name": "Pin0.D0",
+      "power": false,
+      "pins": [
+        "J1.Pin_5",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "Pin0.D1",
+      "power": false,
+      "pins": [
+        "J1.Pin_6",
+        "R3.2"
+      ]
+    },
+    {
+      "name": "Pin0.D2",
+      "power": false,
+      "pins": [
+        "J1.Pin_7",
+        "R2.2"
+      ]
+    },
+    {
+      "name": "Pin0.D3",
+      "power": false,
+      "pins": [
+        "J1.Pin_8",
+        "R1.2"
+      ]
+    },
+    {
+      "name": "Pin0.SCK",
+      "power": false,
+      "pins": [
+        "J1.Pin_3"
+      ]
+    }
+  ]
+}

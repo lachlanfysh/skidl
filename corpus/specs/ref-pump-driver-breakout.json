@@ -1,0 +1,253 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "pump_driver_breakout"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C_Polarized_US",
+      "value": "100U",
+      "footprint": "Capacitor_SMD:C_1210_3225Metric_Pad1.33x2.70mm_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "D_Schottky_Filled",
+      "value": "30V 1A",
+      "footprint": "Diode_SMD:D_SOD-128",
+      "group": null
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "LED_Filled",
+      "value": "A",
+      "footprint": "winterbloom:LED_0805_Kingbright_APT2012",
+      "group": null
+    },
+    {
+      "ref": "D5",
+      "lib": "Device",
+      "part": "LED_Filled",
+      "value": "VDC",
+      "footprint": "winterbloom:LED_0805_Kingbright_APT2012",
+      "group": null
+    },
+    {
+      "ref": "D6",
+      "lib": "Device",
+      "part": "D_Schottky_Filled",
+      "value": "30V 2A",
+      "footprint": "Diode_SMD:D_SOD-128",
+      "group": null
+    },
+    {
+      "ref": "H1",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H2",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H3",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H4",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "Screw_Terminal_01x02",
+      "value": "DC IN",
+      "footprint": "winterbloom:TerminalBlock_4UCON_1x02_P3.50mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector",
+      "part": "Screw_Terminal_01x02",
+      "value": "CONTROL",
+      "footprint": "winterbloom:TerminalBlock_4UCON_1x02_P3.50mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector",
+      "part": "Screw_Terminal_01x02",
+      "value": "Motor",
+      "footprint": "winterbloom:TerminalBlock_4UCON_1x02_P3.50mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_FET",
+      "part": "PSMN5R2-60YL",
+      "value": "PSMN011-30YLC",
+      "footprint": "Package_TO_SOT_SMD:LFPAK56",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+VDC",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "D1.K",
+        "D2.A",
+        "D5.A",
+        "D6.K",
+        "J3.Pin_2"
+      ]
+    },
+    {
+      "name": "/Control",
+      "power": false,
+      "pins": [
+        "J2.Pin_1",
+        "J2.Pin_2",
+        "R1.1",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "/DCIN",
+      "power": false,
+      "pins": [
+        "D6.A",
+        "J1.Pin_1"
+      ]
+    },
+    {
+      "name": "/Switched",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "J3.Pin_1",
+        "Q1.D",
+        "R3.2"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "H1.1",
+        "H2.1",
+        "H3.1",
+        "H4.1",
+        "J1.Pin_2",
+        "Q1.S",
+        "R2.2",
+        "R7.2"
+      ]
+    },
+    {
+      "name": "Net-(D2-K)",
+      "power": false,
+      "pins": [
+        "D2.K",
+        "R3.1"
+      ]
+    },
+    {
+      "name": "Net-(D5-K)",
+      "power": false,
+      "pins": [
+        "D5.K",
+        "R7.1"
+      ]
+    },
+    {
+      "name": "Net-(Q1-G)",
+      "power": false,
+      "pins": [
+        "Q1.G",
+        "R1.2"
+      ]
+    }
+  ]
+}

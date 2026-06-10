@@ -1,0 +1,491 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "jellyfish_tailboard"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C_Polarized_US",
+      "value": "100u",
+      "footprint": "Capacitor_SMD:CP_Elec_6.3x9.9",
+      "group": null
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C_Polarized_US",
+      "value": "100u",
+      "footprint": "Capacitor_SMD:CP_Elec_6.3x9.9",
+      "group": null
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C_Polarized_US",
+      "value": "100u",
+      "footprint": "Capacitor_SMD:CP_Elec_6.3x9.9",
+      "group": null
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED_Filled",
+      "value": "24V",
+      "footprint": "winterbloom:LED_0805_Kingbright_APT2012",
+      "group": null
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "LED_Filled",
+      "value": "HEAD",
+      "footprint": "winterbloom:LED_0805_Kingbright_APT2012",
+      "group": null
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "LED_Filled",
+      "value": "CAM",
+      "footprint": "winterbloom:LED_0805_Kingbright_APT2012",
+      "group": null
+    },
+    {
+      "ref": "D4",
+      "lib": "Device",
+      "part": "D_Zener_Filled",
+      "value": "SMAJ28A",
+      "footprint": "winterbloom:D_SMA",
+      "group": null
+    },
+    {
+      "ref": "D5",
+      "lib": "Device",
+      "part": "D_Zener_Filled",
+      "value": "PDZ16BGWJ",
+      "footprint": "winterbloom:D_SOD-123",
+      "group": null
+    },
+    {
+      "ref": "F1",
+      "lib": "Device",
+      "part": "Fuse",
+      "value": null,
+      "footprint": "Fuse:Fuseholder_Blade_Mini_Keystone_3568",
+      "group": null
+    },
+    {
+      "ref": "H1",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "H2",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "H3",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H4",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "Screw_Terminal_01x02",
+      "value": "DC IN",
+      "footprint": "winterbloom:TerminalBlock_CUI_TB002-500_1x02_P5.00mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector",
+      "part": "Screw_Terminal_01x02",
+      "value": "DC THRU",
+      "footprint": "winterbloom:TerminalBlock_CUI_TB002-500_1x02_P5.00mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J3",
+      "lib": null,
+      "part": null,
+      "value": "Head",
+      "footprint": "winterbloom:USB_B_Receptacle_Horizontal",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "VBUS",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "D-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "D+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "Shield",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J4",
+      "lib": null,
+      "part": null,
+      "value": "Top camera",
+      "footprint": "winterbloom:USB_B_Receptacle_Horizontal",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "VBUS",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "D-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "D+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "Shield",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J5",
+      "lib": "Connector",
+      "part": "8P8C_Shielded",
+      "value": null,
+      "footprint": "winterbloom:Connector_RJ45_SS-7188S-A-PG4-BA-50",
+      "group": null
+    },
+    {
+      "ref": "J6",
+      "lib": null,
+      "part": null,
+      "value": "Bottom camera",
+      "footprint": "winterbloom:USB_B_Receptacle_Horizontal",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "VBUS",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "D-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "D+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "Shield",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J7",
+      "lib": "Connector_Generic_MountingPin",
+      "part": "Conn_01x04_MountingPin",
+      "value": "Bottom camera",
+      "footprint": "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_FET",
+      "part": "IRF7404",
+      "value": "DMP3037LSS-13",
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "5K1",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "5.1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "5.1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "47k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+24V",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C2.1",
+        "C3.1",
+        "D1.A",
+        "D5.K",
+        "J5.6",
+        "J5.8",
+        "Q1.S"
+      ]
+    },
+    {
+      "name": "+VDC",
+      "power": false,
+      "pins": [
+        "F1.1",
+        "J1.Pin_1",
+        "J2.Pin_1"
+      ]
+    },
+    {
+      "name": "/BTM_CAM_D+",
+      "power": false,
+      "pins": [
+        "J6.D+",
+        "J7.Pin_3"
+      ]
+    },
+    {
+      "name": "/BTM_CAM_D-",
+      "power": false,
+      "pins": [
+        "J6.D-",
+        "J7.Pin_2"
+      ]
+    },
+    {
+      "name": "/CAM_D+",
+      "power": false,
+      "pins": [
+        "J4.D+",
+        "J5.1"
+      ]
+    },
+    {
+      "name": "/CAM_D-",
+      "power": false,
+      "pins": [
+        "J4.D-",
+        "J5.2"
+      ]
+    },
+    {
+      "name": "/CAM_VBUS",
+      "power": false,
+      "pins": [
+        "D3.A",
+        "J4.VBUS"
+      ]
+    },
+    {
+      "name": "/HEAD_D+",
+      "power": false,
+      "pins": [
+        "J3.D+",
+        "J5.4"
+      ]
+    },
+    {
+      "name": "/HEAD_D-",
+      "power": false,
+      "pins": [
+        "J3.D-",
+        "J5.5"
+      ]
+    },
+    {
+      "name": "/HEAD_VBUS",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "J3.VBUS"
+      ]
+    },
+    {
+      "name": "/gate",
+      "power": false,
+      "pins": [
+        "D5.A",
+        "Q1.G",
+        "R4.1"
+      ]
+    },
+    {
+      "name": "/post fuse",
+      "power": false,
+      "pins": [
+        "D4.K",
+        "F1.2",
+        "Q1.D"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "D4.A",
+        "H3.1",
+        "H4.1",
+        "J1.Pin_2",
+        "J2.Pin_2",
+        "J3.GND",
+        "J3.Shield",
+        "J4.GND",
+        "J4.Shield",
+        "J5.3",
+        "J5.7",
+        "J5.SH",
+        "R1.2",
+        "R2.2",
+        "R3.2",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "Net-(D1-K)",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "Net-(D2-K)",
+      "power": false,
+      "pins": [
+        "D2.K",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "Net-(D3-K)",
+      "power": false,
+      "pins": [
+        "D3.K",
+        "R3.1"
+      ]
+    },
+    {
+      "name": "Net-(J6-GND)",
+      "power": false,
+      "pins": [
+        "J6.GND",
+        "J6.Shield",
+        "J7.MountPin",
+        "J7.Pin_4"
+      ]
+    },
+    {
+      "name": "Net-(J6-VBUS)",
+      "power": false,
+      "pins": [
+        "J6.VBUS",
+        "J7.Pin_1"
+      ]
+    }
+  ]
+}

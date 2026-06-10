@@ -1,0 +1,334 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "stomp-chargepump"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "47u",
+      "footprint": "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm",
+      "group": null
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "47u",
+      "footprint": "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm",
+      "group": null
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "100u",
+      "footprint": "Capacitor_THT:CP_Radial_D6.3mm_P2.50mm",
+      "group": null
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "100u",
+      "footprint": "Capacitor_THT:CP_Radial_D6.3mm_P2.50mm",
+      "group": null
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "D",
+      "value": "1n5817",
+      "footprint": "Diode_THT:D_5W_P10.16mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D3.0mm",
+      "group": null
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "D",
+      "value": "1n5817",
+      "footprint": "Diode_THT:D_5W_P10.16mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "D4",
+      "lib": "Device",
+      "part": "D",
+      "value": "1n5817",
+      "footprint": "Diode_THT:D_5W_P10.16mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "Conn_01x06_Pin",
+      "value": "to-effect",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector",
+      "part": "Conn_01x04_Pin",
+      "value": "from-top-jacks",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "2.2k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "S1",
+      "lib": null,
+      "part": null,
+      "value": "SWITCH-3PDT-PTH-STOMP",
+      "footprint": "Switches:STOMP_SWITCH_3PDT",
+      "group": null,
+      "pins": [
+        {
+          "num": "P$1",
+          "name": "O",
+          "func": "passive"
+        },
+        {
+          "num": "P$2",
+          "name": "P",
+          "func": "power_in"
+        },
+        {
+          "num": "P$3",
+          "name": "S",
+          "func": "passive"
+        },
+        {
+          "num": "P$4",
+          "name": "O",
+          "func": "passive"
+        },
+        {
+          "num": "P$5",
+          "name": "P",
+          "func": "passive"
+        },
+        {
+          "num": "P$6",
+          "name": "S",
+          "func": "passive"
+        },
+        {
+          "num": "P$7",
+          "name": "O",
+          "func": "passive"
+        },
+        {
+          "num": "P$8",
+          "name": "P",
+          "func": "passive"
+        },
+        {
+          "num": "P$9",
+          "name": "S",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U1",
+      "lib": null,
+      "part": null,
+      "value": "MAX1044",
+      "footprint": "Package_DIP:DIP-8_W7.62mm_LongPads",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "NC",
+          "func": "no_connect"
+        },
+        {
+          "num": "2",
+          "name": "CAP+",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "CAP-",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "VOUT",
+          "func": "power_out"
+        },
+        {
+          "num": "6",
+          "name": "LV",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "OSC",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "V+",
+          "func": "passive"
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "+9V",
+      "power": true,
+      "pins": [
+        "D1.A",
+        "J1.Pin_3",
+        "J3.Pin_1"
+      ]
+    },
+    {
+      "name": "-9V",
+      "power": false,
+      "pins": [
+        "C3.2",
+        "J1.Pin_2",
+        "U1.VOUT"
+      ]
+    },
+    {
+      "name": "18V",
+      "power": false,
+      "pins": [
+        "C4.1",
+        "D4.K",
+        "J1.Pin_1"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C3.1",
+        "C4.2",
+        "J1.Pin_6",
+        "J3.Pin_4",
+        "S1.P",
+        "U1.GND"
+      ]
+    },
+    {
+      "name": "IN",
+      "power": false,
+      "pins": [
+        "J3.Pin_3",
+        "S1.P"
+      ]
+    },
+    {
+      "name": "Net-(D1-K)",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "D3.A",
+        "R1.1",
+        "U1.V+"
+      ]
+    },
+    {
+      "name": "Net-(D2-A)",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "R1.2"
+      ]
+    },
+    {
+      "name": "Net-(D2-K)",
+      "power": false,
+      "pins": [
+        "D2.K",
+        "S1.O"
+      ]
+    },
+    {
+      "name": "Net-(D3-K)",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "D3.K",
+        "D4.A"
+      ]
+    },
+    {
+      "name": "Net-(S1B-S)",
+      "power": false,
+      "pins": [
+        "S1.S"
+      ]
+    },
+    {
+      "name": "Net-(U1-CAP+)",
+      "power": false,
+      "pins": [
+        "C1.2",
+        "C2.1",
+        "U1.CAP+"
+      ]
+    },
+    {
+      "name": "Net-(U1-CAP-)",
+      "power": false,
+      "pins": [
+        "C2.2",
+        "U1.CAP-"
+      ]
+    },
+    {
+      "name": "OUT",
+      "power": false,
+      "pins": [
+        "J3.Pin_2",
+        "S1.P"
+      ]
+    },
+    {
+      "name": "RECV",
+      "power": false,
+      "pins": [
+        "J1.Pin_5",
+        "S1.O"
+      ]
+    },
+    {
+      "name": "SEND",
+      "power": false,
+      "pins": [
+        "J1.Pin_4",
+        "S1.O",
+        "S1.S"
+      ]
+    }
+  ]
+}

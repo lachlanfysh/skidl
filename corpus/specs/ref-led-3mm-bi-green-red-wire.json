@@ -1,0 +1,57 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "led.3mm.bi.green_red.wire"
+  },
+  "parts": [
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED_Dual_AKA",
+      "value": "LED_Dual_ACA",
+      "footprint": "LED_THT:LED_D3.0mm-3",
+      "group": null
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    },
+    {
+      "ref": "TP2",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "D1.K"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "D1.A1",
+        "TP1.1"
+      ]
+    },
+    {
+      "name": "Pin1",
+      "power": false,
+      "pins": [
+        "D1.A2",
+        "TP2.1"
+      ]
+    }
+  ]
+}

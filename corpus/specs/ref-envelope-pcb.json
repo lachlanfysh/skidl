@@ -1,0 +1,1539 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "envelope_pcb"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C_Polarized_US",
+      "value": "10uF",
+      "footprint": "Capacitor_THT:CP_Radial_D4.0mm_P1.50mm",
+      "group": null
+    },
+    {
+      "ref": "J9",
+      "lib": "Connector",
+      "part": "Conn_01x08_Pin",
+      "value": null,
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x08_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J10",
+      "lib": "Connector",
+      "part": "Conn_01x08_Socket",
+      "value": null,
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x08_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J11",
+      "lib": "Connector",
+      "part": "Conn_01x07_Pin",
+      "value": null,
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x07_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J12",
+      "lib": "Connector",
+      "part": "Conn_01x07_Socket",
+      "value": null,
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x07_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J13",
+      "lib": null,
+      "part": null,
+      "value": "Eurorack_2x8_Power",
+      "footprint": "Connector_IDC:IDC-Header_2x08_P2.54mm_Vertical",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "-12v",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-12v",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "8",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "9",
+          "name": "+12v",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "+12v",
+          "func": "passive"
+        },
+        {
+          "num": "11",
+          "name": "+5v",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "+5v",
+          "func": "passive"
+        },
+        {
+          "num": "13",
+          "name": "Pin_13",
+          "func": "input"
+        },
+        {
+          "num": "14",
+          "name": "Pin_14",
+          "func": "input"
+        },
+        {
+          "num": "15",
+          "name": "Pin_15",
+          "func": "input"
+        },
+        {
+          "num": "16",
+          "name": "Pin_16",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "YELLOW",
+      "footprint": "LED_THT:LED_D3.0mm",
+      "group": "interface"
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "LED",
+      "value": "BLUE",
+      "footprint": "LED_THT:LED_D3.0mm",
+      "group": "interface"
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "LED",
+      "value": "RED",
+      "footprint": "LED_THT:LED_D3.0mm",
+      "group": "interface"
+    },
+    {
+      "ref": "D4",
+      "lib": "Device",
+      "part": "LED",
+      "value": "GREEN",
+      "footprint": "LED_THT:LED_D3.0mm",
+      "group": "interface"
+    },
+    {
+      "ref": "J1",
+      "lib": null,
+      "part": null,
+      "value": "THONKICONN",
+      "footprint": "FreeModular:THONKICONN",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J2",
+      "lib": null,
+      "part": null,
+      "value": "THONKICONN",
+      "footprint": "FreeModular:THONKICONN",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J3",
+      "lib": null,
+      "part": null,
+      "value": "THONKICONN",
+      "footprint": "FreeModular:THONKICONN",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J4",
+      "lib": null,
+      "part": null,
+      "value": "THONKICONN",
+      "footprint": "FreeModular:THONKICONN",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J5",
+      "lib": null,
+      "part": null,
+      "value": "THONKICONN",
+      "footprint": "FreeModular:THONKICONN",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J6",
+      "lib": null,
+      "part": null,
+      "value": "THONKICONN",
+      "footprint": "FreeModular:THONKICONN",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J7",
+      "lib": null,
+      "part": null,
+      "value": "THONKICONN",
+      "footprint": "FreeModular:THONKICONN",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J8",
+      "lib": null,
+      "part": null,
+      "value": "THONKICONN",
+      "footprint": "FreeModular:THONKICONN",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "200k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "200k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "200k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "200k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "2k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R",
+      "value": "2k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R11",
+      "lib": "Device",
+      "part": "R",
+      "value": "2k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "R12",
+      "lib": "Device",
+      "part": "R",
+      "value": "2k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "interface"
+    },
+    {
+      "ref": "RV1",
+      "lib": null,
+      "part": null,
+      "value": "10k\u03a9",
+      "footprint": "Potentiometer_THT:Potentiometer_Alpha_RD901F-40-00D_Single_Vertical",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV2",
+      "lib": null,
+      "part": null,
+      "value": "10k\u03a9",
+      "footprint": "Potentiometer_THT:Potentiometer_Alpha_RD901F-40-00D_Single_Vertical",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV3",
+      "lib": null,
+      "part": null,
+      "value": "10k\u03a9",
+      "footprint": "Potentiometer_THT:Potentiometer_Alpha_RD901F-40-00D_Single_Vertical",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV4",
+      "lib": null,
+      "part": null,
+      "value": "10k\u03a9",
+      "footprint": "Potentiometer_THT:Potentiometer_Alpha_RD901F-40-00D_Single_Vertical",
+      "group": "interface",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "SW1",
+      "lib": "Switch",
+      "part": "SW_SPST",
+      "value": "TL1105SPF250Q",
+      "footprint": "Button_Switch_THT:SW_PUSH_6mm_H13mm",
+      "group": "interface"
+    },
+    {
+      "ref": "A1",
+      "lib": null,
+      "part": null,
+      "value": "Arduino_Nano_v3.x",
+      "footprint": "Module:Arduino_Nano",
+      "group": "main",
+      "pins": [
+        {
+          "num": "1",
+          "name": "D1/TX",
+          "func": "output"
+        },
+        {
+          "num": "2",
+          "name": "D0/RX",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "~{RESET}",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "D2",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "D3",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "D4",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "D5",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "D6",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "D7",
+          "func": "passive"
+        },
+        {
+          "num": "11",
+          "name": "D8",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "D9",
+          "func": "passive"
+        },
+        {
+          "num": "13",
+          "name": "D10",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "D11",
+          "func": "passive"
+        },
+        {
+          "num": "15",
+          "name": "D12",
+          "func": "passive"
+        },
+        {
+          "num": "16",
+          "name": "D13",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "3V3",
+          "func": "passive"
+        },
+        {
+          "num": "18",
+          "name": "AREF",
+          "func": "passive"
+        },
+        {
+          "num": "19",
+          "name": "A0",
+          "func": "passive"
+        },
+        {
+          "num": "20",
+          "name": "A1",
+          "func": "passive"
+        },
+        {
+          "num": "21",
+          "name": "A2",
+          "func": "passive"
+        },
+        {
+          "num": "22",
+          "name": "A3",
+          "func": "passive"
+        },
+        {
+          "num": "23",
+          "name": "A4",
+          "func": "passive"
+        },
+        {
+          "num": "24",
+          "name": "A5",
+          "func": "passive"
+        },
+        {
+          "num": "25",
+          "name": "A6",
+          "func": "passive"
+        },
+        {
+          "num": "26",
+          "name": "A7",
+          "func": "passive"
+        },
+        {
+          "num": "27",
+          "name": "+5V",
+          "func": "passive"
+        },
+        {
+          "num": "28",
+          "name": "~{RESET}",
+          "func": "input"
+        },
+        {
+          "num": "29",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "30",
+          "name": "VIN",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_THT:C_Disc_D4.7mm_W2.5mm_P5.00mm",
+      "group": "main"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_THT:C_Disc_D4.7mm_W2.5mm_P5.00mm",
+      "group": "main"
+    },
+    {
+      "ref": "J14",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x03_Odd_Even",
+      "value": "Conn_02x02_Odd_Even",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical",
+      "group": "main"
+    },
+    {
+      "ref": "Q1",
+      "lib": "Device",
+      "part": "Q_NPN_EBC",
+      "value": "2N3904",
+      "footprint": "Package_TO_SOT_THT:TO-92L_Inline_Wide",
+      "group": "main"
+    },
+    {
+      "ref": "Q2",
+      "lib": "Device",
+      "part": "Q_NPN_EBC",
+      "value": "2N3904",
+      "footprint": "Package_TO_SOT_THT:TO-92L_Inline_Wide",
+      "group": "main"
+    },
+    {
+      "ref": "R13",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R14",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R15",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R16",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R17",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R18",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R19",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R20",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R21",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R22",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R23",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R24",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R25",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "R26",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k\u03a9",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": "main"
+    },
+    {
+      "ref": "U1",
+      "lib": "Analog_DAC",
+      "part": "MCP4922",
+      "value": null,
+      "footprint": "Package_DIP:DIP-14_W7.62mm",
+      "group": "main"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": "MCP6004",
+      "footprint": "Package_DIP:DIP-14_W7.62mm",
+      "group": "main",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "V+",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "P8",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "11",
+          "name": "V-",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "13",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "P14",
+          "func": "passive"
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "/-12V",
+      "power": false,
+      "pins": [
+        "J11.Pin_7",
+        "J13.-12v"
+      ]
+    },
+    {
+      "name": "/Main/5V",
+      "power": false,
+      "pins": [
+        "A1.+5V",
+        "C1.1",
+        "C2.1",
+        "C3.1",
+        "J13.+5v",
+        "U1.Vdd",
+        "U1.VrefA",
+        "U1.VrefB",
+        "U1.~{SHDN}",
+        "U2.V+"
+      ]
+    },
+    {
+      "name": "/Main/BUTTON",
+      "power": false,
+      "pins": [
+        "A1.D8",
+        "J11.Pin_2"
+      ]
+    },
+    {
+      "name": "/Main/CV1",
+      "power": false,
+      "pins": [
+        "J9.Pin_3",
+        "R17.1",
+        "U2.-"
+      ]
+    },
+    {
+      "name": "/Main/CV1_BUFFERED",
+      "power": false,
+      "pins": [
+        "A1.A4",
+        "R17.2",
+        "U2.7"
+      ]
+    },
+    {
+      "name": "/Main/CV2",
+      "power": false,
+      "pins": [
+        "J9.Pin_4",
+        "R18.1",
+        "U2.-"
+      ]
+    },
+    {
+      "name": "/Main/CV2_BUFFERED",
+      "power": false,
+      "pins": [
+        "A1.A5",
+        "R18.2",
+        "U2.1"
+      ]
+    },
+    {
+      "name": "/Main/CV3",
+      "power": false,
+      "pins": [
+        "J9.Pin_5",
+        "R19.1",
+        "U2.-"
+      ]
+    },
+    {
+      "name": "/Main/CV3_BUFFERED",
+      "power": false,
+      "pins": [
+        "A1.A6",
+        "R19.2",
+        "U2.14"
+      ]
+    },
+    {
+      "name": "/Main/CV4",
+      "power": false,
+      "pins": [
+        "J9.Pin_6",
+        "R20.1",
+        "U2.-"
+      ]
+    },
+    {
+      "name": "/Main/CV4_BUFFERED",
+      "power": false,
+      "pins": [
+        "A1.A7",
+        "R20.2",
+        "U2.8"
+      ]
+    },
+    {
+      "name": "/Main/DAC_CS",
+      "power": false,
+      "pins": [
+        "A1.D10",
+        "U1.~{CS}"
+      ]
+    },
+    {
+      "name": "/Main/GATE_INPUT",
+      "power": false,
+      "pins": [
+        "J9.Pin_2",
+        "R13.1"
+      ]
+    },
+    {
+      "name": "/Main/GATE_INPUT_BUFFERED",
+      "power": false,
+      "pins": [
+        "A1.D2",
+        "Q1.C"
+      ]
+    },
+    {
+      "name": "/Main/GATE_OUT",
+      "power": false,
+      "pins": [
+        "A1.A3",
+        "R26.1",
+        "U1.VB"
+      ]
+    },
+    {
+      "name": "/Main/GND",
+      "power": false,
+      "pins": [
+        "A1.GND",
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "J11.Pin_1",
+        "J13.GND",
+        "J14.Pin_1",
+        "J14.Pin_3",
+        "J14.Pin_5",
+        "Q1.E",
+        "Q2.E",
+        "R14.1",
+        "R16.1",
+        "U1.Vss",
+        "U1.~{LDAC}",
+        "U2.+",
+        "U2.V-"
+      ]
+    },
+    {
+      "name": "/Main/LED1",
+      "power": false,
+      "pins": [
+        "J11.Pin_3",
+        "R21.1"
+      ]
+    },
+    {
+      "name": "/Main/LED2",
+      "power": false,
+      "pins": [
+        "J11.Pin_4",
+        "R22.1"
+      ]
+    },
+    {
+      "name": "/Main/LED3",
+      "power": false,
+      "pins": [
+        "J11.Pin_5",
+        "R23.1"
+      ]
+    },
+    {
+      "name": "/Main/LED4",
+      "power": false,
+      "pins": [
+        "J11.Pin_6",
+        "R24.1"
+      ]
+    },
+    {
+      "name": "/Main/OUT_AUX",
+      "power": false,
+      "pins": [
+        "J9.Pin_8",
+        "R26.2"
+      ]
+    },
+    {
+      "name": "/Main/OUT_MAIN",
+      "power": false,
+      "pins": [
+        "J9.Pin_7",
+        "R25.2"
+      ]
+    },
+    {
+      "name": "/Main/SPI_SCK",
+      "power": false,
+      "pins": [
+        "A1.D13",
+        "U1.SCK"
+      ]
+    },
+    {
+      "name": "/Main/SPI_SDI",
+      "power": false,
+      "pins": [
+        "A1.D11",
+        "U1.SDI"
+      ]
+    },
+    {
+      "name": "/Main/TRIG_INPUT",
+      "power": false,
+      "pins": [
+        "J9.Pin_1",
+        "R15.1"
+      ]
+    },
+    {
+      "name": "/Main/TRIG_INPUT_BUFFERED",
+      "power": false,
+      "pins": [
+        "A1.D3",
+        "Q2.C"
+      ]
+    },
+    {
+      "name": "/interface/-12V",
+      "power": false,
+      "pins": [
+        "J12.Pin_7",
+        "R10.1",
+        "R11.1",
+        "R12.1",
+        "R9.1"
+      ]
+    },
+    {
+      "name": "/interface/BUTTON",
+      "power": false,
+      "pins": [
+        "J12.Pin_2",
+        "SW1.B"
+      ]
+    },
+    {
+      "name": "/interface/CV1",
+      "power": false,
+      "pins": [
+        "J10.Pin_3",
+        "R1.2",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "/interface/CV2",
+      "power": false,
+      "pins": [
+        "J10.Pin_4",
+        "R3.2",
+        "R4.1"
+      ]
+    },
+    {
+      "name": "/interface/CV3",
+      "power": false,
+      "pins": [
+        "J10.Pin_5",
+        "R5.2",
+        "R6.1"
+      ]
+    },
+    {
+      "name": "/interface/CV4",
+      "power": false,
+      "pins": [
+        "J10.Pin_6",
+        "R7.2",
+        "R8.1"
+      ]
+    },
+    {
+      "name": "/interface/GATE_INPUT",
+      "power": false,
+      "pins": [
+        "J10.Pin_2",
+        "J5.3"
+      ]
+    },
+    {
+      "name": "/interface/GND",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "D2.K",
+        "D3.K",
+        "D4.K",
+        "J1.1",
+        "J12.Pin_1",
+        "J2.1",
+        "J3.1",
+        "J4.1",
+        "J5.1",
+        "J5.2",
+        "J6.1",
+        "J6.2",
+        "J7.1",
+        "J8.1",
+        "RV1.3",
+        "RV2.3",
+        "RV3.3",
+        "RV4.3",
+        "SW1.A"
+      ]
+    },
+    {
+      "name": "/interface/LED_1",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "J12.Pin_3"
+      ]
+    },
+    {
+      "name": "/interface/LED_2",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "J12.Pin_4"
+      ]
+    },
+    {
+      "name": "/interface/LED_3",
+      "power": false,
+      "pins": [
+        "D3.A",
+        "J12.Pin_5"
+      ]
+    },
+    {
+      "name": "/interface/LED_4",
+      "power": false,
+      "pins": [
+        "D4.A",
+        "J12.Pin_6"
+      ]
+    },
+    {
+      "name": "/interface/OUT_AUX",
+      "power": false,
+      "pins": [
+        "J10.Pin_8",
+        "J8.3"
+      ]
+    },
+    {
+      "name": "/interface/OUT_MAIN",
+      "power": false,
+      "pins": [
+        "J10.Pin_7",
+        "J7.3"
+      ]
+    },
+    {
+      "name": "/interface/TRIG_INPUT",
+      "power": false,
+      "pins": [
+        "J10.Pin_1",
+        "J6.3"
+      ]
+    },
+    {
+      "name": "Net-(A1-A0)",
+      "power": false,
+      "pins": [
+        "A1.A0",
+        "J14.Pin_2"
+      ]
+    },
+    {
+      "name": "Net-(A1-A1)",
+      "power": false,
+      "pins": [
+        "A1.A1",
+        "J14.Pin_4"
+      ]
+    },
+    {
+      "name": "Net-(A1-A2)",
+      "power": false,
+      "pins": [
+        "A1.A2",
+        "J14.Pin_6"
+      ]
+    },
+    {
+      "name": "Net-(A1-D4)",
+      "power": false,
+      "pins": [
+        "A1.D4",
+        "R21.2"
+      ]
+    },
+    {
+      "name": "Net-(A1-D5)",
+      "power": false,
+      "pins": [
+        "A1.D5",
+        "R22.2"
+      ]
+    },
+    {
+      "name": "Net-(A1-D6)",
+      "power": false,
+      "pins": [
+        "A1.D6",
+        "R23.2"
+      ]
+    },
+    {
+      "name": "Net-(A1-D7)",
+      "power": false,
+      "pins": [
+        "A1.D7",
+        "R24.2"
+      ]
+    },
+    {
+      "name": "Net-(J1-Pad3)",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "Net-(J2-Pad3)",
+      "power": false,
+      "pins": [
+        "J2.3",
+        "R3.1"
+      ]
+    },
+    {
+      "name": "Net-(J3-Pad3)",
+      "power": false,
+      "pins": [
+        "J3.3",
+        "R5.1"
+      ]
+    },
+    {
+      "name": "Net-(J4-Pad3)",
+      "power": false,
+      "pins": [
+        "J4.3",
+        "R7.1"
+      ]
+    },
+    {
+      "name": "Net-(Q1-B)",
+      "power": false,
+      "pins": [
+        "Q1.B",
+        "R13.2",
+        "R14.2"
+      ]
+    },
+    {
+      "name": "Net-(Q2-B)",
+      "power": false,
+      "pins": [
+        "Q2.B",
+        "R15.2",
+        "R16.2"
+      ]
+    },
+    {
+      "name": "Net-(R2-Pad2)",
+      "power": false,
+      "pins": [
+        "R2.2",
+        "RV1.2"
+      ]
+    },
+    {
+      "name": "Net-(R4-Pad2)",
+      "power": false,
+      "pins": [
+        "R4.2",
+        "RV2.2"
+      ]
+    },
+    {
+      "name": "Net-(R6-Pad2)",
+      "power": false,
+      "pins": [
+        "R6.2",
+        "RV3.2"
+      ]
+    },
+    {
+      "name": "Net-(R8-Pad2)",
+      "power": false,
+      "pins": [
+        "R8.2",
+        "RV4.2"
+      ]
+    },
+    {
+      "name": "Net-(R9-Pad2)",
+      "power": false,
+      "pins": [
+        "R9.2",
+        "RV1.1"
+      ]
+    },
+    {
+      "name": "Net-(R10-Pad2)",
+      "power": false,
+      "pins": [
+        "R10.2",
+        "RV2.1"
+      ]
+    },
+    {
+      "name": "Net-(R11-Pad2)",
+      "power": false,
+      "pins": [
+        "R11.2",
+        "RV3.1"
+      ]
+    },
+    {
+      "name": "Net-(R12-Pad2)",
+      "power": false,
+      "pins": [
+        "R12.2",
+        "RV4.1"
+      ]
+    },
+    {
+      "name": "Net-(U1-VA)",
+      "power": false,
+      "pins": [
+        "R25.1",
+        "U1.VA"
+      ]
+    }
+  ]
+}

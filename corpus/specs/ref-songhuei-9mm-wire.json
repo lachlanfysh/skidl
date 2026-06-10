@@ -1,0 +1,48 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "songhuei.9mm.wire"
+  },
+  "parts": [
+    {
+      "ref": "RV1",
+      "lib": "Device",
+      "part": "R_Potentiometer",
+      "value": "100k",
+      "footprint": "Potentiometer_Thonk:SongHueiTallTrim9",
+      "group": null
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "RV1.3"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "RV1.1"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "RV1.2",
+        "TP1.1"
+      ]
+    }
+  ]
+}

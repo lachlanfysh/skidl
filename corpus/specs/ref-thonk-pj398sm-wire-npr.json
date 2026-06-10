@@ -1,0 +1,82 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "thonk.pj398sm.wire.npr"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": "IN",
+      "footprint": "Connector_Thonk:ThonkiconnJack",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    },
+    {
+      "ref": "TP2",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    },
+    {
+      "ref": "TP3",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "J1.S"
+      ]
+    },
+    {
+      "name": "Net-(J1-PadTN)",
+      "power": false,
+      "pins": [
+        "J1.TN",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "Normalling0",
+      "power": false,
+      "pins": [
+        "R1.2",
+        "TP3.1"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "J1.T",
+        "TP1.1",
+        "TP2.1"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "led.3mm.rgb.wire"
+  },
+  "parts": [
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED_RGBA",
+      "value": null,
+      "footprint": "LED_SMD:LED_Cree-PLCC4_3.2x2.8mm_CCW",
+      "group": null
+    },
+    {
+      "ref": "Pin0",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    },
+    {
+      "ref": "Pin1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    },
+    {
+      "ref": "Pin2",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "D1.A"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "D1.RK",
+        "Pin0.1"
+      ]
+    },
+    {
+      "name": "Pin1",
+      "power": false,
+      "pins": [
+        "D1.GK",
+        "Pin1.1"
+      ]
+    },
+    {
+      "name": "Pin2",
+      "power": false,
+      "pins": [
+        "D1.BK",
+        "Pin2.1"
+      ]
+    }
+  ]
+}

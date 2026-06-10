@@ -1,0 +1,232 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "expander"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x05_Odd_Even",
+      "value": "EXT",
+      "footprint": "winterbloom:Connector_Cortex_Debug_IDC_2x05_P1.27mm_Vertical_Shrouded_SMD",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": null,
+      "part": null,
+      "value": "RAMP A",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": null,
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J3",
+      "lib": null,
+      "part": null,
+      "value": "PULSE A",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": null,
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J4",
+      "lib": null,
+      "part": null,
+      "value": "SUB A",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": null,
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J5",
+      "lib": null,
+      "part": null,
+      "value": "RAMP B",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": null,
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J6",
+      "lib": null,
+      "part": null,
+      "value": "PULSE B",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": null,
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J7",
+      "lib": null,
+      "part": null,
+      "value": "SUB C",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": null,
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "/CASTOR_PULSE_IN",
+      "power": false,
+      "pins": [
+        "J1.Pin_6",
+        "J3.Tip"
+      ]
+    },
+    {
+      "name": "/CASTOR_RAMP_IN",
+      "power": false,
+      "pins": [
+        "J1.Pin_4",
+        "J2.Tip"
+      ]
+    },
+    {
+      "name": "/CASTOR_SUB_IN",
+      "power": false,
+      "pins": [
+        "J1.Pin_8",
+        "J4.Tip"
+      ]
+    },
+    {
+      "name": "/POLLUX_PULSE_IN",
+      "power": false,
+      "pins": [
+        "J1.Pin_3",
+        "J6.Tip"
+      ]
+    },
+    {
+      "name": "/POLLUX_RAMP_IN",
+      "power": false,
+      "pins": [
+        "J1.Pin_5",
+        "J5.Tip"
+      ]
+    },
+    {
+      "name": "/POLLUX_SUB_IN",
+      "power": false,
+      "pins": [
+        "J1.Pin_7",
+        "J7.Tip"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "J1.Pin_1",
+        "J1.Pin_10",
+        "J1.Pin_2",
+        "J1.Pin_9",
+        "J2.Sleeve",
+        "J3.Sleeve",
+        "J4.Sleeve",
+        "J5.Sleeve",
+        "J6.Sleeve",
+        "J7.Sleeve"
+      ]
+    }
+  ]
+}

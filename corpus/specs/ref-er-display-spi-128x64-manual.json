@@ -1,0 +1,67 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "er.display.spi.128x64.manual"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x07",
+      "value": "ER-OLEDM015-2W-SPI-I2C",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "3V3SW",
+      "power": false,
+      "pins": [
+        "J1.Pin_2"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "J1.Pin_1"
+      ]
+    },
+    {
+      "name": "Pin0.CMD",
+      "power": false,
+      "pins": [
+        "J1.Pin_6"
+      ]
+    },
+    {
+      "name": "Pin0.DAT",
+      "power": false,
+      "pins": [
+        "J1.Pin_4"
+      ]
+    },
+    {
+      "name": "Pin0.NSS",
+      "power": false,
+      "pins": [
+        "J1.Pin_7"
+      ]
+    },
+    {
+      "name": "Pin0.RST",
+      "power": false,
+      "pins": [
+        "J1.Pin_5"
+      ]
+    },
+    {
+      "name": "Pin0.SCK",
+      "power": false,
+      "pins": [
+        "J1.Pin_3"
+      ]
+    }
+  ]
+}

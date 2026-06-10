@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "ck.d6r.black.wire"
+  },
+  "parts": [
+    {
+      "ref": "SW1",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": "SW_Push_Dual",
+      "footprint": "Switch_Thonk:SW_SPST_CKD6R",
+      "group": null
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "SW1.1"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "SW1.2",
+        "TP1.1"
+      ]
+    }
+  ]
+}

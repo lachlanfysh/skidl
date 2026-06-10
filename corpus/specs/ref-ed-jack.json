@@ -1,0 +1,39 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "ed.jack"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": "IN",
+      "footprint": "Connector_Thonk:ThonkiconnJack",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "J1.S"
+      ]
+    },
+    {
+      "name": "Normalling0",
+      "power": false,
+      "pins": [
+        "J1.TN"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "J1.T"
+      ]
+    }
+  ]
+}

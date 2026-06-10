@@ -1,0 +1,57 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "bourns.pec11rn.wire"
+  },
+  "parts": [
+    {
+      "ref": "SW1",
+      "lib": "Device",
+      "part": "RotaryEncoder",
+      "value": null,
+      "footprint": "local:PEC11R-4220F-N0024",
+      "group": null
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    },
+    {
+      "ref": "TP2",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "SW1.C"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "SW1.A",
+        "TP1.1"
+      ]
+    },
+    {
+      "name": "Pin1",
+      "power": false,
+      "pins": [
+        "SW1.B",
+        "TP2.1"
+      ]
+    }
+  ]
+}

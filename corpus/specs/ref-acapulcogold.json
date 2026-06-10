@@ -1,0 +1,307 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "acapulcogold"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "10u",
+      "footprint": "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm",
+      "group": null
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "1u",
+      "footprint": "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm",
+      "group": null
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "4n7",
+      "footprint": "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "1u",
+      "footprint": "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm",
+      "group": null
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "1u",
+      "footprint": "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm",
+      "group": null
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "100u",
+      "footprint": "Capacitor_THT:CP_Radial_D6.3mm_P2.50mm",
+      "group": null
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "Conn_01x04_Pin",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "1M",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "68K",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "RV1",
+      "lib": "Device",
+      "part": "R_Potentiometer",
+      "value": "A100K",
+      "footprint": "Potentiometer_THT:Potentiometer_Omeg_PC16BU_Vertical",
+      "group": null
+    },
+    {
+      "ref": "U1",
+      "lib": null,
+      "part": null,
+      "value": "LM386",
+      "footprint": "Package_DIP:DIP-8_W7.62mm",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "GAIN",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "P5",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "V+",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "BYPASS",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "GAIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": "LM386",
+      "footprint": "Package_DIP:DIP-8_W7.62mm",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "GAIN",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "P5",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "V+",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "BYPASS",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "GAIN",
+          "func": "input"
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C3.2",
+        "C6.2",
+        "C7.1",
+        "J1.Pin_4",
+        "R1.2",
+        "RV1.1",
+        "U1.-",
+        "U1.GND",
+        "U2.-",
+        "U2.GND"
+      ]
+    },
+    {
+      "name": "Net-(C1-Pad1)",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "U1.GAIN"
+      ]
+    },
+    {
+      "name": "Net-(C1-Pad2)",
+      "power": false,
+      "pins": [
+        "C1.2",
+        "U1.GAIN"
+      ]
+    },
+    {
+      "name": "Net-(C2-Pad1)",
+      "power": false,
+      "pins": [
+        "C2.1",
+        "U1.5"
+      ]
+    },
+    {
+      "name": "Net-(C2-Pad2)",
+      "power": false,
+      "pins": [
+        "C2.2",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "Net-(C4-Pad1)",
+      "power": false,
+      "pins": [
+        "C4.1",
+        "U2.5"
+      ]
+    },
+    {
+      "name": "Net-(C4-Pad2)",
+      "power": false,
+      "pins": [
+        "C4.2",
+        "RV1.3"
+      ]
+    },
+    {
+      "name": "Net-(U1-+)",
+      "power": false,
+      "pins": [
+        "C5.1",
+        "R1.1",
+        "U1.+"
+      ]
+    },
+    {
+      "name": "Net-(U2-+)",
+      "power": false,
+      "pins": [
+        "C3.1",
+        "R2.2",
+        "U2.+"
+      ]
+    },
+    {
+      "name": "in",
+      "power": false,
+      "pins": [
+        "C5.2",
+        "J1.Pin_3"
+      ]
+    },
+    {
+      "name": "out",
+      "power": false,
+      "pins": [
+        "J1.Pin_2",
+        "RV1.2"
+      ]
+    },
+    {
+      "name": "vcc",
+      "power": true,
+      "pins": [
+        "C6.1",
+        "C7.2",
+        "J1.Pin_1",
+        "U1.V+",
+        "U2.V+"
+      ]
+    }
+  ]
+}

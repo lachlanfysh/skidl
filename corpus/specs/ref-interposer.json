@@ -1,0 +1,50 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "interposer"
+  },
+  "parts": [
+    {
+      "ref": "J101",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": "Original",
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x03_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J102",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": "New",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "Net-(J101-Pin_1)",
+      "power": false,
+      "pins": [
+        "J101.Pin_1",
+        "J102.Pin_3"
+      ]
+    },
+    {
+      "name": "Net-(J101-Pin_2)",
+      "power": false,
+      "pins": [
+        "J101.Pin_2",
+        "J102.Pin_2"
+      ]
+    },
+    {
+      "name": "Net-(J101-Pin_3)",
+      "power": false,
+      "pins": [
+        "J101.Pin_3",
+        "J102.Pin_1"
+      ]
+    }
+  ]
+}

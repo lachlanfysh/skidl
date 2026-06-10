@@ -1,0 +1,208 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "normal125b"
+  },
+  "parts": [
+    {
+      "ref": "J101",
+      "lib": "Connector",
+      "part": "Conn_01x03_Socket",
+      "value": null,
+      "footprint": "Connector_JST:JST_PH_B3B-PH-K_1x03_P2.00mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J102",
+      "lib": "Connector",
+      "part": "Conn_01x03_Socket",
+      "value": null,
+      "footprint": "Connector_JST:JST_PH_B3B-PH-K_1x03_P2.00mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "C101",
+      "lib": "Device",
+      "part": "C_Polarized_Small_US",
+      "value": "100uF",
+      "footprint": "Capacitor_SMD:CP_Elec_6.3x5.9",
+      "group": "board_setup"
+    },
+    {
+      "ref": "C102",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "board_setup"
+    },
+    {
+      "ref": "C103",
+      "lib": "Device",
+      "part": "C_Polarized_Small_US",
+      "value": "100uF",
+      "footprint": "Capacitor_SMD:CP_Elec_6.3x9.9",
+      "group": "board_setup"
+    },
+    {
+      "ref": "D101",
+      "lib": "Device",
+      "part": "D_Small",
+      "value": "1N5819",
+      "footprint": "Diode_SMD:D_SOD-323",
+      "group": "board_setup"
+    },
+    {
+      "ref": "D103",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_SMD:LED_0805_2012Metric",
+      "group": "board_setup"
+    },
+    {
+      "ref": "D104",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_SMD:LED_0805_2012Metric",
+      "group": "board_setup"
+    },
+    {
+      "ref": "R101",
+      "lib": "Device",
+      "part": "R_Small_US",
+      "value": "10R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "board_setup"
+    },
+    {
+      "ref": "R102",
+      "lib": "Device",
+      "part": "R_Small_US",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "board_setup"
+    },
+    {
+      "ref": "R103",
+      "lib": "Device",
+      "part": "R_Small_US",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "board_setup"
+    },
+    {
+      "ref": "R105",
+      "lib": "Device",
+      "part": "R_Small_US",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "board_setup"
+    },
+    {
+      "ref": "R106",
+      "lib": "Device",
+      "part": "R_Small_US",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "board_setup"
+    }
+  ],
+  "nets": [
+    {
+      "name": "+9V",
+      "power": true,
+      "pins": [
+        "J101.Pin_2",
+        "R101.2"
+      ]
+    },
+    {
+      "name": "+9VA",
+      "power": false,
+      "pins": [
+        "C101.1",
+        "C102.1",
+        "D101.K",
+        "D104.A",
+        "R102.1"
+      ]
+    },
+    {
+      "name": "/Board Basic Setup/INT_PWR_LED",
+      "power": false,
+      "pins": [
+        "D104.K",
+        "R106.1"
+      ]
+    },
+    {
+      "name": "/Board Basic Setup/INT_SWITCH_LED",
+      "power": false,
+      "pins": [
+        "D103.K",
+        "R105.1"
+      ]
+    },
+    {
+      "name": "EFFECT_IN",
+      "power": false,
+      "pins": [
+        "J101.Pin_1"
+      ]
+    },
+    {
+      "name": "EFFECT_OUT",
+      "power": false,
+      "pins": [
+        "J102.Pin_3"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C101.2",
+        "C102.2",
+        "C103.2",
+        "J102.Pin_2",
+        "R103.2",
+        "R106.2"
+      ]
+    },
+    {
+      "name": "Net-(D101-A)",
+      "power": false,
+      "pins": [
+        "D101.A",
+        "R101.1"
+      ]
+    },
+    {
+      "name": "SENSE",
+      "power": false,
+      "pins": [
+        "J101.Pin_3"
+      ]
+    },
+    {
+      "name": "SWITCH",
+      "power": false,
+      "pins": [
+        "J102.Pin_1",
+        "R105.2"
+      ]
+    },
+    {
+      "name": "VREF",
+      "power": true,
+      "pins": [
+        "C103.1",
+        "D103.A",
+        "R102.2",
+        "R103.1"
+      ]
+    }
+  ]
+}

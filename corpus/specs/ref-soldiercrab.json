@@ -1,0 +1,3570 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "soldiercrab"
+  },
+  "parts": [
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": null,
+      "part": null,
+      "value": "MICROMOD-2222",
+      "footprint": "soldiercrab:M.2-CARD-E-22",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "3.3V",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "USB_D+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "3.3V_EN",
+          "func": "input"
+        },
+        {
+          "num": "5",
+          "name": "USB_D-",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "~{RESET}",
+          "func": "input"
+        },
+        {
+          "num": "7",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "8",
+          "name": "G11",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "USB_VIN",
+          "func": "power_in"
+        },
+        {
+          "num": "10",
+          "name": "D0",
+          "func": "passive"
+        },
+        {
+          "num": "11",
+          "name": "~{BOOT}",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "I2C_SDA",
+          "func": "bidirectional"
+        },
+        {
+          "num": "13",
+          "name": "RTS1",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "I2C_SCL",
+          "func": "input"
+        },
+        {
+          "num": "15",
+          "name": "CTS1",
+          "func": "passive"
+        },
+        {
+          "num": "16",
+          "name": "I2C_~{INT}",
+          "func": "input"
+        },
+        {
+          "num": "17",
+          "name": "TX1",
+          "func": "output"
+        },
+        {
+          "num": "18",
+          "name": "D1/CAM_TRIG",
+          "func": "passive"
+        },
+        {
+          "num": "19",
+          "name": "RX1",
+          "func": "input"
+        },
+        {
+          "num": "20",
+          "name": "RX2",
+          "func": "input"
+        },
+        {
+          "num": "21",
+          "name": "SWDCK",
+          "func": "passive"
+        },
+        {
+          "num": "22",
+          "name": "TX2",
+          "func": "output"
+        },
+        {
+          "num": "23",
+          "name": "SWDIO",
+          "func": "input"
+        },
+        {
+          "num": "32",
+          "name": "PWM0",
+          "func": "passive"
+        },
+        {
+          "num": "33",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "34",
+          "name": "A0",
+          "func": "passive"
+        },
+        {
+          "num": "35",
+          "name": "USBHOST_D+",
+          "func": "passive"
+        },
+        {
+          "num": "36",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "37",
+          "name": "USBHOST_D-",
+          "func": "passive"
+        },
+        {
+          "num": "38",
+          "name": "A1",
+          "func": "passive"
+        },
+        {
+          "num": "39",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "40",
+          "name": "G0/BUS0",
+          "func": "passive"
+        },
+        {
+          "num": "41",
+          "name": "CAN-RX",
+          "func": "input"
+        },
+        {
+          "num": "42",
+          "name": "G1/BUS1",
+          "func": "passive"
+        },
+        {
+          "num": "43",
+          "name": "CAN-TX",
+          "func": "output"
+        },
+        {
+          "num": "44",
+          "name": "G2/BUS2",
+          "func": "passive"
+        },
+        {
+          "num": "45",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "46",
+          "name": "G3/BUS3",
+          "func": "passive"
+        },
+        {
+          "num": "47",
+          "name": "PWM1",
+          "func": "passive"
+        },
+        {
+          "num": "48",
+          "name": "G4/BUS4",
+          "func": "passive"
+        },
+        {
+          "num": "49",
+          "name": "BATT_VIN/3",
+          "func": "power_in"
+        },
+        {
+          "num": "50",
+          "name": "AUD_BCLK",
+          "func": "input"
+        },
+        {
+          "num": "51",
+          "name": "I2C_SDA1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "52",
+          "name": "AUD_LRCLK",
+          "func": "input"
+        },
+        {
+          "num": "53",
+          "name": "I2C_SCL1",
+          "func": "input"
+        },
+        {
+          "num": "54",
+          "name": "AUD_IN/CAM_PCLK",
+          "func": "input"
+        },
+        {
+          "num": "55",
+          "name": "SPI_~{CS}",
+          "func": "bidirectional"
+        },
+        {
+          "num": "56",
+          "name": "AUD_OUT/CAM_MCLK",
+          "func": "input"
+        },
+        {
+          "num": "57",
+          "name": "SPI_SCK",
+          "func": "bidirectional"
+        },
+        {
+          "num": "58",
+          "name": "AUD_MCLK",
+          "func": "input"
+        },
+        {
+          "num": "59",
+          "name": "SPI_SDO",
+          "func": "bidirectional"
+        },
+        {
+          "num": "60",
+          "name": "SPI_SCK1/SDIO_CLK",
+          "func": "bidirectional"
+        },
+        {
+          "num": "61",
+          "name": "SPI_SDI",
+          "func": "bidirectional"
+        },
+        {
+          "num": "62",
+          "name": "SPI_SDO1/SDIO_CMD",
+          "func": "bidirectional"
+        },
+        {
+          "num": "63",
+          "name": "G10/ADC_D+/CAM_VSYNC",
+          "func": "no_connect"
+        },
+        {
+          "num": "64",
+          "name": "SPI_SDI1/SDIO_DATA0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "65",
+          "name": "G9/ADC_D-/CAM_HSYNC",
+          "func": "no_connect"
+        },
+        {
+          "num": "66",
+          "name": "SDIO_DATA1",
+          "func": "input"
+        },
+        {
+          "num": "67",
+          "name": "G8",
+          "func": "passive"
+        },
+        {
+          "num": "68",
+          "name": "SDIO_DATA2",
+          "func": "input"
+        },
+        {
+          "num": "69",
+          "name": "G7/BUS7",
+          "func": "passive"
+        },
+        {
+          "num": "70",
+          "name": "SPI_~{CS1}/SDIO_DATA3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "71",
+          "name": "G6/BUS6",
+          "func": "passive"
+        },
+        {
+          "num": "72",
+          "name": "RTC_3V",
+          "func": "passive"
+        },
+        {
+          "num": "73",
+          "name": "G5/BUS5",
+          "func": "passive"
+        },
+        {
+          "num": "74",
+          "name": "3.3V",
+          "func": "passive"
+        },
+        {
+          "num": "75",
+          "name": "GND",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "R108",
+      "lib": "Device",
+      "part": "R",
+      "value": "330",
+      "footprint": "Resistor_SMD:R_0201_0603Metric",
+      "group": null
+    },
+    {
+      "ref": "Y1",
+      "lib": null,
+      "part": null,
+      "value": "Osc48MHz",
+      "footprint": "Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "EN",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "OUT",
+          "func": "output"
+        },
+        {
+          "num": "4",
+          "name": "VDD",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "IC1",
+      "lib": null,
+      "part": null,
+      "value": "ECP5-BGA256",
+      "footprint": "soldiercrab:lattice_cabga256",
+      "group": "power_supplies",
+      "pins": [
+        {
+          "num": "A1",
+          "name": "GND_1",
+          "func": "power_in"
+        },
+        {
+          "num": "A10",
+          "name": "PT42B",
+          "func": "passive"
+        },
+        {
+          "num": "A11",
+          "name": "PT53A",
+          "func": "passive"
+        },
+        {
+          "num": "A12",
+          "name": "PT53B",
+          "func": "passive"
+        },
+        {
+          "num": "A13",
+          "name": "PT65A",
+          "func": "passive"
+        },
+        {
+          "num": "A14",
+          "name": "PT65B",
+          "func": "passive"
+        },
+        {
+          "num": "A15",
+          "name": "PT67B",
+          "func": "passive"
+        },
+        {
+          "num": "A16",
+          "name": "GND_2",
+          "func": "power_in"
+        },
+        {
+          "num": "A2",
+          "name": "PT4A",
+          "func": "passive"
+        },
+        {
+          "num": "A3",
+          "name": "PT6A",
+          "func": "passive"
+        },
+        {
+          "num": "A4",
+          "name": "PT6B",
+          "func": "passive"
+        },
+        {
+          "num": "A5",
+          "name": "PT18A",
+          "func": "passive"
+        },
+        {
+          "num": "A6",
+          "name": "PT18B",
+          "func": "passive"
+        },
+        {
+          "num": "A7",
+          "name": "PT29A",
+          "func": "passive"
+        },
+        {
+          "num": "A8",
+          "name": "PT29B",
+          "func": "passive"
+        },
+        {
+          "num": "A9",
+          "name": "PT42A",
+          "func": "passive"
+        },
+        {
+          "num": "B1",
+          "name": "PL2A",
+          "func": "passive"
+        },
+        {
+          "num": "B10",
+          "name": "PT44A",
+          "func": "passive"
+        },
+        {
+          "num": "B11",
+          "name": "PT49A",
+          "func": "passive"
+        },
+        {
+          "num": "B12",
+          "name": "PT56A",
+          "func": "passive"
+        },
+        {
+          "num": "B13",
+          "name": "PT60A",
+          "func": "passive"
+        },
+        {
+          "num": "B14",
+          "name": "PT67A",
+          "func": "passive"
+        },
+        {
+          "num": "B15",
+          "name": "PR2B",
+          "func": "passive"
+        },
+        {
+          "num": "B16",
+          "name": "PR2A",
+          "func": "passive"
+        },
+        {
+          "num": "B2",
+          "name": "PL2B",
+          "func": "passive"
+        },
+        {
+          "num": "B3",
+          "name": "PT4B",
+          "func": "passive"
+        },
+        {
+          "num": "B4",
+          "name": "PT11B",
+          "func": "passive"
+        },
+        {
+          "num": "B5",
+          "name": "PT15B",
+          "func": "passive"
+        },
+        {
+          "num": "B6",
+          "name": "PT22B",
+          "func": "passive"
+        },
+        {
+          "num": "B7",
+          "name": "PT27B",
+          "func": "passive"
+        },
+        {
+          "num": "B8",
+          "name": "PT35B",
+          "func": "passive"
+        },
+        {
+          "num": "B9",
+          "name": "PT38A",
+          "func": "passive"
+        },
+        {
+          "num": "C1",
+          "name": "PL5A",
+          "func": "passive"
+        },
+        {
+          "num": "C10",
+          "name": "PT44B",
+          "func": "passive"
+        },
+        {
+          "num": "C11",
+          "name": "PT49B",
+          "func": "passive"
+        },
+        {
+          "num": "C12",
+          "name": "PT56B",
+          "func": "passive"
+        },
+        {
+          "num": "C13",
+          "name": "PT60B",
+          "func": "passive"
+        },
+        {
+          "num": "C14",
+          "name": "PR2C",
+          "func": "passive"
+        },
+        {
+          "num": "C15",
+          "name": "PR5B",
+          "func": "passive"
+        },
+        {
+          "num": "C16",
+          "name": "PR5A",
+          "func": "passive"
+        },
+        {
+          "num": "C2",
+          "name": "PL5B",
+          "func": "passive"
+        },
+        {
+          "num": "C3",
+          "name": "PL2C",
+          "func": "passive"
+        },
+        {
+          "num": "C4",
+          "name": "PT11A",
+          "func": "passive"
+        },
+        {
+          "num": "C5",
+          "name": "PT15A",
+          "func": "passive"
+        },
+        {
+          "num": "C6",
+          "name": "PT22A",
+          "func": "passive"
+        },
+        {
+          "num": "C7",
+          "name": "PT27A",
+          "func": "passive"
+        },
+        {
+          "num": "C8",
+          "name": "PT35A",
+          "func": "passive"
+        },
+        {
+          "num": "C9",
+          "name": "PT38B",
+          "func": "passive"
+        },
+        {
+          "num": "D1",
+          "name": "PL8A",
+          "func": "passive"
+        },
+        {
+          "num": "D10",
+          "name": "PT47A",
+          "func": "passive"
+        },
+        {
+          "num": "D11",
+          "name": "PT51A",
+          "func": "passive"
+        },
+        {
+          "num": "D12",
+          "name": "PT58A",
+          "func": "passive"
+        },
+        {
+          "num": "D13",
+          "name": "PT62A",
+          "func": "passive"
+        },
+        {
+          "num": "D14",
+          "name": "PR2D",
+          "func": "passive"
+        },
+        {
+          "num": "D15",
+          "name": "GND_4",
+          "func": "power_in"
+        },
+        {
+          "num": "D16",
+          "name": "PR8A",
+          "func": "passive"
+        },
+        {
+          "num": "D2",
+          "name": "GND_3",
+          "func": "power_in"
+        },
+        {
+          "num": "D3",
+          "name": "PL2D",
+          "func": "passive"
+        },
+        {
+          "num": "D4",
+          "name": "PT9B",
+          "func": "passive"
+        },
+        {
+          "num": "D5",
+          "name": "PT13B",
+          "func": "passive"
+        },
+        {
+          "num": "D6",
+          "name": "PT20B",
+          "func": "passive"
+        },
+        {
+          "num": "D7",
+          "name": "PT24B",
+          "func": "passive"
+        },
+        {
+          "num": "D8",
+          "name": "PT33B",
+          "func": "passive"
+        },
+        {
+          "num": "D9",
+          "name": "PT40A",
+          "func": "passive"
+        },
+        {
+          "num": "E1",
+          "name": "PL11D",
+          "func": "passive"
+        },
+        {
+          "num": "E10",
+          "name": "PT47B",
+          "func": "passive"
+        },
+        {
+          "num": "E11",
+          "name": "PT51B",
+          "func": "passive"
+        },
+        {
+          "num": "E12",
+          "name": "PT58B",
+          "func": "power_in"
+        },
+        {
+          "num": "E13",
+          "name": "PT62B",
+          "func": "passive"
+        },
+        {
+          "num": "E14",
+          "name": "PR5C",
+          "func": "passive"
+        },
+        {
+          "num": "E15",
+          "name": "PR8B",
+          "func": "passive"
+        },
+        {
+          "num": "E16",
+          "name": "PR11D",
+          "func": "passive"
+        },
+        {
+          "num": "E2",
+          "name": "PL8B",
+          "func": "passive"
+        },
+        {
+          "num": "E3",
+          "name": "PL5C",
+          "func": "passive"
+        },
+        {
+          "num": "E4",
+          "name": "PT9A",
+          "func": "passive"
+        },
+        {
+          "num": "E5",
+          "name": "PT13A",
+          "func": "power_in"
+        },
+        {
+          "num": "E6",
+          "name": "PT20A",
+          "func": "passive"
+        },
+        {
+          "num": "E7",
+          "name": "PT24A",
+          "func": "passive"
+        },
+        {
+          "num": "E8",
+          "name": "PT33A",
+          "func": "power_in"
+        },
+        {
+          "num": "E9",
+          "name": "PT40B",
+          "func": "power_in"
+        },
+        {
+          "num": "F1",
+          "name": "PL14A",
+          "func": "passive"
+        },
+        {
+          "num": "F10",
+          "name": "VCCIO1_1",
+          "func": "power_in"
+        },
+        {
+          "num": "F11",
+          "name": "VCCIO1_2",
+          "func": "power_in"
+        },
+        {
+          "num": "F12",
+          "name": "PR8D",
+          "func": "passive"
+        },
+        {
+          "num": "F13",
+          "name": "PR8C",
+          "func": "power_in"
+        },
+        {
+          "num": "F14",
+          "name": "PR5D",
+          "func": "passive"
+        },
+        {
+          "num": "F15",
+          "name": "PR11C",
+          "func": "passive"
+        },
+        {
+          "num": "F16",
+          "name": "PR14A",
+          "func": "passive"
+        },
+        {
+          "num": "F2",
+          "name": "PL11C",
+          "func": "passive"
+        },
+        {
+          "num": "F3",
+          "name": "PL5D",
+          "func": "passive"
+        },
+        {
+          "num": "F4",
+          "name": "PL8C",
+          "func": "power_in"
+        },
+        {
+          "num": "F5",
+          "name": "PL8D",
+          "func": "passive"
+        },
+        {
+          "num": "F6",
+          "name": "VCCIO0_1",
+          "func": "power_in"
+        },
+        {
+          "num": "F7",
+          "name": "VCCIO0_2",
+          "func": "power_in"
+        },
+        {
+          "num": "F8",
+          "name": "GND_5",
+          "func": "power_in"
+        },
+        {
+          "num": "F9",
+          "name": "GND_6",
+          "func": "power_in"
+        },
+        {
+          "num": "G1",
+          "name": "PL20A",
+          "func": "passive"
+        },
+        {
+          "num": "G10",
+          "name": "GND_8",
+          "func": "power_in"
+        },
+        {
+          "num": "G11",
+          "name": "VCCAUX_1",
+          "func": "power_in"
+        },
+        {
+          "num": "G12",
+          "name": "PR11A",
+          "func": "passive"
+        },
+        {
+          "num": "G13",
+          "name": "PR11B",
+          "func": "passive"
+        },
+        {
+          "num": "G14",
+          "name": "PR14C",
+          "func": "passive"
+        },
+        {
+          "num": "G15",
+          "name": "PR14B",
+          "func": "passive"
+        },
+        {
+          "num": "G16",
+          "name": "PR20A",
+          "func": "passive"
+        },
+        {
+          "num": "G2",
+          "name": "PL14B",
+          "func": "power_in"
+        },
+        {
+          "num": "G3",
+          "name": "PL14C",
+          "func": "power_in"
+        },
+        {
+          "num": "G4",
+          "name": "PL11B",
+          "func": "passive"
+        },
+        {
+          "num": "G5",
+          "name": "PL11A",
+          "func": "passive"
+        },
+        {
+          "num": "G6",
+          "name": "VCC_1",
+          "func": "power_in"
+        },
+        {
+          "num": "G7",
+          "name": "VCC_2",
+          "func": "power_in"
+        },
+        {
+          "num": "G8",
+          "name": "GND_7",
+          "func": "power_in"
+        },
+        {
+          "num": "G9",
+          "name": "VCC_3",
+          "func": "power_in"
+        },
+        {
+          "num": "H1",
+          "name": "GND_9",
+          "func": "power_in"
+        },
+        {
+          "num": "H10",
+          "name": "GND_12",
+          "func": "power_in"
+        },
+        {
+          "num": "H11",
+          "name": "VCCIO2_1",
+          "func": "power_in"
+        },
+        {
+          "num": "H12",
+          "name": "PR17A",
+          "func": "passive"
+        },
+        {
+          "num": "H13",
+          "name": "PR17B",
+          "func": "passive"
+        },
+        {
+          "num": "H14",
+          "name": "PR14D",
+          "func": "passive"
+        },
+        {
+          "num": "H15",
+          "name": "PR20B",
+          "func": "passive"
+        },
+        {
+          "num": "H16",
+          "name": "GND_13",
+          "func": "power_in"
+        },
+        {
+          "num": "H2",
+          "name": "PL20B",
+          "func": "power_in"
+        },
+        {
+          "num": "H3",
+          "name": "PL14D",
+          "func": "power_in"
+        },
+        {
+          "num": "H4",
+          "name": "PL17B",
+          "func": "passive"
+        },
+        {
+          "num": "H5",
+          "name": "PL17A",
+          "func": "passive"
+        },
+        {
+          "num": "H6",
+          "name": "VCCIO7_1",
+          "func": "power_in"
+        },
+        {
+          "num": "H7",
+          "name": "VCCIO7_2",
+          "func": "power_in"
+        },
+        {
+          "num": "H8",
+          "name": "GND_10",
+          "func": "power_in"
+        },
+        {
+          "num": "H9",
+          "name": "GND_11",
+          "func": "power_in"
+        },
+        {
+          "num": "J1",
+          "name": "PL23A",
+          "func": "passive"
+        },
+        {
+          "num": "J10",
+          "name": "GND_16",
+          "func": "power_in"
+        },
+        {
+          "num": "J11",
+          "name": "VCCIO2_2",
+          "func": "power_in"
+        },
+        {
+          "num": "J12",
+          "name": "PR17D",
+          "func": "passive"
+        },
+        {
+          "num": "J13",
+          "name": "PR17C",
+          "func": "passive"
+        },
+        {
+          "num": "J14",
+          "name": "PR20C",
+          "func": "passive"
+        },
+        {
+          "num": "J15",
+          "name": "PR23B",
+          "func": "passive"
+        },
+        {
+          "num": "J16",
+          "name": "PR23A",
+          "func": "passive"
+        },
+        {
+          "num": "J2",
+          "name": "PL23B",
+          "func": "passive"
+        },
+        {
+          "num": "J3",
+          "name": "PL20C",
+          "func": "passive"
+        },
+        {
+          "num": "J4",
+          "name": "PL17C",
+          "func": "passive"
+        },
+        {
+          "num": "J5",
+          "name": "PL17D",
+          "func": "passive"
+        },
+        {
+          "num": "J6",
+          "name": "VCCIO6_1",
+          "func": "power_in"
+        },
+        {
+          "num": "J7",
+          "name": "VCCIO6_2",
+          "func": "power_in"
+        },
+        {
+          "num": "J8",
+          "name": "GND_14",
+          "func": "power_in"
+        },
+        {
+          "num": "J9",
+          "name": "GND_15",
+          "func": "power_in"
+        },
+        {
+          "num": "K1",
+          "name": "PL23C",
+          "func": "passive"
+        },
+        {
+          "num": "K10",
+          "name": "GND_21",
+          "func": "power_in"
+        },
+        {
+          "num": "K11",
+          "name": "VCCIO3_1",
+          "func": "power_in"
+        },
+        {
+          "num": "K12",
+          "name": "PR29B",
+          "func": "passive"
+        },
+        {
+          "num": "K13",
+          "name": "PR29A",
+          "func": "passive"
+        },
+        {
+          "num": "K14",
+          "name": "PR20D",
+          "func": "passive"
+        },
+        {
+          "num": "K15",
+          "name": "PR23D",
+          "func": "passive"
+        },
+        {
+          "num": "K16",
+          "name": "PR23C",
+          "func": "passive"
+        },
+        {
+          "num": "K2",
+          "name": "PL23D",
+          "func": "passive"
+        },
+        {
+          "num": "K3",
+          "name": "PL20D",
+          "func": "passive"
+        },
+        {
+          "num": "K4",
+          "name": "PL29A",
+          "func": "passive"
+        },
+        {
+          "num": "K5",
+          "name": "PL29B",
+          "func": "passive"
+        },
+        {
+          "num": "K6",
+          "name": "GND_17",
+          "func": "power_in"
+        },
+        {
+          "num": "K7",
+          "name": "GND_18",
+          "func": "power_in"
+        },
+        {
+          "num": "K8",
+          "name": "GND_19",
+          "func": "power_in"
+        },
+        {
+          "num": "K9",
+          "name": "GND_20",
+          "func": "power_in"
+        },
+        {
+          "num": "L1",
+          "name": "PL26A",
+          "func": "passive"
+        },
+        {
+          "num": "L10",
+          "name": "VCC_6",
+          "func": "power_in"
+        },
+        {
+          "num": "L11",
+          "name": "VCCIO3_2",
+          "func": "power_in"
+        },
+        {
+          "num": "L12",
+          "name": "PR29D",
+          "func": "passive"
+        },
+        {
+          "num": "L13",
+          "name": "PR29C",
+          "func": "passive"
+        },
+        {
+          "num": "L14",
+          "name": "PR32C",
+          "func": "passive"
+        },
+        {
+          "num": "L15",
+          "name": "PR26B",
+          "func": "passive"
+        },
+        {
+          "num": "L16",
+          "name": "PR26A",
+          "func": "passive"
+        },
+        {
+          "num": "L2",
+          "name": "PL26B",
+          "func": "passive"
+        },
+        {
+          "num": "L3",
+          "name": "PL32C",
+          "func": "power_in"
+        },
+        {
+          "num": "L4",
+          "name": "PL29C",
+          "func": "passive"
+        },
+        {
+          "num": "L5",
+          "name": "PL29D",
+          "func": "power_in"
+        },
+        {
+          "num": "L6",
+          "name": "VCCIO8",
+          "func": "power_in"
+        },
+        {
+          "num": "L7",
+          "name": "VCCAUX_2",
+          "func": "power_in"
+        },
+        {
+          "num": "L8",
+          "name": "VCC_4",
+          "func": "power_in"
+        },
+        {
+          "num": "L9",
+          "name": "VCC_5",
+          "func": "power_in"
+        },
+        {
+          "num": "M1",
+          "name": "PL26C",
+          "func": "passive"
+        },
+        {
+          "num": "M10",
+          "name": "TDO",
+          "func": "output"
+        },
+        {
+          "num": "M11",
+          "name": "PR47A",
+          "func": "passive"
+        },
+        {
+          "num": "M12",
+          "name": "PR44C",
+          "func": "power_in"
+        },
+        {
+          "num": "M13",
+          "name": "PR35C",
+          "func": "power_in"
+        },
+        {
+          "num": "M14",
+          "name": "PR32D",
+          "func": "passive"
+        },
+        {
+          "num": "M15",
+          "name": "PR26D",
+          "func": "passive"
+        },
+        {
+          "num": "M16",
+          "name": "PR26C",
+          "func": "passive"
+        },
+        {
+          "num": "M2",
+          "name": "PL26D",
+          "func": "passive"
+        },
+        {
+          "num": "M3",
+          "name": "PL32D",
+          "func": "power_in"
+        },
+        {
+          "num": "M4",
+          "name": "PL35C",
+          "func": "passive"
+        },
+        {
+          "num": "M5",
+          "name": "PL44C",
+          "func": "passive"
+        },
+        {
+          "num": "M6",
+          "name": "PL47A",
+          "func": "passive"
+        },
+        {
+          "num": "M7",
+          "name": "D2/PB9B",
+          "func": "passive"
+        },
+        {
+          "num": "M8",
+          "name": "DOUT/CSON/PB15B",
+          "func": "output"
+        },
+        {
+          "num": "M9",
+          "name": "WRITEEN/PB18A",
+          "func": "input"
+        },
+        {
+          "num": "N1",
+          "name": "PL32A",
+          "func": "passive"
+        },
+        {
+          "num": "N10",
+          "name": "CFG_0",
+          "func": "passive"
+        },
+        {
+          "num": "N11",
+          "name": "PR47B",
+          "func": "power_in"
+        },
+        {
+          "num": "N12",
+          "name": "PR44D",
+          "func": "power_in"
+        },
+        {
+          "num": "N13",
+          "name": "PR38A",
+          "func": "passive"
+        },
+        {
+          "num": "N14",
+          "name": "PR35D",
+          "func": "passive"
+        },
+        {
+          "num": "N15",
+          "name": "GND_23",
+          "func": "power_in"
+        },
+        {
+          "num": "N16",
+          "name": "PR32A",
+          "func": "passive"
+        },
+        {
+          "num": "N2",
+          "name": "GND_22",
+          "func": "power_in"
+        },
+        {
+          "num": "N3",
+          "name": "PL35D",
+          "func": "passive"
+        },
+        {
+          "num": "N4",
+          "name": "PL38A",
+          "func": "passive"
+        },
+        {
+          "num": "N5",
+          "name": "PL44D",
+          "func": "passive"
+        },
+        {
+          "num": "N6",
+          "name": "PL47B",
+          "func": "power_in"
+        },
+        {
+          "num": "N7",
+          "name": "D3/PB9A",
+          "func": "passive"
+        },
+        {
+          "num": "N8",
+          "name": "HOLDN/DI/PB15A",
+          "func": "input"
+        },
+        {
+          "num": "N9",
+          "name": "MCLK/SCLK/CCLK",
+          "func": "input"
+        },
+        {
+          "num": "P1",
+          "name": "PL35A",
+          "func": "passive"
+        },
+        {
+          "num": "P10",
+          "name": "CFG_1",
+          "func": "passive"
+        },
+        {
+          "num": "P11",
+          "name": "PR47C",
+          "func": "passive"
+        },
+        {
+          "num": "P12",
+          "name": "PR47D",
+          "func": "passive"
+        },
+        {
+          "num": "P13",
+          "name": "PR41A",
+          "func": "passive"
+        },
+        {
+          "num": "P14",
+          "name": "PR38B",
+          "func": "passive"
+        },
+        {
+          "num": "P15",
+          "name": "PR32B",
+          "func": "passive"
+        },
+        {
+          "num": "P16",
+          "name": "PR35A",
+          "func": "passive"
+        },
+        {
+          "num": "P2",
+          "name": "PL32B",
+          "func": "passive"
+        },
+        {
+          "num": "P3",
+          "name": "PL38B",
+          "func": "passive"
+        },
+        {
+          "num": "P4",
+          "name": "PL41A",
+          "func": "passive"
+        },
+        {
+          "num": "P5",
+          "name": "PL47D",
+          "func": "power_in"
+        },
+        {
+          "num": "P6",
+          "name": "PL47C",
+          "func": "power_in"
+        },
+        {
+          "num": "P7",
+          "name": "D4/PICO2/PB6B",
+          "func": "passive"
+        },
+        {
+          "num": "P8",
+          "name": "CS1N/PB13B",
+          "func": "passive"
+        },
+        {
+          "num": "P9",
+          "name": "DONE",
+          "func": "output"
+        },
+        {
+          "num": "R1",
+          "name": "PL35B",
+          "func": "passive"
+        },
+        {
+          "num": "R10",
+          "name": "CFG_2",
+          "func": "passive"
+        },
+        {
+          "num": "R11",
+          "name": "TDI",
+          "func": "input"
+        },
+        {
+          "num": "R12",
+          "name": "PR44A",
+          "func": "passive"
+        },
+        {
+          "num": "R13",
+          "name": "PR41C",
+          "func": "passive"
+        },
+        {
+          "num": "R14",
+          "name": "PR41B",
+          "func": "passive"
+        },
+        {
+          "num": "R15",
+          "name": "PR38C",
+          "func": "passive"
+        },
+        {
+          "num": "R16",
+          "name": "PR35B",
+          "func": "passive"
+        },
+        {
+          "num": "R2",
+          "name": "PL38C",
+          "func": "passive"
+        },
+        {
+          "num": "R3",
+          "name": "PL41B",
+          "func": "passive"
+        },
+        {
+          "num": "R4",
+          "name": "PL41C",
+          "func": "passive"
+        },
+        {
+          "num": "R5",
+          "name": "PL44A",
+          "func": "passive"
+        },
+        {
+          "num": "R6",
+          "name": "D6/PB4B",
+          "func": "passive"
+        },
+        {
+          "num": "R7",
+          "name": "D5/POCI2/PB6A",
+          "func": "passive"
+        },
+        {
+          "num": "R8",
+          "name": "SN/CSN/PB13A",
+          "func": "passive"
+        },
+        {
+          "num": "R9",
+          "name": "PROGRAMN",
+          "func": "passive"
+        },
+        {
+          "num": "T1",
+          "name": "GND_24",
+          "func": "power_in"
+        },
+        {
+          "num": "T10",
+          "name": "TCK",
+          "func": "passive"
+        },
+        {
+          "num": "T11",
+          "name": "TMS",
+          "func": "passive"
+        },
+        {
+          "num": "T12",
+          "name": "GND_26",
+          "func": "power_in"
+        },
+        {
+          "num": "T13",
+          "name": "PR44B",
+          "func": "passive"
+        },
+        {
+          "num": "T14",
+          "name": "PR41D",
+          "func": "passive"
+        },
+        {
+          "num": "T15",
+          "name": "PR38D",
+          "func": "passive"
+        },
+        {
+          "num": "T16",
+          "name": "GND_27",
+          "func": "power_in"
+        },
+        {
+          "num": "T2",
+          "name": "PL38D",
+          "func": "passive"
+        },
+        {
+          "num": "T3",
+          "name": "PL41D",
+          "func": "passive"
+        },
+        {
+          "num": "T4",
+          "name": "PL44B",
+          "func": "passive"
+        },
+        {
+          "num": "T5",
+          "name": "GND_25",
+          "func": "power_in"
+        },
+        {
+          "num": "T6",
+          "name": "D7/PB4A",
+          "func": "passive"
+        },
+        {
+          "num": "T7",
+          "name": "D1/POCI/PB11A",
+          "func": "passive"
+        },
+        {
+          "num": "T8",
+          "name": "D0/PICO/PB11B",
+          "func": "passive"
+        },
+        {
+          "num": "T9",
+          "name": "INITN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED_Small_Filled",
+      "value": "LED 0402 RED",
+      "footprint": "LED_SMD:LED_0402_1005Metric",
+      "group": "bank2_3"
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "LED_Small_Filled",
+      "value": "LED 0402 RED",
+      "footprint": "LED_SMD:LED_0402_1005Metric",
+      "group": "bank2_3"
+    },
+    {
+      "ref": "R11",
+      "lib": null,
+      "part": null,
+      "value": "330R",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "bank2_3",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R15",
+      "lib": null,
+      "part": null,
+      "value": "330R",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "bank2_3",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C35",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "bank8_configuration"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "2.2k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "bank8_configuration"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "bank8_configuration"
+    },
+    {
+      "ref": "R12",
+      "lib": "Device",
+      "part": "R",
+      "value": "330",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "bank8_configuration"
+    },
+    {
+      "ref": "R13",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "bank8_configuration"
+    },
+    {
+      "ref": "R14",
+      "lib": "Device",
+      "part": "R",
+      "value": "330",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "bank8_configuration"
+    },
+    {
+      "ref": "R109",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "bank8_configuration"
+    },
+    {
+      "ref": "R110",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "bank8_configuration"
+    },
+    {
+      "ref": "U7",
+      "lib": "Memory_Flash",
+      "part": "W25Q32JVSS",
+      "value": "W25Q128JVP",
+      "footprint": "package-son:WSON-8-1EP_6x5mm_P1.27mm_EP3.4x4mm",
+      "group": "bank8_configuration"
+    },
+    {
+      "ref": "C34",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0201_0603Metric",
+      "group": "usb"
+    },
+    {
+      "ref": "C36",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0201_0603Metric",
+      "group": "usb"
+    },
+    {
+      "ref": "C37",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0201_0603Metric",
+      "group": "usb"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "8.06k",
+      "footprint": "Resistor_SMD:R_0201_0603Metric",
+      "group": "usb"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "20K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "usb"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "27R",
+      "footprint": "Resistor_SMD:R_0201_0603Metric",
+      "group": "usb"
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R",
+      "value": "27R",
+      "footprint": "Resistor_SMD:R_0201_0603Metric",
+      "group": "usb"
+    },
+    {
+      "ref": "U3",
+      "lib": "Interface_USB",
+      "part": "USB3343",
+      "value": null,
+      "footprint": "Package_DFN_QFN:QFN-24-1EP_4x4mm_P0.5mm_EP2.6x2.6mm",
+      "group": "usb"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "ram"
+    },
+    {
+      "ref": "C19",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "ram"
+    },
+    {
+      "ref": "C21",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "ram"
+    },
+    {
+      "ref": "C31",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "ram"
+    },
+    {
+      "ref": "C32",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "ram"
+    },
+    {
+      "ref": "C65",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "ram"
+    },
+    {
+      "ref": "U10",
+      "lib": null,
+      "part": null,
+      "value": "PSRAM (oSPI /HyperRAM)",
+      "footprint": "soldiercrab:BGA-24_5x5_6.0x8.0mm",
+      "group": "ram",
+      "pins": [
+        {
+          "num": "A2",
+          "name": "RFU",
+          "func": "passive"
+        },
+        {
+          "num": "A3",
+          "name": "~{CS}",
+          "func": "passive"
+        },
+        {
+          "num": "A4",
+          "name": "~{RESET}",
+          "func": "input"
+        },
+        {
+          "num": "A5",
+          "name": "RFU",
+          "func": "passive"
+        },
+        {
+          "num": "B1",
+          "name": "~{CK}",
+          "func": "passive"
+        },
+        {
+          "num": "B2",
+          "name": "CK",
+          "func": "passive"
+        },
+        {
+          "num": "B3",
+          "name": "VSS",
+          "func": "power_in"
+        },
+        {
+          "num": "B4",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "B5",
+          "name": "RFU/PSC",
+          "func": "passive"
+        },
+        {
+          "num": "C1",
+          "name": "VSSQ",
+          "func": "power_in"
+        },
+        {
+          "num": "C2",
+          "name": "RFU",
+          "func": "passive"
+        },
+        {
+          "num": "C3",
+          "name": "RWDS",
+          "func": "passive"
+        },
+        {
+          "num": "C4",
+          "name": "DQ2",
+          "func": "passive"
+        },
+        {
+          "num": "C5",
+          "name": "RFU/~{PSC}",
+          "func": "passive"
+        },
+        {
+          "num": "D1",
+          "name": "VCCQ",
+          "func": "power_in"
+        },
+        {
+          "num": "D2",
+          "name": "DQ1",
+          "func": "passive"
+        },
+        {
+          "num": "D3",
+          "name": "DQ0",
+          "func": "passive"
+        },
+        {
+          "num": "D4",
+          "name": "DQ3",
+          "func": "passive"
+        },
+        {
+          "num": "D5",
+          "name": "DQ4",
+          "func": "passive"
+        },
+        {
+          "num": "E1",
+          "name": "DQ7",
+          "func": "passive"
+        },
+        {
+          "num": "E2",
+          "name": "DQ6",
+          "func": "passive"
+        },
+        {
+          "num": "E3",
+          "name": "DQ5",
+          "func": "passive"
+        },
+        {
+          "num": "E4",
+          "name": "VCCQ",
+          "func": "power_in"
+        },
+        {
+          "num": "E5",
+          "name": "VSSQ",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "2.2uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "2.2uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "2.2uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "2.2uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C15",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C16",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C17",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C18",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C20",
+      "lib": "Device",
+      "part": "C",
+      "value": "4.7uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C22",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C23",
+      "lib": "Device",
+      "part": "C",
+      "value": "2.2uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C24",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C25",
+      "lib": "Device",
+      "part": "C",
+      "value": "10pF",
+      "footprint": "Capacitor_SMD:C_0201_0603Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C26",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C27",
+      "lib": "Device",
+      "part": "C",
+      "value": "4.7uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C28",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C29",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C33",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C79",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C80",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C81",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C82",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "C83",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "L1",
+      "lib": "Device",
+      "part": "L_Small",
+      "value": "2.2uH",
+      "footprint": "Inductor_SMD:L_0805_2012Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0201_0603Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k",
+      "footprint": "Resistor_SMD:R_0201_0603Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "120k",
+      "footprint": "Resistor_SMD:R_0201_0603Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "R16",
+      "lib": "Device",
+      "part": "R",
+      "value": "0R",
+      "footprint": "Resistor_SMD:R_0201_0603Metric",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "U1",
+      "lib": "Regulator_Switching",
+      "part": "TLV62569DRL",
+      "value": "TLV62569ADRLR",
+      "footprint": "Package_TO_SOT_SMD:SOT-563",
+      "group": "power_supplies"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": "NCP115-2.5",
+      "footprint": "soldiercrab:Texas_X2SON-4_1x1mm_P0.65mm",
+      "group": "power_supplies",
+      "pins": [
+        {
+          "num": "1",
+          "name": "OUT",
+          "func": "output"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "EN",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "IN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U4",
+      "lib": null,
+      "part": null,
+      "value": "NCP115-1.8",
+      "footprint": "soldiercrab:Texas_X2SON-4_1x1mm_P0.65mm",
+      "group": "power_supplies",
+      "pins": [
+        {
+          "num": "1",
+          "name": "OUT",
+          "func": "output"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "EN",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "IN",
+          "func": "input"
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "+1V1",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "C11.1",
+        "C13.1",
+        "C15.1",
+        "C17.1",
+        "C25.2",
+        "C28.2",
+        "C29.2",
+        "C3.1",
+        "C7.1",
+        "C9.1",
+        "IC1.VCC_1",
+        "IC1.VCC_2",
+        "IC1.VCC_3",
+        "IC1.VCC_4",
+        "IC1.VCC_5",
+        "IC1.VCC_6",
+        "L1.2",
+        "R2.2"
+      ]
+    },
+    {
+      "name": "+2V5",
+      "power": false,
+      "pins": [
+        "C22.1",
+        "C24.1",
+        "C26.1",
+        "C27.1",
+        "IC1.VCCAUX_1",
+        "IC1.VCCAUX_2",
+        "U2.OUT"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "C10.1",
+        "C12.1",
+        "C14.1",
+        "C16.1",
+        "C18.1",
+        "C2.1",
+        "C20.1",
+        "C23.1",
+        "C33.1",
+        "C35.1",
+        "C4.1",
+        "C6.2",
+        "C79.1",
+        "C8.1",
+        "C80.1",
+        "C81.1",
+        "IC1.D6/PB4B",
+        "IC1.PR17D",
+        "IC1.PR29B",
+        "IC1.PR29D",
+        "IC1.PR38A",
+        "IC1.PR41A",
+        "IC1.PR47A",
+        "IC1.PR47C",
+        "IC1.PR47D",
+        "IC1.PR8D",
+        "IC1.PT20A",
+        "IC1.PT24A",
+        "IC1.PT47A",
+        "IC1.PT47B",
+        "IC1.PT51B",
+        "IC1.VCCIO0_1",
+        "IC1.VCCIO0_2",
+        "IC1.VCCIO1_1",
+        "IC1.VCCIO1_2",
+        "IC1.VCCIO2_1",
+        "IC1.VCCIO2_2",
+        "IC1.VCCIO3_1",
+        "IC1.VCCIO3_2",
+        "IC1.VCCIO8",
+        "J1.3.3V",
+        "R1.2",
+        "R109.1",
+        "R11.2",
+        "R110.1",
+        "R13.2",
+        "R15.2",
+        "R16.2",
+        "R6.1",
+        "U1.VIN",
+        "U2.IN",
+        "U3.VBAT",
+        "U4.IN",
+        "U7.VCC",
+        "Y1.EN",
+        "Y1.VDD"
+      ]
+    },
+    {
+      "name": "/bank0_1/CLOCK_48MHZ",
+      "power": false,
+      "pins": [
+        "IC1.PT29B",
+        "R108.1"
+      ]
+    },
+    {
+      "name": "/bank2_3/~{FPGA_SELF_PROGRAM}",
+      "power": false,
+      "pins": [
+        "IC1.PR44B",
+        "R5.2"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.CK",
+      "power": false,
+      "pins": [
+        "IC1.PL2C",
+        "U10.CK"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.DQ0",
+      "power": false,
+      "pins": [
+        "IC1.PL11C",
+        "U10.DQ0"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.DQ1",
+      "power": false,
+      "pins": [
+        "IC1.PL2A",
+        "U10.DQ1"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.DQ2",
+      "power": false,
+      "pins": [
+        "IC1.PL5B",
+        "U10.DQ2"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.DQ3",
+      "power": false,
+      "pins": [
+        "IC1.PL11D",
+        "U10.DQ3"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.DQ4",
+      "power": false,
+      "pins": [
+        "IC1.PL5C",
+        "U10.DQ4"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.DQ5",
+      "power": false,
+      "pins": [
+        "IC1.PL8B",
+        "U10.DQ5"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.DQ6",
+      "power": false,
+      "pins": [
+        "IC1.PL5D",
+        "U10.DQ6"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.DQ7",
+      "power": false,
+      "pins": [
+        "IC1.PL11B",
+        "U10.DQ7"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.RWDS",
+      "power": false,
+      "pins": [
+        "IC1.PL8A",
+        "U10.RWDS"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.~{CK}",
+      "power": false,
+      "pins": [
+        "IC1.PL2D",
+        "U10.~{CK}"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.~{CS}",
+      "power": false,
+      "pins": [
+        "IC1.PL2B",
+        "U10.~{CS}"
+      ]
+    },
+    {
+      "name": "/bank6_7/RAM.~{RESET}",
+      "power": false,
+      "pins": [
+        "IC1.PL5A",
+        "U10.~{RESET}"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.DATA0",
+      "power": false,
+      "pins": [
+        "IC1.PL32A",
+        "U3.DATA0"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.DATA1",
+      "power": false,
+      "pins": [
+        "IC1.PL26D",
+        "U3.DATA1"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.DATA2",
+      "power": false,
+      "pins": [
+        "IC1.PL26C",
+        "U3.DATA2"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.DATA3",
+      "power": false,
+      "pins": [
+        "IC1.PL26B",
+        "U3.DATA3"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.DATA4",
+      "power": false,
+      "pins": [
+        "IC1.PL26A",
+        "U3.DATA4"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.DATA5",
+      "power": false,
+      "pins": [
+        "IC1.PL23D",
+        "U3.DATA5"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.DATA6",
+      "power": false,
+      "pins": [
+        "IC1.PL23C",
+        "U3.DATA6"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.DATA7",
+      "power": false,
+      "pins": [
+        "IC1.PL20D",
+        "U3.DATA7"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.DIR",
+      "power": false,
+      "pins": [
+        "IC1.PL32B",
+        "U3.DIR"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.NXT",
+      "power": false,
+      "pins": [
+        "IC1.PL35A",
+        "U3.NXT"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.REFCLK",
+      "power": false,
+      "pins": [
+        "IC1.PL41D",
+        "U3.REFCLK/XI"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.STP",
+      "power": false,
+      "pins": [
+        "IC1.PL38C",
+        "U3.STP"
+      ]
+    },
+    {
+      "name": "/bank6_7/USB0.~{RESET}",
+      "power": false,
+      "pins": [
+        "IC1.PL38D",
+        "U3.~{RESETB}"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/D0",
+      "power": false,
+      "pins": [
+        "IC1.D0/PICO/PB11B",
+        "U7.DI(IO0)"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/D1",
+      "power": false,
+      "pins": [
+        "IC1.D1/POCI/PB11A",
+        "U7.DO(IO1)"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/D2",
+      "power": false,
+      "pins": [
+        "IC1.D2/PB9B",
+        "U7.IO2"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/D3",
+      "power": false,
+      "pins": [
+        "IC1.D3/PB9A",
+        "U7.IO3"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/FPGA_CFG0",
+      "power": false,
+      "pins": [
+        "IC1.CFG_0",
+        "R12.1"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/FPGA_CFG1",
+      "power": false,
+      "pins": [
+        "IC1.CFG_1",
+        "R13.1"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/FPGA_CFG2",
+      "power": false,
+      "pins": [
+        "IC1.CFG_2",
+        "R14.1"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/FPGA_CONFIG.~{PROGRAM}",
+      "power": false,
+      "pins": [
+        "IC1.PROGRAMN",
+        "R5.1",
+        "R6.2"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/FPGA_FLASH_CLK",
+      "power": false,
+      "pins": [
+        "IC1.MCLK/SCLK/CCLK",
+        "R109.2",
+        "U7.CLK"
+      ]
+    },
+    {
+      "name": "/bank8_configuration/~{CS_DI}",
+      "power": false,
+      "pins": [
+        "IC1.HOLDN/DI/PB15A",
+        "R110.2",
+        "U7.~{CS}"
+      ]
+    },
+    {
+      "name": "/usb/ULPI_1V8",
+      "power": false,
+      "pins": [
+        "C34.1",
+        "U3.VDD18"
+      ]
+    },
+    {
+      "name": "/usb/ULPI_3V3",
+      "power": false,
+      "pins": [
+        "C36.1",
+        "U3.VDD33"
+      ]
+    },
+    {
+      "name": "ECP5_A2",
+      "power": false,
+      "pins": [
+        "IC1.PT4A",
+        "J1.RTS1"
+      ]
+    },
+    {
+      "name": "ECP5_A3",
+      "power": false,
+      "pins": [
+        "IC1.PT6A",
+        "J1.~{BOOT}"
+      ]
+    },
+    {
+      "name": "ECP5_A4",
+      "power": false,
+      "pins": [
+        "IC1.PT6B",
+        "J1.RX1"
+      ]
+    },
+    {
+      "name": "ECP5_A5",
+      "power": false,
+      "pins": [
+        "IC1.PT18A",
+        "J1.USBHOST_D-"
+      ]
+    },
+    {
+      "name": "ECP5_A6",
+      "power": false,
+      "pins": [
+        "IC1.PT18B",
+        "J1.CAN-TX"
+      ]
+    },
+    {
+      "name": "ECP5_A7",
+      "power": false,
+      "pins": [
+        "IC1.PT29A",
+        "J1.I2C_SDA1"
+      ]
+    },
+    {
+      "name": "ECP5_A9",
+      "power": false,
+      "pins": [
+        "IC1.PT42A",
+        "J1.SPI_~{CS}"
+      ]
+    },
+    {
+      "name": "ECP5_A10",
+      "power": false,
+      "pins": [
+        "IC1.PT42B",
+        "J1.SPI_SDO"
+      ]
+    },
+    {
+      "name": "ECP5_A11",
+      "power": false,
+      "pins": [
+        "IC1.PT53A"
+      ]
+    },
+    {
+      "name": "ECP5_A12",
+      "power": false,
+      "pins": [
+        "IC1.PT53B"
+      ]
+    },
+    {
+      "name": "ECP5_A13",
+      "power": false,
+      "pins": [
+        "IC1.PT65A",
+        "J1.SPI_SDO1/SDIO_CMD"
+      ]
+    },
+    {
+      "name": "ECP5_A14",
+      "power": false,
+      "pins": [
+        "IC1.PT65B",
+        "J1.SPI_SDI1/SDIO_DATA0"
+      ]
+    },
+    {
+      "name": "ECP5_A15",
+      "power": false,
+      "pins": [
+        "IC1.PT67B",
+        "J1.G9/ADC_D-/CAM_HSYNC"
+      ]
+    },
+    {
+      "name": "ECP5_B3",
+      "power": false,
+      "pins": [
+        "IC1.PT4B",
+        "J1.CTS1"
+      ]
+    },
+    {
+      "name": "ECP5_B4",
+      "power": false,
+      "pins": [
+        "IC1.PT11B",
+        "J1.TX1"
+      ]
+    },
+    {
+      "name": "ECP5_B5",
+      "power": false,
+      "pins": [
+        "IC1.PT15B",
+        "J1.USBHOST_D+"
+      ]
+    },
+    {
+      "name": "ECP5_B6",
+      "power": false,
+      "pins": [
+        "IC1.PT22B",
+        "J1.CAN-RX"
+      ]
+    },
+    {
+      "name": "ECP5_B7",
+      "power": false,
+      "pins": [
+        "IC1.PT27B",
+        "J1.PWM1"
+      ]
+    },
+    {
+      "name": "ECP5_B8",
+      "power": false,
+      "pins": [
+        "IC1.PT35B",
+        "J1.I2C_SCL1"
+      ]
+    },
+    {
+      "name": "ECP5_B9",
+      "power": false,
+      "pins": [
+        "IC1.PT38A",
+        "J1.SPI_SCK"
+      ]
+    },
+    {
+      "name": "ECP5_B10",
+      "power": false,
+      "pins": [
+        "IC1.PT44A",
+        "J1.SPI_SDI"
+      ]
+    },
+    {
+      "name": "ECP5_B11",
+      "power": false,
+      "pins": [
+        "IC1.PT49A",
+        "J1.AUD_LRCLK"
+      ]
+    },
+    {
+      "name": "ECP5_B12",
+      "power": false,
+      "pins": [
+        "IC1.PT56A"
+      ]
+    },
+    {
+      "name": "ECP5_B13",
+      "power": false,
+      "pins": [
+        "IC1.PT60A",
+        "J1.SPI_SCK1/SDIO_CLK"
+      ]
+    },
+    {
+      "name": "ECP5_B14",
+      "power": false,
+      "pins": [
+        "IC1.PT67A",
+        "J1.SDIO_DATA1"
+      ]
+    },
+    {
+      "name": "ECP5_B15",
+      "power": false,
+      "pins": [
+        "IC1.PR2B",
+        "J1.G10/ADC_D+/CAM_VSYNC"
+      ]
+    },
+    {
+      "name": "ECP5_B16",
+      "power": false,
+      "pins": [
+        "IC1.PR2A",
+        "J1.G7/BUS7"
+      ]
+    },
+    {
+      "name": "ECP5_C4",
+      "power": false,
+      "pins": [
+        "IC1.PT11A",
+        "J1.~{RESET}"
+      ]
+    },
+    {
+      "name": "ECP5_C5",
+      "power": false,
+      "pins": [
+        "IC1.PT15A",
+        "J1.A0"
+      ]
+    },
+    {
+      "name": "ECP5_C6",
+      "power": false,
+      "pins": [
+        "IC1.PT22A",
+        "J1.A1"
+      ]
+    },
+    {
+      "name": "ECP5_C7",
+      "power": false,
+      "pins": [
+        "IC1.PT27A",
+        "J1.G0/BUS0"
+      ]
+    },
+    {
+      "name": "ECP5_C8",
+      "power": false,
+      "pins": [
+        "IC1.PT35A"
+      ]
+    },
+    {
+      "name": "ECP5_C9",
+      "power": false,
+      "pins": [
+        "IC1.PT38B",
+        "J1.G3/BUS3"
+      ]
+    },
+    {
+      "name": "ECP5_C10",
+      "power": false,
+      "pins": [
+        "IC1.PT44B",
+        "J1.G4/BUS4"
+      ]
+    },
+    {
+      "name": "ECP5_C11",
+      "power": false,
+      "pins": [
+        "IC1.PT49B",
+        "J1.AUD_IN/CAM_PCLK"
+      ]
+    },
+    {
+      "name": "ECP5_C12",
+      "power": false,
+      "pins": [
+        "IC1.PT56B",
+        "J1.AUD_OUT/CAM_MCLK"
+      ]
+    },
+    {
+      "name": "ECP5_C13",
+      "power": false,
+      "pins": [
+        "IC1.PT60B",
+        "J1.AUD_MCLK"
+      ]
+    },
+    {
+      "name": "ECP5_C14",
+      "power": false,
+      "pins": [
+        "IC1.PR2C",
+        "J1.SDIO_DATA2"
+      ]
+    },
+    {
+      "name": "ECP5_C15",
+      "power": false,
+      "pins": [
+        "IC1.PR5B",
+        "J1.G8"
+      ]
+    },
+    {
+      "name": "ECP5_C16",
+      "power": false,
+      "pins": [
+        "IC1.PR5A",
+        "J1.G6/BUS6"
+      ]
+    },
+    {
+      "name": "ECP5_D4",
+      "power": false,
+      "pins": [
+        "IC1.PT9B",
+        "J1.TX2"
+      ]
+    },
+    {
+      "name": "ECP5_D5",
+      "power": false,
+      "pins": [
+        "IC1.PT13B",
+        "J1.G11"
+      ]
+    },
+    {
+      "name": "ECP5_D6",
+      "power": false,
+      "pins": [
+        "IC1.PT20B",
+        "J1.PWM0"
+      ]
+    },
+    {
+      "name": "ECP5_D7",
+      "power": false,
+      "pins": [
+        "IC1.PT24B",
+        "J1.G1/BUS1"
+      ]
+    },
+    {
+      "name": "ECP5_D8",
+      "power": false,
+      "pins": [
+        "IC1.PT33B",
+        "J1.G2/BUS2"
+      ]
+    },
+    {
+      "name": "ECP5_D9",
+      "power": false,
+      "pins": [
+        "IC1.PT40A",
+        "J1.AUD_BCLK"
+      ]
+    },
+    {
+      "name": "ECP5_D11",
+      "power": false,
+      "pins": [
+        "IC1.PT51A",
+        "J1.I2C_SDA"
+      ]
+    },
+    {
+      "name": "ECP5_D12",
+      "power": false,
+      "pins": [
+        "IC1.PT58A"
+      ]
+    },
+    {
+      "name": "ECP5_D13",
+      "power": false,
+      "pins": [
+        "IC1.PT62A",
+        "J1.I2C_SCL"
+      ]
+    },
+    {
+      "name": "ECP5_D14",
+      "power": false,
+      "pins": [
+        "IC1.PR2D",
+        "J1.SPI_~{CS1}/SDIO_DATA3"
+      ]
+    },
+    {
+      "name": "ECP5_D16",
+      "power": false,
+      "pins": [
+        "IC1.PR8A",
+        "J1.G5/BUS5"
+      ]
+    },
+    {
+      "name": "ECP5_E4",
+      "power": false,
+      "pins": [
+        "IC1.PT9A",
+        "J1.RX2"
+      ]
+    },
+    {
+      "name": "ECP5_E13",
+      "power": false,
+      "pins": [
+        "IC1.PT62B"
+      ]
+    },
+    {
+      "name": "ECP5_M10_TDO",
+      "power": false,
+      "pins": [
+        "IC1.TDO",
+        "J1.SWDIO"
+      ]
+    },
+    {
+      "name": "ECP5_R11_TDI",
+      "power": false,
+      "pins": [
+        "IC1.TDI",
+        "J1.D1/CAM_TRIG"
+      ]
+    },
+    {
+      "name": "ECP5_T10_TCK",
+      "power": false,
+      "pins": [
+        "IC1.TCK",
+        "J1.D0"
+      ]
+    },
+    {
+      "name": "ECP5_T11_TMS",
+      "power": false,
+      "pins": [
+        "IC1.TMS",
+        "J1.SWDCK"
+      ]
+    },
+    {
+      "name": "EN",
+      "power": false,
+      "pins": [
+        "R1.1",
+        "U1.EN",
+        "U2.EN",
+        "U4.EN"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.2",
+        "C12.2",
+        "C13.2",
+        "C14.2",
+        "C15.2",
+        "C16.2",
+        "C17.2",
+        "C18.2",
+        "C19.2",
+        "C2.2",
+        "C20.2",
+        "C21.2",
+        "C22.2",
+        "C23.2",
+        "C24.2",
+        "C26.2",
+        "C27.2",
+        "C28.1",
+        "C29.1",
+        "C3.2",
+        "C31.2",
+        "C32.2",
+        "C33.2",
+        "C34.2",
+        "C35.2",
+        "C36.2",
+        "C37.2",
+        "C4.2",
+        "C5.2",
+        "C6.1",
+        "C65.2",
+        "C7.2",
+        "C79.2",
+        "C8.2",
+        "C80.2",
+        "C81.2",
+        "C82.2",
+        "C83.2",
+        "C9.2",
+        "IC1.GND_1",
+        "IC1.GND_10",
+        "IC1.GND_11",
+        "IC1.GND_12",
+        "IC1.GND_13",
+        "IC1.GND_14",
+        "IC1.GND_15",
+        "IC1.GND_16",
+        "IC1.GND_17",
+        "IC1.GND_18",
+        "IC1.GND_19",
+        "IC1.GND_2",
+        "IC1.GND_20",
+        "IC1.GND_21",
+        "IC1.GND_22",
+        "IC1.GND_23",
+        "IC1.GND_24",
+        "IC1.GND_25",
+        "IC1.GND_26",
+        "IC1.GND_27",
+        "IC1.GND_3",
+        "IC1.GND_4",
+        "IC1.GND_5",
+        "IC1.GND_6",
+        "IC1.GND_7",
+        "IC1.GND_8",
+        "IC1.GND_9",
+        "IC1.PL14B",
+        "IC1.PL14C",
+        "IC1.PL14D",
+        "IC1.PL20B",
+        "IC1.PL29D",
+        "IC1.PL32C",
+        "IC1.PL32D",
+        "IC1.PL47B",
+        "IC1.PL47C",
+        "IC1.PL47D",
+        "IC1.PL8C",
+        "IC1.PR35C",
+        "IC1.PR44C",
+        "IC1.PR44D",
+        "IC1.PR47B",
+        "IC1.PR8C",
+        "IC1.PT13A",
+        "IC1.PT33A",
+        "IC1.PT40B",
+        "IC1.PT58B",
+        "J1.GND",
+        "R12.2",
+        "R14.2",
+        "R3.2",
+        "R7.1",
+        "U1.GND",
+        "U10.VSS",
+        "U10.VSSQ",
+        "U2.GND",
+        "U3.GND",
+        "U4.GND",
+        "U7.GND",
+        "Y1.GND"
+      ]
+    },
+    {
+      "name": "Net-(D1-A)",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "R11.1"
+      ]
+    },
+    {
+      "name": "Net-(D1-K)",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "IC1.PR38D"
+      ]
+    },
+    {
+      "name": "Net-(D2-A)",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "R15.1"
+      ]
+    },
+    {
+      "name": "Net-(D2-K)",
+      "power": false,
+      "pins": [
+        "D2.K",
+        "IC1.PR41D"
+      ]
+    },
+    {
+      "name": "Net-(U1-FB)",
+      "power": false,
+      "pins": [
+        "C25.1",
+        "R2.1",
+        "R3.1",
+        "U1.FB"
+      ]
+    },
+    {
+      "name": "Net-(U1-SW)",
+      "power": false,
+      "pins": [
+        "L1.1",
+        "U1.SW"
+      ]
+    },
+    {
+      "name": "Net-(U3-DM)",
+      "power": false,
+      "pins": [
+        "R9.2",
+        "U3.DM"
+      ]
+    },
+    {
+      "name": "Net-(U3-DP)",
+      "power": false,
+      "pins": [
+        "R10.2",
+        "U3.DP"
+      ]
+    },
+    {
+      "name": "Net-(U3-RBIAS)",
+      "power": false,
+      "pins": [
+        "R7.2",
+        "U3.RBIAS"
+      ]
+    },
+    {
+      "name": "Net-(U3-VBUS)",
+      "power": false,
+      "pins": [
+        "R8.1",
+        "U3.VBUS"
+      ]
+    },
+    {
+      "name": "Net-(Y1-OUT)",
+      "power": false,
+      "pins": [
+        "R108.2",
+        "Y1.OUT"
+      ]
+    },
+    {
+      "name": "USB0_DM",
+      "power": false,
+      "pins": [
+        "J1.USB_D-",
+        "R9.1"
+      ]
+    },
+    {
+      "name": "USB0_DP",
+      "power": false,
+      "pins": [
+        "J1.USB_D+",
+        "R10.1"
+      ]
+    },
+    {
+      "name": "USB0_ID",
+      "power": false,
+      "pins": [
+        "J1.I2C_~{INT}",
+        "U3.ID"
+      ]
+    },
+    {
+      "name": "USB0_VBUS",
+      "power": false,
+      "pins": [
+        "C37.1",
+        "J1.USB_VIN",
+        "R8.2"
+      ]
+    },
+    {
+      "name": "VCCRAM",
+      "power": false,
+      "pins": [
+        "C19.1",
+        "C21.1",
+        "C31.1",
+        "C32.1",
+        "C5.1",
+        "C65.1",
+        "C82.1",
+        "C83.1",
+        "IC1.PL11A",
+        "IC1.PL17A",
+        "IC1.PL17B",
+        "IC1.PL17C",
+        "IC1.PL17D",
+        "IC1.PL20C",
+        "IC1.PL23A",
+        "IC1.PL23B",
+        "IC1.PL29C",
+        "IC1.PL35C",
+        "IC1.PL41A",
+        "IC1.PL44A",
+        "IC1.PL44C",
+        "IC1.PL44D",
+        "IC1.PL47A",
+        "IC1.PL8D",
+        "IC1.VCCIO6_1",
+        "IC1.VCCIO6_2",
+        "IC1.VCCIO7_1",
+        "IC1.VCCIO7_2",
+        "R16.1",
+        "U10.VCC",
+        "U10.VCCQ",
+        "U3.CLKOUT",
+        "U3.VDDIO",
+        "U4.OUT"
+      ]
+    }
+  ]
+}

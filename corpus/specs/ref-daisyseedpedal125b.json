@@ -1,0 +1,1600 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "daisyseedpedal125b"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "Barrel_Jack_Switch",
+      "value": null,
+      "footprint": "GuitarPedal125B:Generic_PowerJack",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": null,
+      "part": null,
+      "value": "AUDIO_IN_TRS",
+      "footprint": "NMJ6HCD2:NEUTRIK_NMJ6HCD2",
+      "group": null,
+      "pins": [
+        {
+          "num": "R",
+          "name": "PR",
+          "func": "passive"
+        },
+        {
+          "num": "RN",
+          "name": "PRN",
+          "func": "power_in"
+        },
+        {
+          "num": "S",
+          "name": "PS",
+          "func": "power_in"
+        },
+        {
+          "num": "SN",
+          "name": "PSN",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "PT",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "PTN",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J3",
+      "lib": null,
+      "part": null,
+      "value": "MIDI IN JACK",
+      "footprint": "GuitarPedal125B:PJ-320A",
+      "group": null,
+      "pins": [
+        {
+          "num": "R1",
+          "name": "PR1",
+          "func": "passive"
+        },
+        {
+          "num": "R2",
+          "name": "PR2",
+          "func": "passive"
+        },
+        {
+          "num": "S",
+          "name": "PS",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "PT",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J4",
+      "lib": null,
+      "part": null,
+      "value": "AUDIO_OUT_TRS",
+      "footprint": "NMJ6HCD2:NEUTRIK_NMJ6HCD2",
+      "group": null,
+      "pins": [
+        {
+          "num": "R",
+          "name": "PR",
+          "func": "passive"
+        },
+        {
+          "num": "RN",
+          "name": "PRN",
+          "func": "power_in"
+        },
+        {
+          "num": "S",
+          "name": "PS",
+          "func": "power_in"
+        },
+        {
+          "num": "SN",
+          "name": "PSN",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "PT",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "PTN",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J5",
+      "lib": null,
+      "part": null,
+      "value": "MIDI OUT JACK",
+      "footprint": "GuitarPedal125B:PJ-320A",
+      "group": null,
+      "pins": [
+        {
+          "num": "R1",
+          "name": "PR1",
+          "func": "passive"
+        },
+        {
+          "num": "R2",
+          "name": "PR2",
+          "func": "passive"
+        },
+        {
+          "num": "S",
+          "name": "PS",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "PT",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J6",
+      "lib": "Connector",
+      "part": "Conn_01x20_Socket",
+      "value": null,
+      "footprint": "GuitarPedal125B:PinSocket1x20_P2.54mm_Vertical_JLCPCB",
+      "group": null
+    },
+    {
+      "ref": "J7",
+      "lib": "Connector",
+      "part": "Conn_01x20_Socket",
+      "value": null,
+      "footprint": "GuitarPedal125B:PinSocket1x20_P2.54mm_Vertical_JLCPCB",
+      "group": null
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "10UF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "10UF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power"
+    },
+    {
+      "ref": "D1",
+      "lib": "Diode",
+      "part": "1N5817",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "power"
+    },
+    {
+      "ref": "U1",
+      "lib": "Regulator_Linear",
+      "part": "LD1117S50TR_SOT223",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-223-3_TabPin2",
+      "group": "power"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "100NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "100NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "10UF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "10UF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "100K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "100K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_input_buffer"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": "MCP6004",
+      "footprint": "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm",
+      "group": "audio_input_buffer",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "V+",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "P8",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "11",
+          "name": "V-",
+          "func": "power_in"
+        },
+        {
+          "num": "12",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "13",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "P14",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "2.2NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "2.2NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C",
+      "value": "10UF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C",
+      "value": "10UF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C",
+      "value": "100NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C",
+      "value": "100NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "C15",
+      "lib": "Device",
+      "part": "C",
+      "value": "10UF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "C16",
+      "lib": "Device",
+      "part": "C",
+      "value": "10UF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "3.3K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "3.3K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R11",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R12",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R13",
+      "lib": "Device",
+      "part": "R",
+      "value": "100R",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R14",
+      "lib": "Device",
+      "part": "R",
+      "value": "100R",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R15",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "R16",
+      "lib": "Device",
+      "part": "R",
+      "value": "2M",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_output_buffer"
+    },
+    {
+      "ref": "U3",
+      "lib": null,
+      "part": null,
+      "value": "OPA1652AID",
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": "audio_output_buffer",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "V-",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "V+",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C17",
+      "lib": "Device",
+      "part": "C",
+      "value": "100NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "midi_inout"
+    },
+    {
+      "ref": "D2",
+      "lib": "Diode",
+      "part": "1N4148",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "midi_inout"
+    },
+    {
+      "ref": "R17",
+      "lib": "Device",
+      "part": "R",
+      "value": "220R",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "midi_inout"
+    },
+    {
+      "ref": "R18",
+      "lib": "Device",
+      "part": "R",
+      "value": "10R",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "midi_inout"
+    },
+    {
+      "ref": "R19",
+      "lib": "Device",
+      "part": "R",
+      "value": "33R",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "midi_inout"
+    },
+    {
+      "ref": "R20",
+      "lib": "Device",
+      "part": "R",
+      "value": "470R",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "midi_inout"
+    },
+    {
+      "ref": "U4",
+      "lib": "Isolator",
+      "part": "H11L1",
+      "value": null,
+      "footprint": "GuitarPedal125B:SOP-6_2.54mm",
+      "group": "midi_inout"
+    },
+    {
+      "ref": "D3",
+      "lib": "Diode",
+      "part": "1N4007",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123F",
+      "group": "audio_true_bypass_stereo"
+    },
+    {
+      "ref": "D4",
+      "lib": "Diode",
+      "part": "1N4007",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123F",
+      "group": "audio_true_bypass_stereo"
+    },
+    {
+      "ref": "K1",
+      "lib": "Relay",
+      "part": "G6K-2",
+      "value": null,
+      "footprint": "Relay_SMD:Relay_DPDT_Omron_G6K-2G-Y",
+      "group": "audio_true_bypass_stereo"
+    },
+    {
+      "ref": "K2",
+      "lib": "Relay",
+      "part": "G6K-2",
+      "value": null,
+      "footprint": "Relay_SMD:Relay_DPDT_Omron_G6K-2G-Y",
+      "group": "audio_true_bypass_stereo"
+    },
+    {
+      "ref": "Q1",
+      "lib": "Device",
+      "part": "Q_NPN_BEC",
+      "value": "SS8050",
+      "footprint": "Package_TO_SOT_SMD:SOT-23-3",
+      "group": "audio_true_bypass_stereo"
+    },
+    {
+      "ref": "R21",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_true_bypass_stereo"
+    },
+    {
+      "ref": "R22",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_true_bypass_stereo"
+    },
+    {
+      "ref": "R23",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "audio_true_bypass_stereo"
+    },
+    {
+      "ref": "U5",
+      "lib": null,
+      "part": null,
+      "value": "CPC1018N",
+      "footprint": "Package_SO:SOP-4_3.8x4.1mm_P2.54mm",
+      "group": "audio_true_bypass_stereo",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "P4",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U6",
+      "lib": null,
+      "part": null,
+      "value": "CPC1018N",
+      "footprint": "Package_SO:SOP-4_3.8x4.1mm_P2.54mm",
+      "group": "audio_true_bypass_stereo",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "P4",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U7",
+      "lib": null,
+      "part": null,
+      "value": "OLED_DISPLAY_SSD1306_SPI",
+      "footprint": "GuitarPedal125B:HiLetgo_OLED_SPI",
+      "group": "ssd1306_screen_spi",
+      "pins": [
+        {
+          "num": "1",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "D0",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "D1",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "RES",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "DC",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "CS",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C18",
+      "lib": "Device",
+      "part": "C",
+      "value": "10NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "controls"
+    },
+    {
+      "ref": "C19",
+      "lib": "Device",
+      "part": "C",
+      "value": "10NF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "controls"
+    },
+    {
+      "ref": "ENC1",
+      "lib": "Device",
+      "part": "RotaryEncoder_Switch",
+      "value": null,
+      "footprint": "Rotary_Encoder:RotaryEncoder_Alps_EC11E-Switch_Vertical_H20mm",
+      "group": "controls"
+    },
+    {
+      "ref": "FS1",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": "Foot_Switch_1",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "controls"
+    },
+    {
+      "ref": "FS2",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": "Foot_Switch_2",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "controls"
+    },
+    {
+      "ref": "LED1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "LED_1",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "controls"
+    },
+    {
+      "ref": "LED2",
+      "lib": "Device",
+      "part": "LED",
+      "value": "LED_2",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "controls"
+    },
+    {
+      "ref": "POT1",
+      "lib": "Device",
+      "part": "R_Potentiometer_US",
+      "value": "10K",
+      "footprint": "GuitarPedal125B:Potentiometer_Bourns_PRS11R",
+      "group": "controls"
+    },
+    {
+      "ref": "POT2",
+      "lib": "Device",
+      "part": "R_Potentiometer_US",
+      "value": "10K",
+      "footprint": "GuitarPedal125B:Potentiometer_Bourns_PRS11R",
+      "group": "controls"
+    },
+    {
+      "ref": "POT3",
+      "lib": "Device",
+      "part": "R_Potentiometer_US",
+      "value": "10K",
+      "footprint": "GuitarPedal125B:Potentiometer_Bourns_PRS11R",
+      "group": "controls"
+    },
+    {
+      "ref": "POT4",
+      "lib": "Device",
+      "part": "R_Potentiometer_US",
+      "value": "10K",
+      "footprint": "GuitarPedal125B:Potentiometer_Bourns_PRS11R",
+      "group": "controls"
+    },
+    {
+      "ref": "POT5",
+      "lib": "Device",
+      "part": "R_Potentiometer_US",
+      "value": "10K",
+      "footprint": "GuitarPedal125B:Potentiometer_Bourns_PRS11R",
+      "group": "controls"
+    },
+    {
+      "ref": "POT6",
+      "lib": "Device",
+      "part": "R_Potentiometer_US",
+      "value": "10K",
+      "footprint": "GuitarPedal125B:Potentiometer_Bourns_PRS11R",
+      "group": "controls"
+    },
+    {
+      "ref": "R24",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "controls"
+    },
+    {
+      "ref": "R25",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "controls"
+    },
+    {
+      "ref": "R26",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "controls"
+    },
+    {
+      "ref": "R27",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "controls"
+    },
+    {
+      "ref": "R28",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "controls"
+    },
+    {
+      "ref": "R29",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0805_2012Metric",
+      "group": "controls"
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3.3V",
+      "power": true,
+      "pins": [
+        "C17.1",
+        "J6.Pin_3",
+        "R19.2",
+        "R20.1",
+        "R28.1",
+        "R29.2",
+        "U4.6",
+        "U7.VCC"
+      ]
+    },
+    {
+      "name": "+3.3VA",
+      "power": false,
+      "pins": [
+        "J6.Pin_20",
+        "POT1.3",
+        "POT2.3",
+        "POT3.3",
+        "POT4.3",
+        "POT5.3",
+        "POT6.3"
+      ]
+    },
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "C13.1",
+        "C14.1",
+        "C4.1",
+        "C5.1",
+        "C6.1",
+        "D3.K",
+        "D4.K",
+        "K1.1",
+        "K2.1",
+        "R11.1",
+        "R3.1",
+        "R9.1",
+        "U1.VO",
+        "U2.V+",
+        "U3.V+"
+      ]
+    },
+    {
+      "name": "+9V",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C2.1",
+        "C3.1",
+        "D1.K",
+        "J6.Pin_2",
+        "U1.VI"
+      ]
+    },
+    {
+      "name": "/Audio Input Buffer/V_AUDIOBIAS",
+      "power": false,
+      "pins": [
+        "R4.1",
+        "R5.1",
+        "U2.-",
+        "U2.1"
+      ]
+    },
+    {
+      "name": "AUDIO_IN_BUFFER_LEFT",
+      "power": false,
+      "pins": [
+        "J7.Pin_5",
+        "U2.-",
+        "U2.14"
+      ]
+    },
+    {
+      "name": "AUDIO_IN_BUFFER_RIGHT",
+      "power": false,
+      "pins": [
+        "J7.Pin_4",
+        "U2.-",
+        "U2.8"
+      ]
+    },
+    {
+      "name": "AUDIO_IN_JACK_LEFT",
+      "power": false,
+      "pins": [
+        "J2.T",
+        "K1.4",
+        "K1.7"
+      ]
+    },
+    {
+      "name": "AUDIO_IN_JACK_RIGHT",
+      "power": false,
+      "pins": [
+        "J2.R",
+        "K2.4",
+        "K2.7"
+      ]
+    },
+    {
+      "name": "AUDIO_OUT_BUFFER_LEFT",
+      "power": false,
+      "pins": [
+        "J7.Pin_3",
+        "R7.1"
+      ]
+    },
+    {
+      "name": "AUDIO_OUT_BUFFER_RIGHT",
+      "power": false,
+      "pins": [
+        "J7.Pin_2",
+        "R8.1"
+      ]
+    },
+    {
+      "name": "AUDIO_OUT_JACK_LEFT",
+      "power": false,
+      "pins": [
+        "J4.T",
+        "K1.6",
+        "U5.4"
+      ]
+    },
+    {
+      "name": "AUDIO_OUT_JACK_RIGHT",
+      "power": false,
+      "pins": [
+        "J4.R",
+        "K2.6",
+        "U6.4"
+      ]
+    },
+    {
+      "name": "BYPASS_LEFT_RETURN",
+      "power": false,
+      "pins": [
+        "C15.2",
+        "K1.5",
+        "R15.1"
+      ]
+    },
+    {
+      "name": "BYPASS_LEFT_SEND",
+      "power": false,
+      "pins": [
+        "C7.1",
+        "K1.3",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "BYPASS_RIGHT_RETURN",
+      "power": false,
+      "pins": [
+        "C16.2",
+        "K2.5",
+        "R16.1"
+      ]
+    },
+    {
+      "name": "BYPASS_RIGHT_SEND",
+      "power": false,
+      "pins": [
+        "C8.1",
+        "K2.3",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "DISABLE_AUDIO_BYPASS",
+      "power": false,
+      "pins": [
+        "J7.Pin_19",
+        "R21.1"
+      ]
+    },
+    {
+      "name": "ENABLE_AUDIO_MUTE",
+      "power": false,
+      "pins": [
+        "J7.Pin_8",
+        "R22.1",
+        "R23.1"
+      ]
+    },
+    {
+      "name": "ENCODER_1_A",
+      "power": false,
+      "pins": [
+        "C18.1",
+        "J7.Pin_18",
+        "R26.1"
+      ]
+    },
+    {
+      "name": "ENCODER_1_B",
+      "power": false,
+      "pins": [
+        "C19.2",
+        "J7.Pin_17",
+        "R27.2"
+      ]
+    },
+    {
+      "name": "ENCODER_1_CLICK",
+      "power": false,
+      "pins": [
+        "ENC1.S1",
+        "J7.Pin_16"
+      ]
+    },
+    {
+      "name": "FOOT_SWITCH_1",
+      "power": false,
+      "pins": [
+        "FS1.2",
+        "J7.Pin_14"
+      ]
+    },
+    {
+      "name": "FOOT_SWITCH_2",
+      "power": false,
+      "pins": [
+        "FS2.2",
+        "J7.Pin_15"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C13.2",
+        "C14.2",
+        "C17.2",
+        "C18.2",
+        "C19.1",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C9.2",
+        "ENC1.C",
+        "ENC1.S2",
+        "FS1.1",
+        "FS2.1",
+        "J1.1",
+        "J1.3",
+        "J2.RN",
+        "J2.S",
+        "J2.SN",
+        "J2.TN",
+        "J3.S",
+        "J4.RN",
+        "J4.S",
+        "J4.SN",
+        "J4.TN",
+        "J5.S",
+        "J6.Pin_1",
+        "J7.Pin_1",
+        "K1.2",
+        "K2.2",
+        "LED1.K",
+        "LED2.K",
+        "POT1.1",
+        "POT2.1",
+        "POT3.1",
+        "POT4.1",
+        "POT5.1",
+        "POT6.1",
+        "Q1.E",
+        "R1.2",
+        "R10.2",
+        "R12.2",
+        "R15.2",
+        "R16.2",
+        "R2.2",
+        "R6.2",
+        "U1.GND",
+        "U2.+",
+        "U2.V-",
+        "U3.V-",
+        "U4.5",
+        "U5.2",
+        "U5.3",
+        "U6.2",
+        "U6.3",
+        "U7.GND"
+      ]
+    },
+    {
+      "name": "LED_1",
+      "power": false,
+      "pins": [
+        "J6.Pin_12",
+        "R24.2"
+      ]
+    },
+    {
+      "name": "LED_2",
+      "power": false,
+      "pins": [
+        "J6.Pin_11",
+        "R25.2"
+      ]
+    },
+    {
+      "name": "MIDI_IN",
+      "power": false,
+      "pins": [
+        "J6.Pin_4",
+        "R20.2",
+        "U4.4"
+      ]
+    },
+    {
+      "name": "MIDI_IN_JACK_PIN4",
+      "power": false,
+      "pins": [
+        "J3.R1",
+        "R17.1"
+      ]
+    },
+    {
+      "name": "MIDI_IN_JACK_PIN5",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "J3.T",
+        "U4.2"
+      ]
+    },
+    {
+      "name": "MIDI_OUT",
+      "power": false,
+      "pins": [
+        "J6.Pin_5",
+        "R18.2"
+      ]
+    },
+    {
+      "name": "MIDI_OUT_JACK_PIN4",
+      "power": false,
+      "pins": [
+        "J5.R1",
+        "R19.1"
+      ]
+    },
+    {
+      "name": "MIDI_OUT_JACK_PIN5",
+      "power": false,
+      "pins": [
+        "J5.T",
+        "R18.1"
+      ]
+    },
+    {
+      "name": "Net-(C10-Pad1)",
+      "power": false,
+      "pins": [
+        "C10.1",
+        "C12.2",
+        "R8.2"
+      ]
+    },
+    {
+      "name": "Net-(C11-Pad2)",
+      "power": false,
+      "pins": [
+        "C11.2",
+        "C9.1",
+        "R7.2"
+      ]
+    },
+    {
+      "name": "Net-(C15-Pad1)",
+      "power": false,
+      "pins": [
+        "C15.1",
+        "R13.2"
+      ]
+    },
+    {
+      "name": "Net-(C16-Pad1)",
+      "power": false,
+      "pins": [
+        "C16.1",
+        "R14.2"
+      ]
+    },
+    {
+      "name": "Net-(D2-K)",
+      "power": false,
+      "pins": [
+        "D2.K",
+        "R17.2",
+        "U4.1"
+      ]
+    },
+    {
+      "name": "Net-(D3-A)",
+      "power": false,
+      "pins": [
+        "D3.A",
+        "D4.A",
+        "K1.8",
+        "K2.8",
+        "Q1.C"
+      ]
+    },
+    {
+      "name": "Net-(ENC1-PadA)",
+      "power": false,
+      "pins": [
+        "ENC1.A",
+        "R26.2",
+        "R28.2"
+      ]
+    },
+    {
+      "name": "Net-(ENC1-PadB)",
+      "power": false,
+      "pins": [
+        "ENC1.B",
+        "R27.1",
+        "R29.1"
+      ]
+    },
+    {
+      "name": "Net-(LED1-A)",
+      "power": false,
+      "pins": [
+        "LED1.A",
+        "R24.1"
+      ]
+    },
+    {
+      "name": "Net-(LED2-A)",
+      "power": false,
+      "pins": [
+        "LED2.A",
+        "R25.1"
+      ]
+    },
+    {
+      "name": "Net-(Q1-B)",
+      "power": false,
+      "pins": [
+        "Q1.B",
+        "R21.2"
+      ]
+    },
+    {
+      "name": "Net-(R22-Pad2)",
+      "power": false,
+      "pins": [
+        "R22.2",
+        "U5.1"
+      ]
+    },
+    {
+      "name": "Net-(R23-Pad2)",
+      "power": false,
+      "pins": [
+        "R23.2",
+        "U6.1"
+      ]
+    },
+    {
+      "name": "Net-(U2A-+)",
+      "power": false,
+      "pins": [
+        "R3.2",
+        "R6.1",
+        "U2.+"
+      ]
+    },
+    {
+      "name": "Net-(U2B--)",
+      "power": false,
+      "pins": [
+        "U2.-",
+        "U2.7"
+      ]
+    },
+    {
+      "name": "Net-(U2C-+)",
+      "power": false,
+      "pins": [
+        "C8.2",
+        "R5.2",
+        "U2.+"
+      ]
+    },
+    {
+      "name": "Net-(U2D-+)",
+      "power": false,
+      "pins": [
+        "C7.2",
+        "R4.2",
+        "U2.+"
+      ]
+    },
+    {
+      "name": "Net-(U3A-+)",
+      "power": false,
+      "pins": [
+        "C12.1",
+        "R11.2",
+        "R12.1",
+        "U3.+"
+      ]
+    },
+    {
+      "name": "Net-(U3A--)",
+      "power": false,
+      "pins": [
+        "R14.1",
+        "U3.-",
+        "U3.1"
+      ]
+    },
+    {
+      "name": "Net-(U3B-+)",
+      "power": false,
+      "pins": [
+        "C11.1",
+        "R10.1",
+        "R9.2",
+        "U3.+"
+      ]
+    },
+    {
+      "name": "Net-(U3B--)",
+      "power": false,
+      "pins": [
+        "R13.1",
+        "U3.-",
+        "U3.7"
+      ]
+    },
+    {
+      "name": "OLED_DISPLAY_SPI_CS",
+      "power": false,
+      "pins": [
+        "J7.Pin_13",
+        "U7.CS"
+      ]
+    },
+    {
+      "name": "OLED_DISPLAY_SPI_DC",
+      "power": false,
+      "pins": [
+        "J7.Pin_11",
+        "U7.DC"
+      ]
+    },
+    {
+      "name": "OLED_DISPLAY_SPI_MOSI",
+      "power": false,
+      "pins": [
+        "J7.Pin_10",
+        "U7.D1"
+      ]
+    },
+    {
+      "name": "OLED_DISPLAY_SPI_RESET",
+      "power": false,
+      "pins": [
+        "J7.Pin_9",
+        "U7.RES"
+      ]
+    },
+    {
+      "name": "OLED_DISPLAY_SPI_SCK",
+      "power": false,
+      "pins": [
+        "J7.Pin_12",
+        "U7.D0"
+      ]
+    },
+    {
+      "name": "POT_1",
+      "power": false,
+      "pins": [
+        "J6.Pin_19",
+        "POT1.2"
+      ]
+    },
+    {
+      "name": "POT_2",
+      "power": false,
+      "pins": [
+        "J6.Pin_18",
+        "POT2.2"
+      ]
+    },
+    {
+      "name": "POT_3",
+      "power": false,
+      "pins": [
+        "J6.Pin_17",
+        "POT3.2"
+      ]
+    },
+    {
+      "name": "POT_4",
+      "power": false,
+      "pins": [
+        "J6.Pin_16",
+        "POT4.2"
+      ]
+    },
+    {
+      "name": "POT_5",
+      "power": false,
+      "pins": [
+        "J6.Pin_15",
+        "POT5.2"
+      ]
+    },
+    {
+      "name": "POT_6",
+      "power": false,
+      "pins": [
+        "J6.Pin_14",
+        "POT6.2"
+      ]
+    },
+    {
+      "name": "POWER_JACK_PWR",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "J1.2"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,213 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "fuzzface"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "2.2u",
+      "footprint": "Capacitor_THT:C_Radial_D5.0mm_H5.0mm_P2.00mm",
+      "group": null
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_THT:C_Rect_L7.0mm_W3.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "47u",
+      "footprint": "Capacitor_THT:C_Radial_D10.0mm_H12.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "22u",
+      "footprint": "Capacitor_THT:C_Radial_D6.3mm_H7.0mm_P2.50mm",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "Conn_01x04_Female",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_BJT",
+      "part": "2N3906",
+      "value": "AC128",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "Q2",
+      "lib": "Transistor_BJT",
+      "part": "2N3906",
+      "value": "AC128",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R_Small_US",
+      "value": "33k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R_Small_US",
+      "value": "100k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R_Potentiometer_Trim",
+      "value": "5K",
+      "footprint": "Potentiometer_THT:Potentiometer_Runtron_RM-065_Vertical",
+      "group": null
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R_Small_US",
+      "value": "8.2K",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "RV1",
+      "lib": "Device",
+      "part": "R_Potentiometer",
+      "value": "1KB",
+      "footprint": "pedals:16MM_PCB_PADS",
+      "group": null
+    },
+    {
+      "ref": "RV2",
+      "lib": "Device",
+      "part": "R_Potentiometer",
+      "value": "500KA",
+      "footprint": "pedals:16MM_PCB_PADS",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "-9Vor9V",
+      "power": false,
+      "pins": [
+        "C3.1",
+        "J1.Pin_1",
+        "R1.2",
+        "R3.3"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C3.2",
+        "C4.2",
+        "J1.Pin_4",
+        "Q1.E",
+        "RV1.1",
+        "RV2.1"
+      ]
+    },
+    {
+      "name": "IN",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "J1.Pin_3"
+      ]
+    },
+    {
+      "name": "Net-(C2-Pad1)",
+      "power": false,
+      "pins": [
+        "C2.1",
+        "R3.1",
+        "R3.2",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "Net-(C2-Pad2)",
+      "power": false,
+      "pins": [
+        "C2.2",
+        "RV2.3"
+      ]
+    },
+    {
+      "name": "Net-(Q1-B)",
+      "power": false,
+      "pins": [
+        "C1.2",
+        "Q1.B",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "Net-(Q1-C)",
+      "power": false,
+      "pins": [
+        "Q1.C",
+        "Q2.B",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "Net-(Q2-C)",
+      "power": false,
+      "pins": [
+        "Q2.C",
+        "R4.1"
+      ]
+    },
+    {
+      "name": "Net-(Q2-E)",
+      "power": false,
+      "pins": [
+        "C4.1",
+        "Q2.E",
+        "RV1.3"
+      ]
+    },
+    {
+      "name": "Net-(R2-Pad2)",
+      "power": false,
+      "pins": [
+        "R2.2",
+        "RV1.2"
+      ]
+    },
+    {
+      "name": "OUT",
+      "power": false,
+      "pins": [
+        "J1.Pin_2",
+        "RV2.2"
+      ]
+    }
+  ]
+}

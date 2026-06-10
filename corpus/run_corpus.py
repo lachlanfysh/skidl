@@ -81,6 +81,7 @@ class RunnerConfig:
     model_tier: str = "mid"
     limit: int | None = None
     boards: set[str] = field(default_factory=set)
+    validation_modes: set[str] = field(default_factory=set)
     timeout_s: float = 300.0
     max_iters: int = 8
     concurrency: int = 2
@@ -417,6 +418,12 @@ async def _spec_for_row(
             return None, "engine_only", [], "OPENROUTER_API_KEY unset and no cached spec_path", "failed"
         return spec, "engine_only", [], None, ""
 
+    if row.get("nl_source") == "reversed":
+        spec = load_cached_spec(row)
+        if spec is None:
+            return None, "engine_only", [], "reversed board has no cached spec", "failed"
+        return spec, "engine_only", [], None, ""
+
     stages: list[dict] = []
     try:
         spec, stages = await nl_to_input_spec(
@@ -661,7 +668,8 @@ def select_rows(rows: list[dict], config: RunnerConfig) -> list[dict]:
     selected = [
         row
         for row in rows
-        if not config.boards or str(row["board_id"]) in config.boards
+        if (not config.boards or str(row["board_id"]) in config.boards)
+        and (not config.validation_modes or row.get("validation_mode") in config.validation_modes)
     ]
     if not config.force:
         done = completed_keys(config.telemetry, config.mode)
@@ -821,6 +829,8 @@ def parse_args(argv: list[str] | None = None) -> RunnerConfig:
     parser.add_argument("--model-tier", default="mid")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--board", action="append", default=[])
+    parser.add_argument("--validation-mode", action="append", default=[],
+                        help="Filter by validation_mode (internal, reference, indexed_only)")
     parser.add_argument("--timeout-s", type=float, default=300.0)
     parser.add_argument("--max-iters", type=int, default=8)
     parser.add_argument("--concurrency", type=int, default=2)
@@ -848,6 +858,7 @@ def parse_args(argv: list[str] | None = None) -> RunnerConfig:
         model_tier=args.model_tier,
         limit=args.limit,
         boards=set(args.board),
+        validation_modes=set(args.validation_mode),
         timeout_s=args.timeout_s,
         max_iters=args.max_iters,
         concurrency=max(1, args.concurrency),

@@ -1,0 +1,1049 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "hagiwo-sync-lfo-main"
+  },
+  "parts": [
+    {
+      "ref": "A1",
+      "lib": null,
+      "part": null,
+      "value": "Arduino_Nano_v3.x",
+      "footprint": "Module:Arduino_Nano",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "D1/TX",
+          "func": "output"
+        },
+        {
+          "num": "2",
+          "name": "D0/RX",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "~{RESET}",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "D2",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "D3",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "D4",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "D5",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "D6",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "D7",
+          "func": "passive"
+        },
+        {
+          "num": "11",
+          "name": "D8",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "D9",
+          "func": "passive"
+        },
+        {
+          "num": "13",
+          "name": "D10",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "D11",
+          "func": "passive"
+        },
+        {
+          "num": "15",
+          "name": "D12",
+          "func": "passive"
+        },
+        {
+          "num": "16",
+          "name": "D13",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "3V3",
+          "func": "passive"
+        },
+        {
+          "num": "18",
+          "name": "AREF",
+          "func": "passive"
+        },
+        {
+          "num": "19",
+          "name": "A0",
+          "func": "passive"
+        },
+        {
+          "num": "20",
+          "name": "A1",
+          "func": "passive"
+        },
+        {
+          "num": "21",
+          "name": "A2",
+          "func": "passive"
+        },
+        {
+          "num": "22",
+          "name": "A3",
+          "func": "passive"
+        },
+        {
+          "num": "23",
+          "name": "A4",
+          "func": "passive"
+        },
+        {
+          "num": "24",
+          "name": "A5",
+          "func": "passive"
+        },
+        {
+          "num": "25",
+          "name": "A6",
+          "func": "passive"
+        },
+        {
+          "num": "26",
+          "name": "A7",
+          "func": "passive"
+        },
+        {
+          "num": "27",
+          "name": "+5V",
+          "func": "power_in"
+        },
+        {
+          "num": "28",
+          "name": "~{RESET}",
+          "func": "input"
+        },
+        {
+          "num": "29",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "30",
+          "name": "VIN",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "220p",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "220p",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "220p",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "220p",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "6.8n",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "10n",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "10u",
+      "footprint": "Capacitor_Tantalum_SMD:CP_EIA-3216-18_Kemet-A",
+      "group": null
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "10u",
+      "footprint": "Capacitor_Tantalum_SMD:CP_EIA-3216-18_Kemet-A",
+      "group": null
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "D1",
+      "lib": "Diode",
+      "part": "BAV99",
+      "value": "BAV99,215",
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": null
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D3.0mm",
+      "group": null
+    },
+    {
+      "ref": "D3",
+      "lib": "Diode",
+      "part": "1N5817",
+      "value": "1N5819",
+      "footprint": "Diode_SMD:D_SOD-323",
+      "group": null
+    },
+    {
+      "ref": "D4",
+      "lib": "Diode",
+      "part": "1N5817",
+      "value": "1N5819",
+      "footprint": "Diode_SMD:D_SOD-323",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "AudioJack2",
+      "value": "UP_Out",
+      "footprint": "Connector_Audio_QingPu:Jack_3.5mm_QingPu_WQP-PJ301M-12",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": "CLK In",
+      "footprint": "Connector_Audio_QingPu:Jack_3.5mm_QingPu_WQP-PJ301M-12",
+      "group": null
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector",
+      "part": "AudioJack2",
+      "value": "BP_Inv_Out",
+      "footprint": "Connector_Audio_QingPu:Jack_3.5mm_QingPu_WQP-PJ301M-12",
+      "group": null
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector",
+      "part": "AudioJack2",
+      "value": "BP_Out",
+      "footprint": "Connector_Audio_QingPu:Jack_3.5mm_QingPu_WQP-PJ301M-12",
+      "group": null
+    },
+    {
+      "ref": "J5",
+      "lib": null,
+      "part": null,
+      "value": "Power",
+      "footprint": "CATs_Eurosynth_Specials:Power_2x5_Vertical",
+      "group": null,
+      "pins": [
+        {
+          "num": "+12V",
+          "name": "+12V",
+          "func": "passive"
+        },
+        {
+          "num": "-12V",
+          "name": "-12V",
+          "func": "passive"
+        },
+        {
+          "num": "GND",
+          "name": "GND",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "P1",
+      "lib": null,
+      "part": null,
+      "value": "B100K",
+      "footprint": "Potentiometer_THT_Additional:Potentiometer_AlpsAlpine_RK09L1140_wo_Fix",
+      "group": null,
+      "pins": [
+        {
+          "num": "CCW",
+          "name": "CCW",
+          "func": "power_in"
+        },
+        {
+          "num": "CW",
+          "name": "CW",
+          "func": "power_in"
+        },
+        {
+          "num": "W",
+          "name": "W",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "P2",
+      "lib": null,
+      "part": null,
+      "value": "B100K",
+      "footprint": "Potentiometer_THT_Additional:Potentiometer_AlpsAlpine_RK09L1140",
+      "group": null,
+      "pins": [
+        {
+          "num": "CCW",
+          "name": "CCW",
+          "func": "power_in"
+        },
+        {
+          "num": "CW",
+          "name": "CW",
+          "func": "power_in"
+        },
+        {
+          "num": "W",
+          "name": "W",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "P3",
+      "lib": null,
+      "part": null,
+      "value": "B100K",
+      "footprint": "Potentiometer_THT_Additional:Potentiometer_AlpsAlpine_RK09L1140_wo_Fix",
+      "group": null,
+      "pins": [
+        {
+          "num": "CCW",
+          "name": "CCW",
+          "func": "power_in"
+        },
+        {
+          "num": "CW",
+          "name": "CW",
+          "func": "power_in"
+        },
+        {
+          "num": "W",
+          "name": "W",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "P4",
+      "lib": null,
+      "part": null,
+      "value": "B100K",
+      "footprint": "Potentiometer_THT_Additional:Potentiometer_AlpsAlpine_RK09L1140_wo_Fix",
+      "group": null,
+      "pins": [
+        {
+          "num": "CCW",
+          "name": "CCW",
+          "func": "power_in"
+        },
+        {
+          "num": "CW",
+          "name": "CW",
+          "func": "power_in"
+        },
+        {
+          "num": "W",
+          "name": "W",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "470R",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "470R",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "470R",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "470R",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "13k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "27k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "300R",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R11",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R12",
+      "lib": "Device",
+      "part": "R",
+      "value": "100k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R13",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R14",
+      "lib": "Device",
+      "part": "R",
+      "value": "20k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R15",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R16",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R17",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R18",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R19",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R20",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R21",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "U1",
+      "lib": null,
+      "part": null,
+      "value": "TL072",
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "V-",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "V+",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": "TL072",
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "V-",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "V+",
+          "func": "power_in"
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "A1.3V3"
+      ]
+    },
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "A1.+5V",
+        "D1.A",
+        "P1.CW",
+        "P2.CW",
+        "P3.CW",
+        "P4.CW",
+        "R18.2"
+      ]
+    },
+    {
+      "name": "+12V",
+      "power": true,
+      "pins": [
+        "A1.VIN",
+        "C10.2",
+        "C8.1",
+        "C9.2",
+        "D3.K",
+        "U1.V+",
+        "U2.V+"
+      ]
+    },
+    {
+      "name": "-5VA",
+      "power": false,
+      "pins": [
+        "R15.2",
+        "R17.1",
+        "U1.7"
+      ]
+    },
+    {
+      "name": "-12V",
+      "power": false,
+      "pins": [
+        "C11.2",
+        "C12.1",
+        "C13.1",
+        "D4.A",
+        "U1.V-",
+        "U2.V-"
+      ]
+    },
+    {
+      "name": "A0",
+      "power": false,
+      "pins": [
+        "A1.A0",
+        "C2.1",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "A1",
+      "power": false,
+      "pins": [
+        "A1.A1",
+        "C3.1",
+        "R3.1"
+      ]
+    },
+    {
+      "name": "A3",
+      "power": false,
+      "pins": [
+        "A1.A3",
+        "C1.1",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "A5",
+      "power": false,
+      "pins": [
+        "A1.A5",
+        "C4.1",
+        "R4.1"
+      ]
+    },
+    {
+      "name": "D3",
+      "power": false,
+      "pins": [
+        "A1.D3",
+        "D1.K",
+        "R10.1",
+        "R12.2"
+      ]
+    },
+    {
+      "name": "D10",
+      "power": false,
+      "pins": [
+        "A1.D10",
+        "R5.2",
+        "R8.2"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "A1.GND",
+        "C1.2",
+        "C10.1",
+        "C11.1",
+        "C12.2",
+        "C13.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C6.1",
+        "C7.1",
+        "C8.2",
+        "C9.1",
+        "D1.K",
+        "D2.K",
+        "J1.S",
+        "J2.S",
+        "J2.TN",
+        "J3.S",
+        "J4.S",
+        "J5.GND",
+        "P1.CCW",
+        "P2.CCW",
+        "P3.CCW",
+        "P4.CCW",
+        "R11.1",
+        "R12.1",
+        "U1.+",
+        "U2.+"
+      ]
+    },
+    {
+      "name": "Net-(C5-Pad2)",
+      "power": false,
+      "pins": [
+        "C5.2",
+        "R5.1",
+        "R6.2"
+      ]
+    },
+    {
+      "name": "Net-(D2-A)",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "R8.1"
+      ]
+    },
+    {
+      "name": "Net-(D3-A)",
+      "power": false,
+      "pins": [
+        "D3.A",
+        "J5.+12V"
+      ]
+    },
+    {
+      "name": "Net-(D4-K)",
+      "power": false,
+      "pins": [
+        "D4.K",
+        "J5.-12V"
+      ]
+    },
+    {
+      "name": "Net-(J1-PadT)",
+      "power": false,
+      "pins": [
+        "J1.T",
+        "R7.1"
+      ]
+    },
+    {
+      "name": "Net-(J2-PadT)",
+      "power": false,
+      "pins": [
+        "J2.T",
+        "R10.2"
+      ]
+    },
+    {
+      "name": "Net-(J3-PadT)",
+      "power": false,
+      "pins": [
+        "J3.T",
+        "R16.1"
+      ]
+    },
+    {
+      "name": "Net-(J4-PadT)",
+      "power": false,
+      "pins": [
+        "J4.T",
+        "R21.1"
+      ]
+    },
+    {
+      "name": "Net-(P1-PadW)",
+      "power": false,
+      "pins": [
+        "P1.W",
+        "R1.2"
+      ]
+    },
+    {
+      "name": "Net-(P2-PadW)",
+      "power": false,
+      "pins": [
+        "P2.W",
+        "R2.2"
+      ]
+    },
+    {
+      "name": "Net-(P3-PadW)",
+      "power": false,
+      "pins": [
+        "P3.W",
+        "R3.2"
+      ]
+    },
+    {
+      "name": "Net-(P4-PadW)",
+      "power": false,
+      "pins": [
+        "P4.W",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "Net-(R14-Pad1)",
+      "power": false,
+      "pins": [
+        "R14.1",
+        "R16.2",
+        "R20.2",
+        "U2.1"
+      ]
+    },
+    {
+      "name": "Net-(R19-Pad1)",
+      "power": false,
+      "pins": [
+        "R19.1",
+        "R21.2",
+        "U2.7"
+      ]
+    },
+    {
+      "name": "Net-(U1A-+)",
+      "power": false,
+      "pins": [
+        "C6.2",
+        "R6.1",
+        "U1.+"
+      ]
+    },
+    {
+      "name": "Net-(U1A--)",
+      "power": false,
+      "pins": [
+        "R11.2",
+        "R9.2",
+        "U1.-"
+      ]
+    },
+    {
+      "name": "Net-(U1B--)",
+      "power": false,
+      "pins": [
+        "R17.2",
+        "R18.1",
+        "U1.-"
+      ]
+    },
+    {
+      "name": "Net-(U2A--)",
+      "power": false,
+      "pins": [
+        "R13.1",
+        "R14.2",
+        "R15.1",
+        "U2.-"
+      ]
+    },
+    {
+      "name": "Net-(U2B--)",
+      "power": false,
+      "pins": [
+        "R19.2",
+        "R20.1",
+        "U2.-"
+      ]
+    },
+    {
+      "name": "Out",
+      "power": false,
+      "pins": [
+        "C5.1",
+        "C7.2",
+        "R13.2",
+        "R7.2",
+        "R9.1",
+        "U1.1"
+      ]
+    }
+  ]
+}

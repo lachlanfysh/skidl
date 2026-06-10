@@ -1,0 +1,66 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "thonk.pj398sm.wire"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": "IN",
+      "footprint": "Connector_Thonk:ThonkiconnJack",
+      "group": null
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    },
+    {
+      "ref": "TP2",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    },
+    {
+      "ref": "TP3",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "J1.S"
+      ]
+    },
+    {
+      "name": "Normalling0",
+      "power": false,
+      "pins": [
+        "J1.TN",
+        "TP3.1"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "J1.T",
+        "TP1.1",
+        "TP2.1"
+      ]
+    }
+  ]
+}

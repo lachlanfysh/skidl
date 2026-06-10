@@ -1,0 +1,4307 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "mainboard"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22u",
+      "footprint": "winterbloom:C_0805_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22u",
+      "footprint": "winterbloom:C_0805_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22u",
+      "footprint": "winterbloom:C_0805_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C50",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22u",
+      "footprint": "winterbloom:C_0805_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C51",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "22u",
+      "footprint": "winterbloom:C_0805_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "D",
+      "value": "30V",
+      "footprint": "winterbloom:D_SOD-123",
+      "group": "power"
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "D",
+      "value": "30V",
+      "footprint": "winterbloom:D_SOD-123",
+      "group": "power"
+    },
+    {
+      "ref": "D15",
+      "lib": "Device",
+      "part": "D",
+      "value": "30V",
+      "footprint": "winterbloom:D_SOD-123",
+      "group": "power"
+    },
+    {
+      "ref": "FB1",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "600R@100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "FB2",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "600R@100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "FB3",
+      "lib": "Device",
+      "part": "FerriteBead_Small",
+      "value": "600R@100MHz",
+      "footprint": "winterbloom:L_0603_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "J1",
+      "lib": null,
+      "part": null,
+      "value": "Eurorack Power",
+      "footprint": "winterbloom:Eurorack_Power_2x5_Shrouded",
+      "group": "power",
+      "pins": [
+        {
+          "num": "1",
+          "name": "-12V",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-12V",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "8",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "9",
+          "name": "+12V",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "+12V",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "2k2",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "3V3",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "power"
+    },
+    {
+      "ref": "TP2",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "GND",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "power"
+    },
+    {
+      "ref": "TP3",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "-10V",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "power"
+    },
+    {
+      "ref": "U1",
+      "lib": "Regulator_Linear",
+      "part": "LM1117-3.3",
+      "value": "LD1117-3.3",
+      "footprint": "Package_TO_SOT_SMD:TO-252-3_TabPin2",
+      "group": "power"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": "LM4040DBZ-10",
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "power",
+      "pins": [
+        {
+          "num": "1",
+          "name": "K",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "A",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "NC",
+          "func": "no_connect"
+        }
+      ]
+    },
+    {
+      "ref": "C16",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "2n2",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "C17",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "2n2",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "C18",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "2n2",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "C19",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "2n2",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "C20",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "C21",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1u",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "D_TVS_Filled",
+      "value": "ESD",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "D4",
+      "lib": "Device",
+      "part": "D_TVS_Filled",
+      "value": "ESD",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "D5",
+      "lib": "Device",
+      "part": "D_TVS_Filled",
+      "value": "ESD",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "D6",
+      "lib": "Device",
+      "part": "D_TVS_Filled",
+      "value": "ESD",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "J3",
+      "lib": null,
+      "part": null,
+      "value": "CASTOR PITCH",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": "analogins",
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J4",
+      "lib": null,
+      "part": null,
+      "value": "POLLUX PITCH",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": "analogins",
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J5",
+      "lib": null,
+      "part": null,
+      "value": "CASTOR DUTY",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": "analogins",
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J6",
+      "lib": null,
+      "part": null,
+      "value": "POLLUX DUTY",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": "analogins",
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "162k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "162k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "196k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R11",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "196k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R12",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "48k7",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R13",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "48k7",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R14",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "61k9",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "R15",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "61k9",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "analogins"
+    },
+    {
+      "ref": "U6",
+      "lib": null,
+      "part": null,
+      "value": "MCP6004",
+      "footprint": "Package_SO:TSSOP-14_4.4x5mm_P0.65mm",
+      "group": "analogins",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "V+",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "P8",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "V-",
+          "func": "power_in"
+        },
+        {
+          "num": "12",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "13",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "P14",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1u",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1u",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "C15",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "J2",
+      "lib": null,
+      "part": null,
+      "value": "USB",
+      "footprint": "winterbloom:USB_B_Micro_Receptacle",
+      "group": "mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "5V",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "D-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "D+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "ID",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "S1",
+          "name": "SLD",
+          "func": "power_in"
+        },
+        {
+          "num": "S2",
+          "name": "SLD",
+          "func": "power_in"
+        },
+        {
+          "num": "S3",
+          "name": "SLD",
+          "func": "power_in"
+        },
+        {
+          "num": "S4",
+          "name": "SLD",
+          "func": "power_in"
+        },
+        {
+          "num": "S5",
+          "name": "SLD",
+          "func": "power_in"
+        },
+        {
+          "num": "S6",
+          "name": "SLD",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J11",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": "USB ALT",
+      "footprint": "winterbloom:SolderWirePad_1x04_SMD_2x5mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "2k2",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "2k2",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "mcu"
+    },
+    {
+      "ref": "SW1",
+      "lib": null,
+      "part": null,
+      "value": "RESET",
+      "footprint": "winterbloom:Tactile_Switch_4.2mm",
+      "group": "mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "TP4",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "SWDIO",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP5",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "SWCLK",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP6",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "RESET",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP7",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "SQ2",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP8",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "SQ1",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP9",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "D+",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "TP10",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "D-",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "U3",
+      "lib": null,
+      "part": null,
+      "value": "ATSAMD21G18A-A",
+      "footprint": "winterbloom:TQFP-48_7x7mm_P0.5mm",
+      "group": "mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "PA00",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "PA01",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "PA02",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "PA03",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "GNDANA",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "VDDANA",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "PB08",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "PB09",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "PA04",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "PA05",
+          "func": "passive"
+        },
+        {
+          "num": "11",
+          "name": "PA06",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "PA07",
+          "func": "passive"
+        },
+        {
+          "num": "13",
+          "name": "PA08",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "PA09",
+          "func": "passive"
+        },
+        {
+          "num": "15",
+          "name": "PA10",
+          "func": "passive"
+        },
+        {
+          "num": "16",
+          "name": "PA11",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "VDDIO",
+          "func": "power_in"
+        },
+        {
+          "num": "18",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "19",
+          "name": "PB10",
+          "func": "passive"
+        },
+        {
+          "num": "20",
+          "name": "PB11",
+          "func": "passive"
+        },
+        {
+          "num": "21",
+          "name": "PA12",
+          "func": "passive"
+        },
+        {
+          "num": "22",
+          "name": "PA13",
+          "func": "passive"
+        },
+        {
+          "num": "23",
+          "name": "PA14",
+          "func": "passive"
+        },
+        {
+          "num": "24",
+          "name": "PA15",
+          "func": "passive"
+        },
+        {
+          "num": "25",
+          "name": "PA16",
+          "func": "passive"
+        },
+        {
+          "num": "26",
+          "name": "PA17",
+          "func": "passive"
+        },
+        {
+          "num": "27",
+          "name": "PA18",
+          "func": "passive"
+        },
+        {
+          "num": "28",
+          "name": "PA19",
+          "func": "passive"
+        },
+        {
+          "num": "29",
+          "name": "PA20",
+          "func": "passive"
+        },
+        {
+          "num": "30",
+          "name": "PA21",
+          "func": "passive"
+        },
+        {
+          "num": "31",
+          "name": "PA22",
+          "func": "passive"
+        },
+        {
+          "num": "32",
+          "name": "PA23",
+          "func": "passive"
+        },
+        {
+          "num": "33",
+          "name": "PA24",
+          "func": "passive"
+        },
+        {
+          "num": "34",
+          "name": "PA25",
+          "func": "passive"
+        },
+        {
+          "num": "35",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "36",
+          "name": "VDDIO",
+          "func": "power_in"
+        },
+        {
+          "num": "37",
+          "name": "PB22",
+          "func": "passive"
+        },
+        {
+          "num": "38",
+          "name": "PB23",
+          "func": "passive"
+        },
+        {
+          "num": "39",
+          "name": "PA27",
+          "func": "power_in"
+        },
+        {
+          "num": "40",
+          "name": "~{RESET}",
+          "func": "input"
+        },
+        {
+          "num": "41",
+          "name": "PA28",
+          "func": "passive"
+        },
+        {
+          "num": "42",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "43",
+          "name": "VDDCORE",
+          "func": "power_in"
+        },
+        {
+          "num": "44",
+          "name": "VDDIN",
+          "func": "power_in"
+        },
+        {
+          "num": "45",
+          "name": "PA30",
+          "func": "passive"
+        },
+        {
+          "num": "46",
+          "name": "PA31",
+          "func": "passive"
+        },
+        {
+          "num": "47",
+          "name": "PB02",
+          "func": "passive"
+        },
+        {
+          "num": "48",
+          "name": "PB03",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U4",
+      "lib": "Power_Protection",
+      "part": "USBLC6-2SC6",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-6",
+      "group": "mcu"
+    },
+    {
+      "ref": "U5",
+      "lib": "Analog_DAC",
+      "part": "MCP4728",
+      "value": null,
+      "footprint": "Package_SO:MSOP-10_3x3mm_P0.5mm",
+      "group": "mcu"
+    },
+    {
+      "ref": "C22",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "270p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C23",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C24",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C25",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C26",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C27",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C28",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C29",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C30",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C46",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C47",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C48",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "C49",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "J7",
+      "lib": null,
+      "part": null,
+      "value": "OSC OUT",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": "castor",
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_BJT",
+      "part": "MMBT3906",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "castor"
+    },
+    {
+      "ref": "R16",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R17",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "200k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R18",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R19",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "270R",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R20",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "33k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R21",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R22",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R23",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R24",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R25",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R26",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R27",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R28",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "33k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R29",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "33k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R30",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "33k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R31",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R32",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R33",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R34",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R35",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R36",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R37",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "R38",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "castor"
+    },
+    {
+      "ref": "RV6",
+      "lib": null,
+      "part": null,
+      "value": "Ramp level",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": "castor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV7",
+      "lib": null,
+      "part": null,
+      "value": "Pulse level",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": "castor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV8",
+      "lib": null,
+      "part": null,
+      "value": "Sub level",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": "castor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "TP11",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "Ramp",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": "castor"
+    },
+    {
+      "ref": "U7",
+      "lib": null,
+      "part": null,
+      "value": "TL074",
+      "footprint": "Package_SO:TSSOP-14_4.4x5mm_P0.65mm",
+      "group": "castor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "V+",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "P8",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "V-",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "13",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "P14",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U8",
+      "lib": null,
+      "part": null,
+      "value": "TL074",
+      "footprint": "Package_SO:TSSOP-14_4.4x5mm_P0.65mm",
+      "group": "outputmixer",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "V+",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "P8",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "V-",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "13",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "P14",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U9",
+      "lib": null,
+      "part": null,
+      "value": "74LVC2G74",
+      "footprint": "Package_SO:TSSOP-8_3x3mm_P0.65mm",
+      "group": "castor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "C",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "D",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "~{Q}",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "Q",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "~{CLR}",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "~{PRE}",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "VCC",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "U10",
+      "lib": null,
+      "part": null,
+      "value": "MCP6001-OT",
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "castor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "V-",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "V+",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C31",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "270p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C32",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "1n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C33",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C34",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C35",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "10u",
+      "footprint": "winterbloom:C_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C36",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C37",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C38",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C39",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C40",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C41",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C42",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C43",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100n",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "J8",
+      "lib": null,
+      "part": null,
+      "value": "OSC OUT",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": null,
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "Q2",
+      "lib": "Transistor_BJT",
+      "part": "MMBT3906",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": null
+    },
+    {
+      "ref": "R39",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R40",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "200k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R41",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R42",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "270R",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R43",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "33k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R44",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R45",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R46",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R47",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R48",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R49",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R50",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "10k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R51",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "33k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R52",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "33k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R53",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "33k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R54",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R55",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R56",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R57",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R58",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R59",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R60",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "R61",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "RV9",
+      "lib": null,
+      "part": null,
+      "value": "Ramp level",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV10",
+      "lib": null,
+      "part": null,
+      "value": "Pulse level",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV11",
+      "lib": null,
+      "part": null,
+      "value": "Sub level",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "TP12",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": "Ramp",
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": null
+    },
+    {
+      "ref": "U11",
+      "lib": null,
+      "part": null,
+      "value": "TL074",
+      "footprint": "Package_SO:TSSOP-14_4.4x5mm_P0.65mm",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "V+",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "P8",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "V-",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "13",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "P14",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U12",
+      "lib": null,
+      "part": null,
+      "value": "TL074",
+      "footprint": "Package_SO:TSSOP-14_4.4x5mm_P0.65mm",
+      "group": "outputmixer",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "V+",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "P8",
+          "func": "passive"
+        },
+        {
+          "num": "9",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "11",
+          "name": "V-",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "+",
+          "func": "power_in"
+        },
+        {
+          "num": "13",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "P14",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U13",
+      "lib": null,
+      "part": null,
+      "value": "74LVC2G74",
+      "footprint": "Package_SO:TSSOP-8_3x3mm_P0.65mm",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "C",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "D",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "~{Q}",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "Q",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "~{CLR}",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "~{PRE}",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "VCC",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "U14",
+      "lib": null,
+      "part": null,
+      "value": "MCP6001-OT",
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "V-",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "+",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "-",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "V+",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C44",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "C45",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "18p",
+      "footprint": "winterbloom:C_0402_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "J9",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x05_Odd_Even",
+      "value": "EXT",
+      "footprint": "winterbloom:Connector_Cortex_Debug_IDC_2x05_P1.27mm_Vertical_Shrouded_SMD",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "J10",
+      "lib": null,
+      "part": null,
+      "value": "MIX",
+      "footprint": "winterbloom:AudioJack_WQP518MA",
+      "group": "outputmixer",
+      "pins": [
+        {
+          "num": "S",
+          "name": "Sleeve",
+          "func": "power_in"
+        },
+        {
+          "num": "T",
+          "name": "Tip",
+          "func": "passive"
+        },
+        {
+          "num": "TN",
+          "name": "Tip_normalize",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R62",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "R63",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "R64",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "R65",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "R66",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "R67",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "R68",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "100k",
+      "footprint": "winterbloom:R_0402_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "R69",
+      "lib": "Device",
+      "part": "R_US",
+      "value": "1k",
+      "footprint": "winterbloom:R_0603_HandSolder",
+      "group": "outputmixer"
+    },
+    {
+      "ref": "RV12",
+      "lib": null,
+      "part": null,
+      "value": "Crossfade",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": "outputmixer",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "D7",
+      "lib": null,
+      "part": null,
+      "value": "Dotstar",
+      "footprint": "winterbloom:LED_APA102_Dotstar_5050",
+      "group": "leds",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "CI",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CO",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "DO",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "D8",
+      "lib": null,
+      "part": null,
+      "value": "Dotstar",
+      "footprint": "winterbloom:LED_APA102_Dotstar_5050",
+      "group": "leds",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "CI",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CO",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "DO",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "D9",
+      "lib": null,
+      "part": null,
+      "value": "Dotstar",
+      "footprint": "winterbloom:LED_APA102_Dotstar_5050",
+      "group": "leds",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "CI",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CO",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "DO",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "D10",
+      "lib": null,
+      "part": null,
+      "value": "Dotstar",
+      "footprint": "winterbloom:LED_APA102_Dotstar_5050",
+      "group": "leds",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "CI",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CO",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "DO",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "D11",
+      "lib": null,
+      "part": null,
+      "value": "Dotstar",
+      "footprint": "winterbloom:LED_APA102_Dotstar_5050",
+      "group": "leds",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "CI",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CO",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "DO",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "D12",
+      "lib": null,
+      "part": null,
+      "value": "Dotstar",
+      "footprint": "winterbloom:LED_APA102_Dotstar_5050",
+      "group": "leds",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "CI",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CO",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "DO",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "D13",
+      "lib": null,
+      "part": null,
+      "value": "Dotstar",
+      "footprint": "winterbloom:LED_APA102_Dotstar_5050",
+      "group": "leds",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "CI",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CO",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "DO",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "D14",
+      "lib": null,
+      "part": null,
+      "value": "Dotstar",
+      "footprint": "winterbloom:LED_APA102_Dotstar_5050",
+      "group": "leds",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "CI",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CO",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "DO",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "RV1",
+      "lib": null,
+      "part": null,
+      "value": "Castor pitch",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": "potentiometers",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV2",
+      "lib": null,
+      "part": null,
+      "value": "Pollux pitch",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": "potentiometers",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV3",
+      "lib": null,
+      "part": null,
+      "value": "LFO",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": "potentiometers",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV4",
+      "lib": null,
+      "part": null,
+      "value": "Castor duty",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": "potentiometers",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "RV5",
+      "lib": null,
+      "part": null,
+      "value": "Pollux duty",
+      "footprint": "winterbloom:Potentiometer_Alpha_R0904N",
+      "group": "potentiometers",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "3",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "SW2",
+      "lib": null,
+      "part": null,
+      "value": "BUTTON",
+      "footprint": "winterbloom:Tactile_Switch_6mm",
+      "group": "potentiometers",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "power_in"
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3.3V",
+      "power": true,
+      "pins": [
+        "C10.1",
+        "C11.1",
+        "C4.1",
+        "C5.1",
+        "C7.1",
+        "C8.1",
+        "D10.VCC",
+        "D11.VCC",
+        "D12.VCC",
+        "D13.VCC",
+        "D14.VCC",
+        "D7.VCC",
+        "D8.VCC",
+        "D9.VCC",
+        "FB3.1",
+        "R2.1",
+        "R3.1",
+        "TP1.1",
+        "U1.VO",
+        "U3.VDDIN",
+        "U3.VDDIO"
+      ]
+    },
+    {
+      "name": "+3.3VA",
+      "power": false,
+      "pins": [
+        "C13.1",
+        "C14.1",
+        "C15.1",
+        "C20.2",
+        "C21.2",
+        "FB3.2",
+        "RV1.3",
+        "RV2.3",
+        "RV3.3",
+        "RV4.3",
+        "RV5.3",
+        "U10.V+",
+        "U13.VCC",
+        "U13.~{CLR}",
+        "U13.~{PRE}",
+        "U14.V+",
+        "U3.PA03",
+        "U3.VDDANA",
+        "U5.VDD",
+        "U6.V+",
+        "U9.VCC",
+        "U9.~{CLR}",
+        "U9.~{PRE}"
+      ]
+    },
+    {
+      "name": "+12V",
+      "power": true,
+      "pins": [
+        "C2.1",
+        "C3.1",
+        "C41.1",
+        "C43.1",
+        "C47.1",
+        "C49.1",
+        "C51.1",
+        "D1.K",
+        "D15.K",
+        "U1.VI",
+        "U11.V+",
+        "U12.V+",
+        "U7.V+",
+        "U8.V+"
+      ]
+    },
+    {
+      "name": "-12V",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "C40.2",
+        "C42.2",
+        "C46.2",
+        "C48.2",
+        "C50.1",
+        "D2.A",
+        "R1.1",
+        "U11.V-",
+        "U12.V-",
+        "U7.V-",
+        "U8.V-"
+      ]
+    },
+    {
+      "name": "/Analog inputs/CASTOR_DUTY_CV",
+      "power": false,
+      "pins": [
+        "C18.2",
+        "R14.1",
+        "U3.PA05",
+        "U6.14"
+      ]
+    },
+    {
+      "name": "/Analog inputs/CASTOR_PITCH_CV",
+      "power": false,
+      "pins": [
+        "C16.2",
+        "R12.1",
+        "U3.PA07",
+        "U6.1"
+      ]
+    },
+    {
+      "name": "/Analog inputs/CV A IN",
+      "power": false,
+      "pins": [
+        "D3.A2",
+        "J3.Tip",
+        "J4.Tip_normalize",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "/Analog inputs/CV B IN",
+      "power": false,
+      "pins": [
+        "D4.A2",
+        "J4.Tip",
+        "R6.2"
+      ]
+    },
+    {
+      "name": "/Analog inputs/DUTY A IN",
+      "power": false,
+      "pins": [
+        "D5.A2",
+        "J5.Tip",
+        "R8.2"
+      ]
+    },
+    {
+      "name": "/Analog inputs/DUTY B IN",
+      "power": false,
+      "pins": [
+        "D6.A2",
+        "J6.Tip",
+        "R10.2"
+      ]
+    },
+    {
+      "name": "/Analog inputs/POLLUX_DUTY_CV",
+      "power": false,
+      "pins": [
+        "C19.2",
+        "R15.1",
+        "U3.PB09",
+        "U6.8"
+      ]
+    },
+    {
+      "name": "/Analog inputs/POLLUX_PITCH_CV",
+      "power": false,
+      "pins": [
+        "C17.2",
+        "R13.1",
+        "U3.PA06",
+        "U6.7"
+      ]
+    },
+    {
+      "name": "/Castor/CHARGE_CV_IN",
+      "power": false,
+      "pins": [
+        "U5.VOUTC",
+        "U7.+"
+      ]
+    },
+    {
+      "name": "/Castor/MIX_OUT",
+      "power": false,
+      "pins": [
+        "J7.Tip",
+        "R38.2",
+        "R62.2",
+        "R66.1"
+      ]
+    },
+    {
+      "name": "/Castor/PULSE_OUT",
+      "power": false,
+      "pins": [
+        "J9.Pin_6",
+        "R31.2",
+        "RV7.3"
+      ]
+    },
+    {
+      "name": "/Castor/PWM_CV_IN",
+      "power": false,
+      "pins": [
+        "U10.-",
+        "U5.VOUTD"
+      ]
+    },
+    {
+      "name": "/Castor/RAMP_OUT",
+      "power": false,
+      "pins": [
+        "J9.Pin_4",
+        "R33.2",
+        "RV6.3"
+      ]
+    },
+    {
+      "name": "/Castor/SQUARE_IN",
+      "power": false,
+      "pins": [
+        "C22.2",
+        "TP7.1",
+        "U3.PA12",
+        "U9.C"
+      ]
+    },
+    {
+      "name": "/Castor/SUB_OUT",
+      "power": false,
+      "pins": [
+        "J9.Pin_8",
+        "R32.2",
+        "RV8.3"
+      ]
+    },
+    {
+      "name": "/Castor/pulse_pre",
+      "power": false,
+      "pins": [
+        "C24.2",
+        "U10.1"
+      ]
+    },
+    {
+      "name": "/Castor/ramp_pre",
+      "power": false,
+      "pins": [
+        "C26.2",
+        "R21.2",
+        "TP11.1",
+        "U10.+",
+        "U8.14"
+      ]
+    },
+    {
+      "name": "/Castor/sub_pre",
+      "power": false,
+      "pins": [
+        "C25.2",
+        "U9.Q"
+      ]
+    },
+    {
+      "name": "/LEDs/CLK",
+      "power": false,
+      "pins": [
+        "D7.CI",
+        "U3.PA01"
+      ]
+    },
+    {
+      "name": "/LEDs/DATA",
+      "power": false,
+      "pins": [
+        "D7.DI",
+        "U3.PA00"
+      ]
+    },
+    {
+      "name": "/MCU/AIN4(VREFB)",
+      "power": false,
+      "pins": [
+        "U3.PA04"
+      ]
+    },
+    {
+      "name": "/MCU/BUTTON",
+      "power": false,
+      "pins": [
+        "SW2.1",
+        "U3.PB08"
+      ]
+    },
+    {
+      "name": "/MCU/CASTOR_DUTY_POT",
+      "power": false,
+      "pins": [
+        "RV4.2",
+        "U3.PA10"
+      ]
+    },
+    {
+      "name": "/MCU/CASTOR_PITCH_POT",
+      "power": false,
+      "pins": [
+        "RV1.2",
+        "U3.PB02"
+      ]
+    },
+    {
+      "name": "/MCU/CONN_D+",
+      "power": false,
+      "pins": [
+        "J11.Pin_3",
+        "J2.D+",
+        "TP9.1",
+        "U4.I/O1"
+      ]
+    },
+    {
+      "name": "/MCU/CONN_D-",
+      "power": false,
+      "pins": [
+        "J11.Pin_2",
+        "J2.D-",
+        "TP10.1",
+        "U4.I/O2"
+      ]
+    },
+    {
+      "name": "/MCU/D+",
+      "power": false,
+      "pins": [
+        "U3.PA25",
+        "U4.I/O1"
+      ]
+    },
+    {
+      "name": "/MCU/D-",
+      "power": false,
+      "pins": [
+        "U3.PA24",
+        "U4.I/O2"
+      ]
+    },
+    {
+      "name": "/MCU/I2C_SCL",
+      "power": false,
+      "pins": [
+        "R2.2",
+        "U3.PA17",
+        "U5.SCL"
+      ]
+    },
+    {
+      "name": "/MCU/I2C_SDA",
+      "power": false,
+      "pins": [
+        "R3.2",
+        "U3.PA16",
+        "U5.SDA"
+      ]
+    },
+    {
+      "name": "/MCU/LFO_POT",
+      "power": false,
+      "pins": [
+        "RV3.2",
+        "U3.PA09"
+      ]
+    },
+    {
+      "name": "/MCU/POLLUX_CHARGE_CV",
+      "power": false,
+      "pins": [
+        "U11.+",
+        "U5.VOUTA"
+      ]
+    },
+    {
+      "name": "/MCU/POLLUX_DUTY_POT",
+      "power": false,
+      "pins": [
+        "RV5.2",
+        "U3.PA08"
+      ]
+    },
+    {
+      "name": "/MCU/POLLUX_PITCH_POT",
+      "power": false,
+      "pins": [
+        "RV2.2",
+        "U3.PB03"
+      ]
+    },
+    {
+      "name": "/MCU/POLLUX_PWM_CV",
+      "power": false,
+      "pins": [
+        "U14.-",
+        "U5.VOUTB"
+      ]
+    },
+    {
+      "name": "/MCU/POLLUX_SQUARE_OUT",
+      "power": false,
+      "pins": [
+        "C31.2",
+        "TP8.1",
+        "U13.C",
+        "U3.PA11"
+      ]
+    },
+    {
+      "name": "/MCU/RESET",
+      "power": false,
+      "pins": [
+        "C9.1",
+        "SW1.1",
+        "TP6.1",
+        "U3.~{RESET}"
+      ]
+    },
+    {
+      "name": "/MCU/SWCLK",
+      "power": false,
+      "pins": [
+        "TP5.1",
+        "U3.PA30"
+      ]
+    },
+    {
+      "name": "/MCU/SWDIO",
+      "power": false,
+      "pins": [
+        "TP4.1",
+        "U3.PA31"
+      ]
+    },
+    {
+      "name": "/MCU/VDDCORE",
+      "power": false,
+      "pins": [
+        "C12.2",
+        "U3.VDDCORE"
+      ]
+    },
+    {
+      "name": "/Mixer & outputs/POLLUX_MIX_IN",
+      "power": false,
+      "pins": [
+        "J8.Tip",
+        "R61.2",
+        "R63.2"
+      ]
+    },
+    {
+      "name": "/Mixer & outputs/POLLUX_PULSE_IN",
+      "power": false,
+      "pins": [
+        "J9.Pin_3",
+        "R54.2",
+        "RV10.3"
+      ]
+    },
+    {
+      "name": "/Mixer & outputs/POLLUX_RAMP_IN",
+      "power": false,
+      "pins": [
+        "J9.Pin_5",
+        "R56.2",
+        "RV9.3"
+      ]
+    },
+    {
+      "name": "/Mixer & outputs/POLLUX_SUB_IN",
+      "power": false,
+      "pins": [
+        "J9.Pin_7",
+        "R55.2",
+        "RV11.3"
+      ]
+    },
+    {
+      "name": "/Pollux/pulse_pre",
+      "power": false,
+      "pins": [
+        "C33.2",
+        "U14.1"
+      ]
+    },
+    {
+      "name": "/Pollux/ramp_pre",
+      "power": false,
+      "pins": [
+        "C35.2",
+        "R44.2",
+        "TP12.1",
+        "U12.1",
+        "U14.+"
+      ]
+    },
+    {
+      "name": "/Pollux/sub_pre",
+      "power": false,
+      "pins": [
+        "C34.2",
+        "U13.Q"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.2",
+        "C12.1",
+        "C13.2",
+        "C14.2",
+        "C15.2",
+        "C2.2",
+        "C20.1",
+        "C21.1",
+        "C3.2",
+        "C4.2",
+        "C40.1",
+        "C41.2",
+        "C42.1",
+        "C43.2",
+        "C46.1",
+        "C47.2",
+        "C48.1",
+        "C49.2",
+        "C5.2",
+        "C50.2",
+        "C51.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "D10.GND",
+        "D11.GND",
+        "D12.GND",
+        "D13.GND",
+        "D14.GND",
+        "D3.A1",
+        "D4.A1",
+        "D5.A1",
+        "D6.A1",
+        "D7.GND",
+        "D8.GND",
+        "D9.GND",
+        "J1.GND",
+        "J10.Sleeve",
+        "J11.Pin_4",
+        "J2.GND",
+        "J2.SLD",
+        "J3.Sleeve",
+        "J3.Tip_normalize",
+        "J4.Sleeve",
+        "J5.Sleeve",
+        "J5.Tip_normalize",
+        "J6.Sleeve",
+        "J6.Tip_normalize",
+        "J7.Sleeve",
+        "J8.Sleeve",
+        "J9.Pin_1",
+        "J9.Pin_10",
+        "J9.Pin_2",
+        "J9.Pin_9",
+        "R16.1",
+        "R22.2",
+        "R23.2",
+        "R24.2",
+        "R39.1",
+        "R45.2",
+        "R46.2",
+        "R47.2",
+        "R64.1",
+        "RV1.1",
+        "RV10.1",
+        "RV11.1",
+        "RV12.3",
+        "RV2.1",
+        "RV3.1",
+        "RV4.1",
+        "RV5.1",
+        "RV6.1",
+        "RV7.1",
+        "RV8.1",
+        "RV9.1",
+        "SW1.2",
+        "SW2.2",
+        "TP2.1",
+        "U1.GND",
+        "U10.V-",
+        "U11.+",
+        "U12.+",
+        "U13.GND",
+        "U14.V-",
+        "U2.K",
+        "U3.GND",
+        "U3.GNDANA",
+        "U3.PA27",
+        "U4.GND",
+        "U5.VSS",
+        "U5.~{LDAC}",
+        "U6.+",
+        "U6.V-",
+        "U7.+",
+        "U8.+",
+        "U9.GND"
+      ]
+    },
+    {
+      "name": "Net-(C22-Pad1)",
+      "power": false,
+      "pins": [
+        "C22.1",
+        "R16.2",
+        "R18.2"
+      ]
+    },
+    {
+      "name": "Net-(C23-Pad1)",
+      "power": false,
+      "pins": [
+        "C23.1",
+        "R19.1",
+        "R20.1",
+        "U7.8"
+      ]
+    },
+    {
+      "name": "Net-(C24-Pad1)",
+      "power": false,
+      "pins": [
+        "C24.1",
+        "R22.1",
+        "R25.1"
+      ]
+    },
+    {
+      "name": "Net-(C25-Pad1)",
+      "power": false,
+      "pins": [
+        "C25.1",
+        "R23.1",
+        "R26.1"
+      ]
+    },
+    {
+      "name": "Net-(C26-Pad1)",
+      "power": false,
+      "pins": [
+        "C26.1",
+        "R24.1",
+        "R27.1"
+      ]
+    },
+    {
+      "name": "Net-(C27-Pad1)",
+      "power": false,
+      "pins": [
+        "C27.1",
+        "R28.2",
+        "R31.1",
+        "U7.7"
+      ]
+    },
+    {
+      "name": "Net-(C28-Pad1)",
+      "power": false,
+      "pins": [
+        "C28.1",
+        "R29.2",
+        "R32.1",
+        "U7.1"
+      ]
+    },
+    {
+      "name": "Net-(C29-Pad1)",
+      "power": false,
+      "pins": [
+        "C29.1",
+        "R30.2",
+        "R33.1",
+        "U8.8"
+      ]
+    },
+    {
+      "name": "Net-(C30-Pad1)",
+      "power": false,
+      "pins": [
+        "C30.1",
+        "R37.2",
+        "R38.1",
+        "U8.1"
+      ]
+    },
+    {
+      "name": "Net-(C31-Pad1)",
+      "power": false,
+      "pins": [
+        "C31.1",
+        "R39.2",
+        "R41.2"
+      ]
+    },
+    {
+      "name": "Net-(C32-Pad1)",
+      "power": false,
+      "pins": [
+        "C32.1",
+        "R42.1",
+        "R43.1",
+        "U11.7"
+      ]
+    },
+    {
+      "name": "Net-(C33-Pad1)",
+      "power": false,
+      "pins": [
+        "C33.1",
+        "R45.1",
+        "R48.1"
+      ]
+    },
+    {
+      "name": "Net-(C34-Pad1)",
+      "power": false,
+      "pins": [
+        "C34.1",
+        "R46.1",
+        "R49.1"
+      ]
+    },
+    {
+      "name": "Net-(C35-Pad1)",
+      "power": false,
+      "pins": [
+        "C35.1",
+        "R47.1",
+        "R50.1"
+      ]
+    },
+    {
+      "name": "Net-(C36-Pad1)",
+      "power": false,
+      "pins": [
+        "C36.1",
+        "R51.2",
+        "R54.1",
+        "U11.8"
+      ]
+    },
+    {
+      "name": "Net-(C37-Pad1)",
+      "power": false,
+      "pins": [
+        "C37.1",
+        "R52.2",
+        "R55.1",
+        "U11.14"
+      ]
+    },
+    {
+      "name": "Net-(C38-Pad1)",
+      "power": false,
+      "pins": [
+        "C38.1",
+        "R53.2",
+        "R56.1",
+        "U12.7"
+      ]
+    },
+    {
+      "name": "Net-(C39-Pad1)",
+      "power": false,
+      "pins": [
+        "C39.1",
+        "R60.2",
+        "R61.1",
+        "U12.14"
+      ]
+    },
+    {
+      "name": "Net-(C44-Pad1)",
+      "power": false,
+      "pins": [
+        "C44.1",
+        "R65.2",
+        "RV12.1",
+        "U12.8"
+      ]
+    },
+    {
+      "name": "Net-(C45-Pad1)",
+      "power": false,
+      "pins": [
+        "C45.1",
+        "R68.2",
+        "R69.1",
+        "U8.7"
+      ]
+    },
+    {
+      "name": "Net-(D1-A)",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "FB1.2"
+      ]
+    },
+    {
+      "name": "Net-(D2-K)",
+      "power": false,
+      "pins": [
+        "D2.K",
+        "FB2.2"
+      ]
+    },
+    {
+      "name": "Net-(D7-CO)",
+      "power": false,
+      "pins": [
+        "D7.CO",
+        "D8.CI"
+      ]
+    },
+    {
+      "name": "Net-(D7-DO)",
+      "power": false,
+      "pins": [
+        "D7.DO",
+        "D8.DI"
+      ]
+    },
+    {
+      "name": "Net-(D8-CO)",
+      "power": false,
+      "pins": [
+        "D8.CO",
+        "D9.CI"
+      ]
+    },
+    {
+      "name": "Net-(D8-DO)",
+      "power": false,
+      "pins": [
+        "D8.DO",
+        "D9.DI"
+      ]
+    },
+    {
+      "name": "Net-(D10-CI)",
+      "power": false,
+      "pins": [
+        "D10.CI",
+        "D9.CO"
+      ]
+    },
+    {
+      "name": "Net-(D10-CO)",
+      "power": false,
+      "pins": [
+        "D10.CO",
+        "D11.CI"
+      ]
+    },
+    {
+      "name": "Net-(D10-DI)",
+      "power": false,
+      "pins": [
+        "D10.DI",
+        "D9.DO"
+      ]
+    },
+    {
+      "name": "Net-(D10-DO)",
+      "power": false,
+      "pins": [
+        "D10.DO",
+        "D11.DI"
+      ]
+    },
+    {
+      "name": "Net-(D11-CO)",
+      "power": false,
+      "pins": [
+        "D11.CO",
+        "D12.CI"
+      ]
+    },
+    {
+      "name": "Net-(D11-DO)",
+      "power": false,
+      "pins": [
+        "D11.DO",
+        "D12.DI"
+      ]
+    },
+    {
+      "name": "Net-(D12-CO)",
+      "power": false,
+      "pins": [
+        "D12.CO",
+        "D13.CI"
+      ]
+    },
+    {
+      "name": "Net-(D12-DO)",
+      "power": false,
+      "pins": [
+        "D12.DO",
+        "D13.DI"
+      ]
+    },
+    {
+      "name": "Net-(D13-CO)",
+      "power": false,
+      "pins": [
+        "D13.CO",
+        "D14.CI"
+      ]
+    },
+    {
+      "name": "Net-(D13-DO)",
+      "power": false,
+      "pins": [
+        "D13.DO",
+        "D14.DI"
+      ]
+    },
+    {
+      "name": "Net-(FB1-Pad1)",
+      "power": false,
+      "pins": [
+        "FB1.1",
+        "J1.+12V"
+      ]
+    },
+    {
+      "name": "Net-(FB2-Pad1)",
+      "power": false,
+      "pins": [
+        "FB2.1",
+        "J1.-12V"
+      ]
+    },
+    {
+      "name": "Net-(J10-Tip)",
+      "power": false,
+      "pins": [
+        "J10.Tip",
+        "R69.2"
+      ]
+    },
+    {
+      "name": "Net-(Q1-B)",
+      "power": false,
+      "pins": [
+        "Q1.B",
+        "R18.1"
+      ]
+    },
+    {
+      "name": "Net-(Q1-C)",
+      "power": false,
+      "pins": [
+        "Q1.C",
+        "R19.2"
+      ]
+    },
+    {
+      "name": "Net-(Q1-E)",
+      "power": false,
+      "pins": [
+        "C23.2",
+        "Q1.E",
+        "R17.2",
+        "U7.-"
+      ]
+    },
+    {
+      "name": "Net-(Q2-B)",
+      "power": false,
+      "pins": [
+        "Q2.B",
+        "R41.1"
+      ]
+    },
+    {
+      "name": "Net-(Q2-C)",
+      "power": false,
+      "pins": [
+        "Q2.C",
+        "R42.2"
+      ]
+    },
+    {
+      "name": "Net-(Q2-E)",
+      "power": false,
+      "pins": [
+        "C32.2",
+        "Q2.E",
+        "R40.2",
+        "U11.-"
+      ]
+    },
+    {
+      "name": "Net-(R34-Pad1)",
+      "power": false,
+      "pins": [
+        "R34.1",
+        "RV6.2"
+      ]
+    },
+    {
+      "name": "Net-(R35-Pad1)",
+      "power": false,
+      "pins": [
+        "R35.1",
+        "RV7.2"
+      ]
+    },
+    {
+      "name": "Net-(R36-Pad1)",
+      "power": false,
+      "pins": [
+        "R36.1",
+        "RV8.2"
+      ]
+    },
+    {
+      "name": "Net-(R57-Pad1)",
+      "power": false,
+      "pins": [
+        "R57.1",
+        "RV9.2"
+      ]
+    },
+    {
+      "name": "Net-(R58-Pad1)",
+      "power": false,
+      "pins": [
+        "R58.1",
+        "RV10.2"
+      ]
+    },
+    {
+      "name": "Net-(R59-Pad1)",
+      "power": false,
+      "pins": [
+        "R59.1",
+        "RV11.2"
+      ]
+    },
+    {
+      "name": "Net-(R67-Pad1)",
+      "power": false,
+      "pins": [
+        "R67.1",
+        "RV12.2"
+      ]
+    },
+    {
+      "name": "Net-(U6A--)",
+      "power": false,
+      "pins": [
+        "C16.1",
+        "R12.2",
+        "R4.1",
+        "R5.1",
+        "U6.-"
+      ]
+    },
+    {
+      "name": "Net-(U6B--)",
+      "power": false,
+      "pins": [
+        "C17.1",
+        "R13.2",
+        "R6.1",
+        "R7.1",
+        "U6.-"
+      ]
+    },
+    {
+      "name": "Net-(U6C--)",
+      "power": false,
+      "pins": [
+        "C19.1",
+        "R10.1",
+        "R11.1",
+        "R15.2",
+        "U6.-"
+      ]
+    },
+    {
+      "name": "Net-(U6D--)",
+      "power": false,
+      "pins": [
+        "C18.1",
+        "R14.2",
+        "R8.1",
+        "R9.1",
+        "U6.-"
+      ]
+    },
+    {
+      "name": "Net-(U7A--)",
+      "power": false,
+      "pins": [
+        "C28.2",
+        "R26.2",
+        "R29.1",
+        "U7.-"
+      ]
+    },
+    {
+      "name": "Net-(U7B--)",
+      "power": false,
+      "pins": [
+        "C27.2",
+        "R25.2",
+        "R28.1",
+        "U7.-"
+      ]
+    },
+    {
+      "name": "Net-(U7D--)",
+      "power": false,
+      "pins": [
+        "R17.1",
+        "U7.-",
+        "U7.14"
+      ]
+    },
+    {
+      "name": "Net-(U8A--)",
+      "power": false,
+      "pins": [
+        "C30.2",
+        "R34.2",
+        "R35.2",
+        "R36.2",
+        "R37.1",
+        "U8.-"
+      ]
+    },
+    {
+      "name": "Net-(U8B--)",
+      "power": false,
+      "pins": [
+        "C45.2",
+        "R66.2",
+        "R67.2",
+        "R68.1",
+        "U8.-"
+      ]
+    },
+    {
+      "name": "Net-(U8C--)",
+      "power": false,
+      "pins": [
+        "C29.2",
+        "R27.2",
+        "R30.1",
+        "U8.-"
+      ]
+    },
+    {
+      "name": "Net-(U8D--)",
+      "power": false,
+      "pins": [
+        "R20.2",
+        "R21.1",
+        "U8.-"
+      ]
+    },
+    {
+      "name": "Net-(U9-D)",
+      "power": false,
+      "pins": [
+        "U9.D",
+        "U9.~{Q}"
+      ]
+    },
+    {
+      "name": "Net-(U11A--)",
+      "power": false,
+      "pins": [
+        "R40.1",
+        "U11.-",
+        "U11.1"
+      ]
+    },
+    {
+      "name": "Net-(U11C--)",
+      "power": false,
+      "pins": [
+        "C36.2",
+        "R48.2",
+        "R51.1",
+        "U11.-"
+      ]
+    },
+    {
+      "name": "Net-(U11D--)",
+      "power": false,
+      "pins": [
+        "C37.2",
+        "R49.2",
+        "R52.1",
+        "U11.-"
+      ]
+    },
+    {
+      "name": "Net-(U12A--)",
+      "power": false,
+      "pins": [
+        "R43.2",
+        "R44.1",
+        "U12.-"
+      ]
+    },
+    {
+      "name": "Net-(U12B--)",
+      "power": false,
+      "pins": [
+        "C38.2",
+        "R50.2",
+        "R53.1",
+        "U12.-"
+      ]
+    },
+    {
+      "name": "Net-(U12C-+)",
+      "power": false,
+      "pins": [
+        "R63.1",
+        "R64.2",
+        "U12.+"
+      ]
+    },
+    {
+      "name": "Net-(U12C--)",
+      "power": false,
+      "pins": [
+        "C44.2",
+        "R62.1",
+        "R65.1",
+        "U12.-"
+      ]
+    },
+    {
+      "name": "Net-(U12D--)",
+      "power": false,
+      "pins": [
+        "C39.2",
+        "R57.2",
+        "R58.2",
+        "R59.2",
+        "R60.1",
+        "U12.-"
+      ]
+    },
+    {
+      "name": "Net-(U13-D)",
+      "power": false,
+      "pins": [
+        "U13.D",
+        "U13.~{Q}"
+      ]
+    },
+    {
+      "name": "VREF-10",
+      "power": false,
+      "pins": [
+        "C6.1",
+        "R1.2",
+        "R11.2",
+        "R5.2",
+        "R7.2",
+        "R9.2",
+        "TP3.1",
+        "U2.A"
+      ]
+    },
+    {
+      "name": "VUSB",
+      "power": false,
+      "pins": [
+        "D15.A",
+        "J11.Pin_1",
+        "J2.5V",
+        "U4.VBUS"
+      ]
+    }
+  ]
+}

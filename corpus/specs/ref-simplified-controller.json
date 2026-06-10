@@ -1,0 +1,970 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "simplified-controller"
+  },
+  "parts": [
+    {
+      "ref": "C101",
+      "lib": "Device",
+      "part": "C",
+      "value": "1u",
+      "footprint": "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "C102",
+      "lib": "Device",
+      "part": "C",
+      "value": "1u",
+      "footprint": "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "C103",
+      "lib": "Device",
+      "part": "C",
+      "value": "1u",
+      "footprint": "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "C104",
+      "lib": "Device",
+      "part": "C",
+      "value": "1u",
+      "footprint": "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm",
+      "group": null
+    },
+    {
+      "ref": "D101",
+      "lib": "Diode",
+      "part": "1N5819",
+      "value": null,
+      "footprint": "Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "DS101",
+      "lib": "Display_Character",
+      "part": "WC1602A",
+      "value": null,
+      "footprint": "Custom:WC1602A_Outline",
+      "group": null
+    },
+    {
+      "ref": "J101",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x05_Odd_Even",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_2x05_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J102",
+      "lib": "Connector",
+      "part": "Raspberry_Pi_2_3",
+      "value": null,
+      "footprint": "Custom:Raspberry_Pi_Zero_Socketed_THT_FaceDown",
+      "group": null
+    },
+    {
+      "ref": "R101",
+      "lib": "Device",
+      "part": "R",
+      "value": "10",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R104",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R105",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "RV101",
+      "lib": "Device",
+      "part": "R_Potentiometer_Trim",
+      "value": "10k",
+      "footprint": "Potentiometer_THT:Potentiometer_Runtron_RM-065_Vertical",
+      "group": null
+    },
+    {
+      "ref": "SW101",
+      "lib": "Switch",
+      "part": "SW_SPST",
+      "value": null,
+      "footprint": "Custom:PBS-105",
+      "group": null
+    },
+    {
+      "ref": "SW102",
+      "lib": "Switch",
+      "part": "SW_SPST",
+      "value": null,
+      "footprint": "Custom:PBS-105",
+      "group": null
+    },
+    {
+      "ref": "U101",
+      "lib": "Regulator_Linear",
+      "part": "LM7805_TO220",
+      "value": null,
+      "footprint": "Package_TO_SOT_THT:TO-220-3_Vertical",
+      "group": null
+    },
+    {
+      "ref": "U102",
+      "lib": "Regulator_Linear",
+      "part": "LM7805_TO220",
+      "value": null,
+      "footprint": "Package_TO_SOT_THT:TO-220-3_Vertical",
+      "group": null
+    },
+    {
+      "ref": "C201",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1u",
+      "footprint": "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm",
+      "group": "out"
+    },
+    {
+      "ref": "C202",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1u",
+      "footprint": "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm",
+      "group": "out"
+    },
+    {
+      "ref": "D201",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D5.0mm",
+      "group": "out"
+    },
+    {
+      "ref": "D202",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D5.0mm",
+      "group": "out"
+    },
+    {
+      "ref": "D203",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D5.0mm",
+      "group": "out"
+    },
+    {
+      "ref": "D204",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D5.0mm",
+      "group": "out"
+    },
+    {
+      "ref": "D205",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D5.0mm",
+      "group": "out"
+    },
+    {
+      "ref": "D206",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D5.0mm",
+      "group": "out"
+    },
+    {
+      "ref": "D207",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D5.0mm",
+      "group": "out"
+    },
+    {
+      "ref": "D208",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D5.0mm",
+      "group": "out"
+    },
+    {
+      "ref": "J201",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J202",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J203",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J204",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J205",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J206",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J207",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J208",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J209",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J210",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J211",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J212",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J213",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J214",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J215",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J216",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J217",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J218",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J219",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J220",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J221",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J222",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J223",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "J224",
+      "lib": "Connector",
+      "part": "AudioJack2_SwitchT",
+      "value": null,
+      "footprint": "Connector_Audio:Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles",
+      "group": "out"
+    },
+    {
+      "ref": "R201",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": "out"
+    },
+    {
+      "ref": "R202",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": "out"
+    },
+    {
+      "ref": "R203",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": "out"
+    },
+    {
+      "ref": "R204",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": "out"
+    },
+    {
+      "ref": "R205",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": "out"
+    },
+    {
+      "ref": "R206",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": "out"
+    },
+    {
+      "ref": "R207",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": "out"
+    },
+    {
+      "ref": "R208",
+      "lib": "Device",
+      "part": "R",
+      "value": "1k",
+      "footprint": "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+      "group": "out"
+    },
+    {
+      "ref": "U201",
+      "lib": "Analog_DAC",
+      "part": "DAC7578xPW",
+      "value": null,
+      "footprint": "Package_SO:TSSOP-16_4.4x5mm_P0.65mm",
+      "group": "out"
+    },
+    {
+      "ref": "U202",
+      "lib": "Interface_Expansion",
+      "part": "MCP23017_SP",
+      "value": null,
+      "footprint": "Package_DIP:DIP-28_W7.62mm_Socket",
+      "group": "out"
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "J102.3V3",
+        "SW101.A",
+        "SW102.A"
+      ]
+    },
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "C104.1",
+        "C201.2",
+        "C202.2",
+        "DS101.LED(+)",
+        "DS101.VDD",
+        "J102.5V",
+        "RV101.3",
+        "U102.VO",
+        "U201.AVDD",
+        "U201.~{CLR}",
+        "U202.VDD",
+        "U202.~{RESET}"
+      ]
+    },
+    {
+      "name": "+5VA",
+      "power": false,
+      "pins": [
+        "C102.1",
+        "U101.VO",
+        "U201.VREFIN"
+      ]
+    },
+    {
+      "name": "+12V",
+      "power": true,
+      "pins": [
+        "C101.1",
+        "C103.1",
+        "J101.Pin_1",
+        "J101.Pin_2",
+        "R101.1",
+        "U101.VI",
+        "U102.VI"
+      ]
+    },
+    {
+      "name": "/Out/SCK",
+      "power": false,
+      "pins": [
+        "J102.SCL/GPIO3",
+        "U201.SCL",
+        "U202.SCK"
+      ]
+    },
+    {
+      "name": "/Out/SDA",
+      "power": false,
+      "pins": [
+        "J102.SDA/GPIO2",
+        "U201.SDA",
+        "U202.SDA"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C101.2",
+        "C102.2",
+        "C103.2",
+        "C104.2",
+        "C201.1",
+        "C202.1",
+        "D101.A",
+        "D201.K",
+        "D202.K",
+        "D203.K",
+        "D204.K",
+        "D205.K",
+        "D206.K",
+        "D207.K",
+        "D208.K",
+        "DS101.LED(-)",
+        "DS101.R/W",
+        "DS101.VSS",
+        "J101.Pin_3",
+        "J101.Pin_4",
+        "J101.Pin_5",
+        "J101.Pin_6",
+        "J101.Pin_7",
+        "J101.Pin_8",
+        "J102.GND",
+        "J201.S",
+        "J202.S",
+        "J203.S",
+        "J204.S",
+        "J205.S",
+        "J206.S",
+        "J207.S",
+        "J208.S",
+        "J209.S",
+        "J210.S",
+        "J211.S",
+        "J212.S",
+        "J213.S",
+        "J214.S",
+        "J215.S",
+        "J216.S",
+        "J217.S",
+        "J218.S",
+        "J219.S",
+        "J220.S",
+        "J221.S",
+        "J222.S",
+        "J223.S",
+        "J224.S",
+        "R104.1",
+        "R105.1",
+        "RV101.1",
+        "U101.GND",
+        "U102.GND",
+        "U201.ADDR0",
+        "U201.GND",
+        "U201.~{LDAC}",
+        "U202.A0",
+        "U202.A1",
+        "U202.A2",
+        "U202.VSS"
+      ]
+    },
+    {
+      "name": "Net-(D101-K)",
+      "power": false,
+      "pins": [
+        "D101.K",
+        "R101.2"
+      ]
+    },
+    {
+      "name": "Net-(D201-A)",
+      "power": false,
+      "pins": [
+        "D201.A",
+        "R201.1"
+      ]
+    },
+    {
+      "name": "Net-(D202-A)",
+      "power": false,
+      "pins": [
+        "D202.A",
+        "R202.1"
+      ]
+    },
+    {
+      "name": "Net-(D203-A)",
+      "power": false,
+      "pins": [
+        "D203.A",
+        "R203.1"
+      ]
+    },
+    {
+      "name": "Net-(D204-A)",
+      "power": false,
+      "pins": [
+        "D204.A",
+        "R204.1"
+      ]
+    },
+    {
+      "name": "Net-(D205-A)",
+      "power": false,
+      "pins": [
+        "D205.A",
+        "R205.1"
+      ]
+    },
+    {
+      "name": "Net-(D206-A)",
+      "power": false,
+      "pins": [
+        "D206.A",
+        "R206.1"
+      ]
+    },
+    {
+      "name": "Net-(D207-A)",
+      "power": false,
+      "pins": [
+        "D207.A",
+        "R207.1"
+      ]
+    },
+    {
+      "name": "Net-(D208-A)",
+      "power": false,
+      "pins": [
+        "D208.A",
+        "R208.1"
+      ]
+    },
+    {
+      "name": "Net-(DS101-D4)",
+      "power": false,
+      "pins": [
+        "DS101.D4",
+        "J102.GCLK2/GPIO6"
+      ]
+    },
+    {
+      "name": "Net-(DS101-D5)",
+      "power": false,
+      "pins": [
+        "DS101.D5",
+        "J102.~{CE1}/GPIO7"
+      ]
+    },
+    {
+      "name": "Net-(DS101-D6)",
+      "power": false,
+      "pins": [
+        "DS101.D6",
+        "J102.~{CE0}/GPIO8"
+      ]
+    },
+    {
+      "name": "Net-(DS101-D7)",
+      "power": false,
+      "pins": [
+        "DS101.D7",
+        "J102.MISO0/GPIO9"
+      ]
+    },
+    {
+      "name": "Net-(DS101-E)",
+      "power": false,
+      "pins": [
+        "DS101.E",
+        "J102.GCLK0/GPIO4"
+      ]
+    },
+    {
+      "name": "Net-(DS101-RS)",
+      "power": false,
+      "pins": [
+        "DS101.RS",
+        "J102.GCLK1/GPIO5"
+      ]
+    },
+    {
+      "name": "Net-(DS101-VO)",
+      "power": false,
+      "pins": [
+        "DS101.VO",
+        "RV101.2"
+      ]
+    },
+    {
+      "name": "Net-(J102-GPIO16)",
+      "power": false,
+      "pins": [
+        "J102.GPIO16",
+        "R104.2",
+        "SW101.B"
+      ]
+    },
+    {
+      "name": "Net-(J102-GPIO17)",
+      "power": false,
+      "pins": [
+        "J102.GPIO17",
+        "R105.2",
+        "SW102.B"
+      ]
+    },
+    {
+      "name": "Net-(U201-VOUTA)",
+      "power": false,
+      "pins": [
+        "J201.T",
+        "U201.VOUTA"
+      ]
+    },
+    {
+      "name": "Net-(U201-VOUTB)",
+      "power": false,
+      "pins": [
+        "J202.T",
+        "U201.VOUTB"
+      ]
+    },
+    {
+      "name": "Net-(U201-VOUTC)",
+      "power": false,
+      "pins": [
+        "J203.T",
+        "U201.VOUTC"
+      ]
+    },
+    {
+      "name": "Net-(U201-VOUTD)",
+      "power": false,
+      "pins": [
+        "J204.T",
+        "U201.VOUTD"
+      ]
+    },
+    {
+      "name": "Net-(U201-VOUTE)",
+      "power": false,
+      "pins": [
+        "J205.T",
+        "U201.VOUTE"
+      ]
+    },
+    {
+      "name": "Net-(U201-VOUTF)",
+      "power": false,
+      "pins": [
+        "J206.T",
+        "U201.VOUTF"
+      ]
+    },
+    {
+      "name": "Net-(U201-VOUTG)",
+      "power": false,
+      "pins": [
+        "J207.T",
+        "U201.VOUTG"
+      ]
+    },
+    {
+      "name": "Net-(U201-VOUTH)",
+      "power": false,
+      "pins": [
+        "J208.T",
+        "U201.VOUTH"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPA0)",
+      "power": false,
+      "pins": [
+        "J217.T",
+        "R201.2",
+        "U202.GPA0"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPA1)",
+      "power": false,
+      "pins": [
+        "J218.T",
+        "R202.2",
+        "U202.GPA1"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPA2)",
+      "power": false,
+      "pins": [
+        "J219.T",
+        "R203.2",
+        "U202.GPA2"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPA3)",
+      "power": false,
+      "pins": [
+        "J220.T",
+        "R204.2",
+        "U202.GPA3"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPA4)",
+      "power": false,
+      "pins": [
+        "J221.T",
+        "R205.2",
+        "U202.GPA4"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPA5)",
+      "power": false,
+      "pins": [
+        "J222.T",
+        "R206.2",
+        "U202.GPA5"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPA6)",
+      "power": false,
+      "pins": [
+        "J223.T",
+        "R207.2",
+        "U202.GPA6"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPA7)",
+      "power": false,
+      "pins": [
+        "J224.T",
+        "R208.2",
+        "U202.GPA7"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPB0)",
+      "power": false,
+      "pins": [
+        "J209.T",
+        "U202.GPB0"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPB1)",
+      "power": false,
+      "pins": [
+        "J210.T",
+        "U202.GPB1"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPB2)",
+      "power": false,
+      "pins": [
+        "J211.T",
+        "U202.GPB2"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPB3)",
+      "power": false,
+      "pins": [
+        "J212.T",
+        "U202.GPB3"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPB4)",
+      "power": false,
+      "pins": [
+        "J213.T",
+        "U202.GPB4"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPB5)",
+      "power": false,
+      "pins": [
+        "J214.T",
+        "U202.GPB5"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPB6)",
+      "power": false,
+      "pins": [
+        "J215.T",
+        "U202.GPB6"
+      ]
+    },
+    {
+      "name": "Net-(U202-GPB7)",
+      "power": false,
+      "pins": [
+        "J216.T",
+        "U202.GPB7"
+      ]
+    }
+  ]
+}

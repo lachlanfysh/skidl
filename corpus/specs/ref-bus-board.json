@@ -1,0 +1,278 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "bus_board"
+  },
+  "parts": [
+    {
+      "ref": "H1",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H2",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H3",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "H4",
+      "lib": null,
+      "part": null,
+      "value": "GND",
+      "footprint": "MountingHole:MountingHole_3mm_Pad",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x08_Odd_Even",
+      "value": "Eurorack Power",
+      "footprint": "winterbloom:Eurorack_Power_2x8_Shrouded_Lock",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x08_Odd_Even",
+      "value": "Eurorack Power",
+      "footprint": "winterbloom:Eurorack_Power_2x8_Shrouded_Lock",
+      "group": null
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x08_Odd_Even",
+      "value": "Eurorack Power",
+      "footprint": "winterbloom:Eurorack_Power_2x8_Shrouded_Lock",
+      "group": null
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x08_Odd_Even",
+      "value": "Eurorack Power",
+      "footprint": "winterbloom:Eurorack_Power_2x8_Shrouded_Lock",
+      "group": null
+    },
+    {
+      "ref": "J5",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x08_Odd_Even",
+      "value": "Eurorack Power",
+      "footprint": "winterbloom:Eurorack_Power_2x8_Shrouded_Lock",
+      "group": null
+    },
+    {
+      "ref": "J6",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x08_Odd_Even",
+      "value": "Eurorack Power",
+      "footprint": "winterbloom:Eurorack_Power_2x8_Shrouded_Lock",
+      "group": null
+    },
+    {
+      "ref": "J7",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x08_Odd_Even",
+      "value": "Eurorack Power",
+      "footprint": "winterbloom:Eurorack_Power_2x8_Shrouded_Lock",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "J1.Pin_11",
+        "J1.Pin_12",
+        "J2.Pin_11",
+        "J2.Pin_12",
+        "J3.Pin_11",
+        "J3.Pin_12",
+        "J4.Pin_11",
+        "J4.Pin_12",
+        "J5.Pin_11",
+        "J5.Pin_12",
+        "J6.Pin_11",
+        "J6.Pin_12",
+        "J7.Pin_11",
+        "J7.Pin_12"
+      ]
+    },
+    {
+      "name": "+12V",
+      "power": true,
+      "pins": [
+        "J1.Pin_10",
+        "J1.Pin_9",
+        "J2.Pin_10",
+        "J2.Pin_9",
+        "J3.Pin_10",
+        "J3.Pin_9",
+        "J4.Pin_10",
+        "J4.Pin_9",
+        "J5.Pin_10",
+        "J5.Pin_9",
+        "J6.Pin_10",
+        "J6.Pin_9",
+        "J7.Pin_10",
+        "J7.Pin_9"
+      ]
+    },
+    {
+      "name": "-12V",
+      "power": false,
+      "pins": [
+        "J1.Pin_1",
+        "J1.Pin_2",
+        "J2.Pin_1",
+        "J2.Pin_2",
+        "J3.Pin_1",
+        "J3.Pin_2",
+        "J4.Pin_1",
+        "J4.Pin_2",
+        "J5.Pin_1",
+        "J5.Pin_2",
+        "J6.Pin_1",
+        "J6.Pin_2",
+        "J7.Pin_1",
+        "J7.Pin_2"
+      ]
+    },
+    {
+      "name": "/CV",
+      "power": false,
+      "pins": [
+        "J1.Pin_13",
+        "J1.Pin_14",
+        "J2.Pin_13",
+        "J2.Pin_14",
+        "J3.Pin_13",
+        "J3.Pin_14",
+        "J4.Pin_13",
+        "J4.Pin_14",
+        "J5.Pin_13",
+        "J5.Pin_14",
+        "J6.Pin_13",
+        "J6.Pin_14",
+        "J7.Pin_13",
+        "J7.Pin_14"
+      ]
+    },
+    {
+      "name": "/GATE",
+      "power": false,
+      "pins": [
+        "J1.Pin_15",
+        "J1.Pin_16",
+        "J2.Pin_15",
+        "J2.Pin_16",
+        "J3.Pin_15",
+        "J3.Pin_16",
+        "J4.Pin_15",
+        "J4.Pin_16",
+        "J5.Pin_15",
+        "J5.Pin_16",
+        "J6.Pin_15",
+        "J6.Pin_16",
+        "J7.Pin_15",
+        "J7.Pin_16"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "H1.1",
+        "H2.1",
+        "H3.1",
+        "H4.1",
+        "J1.Pin_3",
+        "J1.Pin_4",
+        "J1.Pin_5",
+        "J1.Pin_6",
+        "J1.Pin_7",
+        "J1.Pin_8",
+        "J2.Pin_3",
+        "J2.Pin_4",
+        "J2.Pin_5",
+        "J2.Pin_6",
+        "J2.Pin_7",
+        "J2.Pin_8",
+        "J3.Pin_3",
+        "J3.Pin_4",
+        "J3.Pin_5",
+        "J3.Pin_6",
+        "J3.Pin_7",
+        "J3.Pin_8",
+        "J4.Pin_3",
+        "J4.Pin_4",
+        "J4.Pin_5",
+        "J4.Pin_6",
+        "J4.Pin_7",
+        "J4.Pin_8",
+        "J5.Pin_3",
+        "J5.Pin_4",
+        "J5.Pin_5",
+        "J5.Pin_6",
+        "J5.Pin_7",
+        "J5.Pin_8",
+        "J6.Pin_3",
+        "J6.Pin_4",
+        "J6.Pin_5",
+        "J6.Pin_6",
+        "J6.Pin_7",
+        "J6.Pin_8",
+        "J7.Pin_3",
+        "J7.Pin_4",
+        "J7.Pin_5",
+        "J7.Pin_6",
+        "J7.Pin_7",
+        "J7.Pin_8"
+      ]
+    }
+  ]
+}

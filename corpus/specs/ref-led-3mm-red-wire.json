@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "led.3mm.red.wire"
+  },
+  "parts": [
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": null,
+      "footprint": "LED_THT:LED_D3.0mm",
+      "group": null
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.5mm",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "D1.K"
+      ]
+    },
+    {
+      "name": "Pin0",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "TP1.1"
+      ]
+    }
+  ]
+}
