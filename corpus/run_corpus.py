@@ -272,7 +272,9 @@ def actionable_exceptions(response: DesignResponse) -> list[DesignException]:
     return [
         exc
         for exc in response.exceptions
-        if exc.severity in {Severity.FATAL, Severity.ERROR} and exc.candidates
+        if exc.severity in {Severity.FATAL, Severity.ERROR}
+        and exc.candidates
+        and exc.code.value not in ("ENGINE_CRASH", "ENGINE_TIMEOUT")
     ]
 
 
@@ -350,6 +352,7 @@ def write_final_record(
     corrections_applied: list[str] | None = None,
     bom_score: float | None = None,
     netlist_score: float | None = None,
+    wall_time_s: float | None = None,
 ) -> str:
     run_id = response.run_id if response is not None else uuid.uuid4().hex[:12]
     fields = {
@@ -390,6 +393,8 @@ def write_final_record(
             record.exceptions_raised = [exc.code.value for exc in response.exceptions]
         record.status = status
         record.failure_reason = failure_reason or _failure_from_response(response)
+        if wall_time_s is not None:
+            record.wall_time_s = wall_time_s
     return run_id
 
 
@@ -486,6 +491,8 @@ async def run_board(
     client: DirectDesignClient | MCPDesignClient,
     spend_tracker: SpendTracker,
 ) -> BoardResult:
+    import time as _time
+    board_t0 = _time.monotonic()
     loop = asyncio.get_running_loop()
     board_deadline = loop.time() + config.timeout_s
     board_id = str(row["board_id"])
@@ -516,6 +523,7 @@ async def run_board(
                     status=terminal_status,
                     failure_reason=failure_reason,
                     llm_stages=stages,
+                    wall_time_s=_time.monotonic() - board_t0,
                 )
                 return BoardResult(board_id, mode, terminal_status, run_id, failure_reason or "")
 
@@ -612,6 +620,7 @@ async def run_board(
             llm_stages=stages,
             correction_iterations=correction_iterations,
             corrections_applied=corrections,
+            wall_time_s=_time.monotonic() - board_t0,
         )
         return BoardResult(board_id, mode, status, run_id, failure_reason or "")
 
@@ -628,6 +637,7 @@ async def run_board(
         corrections_applied=corrections,
         bom_score=bom_score,
         netlist_score=netlist_score,
+        wall_time_s=_time.monotonic() - board_t0,
     )
     return BoardResult(board_id, mode, status, run_id, failure_reason or "")
 

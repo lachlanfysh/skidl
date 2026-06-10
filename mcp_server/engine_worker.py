@@ -152,7 +152,7 @@ def _outline_for_spec(spec: CircuitSpec):
 def run(envelope: dict) -> dict:
     spec_dict = envelope.get("spec", envelope)
     run_id = str(envelope.get("run_id") or uuid.uuid4().hex[:12])
-    out_dir = Path(envelope.get("out_dir") or Path("artifacts") / "runs" / run_id)
+    out_dir = Path(envelope.get("out_dir") or Path("artifacts") / "runs" / run_id).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(out_dir)
 
