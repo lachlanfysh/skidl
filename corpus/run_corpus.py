@@ -528,6 +528,8 @@ async def run_board(
                 return BoardResult(board_id, mode, terminal_status, run_id, failure_reason or "")
 
             parent_run_id: str | None = None
+            prev_exc_signature: str | None = None
+            stall_count = 0
 
             while True:
                 remaining = board_deadline - loop.time()
@@ -564,6 +566,19 @@ async def run_board(
                     status = response.status
                     failure_reason = _failure_from_response(response)
                     break
+
+                # Detect stalled correction loops (same exceptions repeating)
+                exc_sig = "|".join(sorted(e.code.value for e in exceptions))
+                if exc_sig == prev_exc_signature:
+                    stall_count += 1
+                else:
+                    stall_count = 0
+                prev_exc_signature = exc_sig
+                if stall_count >= 3:
+                    status = "failed"
+                    failure_reason = f"correction loop stalled: {exc_sig} repeated {stall_count+1} times"
+                    break
+
                 if correction_iterations >= config.max_iters:
                     status = "failed"
                     failure_reason = f"correction loop hit max_iters={config.max_iters}"

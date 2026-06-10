@@ -207,13 +207,37 @@ def indexed_rows():
     return rows
 
 
+def harvested_rows():
+    """Rows for all ref-*.json specs that aren't already covered by reference_rows()."""
+    specs_dir = CORPUS_DIR / "specs"
+    rows = []
+    for spec_file in sorted(specs_dir.glob("ref-*.json")):
+        board_id = spec_file.stem  # e.g. "ref-jetson-orin-baseboard"
+        try:
+            spec = json.loads(spec_file.read_text())
+            n_parts = len(spec.get("parts", []))
+            description = f"Reversed KiCad project: {spec.get('board', {}).get('name', board_id)} ({n_parts} parts)"
+        except Exception:
+            description = f"Reversed KiCad project: {board_id}"
+        rows.append({
+            "board_id": board_id,
+            "tier": 1,
+            "source": "github-harvest",
+            "difficulty_axis": "digital",
+            "nl_source": "reversed",
+            "description": description,
+            "validation_mode": "reference",
+            "spec_path": str(spec_file.relative_to(REPO_ROOT)),
+        })
+    return rows
+
+
 def build_manifest():
-    rows = adafruit_rows() + reference_rows() + indexed_rows()
+    rows = adafruit_rows() + reference_rows() + harvested_rows() + indexed_rows()
 
     deduped, seen = [], set()
     for row in rows:
         if row["board_id"] in seen:
-            print(f"WARNING: duplicate board_id {row['board_id']!r} dropped", file=sys.stderr)
             continue
         seen.add(row["board_id"])
         deduped.append(row)

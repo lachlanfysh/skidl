@@ -100,21 +100,26 @@ def layout_exceptions(layout_result) -> list[DesignException]:
     outline = getattr(layout_result, "outline", None)
 
     if validation is not None:
-        for idx, pair in enumerate(getattr(validation, "overlaps", []) or [], start=1):
-            refs = list(pair)
+        overlaps = getattr(validation, "overlaps", []) or []
+        if overlaps:
+            pairs = [list(pair) for pair in overlaps]
+            n = len(pairs)
+            # Scale factor proportional to how many overlaps — more overlaps = bigger jump
+            factor = min(1.25 + 0.05 * (n - 1), 2.0)
             out.append(
                 DesignException(
-                    id=f"e-layout-overlap-{idx}",
+                    id="e-layout-overlap",
                     code=ExcCode.LAYOUT_OVERLAP,
                     severity=Severity.ERROR,
-                    message=f"placed parts overlap: {refs[0]} and {refs[1]}",
-                    subject={"pair": refs},
+                    message=f"{n} placement overlap(s): {', '.join(f'{p[0]}/{p[1]}' for p in pairs[:5])}"
+                            + (f" and {n-5} more" if n > 5 else ""),
+                    subject={"pairs": pairs, "count": n},
                     candidates=[
                         _candidate(
                             "c1",
                             ActionType.SCALE_OUTLINE,
-                            {"area_factor": 1.25},
-                            "increase board area by 25% and re-run placement",
+                            {"area_factor": factor},
+                            f"increase board area by {int((factor-1)*100)}% ({n} overlaps) and re-run",
                             "cheap",
                         ),
                         _candidate(
@@ -128,10 +133,11 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                 )
             )
 
-        for idx, ref in enumerate(
-            getattr(validation, "outline_violations", []) or [], start=1
-        ):
-            params = {"area_factor": 1.25}
+        outline_viols = getattr(validation, "outline_violations", []) or []
+        if outline_viols:
+            n = len(outline_viols)
+            factor = min(1.25 + 0.05 * (n - 1), 2.0)
+            params = {"area_factor": factor}
             if outline is not None:
                 params.update(
                     {
@@ -141,17 +147,18 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                 )
             out.append(
                 DesignException(
-                    id=f"e-layout-outline-{idx}",
+                    id="e-layout-outline",
                     code=ExcCode.LAYOUT_OUTLINE_VIOLATION,
                     severity=Severity.ERROR,
-                    message=f"{ref} is outside the board outline",
-                    subject={"ref": ref},
+                    message=f"{n} part(s) outside board outline: {', '.join(outline_viols[:5])}"
+                            + (f" and {n-5} more" if n > 5 else ""),
+                    subject={"refs": outline_viols, "count": n},
                     candidates=[
                         _candidate(
                             "c1",
                             ActionType.SCALE_OUTLINE,
                             params,
-                            "grow the board outline and re-run placement",
+                            f"grow board outline ({n} violations) and re-run",
                             "cheap",
                         ),
                         _candidate(

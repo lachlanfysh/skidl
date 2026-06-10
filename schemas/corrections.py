@@ -26,9 +26,12 @@ def apply_candidate(spec: CircuitSpec, exc: DesignException, cand: Candidate) ->
         old, repl = p["old"], p["new"]
         scope_ref = p.get("ref")
         hit = False
+        also_part = p.get("also_replace_part")
         for part in new.parts:
             if part.lib == old and (scope_ref in (None, "*") or part.ref == scope_ref):
                 part.lib = repl
+                if also_part:
+                    part.part = also_part
                 hit = True
         if not hit:
             raise CorrectionError(f"no part with lib={old!r} (ref scope {scope_ref!r})")

@@ -1,0 +1,5677 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "modern-keyboard-stm32"
+  },
+  "parts": [
+    {
+      "ref": "BOOT1",
+      "lib": "Switch",
+      "part": "SW_SPST",
+      "value": null,
+      "footprint": "Button_Switch_SMD:SW_SPST_TL3342",
+      "group": null
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C_Small",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "C29",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "testsk6812"
+    },
+    {
+      "ref": "D136",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": null
+    },
+    {
+      "ref": "F1",
+      "lib": "Device",
+      "part": "Polyfuse",
+      "value": "500mA",
+      "footprint": "Fuse:Fuse_1206_3216Metric",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": null,
+      "footprint": "KiCad-SSD1306-0.91-OLED-4pin-128x32.pretty-master:SSD1306-0.91-OLED-4pin-128x32",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector",
+      "part": "USB_C_Receptacle_USB2.0",
+      "value": null,
+      "footprint": "PCM_marbastlib-various:USB_C_Receptacle_HRO_TYPE-C-31-M-12",
+      "group": null
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1k",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": null
+    },
+    {
+      "ref": "RST1",
+      "lib": "Switch",
+      "part": "SW_SPST",
+      "value": null,
+      "footprint": "Button_Switch_SMD:SW_SPST_TL3342",
+      "group": null
+    },
+    {
+      "ref": "U1",
+      "lib": "MCU_ST_STM32F0",
+      "part": "STM32F072CBTx",
+      "value": "STM32F072CBT6",
+      "footprint": "Package_QFP:LQFP-48_7x7mm_P0.5mm",
+      "group": null
+    },
+    {
+      "ref": "U2",
+      "lib": "Power_Protection",
+      "part": "PRTR5V0U2X",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-143",
+      "group": null
+    },
+    {
+      "ref": "U3",
+      "lib": null,
+      "part": null,
+      "value": "XC6206PxxxMR-Regulator_Linear",
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "VO",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "VI",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "U4",
+      "lib": null,
+      "part": null,
+      "value": "TXB0101",
+      "footprint": "Package_TO_SOT_SMD:SOT-363_SC-70-6_Handsoldering",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "VCCA",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "A",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "B",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "OE",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "VCCB",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D4",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D5",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D6",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D7",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D8",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D9",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D10",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D11",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D12",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D13",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D14",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D15",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D16",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D17",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D18",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D19",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D20",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D21",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D22",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D23",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D24",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D25",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D26",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D27",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D28",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D29",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D30",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D31",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D32",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D33",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D34",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D35",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D36",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D37",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D38",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D39",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D40",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D41",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D42",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D43",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D44",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D45",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D46",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D47",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D48",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D49",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D50",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D51",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D52",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D53",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D54",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D55",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D56",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D57",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D58",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D59",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D60",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D61",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D62",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D63",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D64",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D65",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D66",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D67",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D68",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D69",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D70",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D71",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D72",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D73",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D74",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D75",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D76",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D77",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D78",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D79",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D80",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D81",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D82",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D83",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D84",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D85",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D86",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D87",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D88",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D89",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D90",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D91",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D92",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D93",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D94",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D95",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D96",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D97",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D98",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D99",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D100",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D101",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D102",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D103",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D104",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D105",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D106",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D107",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D108",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D109",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D110",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D111",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D112",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D113",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D114",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D115",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D116",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D117",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D118",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D119",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "switches"
+    },
+    {
+      "ref": "D137",
+      "lib": "Device",
+      "part": "D",
+      "value": null,
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "matrix"
+    },
+    {
+      "ref": "MX1",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX2",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX3",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX4",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX5",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX6",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX7",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX8",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX9",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX10",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX11",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX12",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX13",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX14",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX15",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX16",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX17",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX18",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX19",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX20",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX21",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX22",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX23",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX24",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX25",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX26",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX27",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX28",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX29",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX30",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX31",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX32",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX33",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX34",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX35",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX36",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX37",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX38",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX39",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX40",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX41",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX42",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX43",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX44",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX45",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX46",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX47",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX48",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX49",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX50",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX51",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX52",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX53",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX54",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX55",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX56",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX57",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX58",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX59",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX60",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX61",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX62",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX63",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX64",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX65",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX66",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX67",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX68",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX69",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX70",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX71",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX72",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX73",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX74",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX75",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX76",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX77",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX78",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX79",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX80",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX81",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX82",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX83",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX84",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX85",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX86",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX87",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX88",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX89",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX90",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX91",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX92",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX93",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX94",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX95",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX96",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX97",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX98",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX99",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX100",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX101",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX102",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX103",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX104",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX105",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX106",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX107",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX108",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX109",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX110",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX111",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX112",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX113",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX114",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX115",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX116",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX117",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX118",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX119",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "switches",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "MX120",
+      "lib": null,
+      "part": null,
+      "value": "MX_SW_solder",
+      "footprint": "PCM_marbastlib-mx:SW_MX_1u",
+      "group": "matrix",
+      "pins": [
+        {
+          "num": "1",
+          "name": "1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "2",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C15",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C16",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C17",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C18",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C19",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C20",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C21",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C22",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C23",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C24",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C25",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C26",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C27",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "C28",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "underglow"
+    },
+    {
+      "ref": "D120",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D121",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D122",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D123",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D124",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D125",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D126",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D127",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D128",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D129",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D130",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D131",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D132",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D133",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D134",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    },
+    {
+      "ref": "D135",
+      "lib": "LED",
+      "part": "WS2812B",
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "underglow"
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": false,
+      "pins": [
+        "BOOT1.A",
+        "C10.1",
+        "C12.2",
+        "C2.1",
+        "C3.1",
+        "C4.1",
+        "C5.1",
+        "C6.1",
+        "C7.1",
+        "U1.VBAT",
+        "U1.VDD",
+        "U1.VDDA",
+        "U1.VDDIO2",
+        "U3.VO",
+        "U4.OE",
+        "U4.VCCA"
+      ]
+    },
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "C11.1",
+        "C13.1",
+        "C14.1",
+        "C15.1",
+        "C16.1",
+        "C17.1",
+        "C18.1",
+        "C19.1",
+        "C20.1",
+        "C21.1",
+        "C22.1",
+        "C23.1",
+        "C24.1",
+        "C25.1",
+        "C26.1",
+        "C27.1",
+        "C28.1",
+        "C29.1",
+        "C8.1",
+        "C9.1",
+        "D120.VDD",
+        "D121.VDD",
+        "D122.VDD",
+        "D123.VDD",
+        "D124.VDD",
+        "D125.VDD",
+        "D126.VDD",
+        "D127.VDD",
+        "D128.VDD",
+        "D129.VDD",
+        "D130.VDD",
+        "D131.VDD",
+        "D132.VDD",
+        "D133.VDD",
+        "D134.VDD",
+        "D135.VDD",
+        "D136.VDD",
+        "F1.2",
+        "J1.Pin_2",
+        "U2.VCC",
+        "U3.VI",
+        "U4.VCCB"
+      ]
+    },
+    {
+      "name": "/A1",
+      "power": false,
+      "pins": [
+        "U1.PA1"
+      ]
+    },
+    {
+      "name": "/C13",
+      "power": false,
+      "pins": [
+        "U1.PC13"
+      ]
+    },
+    {
+      "name": "/C14",
+      "power": false,
+      "pins": [
+        "U1.PC14"
+      ]
+    },
+    {
+      "name": "/C15",
+      "power": false,
+      "pins": [
+        "U1.PC15"
+      ]
+    },
+    {
+      "name": "/F0",
+      "power": false,
+      "pins": [
+        "U1.PF0"
+      ]
+    },
+    {
+      "name": "/F1",
+      "power": false,
+      "pins": [
+        "U1.PF1"
+      ]
+    },
+    {
+      "name": "BOOT0",
+      "power": false,
+      "pins": [
+        "BOOT1.B",
+        "R3.1",
+        "U1.BOOT0"
+      ]
+    },
+    {
+      "name": "CAPSLOCK",
+      "power": false,
+      "pins": [
+        "D127.DOUT",
+        "D136.DIN"
+      ]
+    },
+    {
+      "name": "Col0",
+      "power": false,
+      "pins": [
+        "MX108.1",
+        "MX16.1",
+        "MX35.1",
+        "MX54.1",
+        "MX73.1",
+        "MX91.1",
+        "U1.PA14"
+      ]
+    },
+    {
+      "name": "Col1",
+      "power": false,
+      "pins": [
+        "MX1.1",
+        "MX109.1",
+        "MX17.1",
+        "MX36.1",
+        "MX55.1",
+        "MX74.1",
+        "MX92.1",
+        "U1.PA10"
+      ]
+    },
+    {
+      "name": "Col2",
+      "power": false,
+      "pins": [
+        "MX110.1",
+        "MX18.1",
+        "MX2.1",
+        "MX37.1",
+        "MX56.1",
+        "MX75.1",
+        "U1.PA9"
+      ]
+    },
+    {
+      "name": "Col3",
+      "power": false,
+      "pins": [
+        "MX111.1",
+        "MX19.1",
+        "MX3.1",
+        "MX38.1",
+        "MX57.1",
+        "MX76.1",
+        "MX93.1",
+        "U1.PA8"
+      ]
+    },
+    {
+      "name": "Col4",
+      "power": false,
+      "pins": [
+        "MX20.1",
+        "MX39.1",
+        "MX4.1",
+        "MX58.1",
+        "MX77.1",
+        "MX94.1",
+        "U1.PB15"
+      ]
+    },
+    {
+      "name": "Col5",
+      "power": false,
+      "pins": [
+        "MX21.1",
+        "MX40.1",
+        "MX5.1",
+        "MX59.1",
+        "MX78.1",
+        "MX95.1",
+        "U1.PB14"
+      ]
+    },
+    {
+      "name": "Col6",
+      "power": false,
+      "pins": [
+        "MX22.1",
+        "MX41.1",
+        "MX6.1",
+        "MX60.1",
+        "MX79.1",
+        "MX96.1",
+        "U1.PB13"
+      ]
+    },
+    {
+      "name": "Col7",
+      "power": false,
+      "pins": [
+        "MX112.1",
+        "MX23.1",
+        "MX42.1",
+        "MX61.1",
+        "MX7.1",
+        "MX80.1",
+        "MX97.1",
+        "U1.PB12"
+      ]
+    },
+    {
+      "name": "Col8",
+      "power": false,
+      "pins": [
+        "MX24.1",
+        "MX43.1",
+        "MX62.1",
+        "MX8.1",
+        "MX81.1",
+        "MX98.1",
+        "U1.PB11"
+      ]
+    },
+    {
+      "name": "Col9",
+      "power": false,
+      "pins": [
+        "MX25.1",
+        "MX44.1",
+        "MX63.1",
+        "MX82.1",
+        "MX9.1",
+        "MX99.1",
+        "U1.PB10"
+      ]
+    },
+    {
+      "name": "Col10",
+      "power": false,
+      "pins": [
+        "MX10.1",
+        "MX100.1",
+        "MX26.1",
+        "MX45.1",
+        "MX64.1",
+        "MX83.1",
+        "U1.PB2"
+      ]
+    },
+    {
+      "name": "Col11",
+      "power": false,
+      "pins": [
+        "MX101.1",
+        "MX11.1",
+        "MX113.1",
+        "MX27.1",
+        "MX46.1",
+        "MX65.1",
+        "MX84.1",
+        "U1.PB1"
+      ]
+    },
+    {
+      "name": "Col12",
+      "power": false,
+      "pins": [
+        "MX102.1",
+        "MX114.1",
+        "MX12.1",
+        "MX28.1",
+        "MX47.1",
+        "MX66.1",
+        "MX85.1",
+        "U1.PB0"
+      ]
+    },
+    {
+      "name": "Col13",
+      "power": false,
+      "pins": [
+        "MX103.1",
+        "MX115.1",
+        "MX13.1",
+        "MX29.1",
+        "MX48.1",
+        "MX67.1",
+        "MX86.1",
+        "U1.PA7"
+      ]
+    },
+    {
+      "name": "Col14",
+      "power": false,
+      "pins": [
+        "MX14.1",
+        "MX30.1",
+        "MX49.1",
+        "MX68.1",
+        "U1.PA6"
+      ]
+    },
+    {
+      "name": "Col15",
+      "power": false,
+      "pins": [
+        "MX104.1",
+        "MX116.1",
+        "MX15.1",
+        "MX31.1",
+        "MX50.1",
+        "MX69.1",
+        "MX87.1",
+        "U1.PA5"
+      ]
+    },
+    {
+      "name": "Col16",
+      "power": false,
+      "pins": [
+        "MX105.1",
+        "MX117.1",
+        "MX32.1",
+        "MX51.1",
+        "MX70.1",
+        "MX88.1",
+        "U1.PA4"
+      ]
+    },
+    {
+      "name": "Col17",
+      "power": false,
+      "pins": [
+        "MX106.1",
+        "MX118.1",
+        "MX33.1",
+        "MX52.1",
+        "MX71.1",
+        "MX89.1",
+        "U1.PA3"
+      ]
+    },
+    {
+      "name": "Col18",
+      "power": false,
+      "pins": [
+        "MX107.1",
+        "MX119.1",
+        "MX34.1",
+        "MX53.1",
+        "MX72.1",
+        "MX90.1",
+        "U1.PA2"
+      ]
+    },
+    {
+      "name": "D+",
+      "power": false,
+      "pins": [
+        "J2.D+",
+        "U1.PA12",
+        "U2.I/O2"
+      ]
+    },
+    {
+      "name": "D-",
+      "power": false,
+      "pins": [
+        "J2.D-",
+        "U1.PA11",
+        "U2.I/O1"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.2",
+        "C12.1",
+        "C13.2",
+        "C14.2",
+        "C15.2",
+        "C16.2",
+        "C17.2",
+        "C18.2",
+        "C19.2",
+        "C2.2",
+        "C20.2",
+        "C21.2",
+        "C22.2",
+        "C23.2",
+        "C24.2",
+        "C25.2",
+        "C26.2",
+        "C27.2",
+        "C28.2",
+        "C29.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "D120.VSS",
+        "D121.VSS",
+        "D122.VSS",
+        "D123.VSS",
+        "D124.VSS",
+        "D125.VSS",
+        "D126.VSS",
+        "D127.VSS",
+        "D128.VSS",
+        "D129.VSS",
+        "D130.VSS",
+        "D131.VSS",
+        "D132.VSS",
+        "D133.VSS",
+        "D134.VSS",
+        "D135.VSS",
+        "D136.VSS",
+        "J1.Pin_1",
+        "J2.GND",
+        "J2.SHIELD",
+        "R1.1",
+        "R2.2",
+        "R4.2",
+        "RST1.B",
+        "U1.VSS",
+        "U1.VSSA",
+        "U2.GND",
+        "U3.GND",
+        "U4.GND"
+      ]
+    },
+    {
+      "name": "NRST",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "RST1.A",
+        "U1.NRST"
+      ]
+    },
+    {
+      "name": "Net-(D1-A)",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "MX1.2"
+      ]
+    },
+    {
+      "name": "Net-(D2-A)",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "MX2.2"
+      ]
+    },
+    {
+      "name": "Net-(D3-A)",
+      "power": false,
+      "pins": [
+        "D3.A",
+        "MX3.2"
+      ]
+    },
+    {
+      "name": "Net-(D4-A)",
+      "power": false,
+      "pins": [
+        "D4.A",
+        "MX4.2"
+      ]
+    },
+    {
+      "name": "Net-(D5-A)",
+      "power": false,
+      "pins": [
+        "D5.A",
+        "MX5.2"
+      ]
+    },
+    {
+      "name": "Net-(D6-A)",
+      "power": false,
+      "pins": [
+        "D6.A",
+        "MX6.2"
+      ]
+    },
+    {
+      "name": "Net-(D7-A)",
+      "power": false,
+      "pins": [
+        "D7.A",
+        "MX7.2"
+      ]
+    },
+    {
+      "name": "Net-(D8-A)",
+      "power": false,
+      "pins": [
+        "D8.A",
+        "MX8.2"
+      ]
+    },
+    {
+      "name": "Net-(D9-A)",
+      "power": false,
+      "pins": [
+        "D9.A",
+        "MX9.2"
+      ]
+    },
+    {
+      "name": "Net-(D10-A)",
+      "power": false,
+      "pins": [
+        "D10.A",
+        "MX10.2"
+      ]
+    },
+    {
+      "name": "Net-(D11-A)",
+      "power": false,
+      "pins": [
+        "D11.A",
+        "MX11.2"
+      ]
+    },
+    {
+      "name": "Net-(D12-A)",
+      "power": false,
+      "pins": [
+        "D12.A",
+        "MX12.2"
+      ]
+    },
+    {
+      "name": "Net-(D13-A)",
+      "power": false,
+      "pins": [
+        "D13.A",
+        "MX13.2"
+      ]
+    },
+    {
+      "name": "Net-(D14-A)",
+      "power": false,
+      "pins": [
+        "D14.A",
+        "MX14.2"
+      ]
+    },
+    {
+      "name": "Net-(D15-A)",
+      "power": false,
+      "pins": [
+        "D15.A",
+        "MX15.2"
+      ]
+    },
+    {
+      "name": "Net-(D16-A)",
+      "power": false,
+      "pins": [
+        "D16.A",
+        "MX16.2"
+      ]
+    },
+    {
+      "name": "Net-(D17-A)",
+      "power": false,
+      "pins": [
+        "D17.A",
+        "MX17.2"
+      ]
+    },
+    {
+      "name": "Net-(D18-A)",
+      "power": false,
+      "pins": [
+        "D18.A",
+        "MX18.2"
+      ]
+    },
+    {
+      "name": "Net-(D19-A)",
+      "power": false,
+      "pins": [
+        "D19.A",
+        "MX19.2"
+      ]
+    },
+    {
+      "name": "Net-(D20-A)",
+      "power": false,
+      "pins": [
+        "D20.A",
+        "MX20.2"
+      ]
+    },
+    {
+      "name": "Net-(D21-A)",
+      "power": false,
+      "pins": [
+        "D21.A",
+        "MX21.2"
+      ]
+    },
+    {
+      "name": "Net-(D22-A)",
+      "power": false,
+      "pins": [
+        "D22.A",
+        "MX22.2"
+      ]
+    },
+    {
+      "name": "Net-(D23-A)",
+      "power": false,
+      "pins": [
+        "D23.A",
+        "MX23.2"
+      ]
+    },
+    {
+      "name": "Net-(D24-A)",
+      "power": false,
+      "pins": [
+        "D24.A",
+        "MX24.2"
+      ]
+    },
+    {
+      "name": "Net-(D25-A)",
+      "power": false,
+      "pins": [
+        "D25.A",
+        "MX25.2"
+      ]
+    },
+    {
+      "name": "Net-(D26-A)",
+      "power": false,
+      "pins": [
+        "D26.A",
+        "MX26.2"
+      ]
+    },
+    {
+      "name": "Net-(D27-A)",
+      "power": false,
+      "pins": [
+        "D27.A",
+        "MX27.2"
+      ]
+    },
+    {
+      "name": "Net-(D28-A)",
+      "power": false,
+      "pins": [
+        "D28.A",
+        "MX28.2"
+      ]
+    },
+    {
+      "name": "Net-(D29-A)",
+      "power": false,
+      "pins": [
+        "D29.A",
+        "MX29.2"
+      ]
+    },
+    {
+      "name": "Net-(D30-A)",
+      "power": false,
+      "pins": [
+        "D30.A",
+        "MX30.2"
+      ]
+    },
+    {
+      "name": "Net-(D31-A)",
+      "power": false,
+      "pins": [
+        "D31.A",
+        "MX31.2"
+      ]
+    },
+    {
+      "name": "Net-(D32-A)",
+      "power": false,
+      "pins": [
+        "D32.A",
+        "MX32.2"
+      ]
+    },
+    {
+      "name": "Net-(D33-A)",
+      "power": false,
+      "pins": [
+        "D33.A",
+        "MX33.2"
+      ]
+    },
+    {
+      "name": "Net-(D34-A)",
+      "power": false,
+      "pins": [
+        "D34.A",
+        "MX34.2"
+      ]
+    },
+    {
+      "name": "Net-(D35-A)",
+      "power": false,
+      "pins": [
+        "D35.A",
+        "MX35.2"
+      ]
+    },
+    {
+      "name": "Net-(D36-A)",
+      "power": false,
+      "pins": [
+        "D36.A",
+        "MX36.2"
+      ]
+    },
+    {
+      "name": "Net-(D37-A)",
+      "power": false,
+      "pins": [
+        "D37.A",
+        "MX37.2"
+      ]
+    },
+    {
+      "name": "Net-(D38-A)",
+      "power": false,
+      "pins": [
+        "D38.A",
+        "MX38.2"
+      ]
+    },
+    {
+      "name": "Net-(D39-A)",
+      "power": false,
+      "pins": [
+        "D39.A",
+        "MX39.2"
+      ]
+    },
+    {
+      "name": "Net-(D40-A)",
+      "power": false,
+      "pins": [
+        "D40.A",
+        "MX40.2"
+      ]
+    },
+    {
+      "name": "Net-(D41-A)",
+      "power": false,
+      "pins": [
+        "D41.A",
+        "MX41.2"
+      ]
+    },
+    {
+      "name": "Net-(D42-A)",
+      "power": false,
+      "pins": [
+        "D42.A",
+        "MX42.2"
+      ]
+    },
+    {
+      "name": "Net-(D43-A)",
+      "power": false,
+      "pins": [
+        "D43.A",
+        "MX43.2"
+      ]
+    },
+    {
+      "name": "Net-(D44-A)",
+      "power": false,
+      "pins": [
+        "D44.A",
+        "MX44.2"
+      ]
+    },
+    {
+      "name": "Net-(D45-A)",
+      "power": false,
+      "pins": [
+        "D45.A",
+        "MX45.2"
+      ]
+    },
+    {
+      "name": "Net-(D46-A)",
+      "power": false,
+      "pins": [
+        "D46.A",
+        "MX46.2"
+      ]
+    },
+    {
+      "name": "Net-(D47-A)",
+      "power": false,
+      "pins": [
+        "D47.A",
+        "MX47.2"
+      ]
+    },
+    {
+      "name": "Net-(D48-A)",
+      "power": false,
+      "pins": [
+        "D48.A",
+        "MX48.2"
+      ]
+    },
+    {
+      "name": "Net-(D49-A)",
+      "power": false,
+      "pins": [
+        "D49.A",
+        "MX49.2"
+      ]
+    },
+    {
+      "name": "Net-(D50-A)",
+      "power": false,
+      "pins": [
+        "D50.A",
+        "MX50.2"
+      ]
+    },
+    {
+      "name": "Net-(D51-A)",
+      "power": false,
+      "pins": [
+        "D51.A",
+        "MX51.2"
+      ]
+    },
+    {
+      "name": "Net-(D52-A)",
+      "power": false,
+      "pins": [
+        "D52.A",
+        "MX52.2"
+      ]
+    },
+    {
+      "name": "Net-(D53-A)",
+      "power": false,
+      "pins": [
+        "D53.A",
+        "MX53.2"
+      ]
+    },
+    {
+      "name": "Net-(D54-A)",
+      "power": false,
+      "pins": [
+        "D54.A",
+        "MX54.2"
+      ]
+    },
+    {
+      "name": "Net-(D55-A)",
+      "power": false,
+      "pins": [
+        "D55.A",
+        "MX55.2"
+      ]
+    },
+    {
+      "name": "Net-(D56-A)",
+      "power": false,
+      "pins": [
+        "D56.A",
+        "MX56.2"
+      ]
+    },
+    {
+      "name": "Net-(D57-A)",
+      "power": false,
+      "pins": [
+        "D57.A",
+        "MX57.2"
+      ]
+    },
+    {
+      "name": "Net-(D58-A)",
+      "power": false,
+      "pins": [
+        "D58.A",
+        "MX58.2"
+      ]
+    },
+    {
+      "name": "Net-(D59-A)",
+      "power": false,
+      "pins": [
+        "D59.A",
+        "MX59.2"
+      ]
+    },
+    {
+      "name": "Net-(D60-A)",
+      "power": false,
+      "pins": [
+        "D60.A",
+        "MX60.2"
+      ]
+    },
+    {
+      "name": "Net-(D61-A)",
+      "power": false,
+      "pins": [
+        "D61.A",
+        "MX61.2"
+      ]
+    },
+    {
+      "name": "Net-(D62-A)",
+      "power": false,
+      "pins": [
+        "D62.A",
+        "MX62.2"
+      ]
+    },
+    {
+      "name": "Net-(D63-A)",
+      "power": false,
+      "pins": [
+        "D63.A",
+        "MX63.2"
+      ]
+    },
+    {
+      "name": "Net-(D64-A)",
+      "power": false,
+      "pins": [
+        "D64.A",
+        "MX64.2"
+      ]
+    },
+    {
+      "name": "Net-(D65-A)",
+      "power": false,
+      "pins": [
+        "D65.A",
+        "MX65.2"
+      ]
+    },
+    {
+      "name": "Net-(D66-A)",
+      "power": false,
+      "pins": [
+        "D66.A",
+        "MX66.2"
+      ]
+    },
+    {
+      "name": "Net-(D67-A)",
+      "power": false,
+      "pins": [
+        "D67.A",
+        "MX67.2"
+      ]
+    },
+    {
+      "name": "Net-(D68-A)",
+      "power": false,
+      "pins": [
+        "D68.A",
+        "MX68.2"
+      ]
+    },
+    {
+      "name": "Net-(D69-A)",
+      "power": false,
+      "pins": [
+        "D69.A",
+        "MX69.2"
+      ]
+    },
+    {
+      "name": "Net-(D70-A)",
+      "power": false,
+      "pins": [
+        "D70.A",
+        "MX70.2"
+      ]
+    },
+    {
+      "name": "Net-(D71-A)",
+      "power": false,
+      "pins": [
+        "D71.A",
+        "MX71.2"
+      ]
+    },
+    {
+      "name": "Net-(D72-A)",
+      "power": false,
+      "pins": [
+        "D72.A",
+        "MX72.2"
+      ]
+    },
+    {
+      "name": "Net-(D73-A)",
+      "power": false,
+      "pins": [
+        "D73.A",
+        "MX73.2"
+      ]
+    },
+    {
+      "name": "Net-(D74-A)",
+      "power": false,
+      "pins": [
+        "D74.A",
+        "MX74.2"
+      ]
+    },
+    {
+      "name": "Net-(D75-A)",
+      "power": false,
+      "pins": [
+        "D75.A",
+        "MX75.2"
+      ]
+    },
+    {
+      "name": "Net-(D76-A)",
+      "power": false,
+      "pins": [
+        "D76.A",
+        "MX76.2"
+      ]
+    },
+    {
+      "name": "Net-(D77-A)",
+      "power": false,
+      "pins": [
+        "D77.A",
+        "MX77.2"
+      ]
+    },
+    {
+      "name": "Net-(D78-A)",
+      "power": false,
+      "pins": [
+        "D78.A",
+        "MX78.2"
+      ]
+    },
+    {
+      "name": "Net-(D79-A)",
+      "power": false,
+      "pins": [
+        "D79.A",
+        "MX79.2"
+      ]
+    },
+    {
+      "name": "Net-(D80-A)",
+      "power": false,
+      "pins": [
+        "D80.A",
+        "MX80.2"
+      ]
+    },
+    {
+      "name": "Net-(D81-A)",
+      "power": false,
+      "pins": [
+        "D81.A",
+        "MX81.2"
+      ]
+    },
+    {
+      "name": "Net-(D82-A)",
+      "power": false,
+      "pins": [
+        "D82.A",
+        "MX82.2"
+      ]
+    },
+    {
+      "name": "Net-(D83-A)",
+      "power": false,
+      "pins": [
+        "D83.A",
+        "MX83.2"
+      ]
+    },
+    {
+      "name": "Net-(D84-A)",
+      "power": false,
+      "pins": [
+        "D84.A",
+        "MX84.2"
+      ]
+    },
+    {
+      "name": "Net-(D85-A)",
+      "power": false,
+      "pins": [
+        "D85.A",
+        "MX85.2"
+      ]
+    },
+    {
+      "name": "Net-(D86-A)",
+      "power": false,
+      "pins": [
+        "D86.A",
+        "MX86.2"
+      ]
+    },
+    {
+      "name": "Net-(D87-A)",
+      "power": false,
+      "pins": [
+        "D87.A",
+        "MX87.2"
+      ]
+    },
+    {
+      "name": "Net-(D88-A)",
+      "power": false,
+      "pins": [
+        "D88.A",
+        "MX88.2"
+      ]
+    },
+    {
+      "name": "Net-(D89-A)",
+      "power": false,
+      "pins": [
+        "D89.A",
+        "MX89.2"
+      ]
+    },
+    {
+      "name": "Net-(D90-A)",
+      "power": false,
+      "pins": [
+        "D90.A",
+        "MX90.2"
+      ]
+    },
+    {
+      "name": "Net-(D91-A)",
+      "power": false,
+      "pins": [
+        "D91.A",
+        "MX91.2"
+      ]
+    },
+    {
+      "name": "Net-(D92-A)",
+      "power": false,
+      "pins": [
+        "D92.A",
+        "MX92.2"
+      ]
+    },
+    {
+      "name": "Net-(D93-A)",
+      "power": false,
+      "pins": [
+        "D93.A",
+        "MX93.2"
+      ]
+    },
+    {
+      "name": "Net-(D94-A)",
+      "power": false,
+      "pins": [
+        "D94.A",
+        "MX94.2"
+      ]
+    },
+    {
+      "name": "Net-(D95-A)",
+      "power": false,
+      "pins": [
+        "D95.A",
+        "MX95.2"
+      ]
+    },
+    {
+      "name": "Net-(D96-A)",
+      "power": false,
+      "pins": [
+        "D96.A",
+        "MX96.2"
+      ]
+    },
+    {
+      "name": "Net-(D97-A)",
+      "power": false,
+      "pins": [
+        "D97.A",
+        "MX97.2"
+      ]
+    },
+    {
+      "name": "Net-(D98-A)",
+      "power": false,
+      "pins": [
+        "D98.A",
+        "MX98.2"
+      ]
+    },
+    {
+      "name": "Net-(D99-A)",
+      "power": false,
+      "pins": [
+        "D99.A",
+        "MX99.2"
+      ]
+    },
+    {
+      "name": "Net-(D100-A)",
+      "power": false,
+      "pins": [
+        "D100.A",
+        "MX100.2"
+      ]
+    },
+    {
+      "name": "Net-(D101-A)",
+      "power": false,
+      "pins": [
+        "D101.A",
+        "MX101.2"
+      ]
+    },
+    {
+      "name": "Net-(D102-A)",
+      "power": false,
+      "pins": [
+        "D102.A",
+        "MX102.2"
+      ]
+    },
+    {
+      "name": "Net-(D103-A)",
+      "power": false,
+      "pins": [
+        "D103.A",
+        "MX103.2"
+      ]
+    },
+    {
+      "name": "Net-(D104-A)",
+      "power": false,
+      "pins": [
+        "D104.A",
+        "MX104.2"
+      ]
+    },
+    {
+      "name": "Net-(D105-A)",
+      "power": false,
+      "pins": [
+        "D105.A",
+        "MX105.2"
+      ]
+    },
+    {
+      "name": "Net-(D106-A)",
+      "power": false,
+      "pins": [
+        "D106.A",
+        "MX106.2"
+      ]
+    },
+    {
+      "name": "Net-(D107-A)",
+      "power": false,
+      "pins": [
+        "D107.A",
+        "MX107.2"
+      ]
+    },
+    {
+      "name": "Net-(D108-A)",
+      "power": false,
+      "pins": [
+        "D108.A",
+        "MX108.2"
+      ]
+    },
+    {
+      "name": "Net-(D109-A)",
+      "power": false,
+      "pins": [
+        "D109.A",
+        "MX109.2"
+      ]
+    },
+    {
+      "name": "Net-(D110-A)",
+      "power": false,
+      "pins": [
+        "D110.A",
+        "MX110.2"
+      ]
+    },
+    {
+      "name": "Net-(D111-A)",
+      "power": false,
+      "pins": [
+        "D111.A",
+        "MX111.2"
+      ]
+    },
+    {
+      "name": "Net-(D112-A)",
+      "power": false,
+      "pins": [
+        "D112.A",
+        "MX112.2"
+      ]
+    },
+    {
+      "name": "Net-(D113-A)",
+      "power": false,
+      "pins": [
+        "D113.A",
+        "MX113.2"
+      ]
+    },
+    {
+      "name": "Net-(D114-A)",
+      "power": false,
+      "pins": [
+        "D114.A",
+        "MX114.2"
+      ]
+    },
+    {
+      "name": "Net-(D115-A)",
+      "power": false,
+      "pins": [
+        "D115.A",
+        "MX115.2"
+      ]
+    },
+    {
+      "name": "Net-(D116-A)",
+      "power": false,
+      "pins": [
+        "D116.A",
+        "MX116.2"
+      ]
+    },
+    {
+      "name": "Net-(D117-A)",
+      "power": false,
+      "pins": [
+        "D117.A",
+        "MX117.2"
+      ]
+    },
+    {
+      "name": "Net-(D118-A)",
+      "power": false,
+      "pins": [
+        "D118.A",
+        "MX118.2"
+      ]
+    },
+    {
+      "name": "Net-(D119-A)",
+      "power": false,
+      "pins": [
+        "D119.A",
+        "MX119.2"
+      ]
+    },
+    {
+      "name": "Net-(D120-DOUT)",
+      "power": false,
+      "pins": [
+        "D120.DOUT",
+        "D121.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D121-DOUT)",
+      "power": false,
+      "pins": [
+        "D121.DOUT",
+        "D122.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D122-DOUT)",
+      "power": false,
+      "pins": [
+        "D122.DOUT",
+        "D123.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D123-DOUT)",
+      "power": false,
+      "pins": [
+        "D123.DOUT",
+        "D124.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D124-DOUT)",
+      "power": false,
+      "pins": [
+        "D124.DOUT",
+        "D125.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D125-DOUT)",
+      "power": false,
+      "pins": [
+        "D125.DOUT",
+        "D126.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D126-DOUT)",
+      "power": false,
+      "pins": [
+        "D126.DOUT",
+        "D127.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D128-DOUT)",
+      "power": false,
+      "pins": [
+        "D128.DOUT",
+        "D129.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D129-DOUT)",
+      "power": false,
+      "pins": [
+        "D129.DOUT",
+        "D130.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D130-DOUT)",
+      "power": false,
+      "pins": [
+        "D130.DOUT",
+        "D131.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D131-DOUT)",
+      "power": false,
+      "pins": [
+        "D131.DOUT",
+        "D132.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D132-DOUT)",
+      "power": false,
+      "pins": [
+        "D132.DOUT",
+        "D133.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D133-DOUT)",
+      "power": false,
+      "pins": [
+        "D133.DOUT",
+        "D134.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D134-DOUT)",
+      "power": false,
+      "pins": [
+        "D134.DOUT",
+        "D135.DIN"
+      ]
+    },
+    {
+      "name": "Net-(D137-A)",
+      "power": false,
+      "pins": [
+        "D137.A",
+        "MX120.2"
+      ]
+    },
+    {
+      "name": "Net-(J2-CC1)",
+      "power": false,
+      "pins": [
+        "J2.CC1",
+        "R1.2"
+      ]
+    },
+    {
+      "name": "Net-(J2-CC2)",
+      "power": false,
+      "pins": [
+        "J2.CC2",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "Net-(R3-Pad2)",
+      "power": false,
+      "pins": [
+        "R3.2",
+        "R4.1"
+      ]
+    },
+    {
+      "name": "RGB-data-1",
+      "power": false,
+      "pins": [
+        "D128.DIN",
+        "D136.DOUT"
+      ]
+    },
+    {
+      "name": "RGB3.3",
+      "power": false,
+      "pins": [
+        "U1.PA0",
+        "U4.A"
+      ]
+    },
+    {
+      "name": "RGB5v",
+      "power": false,
+      "pins": [
+        "D120.DIN",
+        "U4.B"
+      ]
+    },
+    {
+      "name": "Row0",
+      "power": false,
+      "pins": [
+        "D108.K",
+        "D109.K",
+        "D110.K",
+        "D111.K",
+        "D112.K",
+        "D113.K",
+        "D114.K",
+        "D115.K",
+        "D116.K",
+        "D117.K",
+        "D118.K",
+        "D119.K",
+        "D137.K",
+        "U1.PA15"
+      ]
+    },
+    {
+      "name": "Row1",
+      "power": false,
+      "pins": [
+        "D100.K",
+        "D101.K",
+        "D102.K",
+        "D103.K",
+        "D104.K",
+        "D105.K",
+        "D106.K",
+        "D107.K",
+        "D91.K",
+        "D92.K",
+        "D93.K",
+        "D94.K",
+        "D95.K",
+        "D96.K",
+        "D97.K",
+        "D98.K",
+        "D99.K",
+        "U1.PB3"
+      ]
+    },
+    {
+      "name": "Row2",
+      "power": false,
+      "pins": [
+        "D73.K",
+        "D74.K",
+        "D75.K",
+        "D76.K",
+        "D77.K",
+        "D78.K",
+        "D79.K",
+        "D80.K",
+        "D81.K",
+        "D82.K",
+        "D83.K",
+        "D84.K",
+        "D85.K",
+        "D86.K",
+        "D87.K",
+        "D88.K",
+        "D89.K",
+        "D90.K",
+        "U1.PB4"
+      ]
+    },
+    {
+      "name": "Row3",
+      "power": false,
+      "pins": [
+        "D54.K",
+        "D55.K",
+        "D56.K",
+        "D57.K",
+        "D58.K",
+        "D59.K",
+        "D60.K",
+        "D61.K",
+        "D62.K",
+        "D63.K",
+        "D64.K",
+        "D65.K",
+        "D66.K",
+        "D67.K",
+        "D68.K",
+        "D69.K",
+        "D70.K",
+        "D71.K",
+        "D72.K",
+        "MX120.1",
+        "U1.PB5"
+      ]
+    },
+    {
+      "name": "Row4",
+      "power": false,
+      "pins": [
+        "D35.K",
+        "D36.K",
+        "D37.K",
+        "D38.K",
+        "D39.K",
+        "D40.K",
+        "D41.K",
+        "D42.K",
+        "D43.K",
+        "D44.K",
+        "D45.K",
+        "D46.K",
+        "D47.K",
+        "D48.K",
+        "D49.K",
+        "D50.K",
+        "D51.K",
+        "D52.K",
+        "D53.K",
+        "U1.PB6"
+      ]
+    },
+    {
+      "name": "Row5",
+      "power": false,
+      "pins": [
+        "D16.K",
+        "D17.K",
+        "D18.K",
+        "D19.K",
+        "D20.K",
+        "D21.K",
+        "D22.K",
+        "D23.K",
+        "D24.K",
+        "D25.K",
+        "D26.K",
+        "D27.K",
+        "D28.K",
+        "D29.K",
+        "D30.K",
+        "D31.K",
+        "D32.K",
+        "D33.K",
+        "D34.K",
+        "U1.PB7"
+      ]
+    },
+    {
+      "name": "Row6",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "D10.K",
+        "D11.K",
+        "D12.K",
+        "D13.K",
+        "D14.K",
+        "D15.K",
+        "D2.K",
+        "D3.K",
+        "D4.K",
+        "D5.K",
+        "D6.K",
+        "D7.K",
+        "D8.K",
+        "D9.K",
+        "U1.PA13"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J1.Pin_3",
+        "U1.PB8"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J1.Pin_4",
+        "U1.PB9"
+      ]
+    },
+    {
+      "name": "VBUS",
+      "power": true,
+      "pins": [
+        "F1.1",
+        "J2.VBUS"
+      ]
+    }
+  ]
+}

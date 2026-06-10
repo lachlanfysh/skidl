@@ -118,6 +118,18 @@ class _SymbolResolver:
         self._templates[key] = tmpl
         return tmpl
 
+    def find_part_across_libs(self, part: str, limit: int = 5) -> list[tuple[str, str]]:
+        """Search all libraries for a part name. Returns [(lib, part_name), ...]."""
+        results = []
+        part_lower = part.lower()
+        for lib in self.lib_names():
+            for pname in self.part_names(lib):
+                if pname.lower() == part_lower or part_lower in pname.lower():
+                    results.append((lib, pname))
+                    if len(results) >= limit:
+                        return results
+        return results
+
     @staticmethod
     def pin_ids(tmpl) -> dict[str, str]:
         """Map every legal pin identifier (num, name, alias) -> pin num."""
@@ -253,14 +265,31 @@ def translate(spec: CircuitSpec,
     for lib in sorted({p.lib for p in lib_parts}):
         if resolver.get_lib(lib) is None:
             bad_libs.add(lib)
-            cands = [Candidate(id=f"c{i+1}", action=ActionType.REPLACE_LIB,
-                               params={"ref": "*", "old": lib, "new": m},
-                               human_summary=f"use library {m!r} instead of {lib!r}")
-                     for i, m in enumerate(_close(lib, resolver.lib_names()))]
+            affected = [p for p in lib_parts if p.lib == lib]
+            cands: list[Candidate] = []
+            # Search all libraries for the actual part names
+            for pspec in affected:
+                found = resolver.find_part_across_libs(pspec.part)
+                for found_lib, found_part in found:
+                    summary = f"use {found_lib!r}:{found_part!r} for {pspec.ref}"
+                    cands.append(Candidate(
+                        id=f"c{len(cands)+1}",
+                        action=ActionType.REPLACE_LIB,
+                        params={"ref": pspec.ref, "old": lib, "new": found_lib,
+                                "also_replace_part": found_part},
+                        human_summary=summary,
+                    ))
+                    break  # best match per part
+            # Fallback: fuzzy library name match
+            if not cands:
+                cands = [Candidate(id=f"c{i+1}", action=ActionType.REPLACE_LIB,
+                                   params={"ref": "*", "old": lib, "new": m},
+                                   human_summary=f"use library {m!r} instead of {lib!r}")
+                         for i, m in enumerate(_close(lib, resolver.lib_names()))]
             excs.append(_exc(
                 next_id(), ExcCode.SPEC_UNKNOWN_LIB,
                 f"KiCad symbol library {lib!r} does not exist",
-                {"lib": lib, "refs": [p.ref for p in lib_parts if p.lib == lib]},
+                {"lib": lib, "refs": [p.ref for p in affected]},
                 cands,
             ))
     if excs:
