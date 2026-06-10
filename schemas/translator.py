@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import difflib
 import os
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -173,6 +174,157 @@ def _footprint_candidates(fp: str, fp_dirs: list[str]) -> list[str]:
     return [x for x in out if not (x in seen or seen.add(x))][:6]
 
 
+# --- footprint remapping -------------------------------------------------
+# Many open-source projects use project-local footprint library names for
+# standard parts (e.g. winterbloom:R_0603_HandSolder).  When the lib doesn't
+# exist on disk, try to find the same footprint name in standard KiCad libs.
+
+_PASSIVE_RE = re.compile(
+    r"^([RCL])_(\d{4})(?:_(\d{4}Metric))?(.*)$"
+)
+_PASSIVE_LIB_MAP = {"R": "Resistor_SMD", "C": "Capacitor_SMD", "L": "Inductor_SMD"}
+
+_HANDSOLDER_STRIP = re.compile(r"_?HandSolder$", re.IGNORECASE)
+
+
+def _remap_footprint(fp: str, fp_dirs: list[str]) -> str | None:
+    """Try to find a standard KiCad footprint matching a non-standard one.
+
+    Returns the remapped footprint string, or None if no match found.
+    """
+    if ":" not in fp:
+        return None
+    lib, name = fp.split(":", 1)
+
+    # 1. Exact name match in any standard library
+    for d in fp_dirs:
+        if not os.path.isdir(d):
+            continue
+        for pretty in os.listdir(d):
+            if not pretty.endswith(".pretty"):
+                continue
+            if os.path.isfile(os.path.join(d, pretty, f"{name}.kicad_mod")):
+                return f"{pretty[:-len('.pretty')]}:{name}"
+
+    # 2. Passive pattern: R_0603_HandSolder -> Resistor_SMD:R_0603_1608Metric*
+    m = _PASSIVE_RE.match(name)
+    if m:
+        prefix, size = m.group(1), m.group(2)
+        std_lib = _PASSIVE_LIB_MAP.get(prefix)
+        if std_lib:
+            for d in fp_dirs:
+                pretty_dir = os.path.join(d, f"{std_lib}.pretty")
+                if not os.path.isdir(pretty_dir):
+                    continue
+                candidates = [
+                    f[:-len(".kicad_mod")]
+                    for f in os.listdir(pretty_dir)
+                    if f.startswith(f"{prefix}_{size}") and f.endswith(".kicad_mod")
+                ]
+                if candidates:
+                    # Prefer HandSolder variant if original had it, else plain Metric
+                    hs = "HandSolder" in name or "handsolder" in name.lower()
+                    if hs:
+                        hs_match = [c for c in candidates if "HandSolder" in c]
+                        if hs_match:
+                            return f"{std_lib}:{hs_match[0]}"
+                    plain = [c for c in candidates if "Metric" in c and "HandSolder" not in c]
+                    if plain:
+                        return f"{std_lib}:{sorted(plain)[0]}"
+                    return f"{std_lib}:{sorted(candidates)[0]}"
+
+    # 3. Name without HandSolder suffix
+    stripped = _HANDSOLDER_STRIP.sub("", name)
+    if stripped != name:
+        for d in fp_dirs:
+            if not os.path.isdir(d):
+                continue
+            for pretty in os.listdir(d):
+                if not pretty.endswith(".pretty"):
+                    continue
+                # Try exact stripped name
+                if os.path.isfile(os.path.join(d, pretty, f"{stripped}.kicad_mod")):
+                    return f"{pretty[:-len('.pretty')]}:{stripped}"
+
+    # 4. LED pattern
+    if name.startswith("LED_") and name[4:8].isdigit():
+        for d in fp_dirs:
+            pretty_dir = os.path.join(d, "LED_SMD.pretty")
+            if not os.path.isdir(pretty_dir):
+                continue
+            candidates = [
+                f[:-len(".kicad_mod")]
+                for f in os.listdir(pretty_dir)
+                if f.startswith(f"LED_{name[4:8]}") and f.endswith(".kicad_mod")
+            ]
+            if candidates:
+                return f"LED_SMD:{sorted(candidates)[0]}"
+
+    # 5. TestPoint pattern
+    if "TestPoint" in name or name.startswith("TP_"):
+        for d in fp_dirs:
+            pretty_dir = os.path.join(d, "TestPoint.pretty")
+            if not os.path.isdir(pretty_dir):
+                continue
+            pool = [f[:-len(".kicad_mod")] for f in os.listdir(pretty_dir) if f.endswith(".kicad_mod")]
+            matches = _close(name, pool, n=1)
+            if matches:
+                return f"TestPoint:{matches[0]}"
+
+    # 6. Generic domain substitutions — close-enough footprint for engine testing
+    _GENERIC_MAP = [
+        # Eurorack jacks (Thonkiconn, QingPu, etc.) -> standard audio jack
+        (r"(?i)(thonkiconn|pj398|pj301|jack.*3.5|wqp.*pj|audiojack|audio.*jack|nmj6)",
+         "Connector_Audio", "Jack_3.5mm_QingPu_WQP-PJ398SM_Vertical_CircularHoles"),
+        # Pots (Alpha, Bourns, pedal pots)
+        (r"(?i)(pot.*underside|alphapot|pot.*alpha|pec11|songhuei|pot.*9mm|potentiometer)",
+         "Potentiometer_THT", "Potentiometer_Alps_RK09K_Single_Vertical"),
+        # Toggle switches (Dailywell, D6R, etc.)
+        (r"(?i)(sw_spdt|sw_spst|dailywell|d6r|toggle.*switch|switch.*spdt)",
+         "Button_Switch_THT", "SW_PUSH_6mm"),
+        # Eurorack shrouded power connector
+        (r"(?i)(eurorack.*power|power.*2x[058]|2x05.*shroud|2x08.*shroud|idc.*2x0[58])",
+         "Connector_IDC", "IDC-Header_2x05_P2.54mm_Vertical"),
+        # Tactile switches (Arduino-style)
+        (r"(?i)(ts06|b3u|tact.*switch|sw_push.*smt)",
+         "Button_Switch_SMD", "SW_SPST_TL3342"),
+    ]
+    for pattern, target_lib, target_name in _GENERIC_MAP:
+        if re.search(pattern, name) or re.search(pattern, lib):
+            for d in fp_dirs:
+                if os.path.isfile(os.path.join(d, f"{target_lib}.pretty", f"{target_name}.kicad_mod")):
+                    return f"{target_lib}:{target_name}"
+
+    return None
+
+
+def remap_footprints(spec: CircuitSpec, fp_dirs: list[str]) -> dict[str, str]:
+    """Auto-remap non-existent footprints to standard KiCad equivalents.
+
+    Returns {old_fp: new_fp} for all remappings applied.
+    Mutates spec.parts in place.
+    """
+    remapped: dict[str, str] = {}
+    seen: dict[str, str | None] = {}
+    for part in spec.parts:
+        fp = part.footprint
+        if fp in seen:
+            if seen[fp] is not None:
+                part.footprint = seen[fp]
+            continue
+        if _footprint_exists(fp, fp_dirs):
+            seen[fp] = None
+            continue
+        new_fp = _remap_footprint(fp, fp_dirs)
+        if new_fp and new_fp != fp:
+            remapped[fp] = new_fp
+            part.footprint = new_fp
+            seen[fp] = new_fp
+        else:
+            seen[fp] = None
+    return remapped
+
+
 # --- custom (tool=SKIDL) part construction -------------------------------
 # Pattern proven in benchmarks/results/als-pt19-light-sensor/circuit.py.
 
@@ -316,6 +468,9 @@ def translate(spec: CircuitSpec,
             ))
     if excs:
         return result
+
+    # pass 3.5: auto-remap footprints from project-local libs to standard KiCad
+    remapped = remap_footprints(spec, fp_dirs)
 
     # pass 4: footprints
     for fp in sorted({p.footprint for p in spec.parts}):
