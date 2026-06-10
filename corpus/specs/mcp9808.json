@@ -1,0 +1,148 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "mcp9808"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Sensor_Temperature",
+      "part": "MCP9808_MSOP",
+      "value": null,
+      "footprint": "Package_SO:MSOP-8_3x3mm_P0.65mm",
+      "group": "mcp9808_breakout"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mcp9808_breakout"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mcp9808_breakout"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mcp9808_breakout"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mcp9808_breakout"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mcp9808_breakout"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mcp9808_breakout"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x06",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "VDD",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "J1.1",
+        "R1.1",
+        "R2.1",
+        "U1.V_{DD}"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "J1.2",
+        "J1.6",
+        "R3.2",
+        "R4.2",
+        "R5.2",
+        "U1.GND"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "R1.2",
+        "U1.SDA"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J1.4",
+        "R2.2",
+        "U1.SCL"
+      ]
+    },
+    {
+      "name": "ALERT",
+      "power": false,
+      "pins": [
+        "J1.5",
+        "U1.Alert"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "R3.1",
+        "U1.A0"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "R4.1",
+        "U1.A1"
+      ]
+    },
+    {
+      "name": "N$3",
+      "power": false,
+      "pins": [
+        "R5.1",
+        "U1.A2"
+      ]
+    }
+  ]
+}

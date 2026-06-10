@@ -1,0 +1,717 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "feather-328p"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "USB_B_Micro",
+      "value": "USB_Micro-B",
+      "footprint": "Connector_USB:USB_Micro-B_Molex_47346-0001",
+      "group": "usb_input"
+    },
+    {
+      "ref": "U1",
+      "lib": "Interface_USB",
+      "part": "CP2104",
+      "value": null,
+      "footprint": "Package_DFN_QFN:QFN-24-1EP_4x4mm_P0.5mm_EP2.65x2.65mm",
+      "group": "usb_serial"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "usb_serial"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "usb_serial"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "4.7uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "usb_serial"
+    },
+    {
+      "ref": "U2",
+      "lib": "Battery_Management",
+      "part": "MCP73831-2-OT",
+      "value": "MCP73831",
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "battery_charger"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "2K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "battery_charger"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "battery_charger"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "ORANGE",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "battery_charger"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "JST-PH_BAT",
+      "footprint": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+      "group": "battery_charger"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "battery_charger"
+    },
+    {
+      "ref": "U3",
+      "lib": "Regulator_Linear",
+      "part": "AP2112K-3.3",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "D_Schottky",
+      "value": "MBR0520",
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "power_supply"
+    },
+    {
+      "ref": "U4",
+      "lib": "MCU_Microchip_ATmega",
+      "part": "ATmega328P-A",
+      "value": "ATmega328P-AU",
+      "footprint": "Package_QFP:TQFP-32_7x7mm_P0.8mm",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "Y1",
+      "lib": "Device",
+      "part": "Crystal",
+      "value": "8MHz",
+      "footprint": "Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "22pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "22pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "LED",
+      "value": "RED",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "SW1",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": "RESET",
+      "footprint": "Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2",
+      "group": "reset_button"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x16",
+      "value": "FEATHER_L",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical",
+      "group": "feather_headers"
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x12",
+      "value": "FEATHER_R",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical",
+      "group": "feather_headers"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VBUS",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C3.1",
+        "D2.A",
+        "J1.VBUS",
+        "U1.REGIN",
+        "U1.VBUS",
+        "U1.VDD",
+        "U2.V_{DD}"
+      ]
+    },
+    {
+      "name": "VBAT",
+      "power": true,
+      "pins": [
+        "C4.1",
+        "C5.1",
+        "D2.K",
+        "J2.1",
+        "J4.1",
+        "U2.V_{BAT}",
+        "U3.EN",
+        "U3.VIN"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C10.1",
+        "C11.1",
+        "C2.1",
+        "C6.1",
+        "C9.1",
+        "J3.2",
+        "R3.2",
+        "U1.VIO",
+        "U1.VPP",
+        "U1.~{CTS}",
+        "U1.~{DCD}",
+        "U1.~{DSR}",
+        "U1.~{RI}",
+        "U1.~{RST}",
+        "U3.VOUT",
+        "U4.AREF",
+        "U4.AVCC",
+        "U4.VCC"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "D1.A",
+        "D3.A",
+        "J1.GND",
+        "J1.ID",
+        "J1.Shield",
+        "J2.2",
+        "J3.4",
+        "R1.2",
+        "SW1.2",
+        "U1.GND",
+        "U2.V_{SS}",
+        "U3.GND",
+        "U4.GND"
+      ]
+    },
+    {
+      "name": "USB_DP",
+      "power": false,
+      "pins": [
+        "J1.D+",
+        "U1.D+"
+      ]
+    },
+    {
+      "name": "USB_DM",
+      "power": false,
+      "pins": [
+        "J1.D-",
+        "U1.D-"
+      ]
+    },
+    {
+      "name": "TXD",
+      "power": false,
+      "pins": [
+        "J3.15",
+        "U1.TXD",
+        "U4.PD1"
+      ]
+    },
+    {
+      "name": "RXD",
+      "power": false,
+      "pins": [
+        "J3.14",
+        "U1.RXD",
+        "U4.PD0"
+      ]
+    },
+    {
+      "name": "DTR",
+      "power": false,
+      "pins": [
+        "C12.2",
+        "U1.~{DTR}"
+      ]
+    },
+    {
+      "name": "SCK",
+      "power": false,
+      "pins": [
+        "J3.11",
+        "R4.1",
+        "U4.PB5"
+      ]
+    },
+    {
+      "name": "MISO",
+      "power": false,
+      "pins": [
+        "J3.13",
+        "U4.PB4"
+      ]
+    },
+    {
+      "name": "MOSI",
+      "power": false,
+      "pins": [
+        "J3.12",
+        "U4.PB3"
+      ]
+    },
+    {
+      "name": "SS",
+      "power": false,
+      "pins": [
+        "U4.PB2"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J4.12",
+        "U4.PC4"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J4.11",
+        "U4.PC5"
+      ]
+    },
+    {
+      "name": "A0",
+      "power": false,
+      "pins": [
+        "J3.5",
+        "U4.PC0"
+      ]
+    },
+    {
+      "name": "A1",
+      "power": false,
+      "pins": [
+        "J3.6",
+        "U4.PC1"
+      ]
+    },
+    {
+      "name": "A2",
+      "power": false,
+      "pins": [
+        "J3.7",
+        "U4.PC2"
+      ]
+    },
+    {
+      "name": "A3",
+      "power": false,
+      "pins": [
+        "J3.8",
+        "U4.PC3"
+      ]
+    },
+    {
+      "name": "A4",
+      "power": false,
+      "pins": [
+        "J3.9",
+        "U4.ADC6"
+      ]
+    },
+    {
+      "name": "A5",
+      "power": false,
+      "pins": [
+        "J3.10",
+        "U4.ADC7"
+      ]
+    },
+    {
+      "name": "NC_SUSPEND",
+      "power": true,
+      "pins": [
+        "U1.SUSPEND"
+      ]
+    },
+    {
+      "name": "NC_nSUSPEND",
+      "power": true,
+      "pins": [
+        "U1.~{SUSPEND}"
+      ]
+    },
+    {
+      "name": "NC_nRTS",
+      "power": true,
+      "pins": [
+        "U1.~{RTS}"
+      ]
+    },
+    {
+      "name": "NC_GPIO0",
+      "power": true,
+      "pins": [
+        "U1.TXT/GPIO.0"
+      ]
+    },
+    {
+      "name": "NC_GPIO1",
+      "power": true,
+      "pins": [
+        "U1.RXT/GPIO.1"
+      ]
+    },
+    {
+      "name": "NC_GPIO2",
+      "power": true,
+      "pins": [
+        "U1.RS485/GPIO.2"
+      ]
+    },
+    {
+      "name": "NC_GPIO3",
+      "power": true,
+      "pins": [
+        "U1.GPIO.3"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "R1.1",
+        "U2.PROG"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "R2.1",
+        "U2.STAT"
+      ]
+    },
+    {
+      "name": "N$3",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "R2.2"
+      ]
+    },
+    {
+      "name": "N$4",
+      "power": false,
+      "pins": [
+        "C7.1",
+        "U4.XTAL1/PB6",
+        "Y1.1"
+      ]
+    },
+    {
+      "name": "N$5",
+      "power": false,
+      "pins": [
+        "C8.1",
+        "U4.XTAL2/PB7",
+        "Y1.2"
+      ]
+    },
+    {
+      "name": "D2",
+      "power": false,
+      "pins": [
+        "U4.PD2"
+      ]
+    },
+    {
+      "name": "D3",
+      "power": false,
+      "pins": [
+        "U4.PD3"
+      ]
+    },
+    {
+      "name": "D4",
+      "power": false,
+      "pins": [
+        "U4.PD4"
+      ]
+    },
+    {
+      "name": "D5",
+      "power": false,
+      "pins": [
+        "U4.PD5"
+      ]
+    },
+    {
+      "name": "D6",
+      "power": false,
+      "pins": [
+        "U4.PD6"
+      ]
+    },
+    {
+      "name": "D7",
+      "power": false,
+      "pins": [
+        "U4.PD7"
+      ]
+    },
+    {
+      "name": "D8",
+      "power": false,
+      "pins": [
+        "U4.PB0"
+      ]
+    },
+    {
+      "name": "D9",
+      "power": false,
+      "pins": [
+        "U4.PB1"
+      ]
+    },
+    {
+      "name": "N$6",
+      "power": false,
+      "pins": [
+        "C12.1",
+        "R3.1",
+        "U4.~{RESET}/PC6"
+      ]
+    },
+    {
+      "name": "N$7",
+      "power": false,
+      "pins": [
+        "D3.K",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "~{RESET}/PC6",
+      "power": false,
+      "pins": [
+        "SW1.1"
+      ]
+    },
+    {
+      "name": "~{RST_HDR}",
+      "power": false,
+      "pins": [
+        "J3.1"
+      ]
+    },
+    {
+      "name": "AREF_HDR",
+      "power": false,
+      "pins": [
+        "J3.3"
+      ]
+    },
+    {
+      "name": "D4_HDR",
+      "power": false,
+      "pins": [
+        "J3.16"
+      ]
+    },
+    {
+      "name": "EN",
+      "power": false,
+      "pins": [
+        "J4.2"
+      ]
+    },
+    {
+      "name": "VBUS_HDR",
+      "power": false,
+      "pins": [
+        "J4.3"
+      ]
+    },
+    {
+      "name": "D13_HDR",
+      "power": false,
+      "pins": [
+        "J4.4"
+      ]
+    },
+    {
+      "name": "D12_HDR",
+      "power": false,
+      "pins": [
+        "J4.5"
+      ]
+    },
+    {
+      "name": "D11_HDR",
+      "power": false,
+      "pins": [
+        "J4.6"
+      ]
+    },
+    {
+      "name": "D10_HDR",
+      "power": false,
+      "pins": [
+        "J4.7"
+      ]
+    },
+    {
+      "name": "D9_HDR",
+      "power": false,
+      "pins": [
+        "J4.8"
+      ]
+    },
+    {
+      "name": "D6_HDR",
+      "power": false,
+      "pins": [
+        "J4.9"
+      ]
+    },
+    {
+      "name": "D5_HDR",
+      "power": false,
+      "pins": [
+        "J4.10"
+      ]
+    }
+  ]
+}

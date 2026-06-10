@@ -1,0 +1,153 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "bme280"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Regulator_Linear",
+      "part": "AP2112K-3.3",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "U2",
+      "lib": "Sensor",
+      "part": "BME280",
+      "value": null,
+      "footprint": "Package_LGA:Bosch_LGA-8_2.5x2.5mm_P0.65mm_ClockwisePinNumbering",
+      "group": "bme280_sensor"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "bme280_sensor"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x06",
+      "value": "Header_1x06",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "VIN",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "J1.1",
+        "U1.EN",
+        "U1.VIN"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "J1.2",
+        "U1.GND",
+        "U2.GND"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C2.1",
+        "C3.1",
+        "R1.1",
+        "R2.1",
+        "R3.1",
+        "U1.VOUT",
+        "U2.VDD",
+        "U2.VDDIO"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J1.4",
+        "R1.2",
+        "U2.SDI"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "R2.2",
+        "U2.SCK"
+      ]
+    },
+    {
+      "name": "SDO",
+      "power": false,
+      "pins": [
+        "J1.5",
+        "U2.SDO"
+      ]
+    },
+    {
+      "name": "CSB",
+      "power": false,
+      "pins": [
+        "J1.6",
+        "R3.2",
+        "U2.CSB"
+      ]
+    }
+  ]
+}

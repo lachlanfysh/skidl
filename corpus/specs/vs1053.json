@@ -1,0 +1,1058 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "vs1053"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Regulator_Linear",
+      "part": "AP2112K-3.3",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "PWR",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "power_supply"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "GREEN",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_QFP:LQFP-48_7x7mm_P0.5mm",
+      "group": "vs1053b_codec",
+      "pins": [
+        {
+          "num": "1",
+          "name": "MICP",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "MICN",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "XTAL_IN",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "XTAL_OUT",
+          "func": "output"
+        },
+        {
+          "num": "5",
+          "name": "CVDD1",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "IOVDD1",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "VCC_INTERNAL1",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "DREQ",
+          "func": "output"
+        },
+        {
+          "num": "9",
+          "name": "GPIO0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "10",
+          "name": "GPIO1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "11",
+          "name": "GPIO2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "12",
+          "name": "GPIO3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "13",
+          "name": "AVDD1",
+          "func": "power_in"
+        },
+        {
+          "num": "14",
+          "name": "RIGHT",
+          "func": "output"
+        },
+        {
+          "num": "15",
+          "name": "AGND1",
+          "func": "power_in"
+        },
+        {
+          "num": "16",
+          "name": "LEFT",
+          "func": "output"
+        },
+        {
+          "num": "17",
+          "name": "AGND2",
+          "func": "power_in"
+        },
+        {
+          "num": "18",
+          "name": "GBUF",
+          "func": "output"
+        },
+        {
+          "num": "19",
+          "name": "AVDD2",
+          "func": "power_in"
+        },
+        {
+          "num": "20",
+          "name": "RCAP",
+          "func": "passive"
+        },
+        {
+          "num": "21",
+          "name": "CVDD2",
+          "func": "power_in"
+        },
+        {
+          "num": "22",
+          "name": "IOVDD2",
+          "func": "power_in"
+        },
+        {
+          "num": "23",
+          "name": "RX",
+          "func": "input"
+        },
+        {
+          "num": "24",
+          "name": "TX",
+          "func": "output"
+        },
+        {
+          "num": "25",
+          "name": "SCLK",
+          "func": "input"
+        },
+        {
+          "num": "26",
+          "name": "SI",
+          "func": "input"
+        },
+        {
+          "num": "27",
+          "name": "SO",
+          "func": "output"
+        },
+        {
+          "num": "28",
+          "name": "XCS",
+          "func": "input"
+        },
+        {
+          "num": "29",
+          "name": "IOVDD3",
+          "func": "power_in"
+        },
+        {
+          "num": "30",
+          "name": "XRESET",
+          "func": "input"
+        },
+        {
+          "num": "31",
+          "name": "DGND1",
+          "func": "power_in"
+        },
+        {
+          "num": "32",
+          "name": "CVDD3",
+          "func": "power_in"
+        },
+        {
+          "num": "33",
+          "name": "TEST",
+          "func": "input"
+        },
+        {
+          "num": "34",
+          "name": "GPIO4",
+          "func": "bidirectional"
+        },
+        {
+          "num": "35",
+          "name": "GPIO5",
+          "func": "bidirectional"
+        },
+        {
+          "num": "36",
+          "name": "GPIO6",
+          "func": "bidirectional"
+        },
+        {
+          "num": "37",
+          "name": "GPIO7",
+          "func": "bidirectional"
+        },
+        {
+          "num": "38",
+          "name": "DGND2",
+          "func": "power_in"
+        },
+        {
+          "num": "39",
+          "name": "IOVDD4",
+          "func": "power_in"
+        },
+        {
+          "num": "40",
+          "name": "XDCS",
+          "func": "input"
+        },
+        {
+          "num": "41",
+          "name": "DGND3",
+          "func": "power_in"
+        },
+        {
+          "num": "42",
+          "name": "CVDD4",
+          "func": "power_in"
+        },
+        {
+          "num": "43",
+          "name": "VCC_INTERNAL2",
+          "func": "passive"
+        },
+        {
+          "num": "44",
+          "name": "GPIO_CTRL",
+          "func": "input"
+        },
+        {
+          "num": "45",
+          "name": "IOVDD5",
+          "func": "power_in"
+        },
+        {
+          "num": "46",
+          "name": "LINE_AGND",
+          "func": "power_in"
+        },
+        {
+          "num": "47",
+          "name": "LINEL",
+          "func": "output"
+        },
+        {
+          "num": "48",
+          "name": "LINER",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "vs1053b_codec"
+    },
+    {
+      "ref": "Y1",
+      "lib": "Device",
+      "part": "Crystal",
+      "value": "12.288MHz",
+      "footprint": "Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm",
+      "group": "crystal_osc"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C",
+      "value": "15pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "crystal_osc"
+    },
+    {
+      "ref": "C15",
+      "lib": "Device",
+      "part": "C",
+      "value": "15pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "crystal_osc"
+    },
+    {
+      "ref": "C16",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output"
+    },
+    {
+      "ref": "C17",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "audio_output"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Audio",
+      "part": "AudioJack3",
+      "value": "HP_JACK",
+      "footprint": "Connector_Audio:Jack_3.5mm_CUI_SJ1-3533NG_Horizontal",
+      "group": "audio_output"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "22",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "audio_output"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "22",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "audio_output"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "2.2K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mic_input"
+    },
+    {
+      "ref": "C18",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mic_input"
+    },
+    {
+      "ref": "C19",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mic_input"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "MIC",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "mic_input"
+    },
+    {
+      "ref": "U3",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Connector_Card:microSD_HC_Hirose_DM3AT-SF-PEJM5",
+      "group": "microsd_slot",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DAT2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "2",
+          "name": "CD_DAT3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "3",
+          "name": "CMD",
+          "func": "bidirectional"
+        },
+        {
+          "num": "4",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CLK",
+          "func": "input"
+        },
+        {
+          "num": "6",
+          "name": "VSS",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "DAT0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "8",
+          "name": "DAT1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "9",
+          "name": "SHIELD",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "microsd_slot"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "microsd_slot"
+    },
+    {
+      "ref": "C20",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "microsd_slot"
+    },
+    {
+      "ref": "C21",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "microsd_slot"
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x13",
+      "value": "SPI_HDR",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x13_P2.54mm_Vertical",
+      "group": "spi_header"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "100K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "spi_header"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "spi_header"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "spi_header"
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "spi_header"
+    },
+    {
+      "ref": "J5",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x10",
+      "value": "GPIO_HDR",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x10_P2.54mm_Vertical",
+      "group": "gpio_header"
+    },
+    {
+      "ref": "R11",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "gpio_header"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VCC",
+      "power": true,
+      "pins": [
+        "C11.1",
+        "C12.1",
+        "C2.1",
+        "C20.1",
+        "C21.1",
+        "C3.1",
+        "C6.1",
+        "C7.1",
+        "C8.1",
+        "D1.K",
+        "J4.1",
+        "R10.1",
+        "R4.1",
+        "R5.1",
+        "R6.1",
+        "R7.1",
+        "R8.1",
+        "R9.1",
+        "U1.VOUT",
+        "U2.AVDD1",
+        "U2.AVDD2",
+        "U2.IOVDD1",
+        "U2.IOVDD2",
+        "U2.IOVDD3",
+        "U2.IOVDD4",
+        "U2.IOVDD5",
+        "U3.VDD"
+      ]
+    },
+    {
+      "name": "+1V8",
+      "power": true,
+      "pins": [
+        "C10.1",
+        "C13.1",
+        "C9.1",
+        "U2.CVDD1",
+        "U2.CVDD2",
+        "U2.CVDD3",
+        "U2.CVDD4",
+        "U2.VCC_INTERNAL1",
+        "U2.VCC_INTERNAL2"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.2",
+        "C12.2",
+        "C13.2",
+        "C14.2",
+        "C15.2",
+        "C19.2",
+        "C2.2",
+        "C20.2",
+        "C21.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "J1.2",
+        "J2.S",
+        "J3.2",
+        "J4.2",
+        "J5.10",
+        "R1.2",
+        "U1.GND",
+        "U2.AGND1",
+        "U2.AGND2",
+        "U2.DGND1",
+        "U2.DGND2",
+        "U2.DGND3",
+        "U2.GPIO_CTRL",
+        "U2.LINE_AGND",
+        "U2.TEST",
+        "U3.SHIELD",
+        "U3.VSS"
+      ]
+    },
+    {
+      "name": "SCK",
+      "power": false,
+      "pins": [
+        "J4.3",
+        "U2.SCLK"
+      ]
+    },
+    {
+      "name": "MOSI",
+      "power": false,
+      "pins": [
+        "J4.4",
+        "U2.SI"
+      ]
+    },
+    {
+      "name": "MISO",
+      "power": false,
+      "pins": [
+        "J4.5",
+        "U2.SO"
+      ]
+    },
+    {
+      "name": "SCI_CS",
+      "power": false,
+      "pins": [
+        "J4.6",
+        "R8.2",
+        "U2.XCS"
+      ]
+    },
+    {
+      "name": "SDI_CS",
+      "power": false,
+      "pins": [
+        "J4.7",
+        "R9.2",
+        "U2.XDCS"
+      ]
+    },
+    {
+      "name": "DREQ",
+      "power": false,
+      "pins": [
+        "J4.8",
+        "U2.DREQ"
+      ]
+    },
+    {
+      "name": "RESET_N",
+      "power": false,
+      "pins": [
+        "J4.9",
+        "R7.2",
+        "U2.XRESET"
+      ]
+    },
+    {
+      "name": "SD_CS",
+      "power": false,
+      "pins": [
+        "J4.10",
+        "R10.2",
+        "U3.CD_DAT3"
+      ]
+    },
+    {
+      "name": "SD_SCK",
+      "power": false,
+      "pins": [
+        "J4.11",
+        "U3.CLK"
+      ]
+    },
+    {
+      "name": "SD_MOSI",
+      "power": false,
+      "pins": [
+        "J4.12",
+        "U3.CMD"
+      ]
+    },
+    {
+      "name": "SD_MISO",
+      "power": false,
+      "pins": [
+        "J4.13",
+        "U3.DAT0"
+      ]
+    },
+    {
+      "name": "LINE_L",
+      "power": false,
+      "pins": [
+        "C16.1",
+        "U2.LEFT"
+      ]
+    },
+    {
+      "name": "LINE_R",
+      "power": false,
+      "pins": [
+        "C17.1",
+        "U2.RIGHT"
+      ]
+    },
+    {
+      "name": "HP_L",
+      "power": false,
+      "pins": [
+        "C16.2",
+        "J2.T",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "HP_R",
+      "power": false,
+      "pins": [
+        "C17.2",
+        "J2.R",
+        "R3.1"
+      ]
+    },
+    {
+      "name": "MIC_P",
+      "power": false,
+      "pins": [
+        "C18.2",
+        "R4.2",
+        "U2.MICP"
+      ]
+    },
+    {
+      "name": "MIC_N",
+      "power": false,
+      "pins": [
+        "C19.1",
+        "U2.MICN"
+      ]
+    },
+    {
+      "name": "GPIO0",
+      "power": false,
+      "pins": [
+        "J5.1",
+        "U2.GPIO0"
+      ]
+    },
+    {
+      "name": "GPIO1",
+      "power": false,
+      "pins": [
+        "J5.2",
+        "U2.GPIO1"
+      ]
+    },
+    {
+      "name": "GPIO2",
+      "power": false,
+      "pins": [
+        "J5.3",
+        "U2.GPIO2"
+      ]
+    },
+    {
+      "name": "GPIO3",
+      "power": false,
+      "pins": [
+        "J5.4",
+        "U2.GPIO3"
+      ]
+    },
+    {
+      "name": "GPIO4",
+      "power": false,
+      "pins": [
+        "J5.5",
+        "U2.GPIO4"
+      ]
+    },
+    {
+      "name": "GPIO5",
+      "power": false,
+      "pins": [
+        "J5.6",
+        "U2.GPIO5"
+      ]
+    },
+    {
+      "name": "GPIO6",
+      "power": false,
+      "pins": [
+        "J5.7",
+        "U2.GPIO6"
+      ]
+    },
+    {
+      "name": "GPIO7",
+      "power": false,
+      "pins": [
+        "J5.8",
+        "U2.GPIO7"
+      ]
+    },
+    {
+      "name": "MIDI_RX",
+      "power": false,
+      "pins": [
+        "J5.9",
+        "R11.2",
+        "U2.RX"
+      ]
+    },
+    {
+      "name": "XTAL_IN",
+      "power": false,
+      "pins": [
+        "C14.1",
+        "U2.XTAL_IN",
+        "Y1.1"
+      ]
+    },
+    {
+      "name": "XTAL_OUT",
+      "power": false,
+      "pins": [
+        "C15.1",
+        "U2.XTAL_OUT",
+        "Y1.2"
+      ]
+    },
+    {
+      "name": "VIN",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "J1.1",
+        "U1.EN",
+        "U1.VIN"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "LINE_OUT_L",
+      "power": false,
+      "pins": [
+        "U2.LINEL"
+      ]
+    },
+    {
+      "name": "LINE_OUT_R",
+      "power": false,
+      "pins": [
+        "U2.LINER"
+      ]
+    },
+    {
+      "name": "GBUF",
+      "power": false,
+      "pins": [
+        "C5.1",
+        "U2.GBUF"
+      ]
+    },
+    {
+      "name": "UART_TX",
+      "power": false,
+      "pins": [
+        "U2.TX"
+      ]
+    },
+    {
+      "name": "RCAP",
+      "power": false,
+      "pins": [
+        "C4.1",
+        "U2.RCAP"
+      ]
+    },
+    {
+      "name": "HP_L_OUT",
+      "power": false,
+      "pins": [
+        "R2.2"
+      ]
+    },
+    {
+      "name": "HP_R_OUT",
+      "power": false,
+      "pins": [
+        "R3.2"
+      ]
+    },
+    {
+      "name": "MIC_IN",
+      "power": false,
+      "pins": [
+        "C18.1",
+        "J3.1"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "R5.2",
+        "U3.DAT1"
+      ]
+    },
+    {
+      "name": "N$3",
+      "power": false,
+      "pins": [
+        "R6.2",
+        "U3.DAT2"
+      ]
+    },
+    {
+      "name": "MIDI_IN",
+      "power": false,
+      "pins": [
+        "R11.1"
+      ]
+    }
+  ]
+}

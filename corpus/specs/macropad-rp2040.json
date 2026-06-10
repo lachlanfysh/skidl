@@ -1,0 +1,2127 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "macropad-rp2040"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Connector_USB:USB_C_Receptacle_XKB_U262-16XN-4BVC11",
+      "group": "usb_power_supply",
+      "pins": [
+        {
+          "num": "A1",
+          "name": "GND_A",
+          "func": "power_in"
+        },
+        {
+          "num": "A12",
+          "name": "GND_A2",
+          "func": "power_in"
+        },
+        {
+          "num": "A4",
+          "name": "VBUS_A",
+          "func": "power_in"
+        },
+        {
+          "num": "A5",
+          "name": "CC1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "A6",
+          "name": "DP1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "A7",
+          "name": "DM1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "A8",
+          "name": "SBU1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "A9",
+          "name": "VBUS_A2",
+          "func": "power_in"
+        },
+        {
+          "num": "B1",
+          "name": "GND_B",
+          "func": "power_in"
+        },
+        {
+          "num": "B12",
+          "name": "GND_B2",
+          "func": "power_in"
+        },
+        {
+          "num": "B4",
+          "name": "VBUS_B",
+          "func": "power_in"
+        },
+        {
+          "num": "B5",
+          "name": "CC2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "B6",
+          "name": "DP2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "B7",
+          "name": "DM2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "B8",
+          "name": "SBU2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "B9",
+          "name": "VBUS_B2",
+          "func": "power_in"
+        },
+        {
+          "num": "S1",
+          "name": "SHIELD",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "usb_power_supply"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "usb_power_supply"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "usb_power_supply",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VIN",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "EN",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "NC",
+          "func": "no_connect"
+        },
+        {
+          "num": "5",
+          "name": "VOUT",
+          "func": "power_out"
+        }
+      ]
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "usb_power_supply"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "usb_power_supply"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "usb_power_supply"
+    },
+    {
+      "ref": "U3",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_DFN_QFN:QFN-56-1EP_7x7mm_P0.4mm_EP3.2x3.2mm",
+      "group": "rp2040_mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "IOVDD_0",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GPIO0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "3",
+          "name": "GPIO1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "4",
+          "name": "GPIO2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "5",
+          "name": "GPIO3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "6",
+          "name": "GPIO4",
+          "func": "bidirectional"
+        },
+        {
+          "num": "7",
+          "name": "GPIO5",
+          "func": "bidirectional"
+        },
+        {
+          "num": "8",
+          "name": "GPIO6",
+          "func": "bidirectional"
+        },
+        {
+          "num": "9",
+          "name": "GPIO7",
+          "func": "bidirectional"
+        },
+        {
+          "num": "10",
+          "name": "IOVDD_1",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "GPIO8",
+          "func": "bidirectional"
+        },
+        {
+          "num": "12",
+          "name": "GPIO9",
+          "func": "bidirectional"
+        },
+        {
+          "num": "13",
+          "name": "GPIO10",
+          "func": "bidirectional"
+        },
+        {
+          "num": "14",
+          "name": "GPIO11",
+          "func": "bidirectional"
+        },
+        {
+          "num": "15",
+          "name": "GPIO12",
+          "func": "bidirectional"
+        },
+        {
+          "num": "16",
+          "name": "GPIO13",
+          "func": "bidirectional"
+        },
+        {
+          "num": "17",
+          "name": "GPIO14",
+          "func": "bidirectional"
+        },
+        {
+          "num": "18",
+          "name": "GPIO15",
+          "func": "bidirectional"
+        },
+        {
+          "num": "19",
+          "name": "TESTEN",
+          "func": "input"
+        },
+        {
+          "num": "20",
+          "name": "XIN",
+          "func": "input"
+        },
+        {
+          "num": "21",
+          "name": "XOUT",
+          "func": "output"
+        },
+        {
+          "num": "22",
+          "name": "IOVDD_2",
+          "func": "power_in"
+        },
+        {
+          "num": "23",
+          "name": "DVDD_0",
+          "func": "power_in"
+        },
+        {
+          "num": "24",
+          "name": "SWCLK",
+          "func": "input"
+        },
+        {
+          "num": "25",
+          "name": "SWDIO",
+          "func": "bidirectional"
+        },
+        {
+          "num": "26",
+          "name": "RUN",
+          "func": "input"
+        },
+        {
+          "num": "27",
+          "name": "GPIO16",
+          "func": "bidirectional"
+        },
+        {
+          "num": "28",
+          "name": "GPIO17",
+          "func": "bidirectional"
+        },
+        {
+          "num": "29",
+          "name": "GPIO18",
+          "func": "bidirectional"
+        },
+        {
+          "num": "30",
+          "name": "GPIO19",
+          "func": "bidirectional"
+        },
+        {
+          "num": "31",
+          "name": "GPIO20",
+          "func": "bidirectional"
+        },
+        {
+          "num": "32",
+          "name": "GPIO21",
+          "func": "bidirectional"
+        },
+        {
+          "num": "33",
+          "name": "IOVDD_3",
+          "func": "power_in"
+        },
+        {
+          "num": "34",
+          "name": "GPIO22",
+          "func": "bidirectional"
+        },
+        {
+          "num": "35",
+          "name": "GPIO23",
+          "func": "bidirectional"
+        },
+        {
+          "num": "36",
+          "name": "GPIO24",
+          "func": "bidirectional"
+        },
+        {
+          "num": "37",
+          "name": "GPIO25",
+          "func": "bidirectional"
+        },
+        {
+          "num": "38",
+          "name": "GPIO26",
+          "func": "bidirectional"
+        },
+        {
+          "num": "39",
+          "name": "GPIO27",
+          "func": "bidirectional"
+        },
+        {
+          "num": "40",
+          "name": "GPIO28",
+          "func": "bidirectional"
+        },
+        {
+          "num": "41",
+          "name": "GPIO29",
+          "func": "bidirectional"
+        },
+        {
+          "num": "42",
+          "name": "IOVDD_4",
+          "func": "power_in"
+        },
+        {
+          "num": "43",
+          "name": "ADC_AVDD",
+          "func": "power_in"
+        },
+        {
+          "num": "44",
+          "name": "VREG_VIN",
+          "func": "power_in"
+        },
+        {
+          "num": "45",
+          "name": "VREG_VOUT",
+          "func": "power_out"
+        },
+        {
+          "num": "46",
+          "name": "USB_DM",
+          "func": "bidirectional"
+        },
+        {
+          "num": "47",
+          "name": "USB_DP",
+          "func": "bidirectional"
+        },
+        {
+          "num": "48",
+          "name": "USB_VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "49",
+          "name": "IOVDD_5",
+          "func": "power_in"
+        },
+        {
+          "num": "50",
+          "name": "DVDD_1",
+          "func": "power_in"
+        },
+        {
+          "num": "51",
+          "name": "QSPI_SD3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "52",
+          "name": "QSPI_SCLK",
+          "func": "output"
+        },
+        {
+          "num": "53",
+          "name": "QSPI_SD0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "54",
+          "name": "QSPI_SD2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "55",
+          "name": "QSPI_SD1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "56",
+          "name": "QSPI_SS",
+          "func": "output"
+        },
+        {
+          "num": "57",
+          "name": "GND",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "Y1",
+      "lib": "Device",
+      "part": "Crystal",
+      "value": "12MHz",
+      "footprint": "Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C",
+      "value": "15pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C",
+      "value": "15pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "U4",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": "rp2040_mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "CS",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "DO",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "WP",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "6",
+          "name": "CLK",
+          "func": "input"
+        },
+        {
+          "num": "7",
+          "name": "HOLD",
+          "func": "input"
+        },
+        {
+          "num": "8",
+          "name": "VCC",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C15",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "rp2040_mcu"
+    },
+    {
+      "ref": "SW1",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW2",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW3",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW4",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW5",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW6",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW7",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW8",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW9",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW10",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW11",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "SW12",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB",
+      "group": "key_switches"
+    },
+    {
+      "ref": "U5",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U6",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U7",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U8",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U9",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U10",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U11",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U12",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U13",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U14",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U15",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "U16",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_chain",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "C16",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "neopixel_chain"
+    },
+    {
+      "ref": "C17",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "neopixel_chain"
+    },
+    {
+      "ref": "C18",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "neopixel_chain"
+    },
+    {
+      "ref": "SW13",
+      "lib": "Device",
+      "part": "RotaryEncoder_Switch",
+      "value": null,
+      "footprint": "Rotary_Encoder:RotaryEncoder_Alps_EC11E-Switch_Vertical_H20mm",
+      "group": "rotary_encoder"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "rotary_encoder"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "rotary_encoder"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "rotary_encoder"
+    },
+    {
+      "ref": "U17",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical",
+      "group": "oled_display",
+      "pins": [
+        {
+          "num": "1",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "SCK",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "MOSI",
+          "func": "input"
+        },
+        {
+          "num": "5",
+          "name": "RST",
+          "func": "input"
+        },
+        {
+          "num": "6",
+          "name": "DC",
+          "func": "input"
+        },
+        {
+          "num": "7",
+          "name": "CS",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "C19",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "oled_display"
+    },
+    {
+      "ref": "U18",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": "speaker_amplifier",
+      "pins": [
+        {
+          "num": "1",
+          "name": "SD",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "IN+",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "IN-",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "VO-",
+          "func": "output"
+        },
+        {
+          "num": "6",
+          "name": "GND_0",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "GND_1",
+          "func": "power_in"
+        },
+        {
+          "num": "8",
+          "name": "VO+",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "speaker_amplifier"
+    },
+    {
+      "ref": "C20",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "speaker_amplifier"
+    },
+    {
+      "ref": "LS1",
+      "lib": "Device",
+      "part": "Speaker",
+      "value": null,
+      "footprint": "Buzzer_Beeper:Buzzer_12x9.5RM7.6",
+      "group": "speaker_amplifier"
+    },
+    {
+      "ref": "C21",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "speaker_amplifier"
+    },
+    {
+      "ref": "C22",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "speaker_amplifier"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": null,
+      "footprint": "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+      "group": "stemma_qt"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "2.2K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "stemma_qt"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "2.2K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "stemma_qt"
+    }
+  ],
+  "nets": [
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C16.1",
+        "C17.1",
+        "C18.1",
+        "U1.VBUS_A",
+        "U1.VBUS_A2",
+        "U1.VBUS_B",
+        "U1.VBUS_B2",
+        "U10.VDD",
+        "U11.VDD",
+        "U12.VDD",
+        "U13.VDD",
+        "U14.VDD",
+        "U15.VDD",
+        "U16.VDD",
+        "U2.EN",
+        "U2.VIN",
+        "U5.VDD",
+        "U6.VDD",
+        "U7.VDD",
+        "U8.VDD",
+        "U9.VDD"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C10.1",
+        "C11.1",
+        "C12.1",
+        "C15.1",
+        "C19.1",
+        "C2.1",
+        "C21.1",
+        "C22.1",
+        "C3.1",
+        "C5.1",
+        "C6.1",
+        "C7.1",
+        "C8.1",
+        "C9.1",
+        "J2.2",
+        "R3.1",
+        "R4.1",
+        "R5.1",
+        "R6.1",
+        "R8.1",
+        "R9.1",
+        "U17.VCC",
+        "U18.SD",
+        "U18.VDD",
+        "U2.VOUT",
+        "U3.ADC_AVDD",
+        "U3.IOVDD_0",
+        "U3.IOVDD_1",
+        "U3.IOVDD_2",
+        "U3.IOVDD_3",
+        "U3.IOVDD_4",
+        "U3.IOVDD_5",
+        "U3.USB_VDD",
+        "U3.VREG_VIN",
+        "U4.VCC"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.2",
+        "C12.2",
+        "C13.2",
+        "C14.2",
+        "C15.2",
+        "C16.2",
+        "C17.2",
+        "C18.2",
+        "C19.2",
+        "C2.2",
+        "C20.2",
+        "C21.2",
+        "C22.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "J1.3",
+        "J2.1",
+        "R1.2",
+        "R2.2",
+        "SW1.2",
+        "SW10.2",
+        "SW11.2",
+        "SW12.2",
+        "SW13.C",
+        "SW13.S2",
+        "SW2.2",
+        "SW3.2",
+        "SW4.2",
+        "SW5.2",
+        "SW6.2",
+        "SW7.2",
+        "SW8.2",
+        "SW9.2",
+        "U1.GND_A",
+        "U1.GND_A2",
+        "U1.GND_B",
+        "U1.GND_B2",
+        "U1.SHIELD",
+        "U10.GND",
+        "U11.GND",
+        "U12.GND",
+        "U13.GND",
+        "U14.GND",
+        "U15.GND",
+        "U16.GND",
+        "U17.GND",
+        "U18.GND_0",
+        "U18.GND_1",
+        "U18.IN-",
+        "U2.GND",
+        "U3.GND",
+        "U3.TESTEN",
+        "U4.GND",
+        "U5.GND",
+        "U6.GND",
+        "U7.GND",
+        "U8.GND",
+        "U9.GND"
+      ]
+    },
+    {
+      "name": "USB_DP",
+      "power": false,
+      "pins": [
+        "U1.DP1",
+        "U1.DP2"
+      ]
+    },
+    {
+      "name": "USB_DM",
+      "power": false,
+      "pins": [
+        "U1.DM1",
+        "U1.DM2"
+      ]
+    },
+    {
+      "name": "SBU1_NC",
+      "power": true,
+      "pins": [
+        "U1.SBU1"
+      ]
+    },
+    {
+      "name": "SBU2_NC",
+      "power": true,
+      "pins": [
+        "U1.SBU2"
+      ]
+    },
+    {
+      "name": "CC1_NET",
+      "power": false,
+      "pins": [
+        "R1.1",
+        "U1.CC1"
+      ]
+    },
+    {
+      "name": "CC2_NET",
+      "power": false,
+      "pins": [
+        "R2.1",
+        "U1.CC2"
+      ]
+    },
+    {
+      "name": "DVDD",
+      "power": true,
+      "pins": [
+        "C4.1",
+        "U3.DVDD_0",
+        "U3.DVDD_1",
+        "U3.VREG_VOUT"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "C13.1",
+        "U3.XIN",
+        "Y1.1"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "C14.1",
+        "U3.XOUT",
+        "Y1.2"
+      ]
+    },
+    {
+      "name": "USB_DP1",
+      "power": false,
+      "pins": [
+        "U3.USB_DP"
+      ]
+    },
+    {
+      "name": "USB_DM1",
+      "power": false,
+      "pins": [
+        "U3.USB_DM"
+      ]
+    },
+    {
+      "name": "N$3",
+      "power": false,
+      "pins": [
+        "R3.2",
+        "U3.RUN"
+      ]
+    },
+    {
+      "name": "N$4",
+      "power": false,
+      "pins": [
+        "J1.1",
+        "U3.SWCLK"
+      ]
+    },
+    {
+      "name": "N$5",
+      "power": false,
+      "pins": [
+        "J1.2",
+        "U3.SWDIO"
+      ]
+    },
+    {
+      "name": "N$6",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SS",
+        "U4.CS"
+      ]
+    },
+    {
+      "name": "N$7",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SD1",
+        "U4.DO"
+      ]
+    },
+    {
+      "name": "N$8",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SD2",
+        "U4.WP"
+      ]
+    },
+    {
+      "name": "N$9",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SD0",
+        "U4.DI"
+      ]
+    },
+    {
+      "name": "N$10",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SCLK",
+        "U4.CLK"
+      ]
+    },
+    {
+      "name": "N$11",
+      "power": false,
+      "pins": [
+        "U3.QSPI_SD3",
+        "U4.HOLD"
+      ]
+    },
+    {
+      "name": "KEY0",
+      "power": false,
+      "pins": [
+        "U3.GPIO1"
+      ]
+    },
+    {
+      "name": "KEY1",
+      "power": false,
+      "pins": [
+        "U3.GPIO2"
+      ]
+    },
+    {
+      "name": "KEY2",
+      "power": false,
+      "pins": [
+        "U3.GPIO3"
+      ]
+    },
+    {
+      "name": "KEY3",
+      "power": false,
+      "pins": [
+        "U3.GPIO4"
+      ]
+    },
+    {
+      "name": "KEY4",
+      "power": false,
+      "pins": [
+        "U3.GPIO5"
+      ]
+    },
+    {
+      "name": "KEY5",
+      "power": false,
+      "pins": [
+        "U3.GPIO6"
+      ]
+    },
+    {
+      "name": "KEY6",
+      "power": false,
+      "pins": [
+        "U3.GPIO7"
+      ]
+    },
+    {
+      "name": "KEY7",
+      "power": false,
+      "pins": [
+        "U3.GPIO8"
+      ]
+    },
+    {
+      "name": "KEY8",
+      "power": false,
+      "pins": [
+        "U3.GPIO9"
+      ]
+    },
+    {
+      "name": "KEY9",
+      "power": false,
+      "pins": [
+        "U3.GPIO10"
+      ]
+    },
+    {
+      "name": "KEY10",
+      "power": false,
+      "pins": [
+        "U3.GPIO11"
+      ]
+    },
+    {
+      "name": "KEY11",
+      "power": false,
+      "pins": [
+        "U3.GPIO12"
+      ]
+    },
+    {
+      "name": "ENC_A",
+      "power": false,
+      "pins": [
+        "U3.GPIO17"
+      ]
+    },
+    {
+      "name": "ENC_B",
+      "power": false,
+      "pins": [
+        "U3.GPIO18"
+      ]
+    },
+    {
+      "name": "ENC_SW",
+      "power": false,
+      "pins": [
+        "U3.GPIO0"
+      ]
+    },
+    {
+      "name": "NEOPIXEL_DATA",
+      "power": false,
+      "pins": [
+        "U3.GPIO19"
+      ]
+    },
+    {
+      "name": "OLED_SCK",
+      "power": false,
+      "pins": [
+        "U3.GPIO22"
+      ]
+    },
+    {
+      "name": "OLED_MOSI",
+      "power": false,
+      "pins": [
+        "U3.GPIO23"
+      ]
+    },
+    {
+      "name": "OLED_DC",
+      "power": false,
+      "pins": [
+        "U3.GPIO24"
+      ]
+    },
+    {
+      "name": "OLED_CS",
+      "power": false,
+      "pins": [
+        "U3.GPIO25"
+      ]
+    },
+    {
+      "name": "OLED_RST",
+      "power": false,
+      "pins": [
+        "U3.GPIO26"
+      ]
+    },
+    {
+      "name": "SPK_PWM",
+      "power": false,
+      "pins": [
+        "U3.GPIO16"
+      ]
+    },
+    {
+      "name": "I2C_SDA",
+      "power": false,
+      "pins": [
+        "U3.GPIO20"
+      ]
+    },
+    {
+      "name": "I2C_SCL",
+      "power": false,
+      "pins": [
+        "U3.GPIO21"
+      ]
+    },
+    {
+      "name": "GPIO13_NC",
+      "power": true,
+      "pins": [
+        "U3.GPIO13"
+      ]
+    },
+    {
+      "name": "GPIO14_NC",
+      "power": true,
+      "pins": [
+        "U3.GPIO14"
+      ]
+    },
+    {
+      "name": "GPIO15_NC",
+      "power": true,
+      "pins": [
+        "U3.GPIO15"
+      ]
+    },
+    {
+      "name": "GPIO27_NC",
+      "power": true,
+      "pins": [
+        "U3.GPIO27"
+      ]
+    },
+    {
+      "name": "GPIO28_NC",
+      "power": true,
+      "pins": [
+        "U3.GPIO28"
+      ]
+    },
+    {
+      "name": "GPIO29_NC",
+      "power": true,
+      "pins": [
+        "U3.GPIO29"
+      ]
+    },
+    {
+      "name": "KEY0_1",
+      "power": false,
+      "pins": [
+        "SW1.1"
+      ]
+    },
+    {
+      "name": "KEY1_1",
+      "power": false,
+      "pins": [
+        "SW2.1"
+      ]
+    },
+    {
+      "name": "KEY2_1",
+      "power": false,
+      "pins": [
+        "SW3.1"
+      ]
+    },
+    {
+      "name": "KEY3_1",
+      "power": false,
+      "pins": [
+        "SW4.1"
+      ]
+    },
+    {
+      "name": "KEY4_1",
+      "power": false,
+      "pins": [
+        "SW5.1"
+      ]
+    },
+    {
+      "name": "KEY5_1",
+      "power": false,
+      "pins": [
+        "SW6.1"
+      ]
+    },
+    {
+      "name": "KEY6_1",
+      "power": false,
+      "pins": [
+        "SW7.1"
+      ]
+    },
+    {
+      "name": "KEY7_1",
+      "power": false,
+      "pins": [
+        "SW8.1"
+      ]
+    },
+    {
+      "name": "KEY8_1",
+      "power": false,
+      "pins": [
+        "SW9.1"
+      ]
+    },
+    {
+      "name": "KEY9_1",
+      "power": false,
+      "pins": [
+        "SW10.1"
+      ]
+    },
+    {
+      "name": "KEY10_1",
+      "power": false,
+      "pins": [
+        "SW11.1"
+      ]
+    },
+    {
+      "name": "KEY11_1",
+      "power": false,
+      "pins": [
+        "SW12.1"
+      ]
+    },
+    {
+      "name": "NEOPIXEL_DATA1",
+      "power": false,
+      "pins": [
+        "U5.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_0",
+      "power": false,
+      "pins": [
+        "U5.DOUT",
+        "U6.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_1",
+      "power": false,
+      "pins": [
+        "U6.DOUT",
+        "U7.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_2",
+      "power": false,
+      "pins": [
+        "U7.DOUT",
+        "U8.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_3",
+      "power": false,
+      "pins": [
+        "U8.DOUT",
+        "U9.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_4",
+      "power": false,
+      "pins": [
+        "U10.DIN",
+        "U9.DOUT"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_5",
+      "power": false,
+      "pins": [
+        "U10.DOUT",
+        "U11.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_6",
+      "power": false,
+      "pins": [
+        "U11.DOUT",
+        "U12.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_7",
+      "power": false,
+      "pins": [
+        "U12.DOUT",
+        "U13.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_8",
+      "power": false,
+      "pins": [
+        "U13.DOUT",
+        "U14.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_9",
+      "power": false,
+      "pins": [
+        "U14.DOUT",
+        "U15.DIN"
+      ]
+    },
+    {
+      "name": "NEO_CHAIN_10",
+      "power": false,
+      "pins": [
+        "U15.DOUT",
+        "U16.DIN"
+      ]
+    },
+    {
+      "name": "NEO_NC_11",
+      "power": true,
+      "pins": [
+        "U16.DOUT"
+      ]
+    },
+    {
+      "name": "ENC_A1",
+      "power": false,
+      "pins": [
+        "R4.2",
+        "SW13.A"
+      ]
+    },
+    {
+      "name": "ENC_B1",
+      "power": false,
+      "pins": [
+        "R5.2",
+        "SW13.B"
+      ]
+    },
+    {
+      "name": "ENC_SW1",
+      "power": false,
+      "pins": [
+        "R6.2",
+        "SW13.S1"
+      ]
+    },
+    {
+      "name": "OLED_SCK1",
+      "power": false,
+      "pins": [
+        "U17.SCK"
+      ]
+    },
+    {
+      "name": "OLED_MOSI1",
+      "power": false,
+      "pins": [
+        "U17.MOSI"
+      ]
+    },
+    {
+      "name": "OLED_RST1",
+      "power": false,
+      "pins": [
+        "U17.RST"
+      ]
+    },
+    {
+      "name": "OLED_DC1",
+      "power": false,
+      "pins": [
+        "U17.DC"
+      ]
+    },
+    {
+      "name": "OLED_CS1",
+      "power": false,
+      "pins": [
+        "U17.CS"
+      ]
+    },
+    {
+      "name": "SPK_PWM1",
+      "power": false,
+      "pins": [
+        "R7.1"
+      ]
+    },
+    {
+      "name": "AUDIO_FILT",
+      "power": false,
+      "pins": [
+        "C20.1",
+        "R7.2",
+        "U18.IN+"
+      ]
+    },
+    {
+      "name": "N$12",
+      "power": false,
+      "pins": [
+        "LS1.1",
+        "U18.VO+"
+      ]
+    },
+    {
+      "name": "N$13",
+      "power": false,
+      "pins": [
+        "LS1.2",
+        "U18.VO-"
+      ]
+    },
+    {
+      "name": "I2C_SDA1",
+      "power": false,
+      "pins": [
+        "J2.3",
+        "R8.2"
+      ]
+    },
+    {
+      "name": "I2C_SCL1",
+      "power": false,
+      "pins": [
+        "J2.4",
+        "R9.2"
+      ]
+    }
+  ]
+}

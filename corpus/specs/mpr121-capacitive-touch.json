@@ -1,0 +1,495 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "mpr121-capacitive-touch"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Regulator_Linear",
+      "part": "MCP1700x-300xxTT",
+      "value": "MCP1700-3.3V",
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "power_regulation"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_regulation"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_regulation"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_regulation"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_DFN_QFN:QFN-20-1EP_3x3mm_P0.45mm_EP1.6x1.6mm",
+      "group": "mpr121_touch",
+      "pins": [
+        {
+          "num": "1",
+          "name": "ELE0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "2",
+          "name": "ELE1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "3",
+          "name": "ELE2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "4",
+          "name": "ELE3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "5",
+          "name": "ELE4",
+          "func": "bidirectional"
+        },
+        {
+          "num": "6",
+          "name": "ELE5",
+          "func": "bidirectional"
+        },
+        {
+          "num": "7",
+          "name": "ELE6",
+          "func": "bidirectional"
+        },
+        {
+          "num": "8",
+          "name": "VSS",
+          "func": "power_in"
+        },
+        {
+          "num": "9",
+          "name": "ADDR",
+          "func": "input"
+        },
+        {
+          "num": "10",
+          "name": "VREG",
+          "func": "power_out"
+        },
+        {
+          "num": "11",
+          "name": "ELE7",
+          "func": "bidirectional"
+        },
+        {
+          "num": "12",
+          "name": "ELE8",
+          "func": "bidirectional"
+        },
+        {
+          "num": "13",
+          "name": "ELE9",
+          "func": "bidirectional"
+        },
+        {
+          "num": "14",
+          "name": "ELE10",
+          "func": "bidirectional"
+        },
+        {
+          "num": "15",
+          "name": "ELE11",
+          "func": "bidirectional"
+        },
+        {
+          "num": "16",
+          "name": "IRQ",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "SDA",
+          "func": "bidirectional"
+        },
+        {
+          "num": "18",
+          "name": "SCL",
+          "func": "input"
+        },
+        {
+          "num": "19",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "21",
+          "name": "EP",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mpr121_touch"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "10nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mpr121_touch"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "0R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mpr121_touch"
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_FET",
+      "part": "BSS138",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "i2c_level_shifter"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_level_shifter"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_level_shifter"
+    },
+    {
+      "ref": "Q2",
+      "lib": "Transistor_FET",
+      "part": "BSS138",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "i2c_level_shifter"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_level_shifter"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_level_shifter"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "100K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "irq_indicator"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "irq_indicator"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "RED",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "irq_indicator"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x06",
+      "value": "HOST",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x12",
+      "value": "ELECTRODES",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "VIN",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "J1.1",
+        "R3.1",
+        "R5.1",
+        "U1.VI"
+      ]
+    },
+    {
+      "name": "VCC",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "J1.1",
+        "R3.1",
+        "R5.1",
+        "U1.VI"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C2.1",
+        "C3.1",
+        "C4.1",
+        "Q1.G",
+        "Q2.G",
+        "R2.1",
+        "R4.1",
+        "R6.1",
+        "R7.1",
+        "U1.VO",
+        "U2.VDD"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "J1.2",
+        "R1.2",
+        "U1.GND",
+        "U2.EP",
+        "U2.VSS"
+      ]
+    },
+    {
+      "name": "SDA_3V3",
+      "power": false,
+      "pins": [
+        "Q1.S",
+        "R2.2",
+        "U2.SDA"
+      ]
+    },
+    {
+      "name": "SCL_3V3",
+      "power": false,
+      "pins": [
+        "Q2.S",
+        "R4.2",
+        "U2.SCL"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "Q1.D",
+        "R3.2"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J1.4",
+        "Q2.D",
+        "R5.2"
+      ]
+    },
+    {
+      "name": "IRQ",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "J1.5",
+        "R6.2",
+        "U2.IRQ"
+      ]
+    },
+    {
+      "name": "IRQ_OUT",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "J1.5",
+        "R6.2",
+        "U2.IRQ"
+      ]
+    },
+    {
+      "name": "ELE0",
+      "power": false,
+      "pins": [
+        "J2.1",
+        "U2.ELE0"
+      ]
+    },
+    {
+      "name": "ELE1",
+      "power": false,
+      "pins": [
+        "J2.2",
+        "U2.ELE1"
+      ]
+    },
+    {
+      "name": "ELE2",
+      "power": false,
+      "pins": [
+        "J2.3",
+        "U2.ELE2"
+      ]
+    },
+    {
+      "name": "ELE3",
+      "power": false,
+      "pins": [
+        "J2.4",
+        "U2.ELE3"
+      ]
+    },
+    {
+      "name": "ELE4",
+      "power": false,
+      "pins": [
+        "J2.5",
+        "U2.ELE4"
+      ]
+    },
+    {
+      "name": "ELE5",
+      "power": false,
+      "pins": [
+        "J2.6",
+        "U2.ELE5"
+      ]
+    },
+    {
+      "name": "ELE6",
+      "power": false,
+      "pins": [
+        "J2.7",
+        "U2.ELE6"
+      ]
+    },
+    {
+      "name": "ELE7",
+      "power": false,
+      "pins": [
+        "J2.8",
+        "U2.ELE7"
+      ]
+    },
+    {
+      "name": "ELE8",
+      "power": false,
+      "pins": [
+        "J2.9",
+        "U2.ELE8"
+      ]
+    },
+    {
+      "name": "ELE9",
+      "power": false,
+      "pins": [
+        "J2.10",
+        "U2.ELE9"
+      ]
+    },
+    {
+      "name": "ELE10",
+      "power": false,
+      "pins": [
+        "J2.11",
+        "U2.ELE10"
+      ]
+    },
+    {
+      "name": "ELE11",
+      "power": false,
+      "pins": [
+        "J2.12",
+        "U2.ELE11"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "C5.1",
+        "U2.VREG"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "R1.1",
+        "U2.ADDR"
+      ]
+    },
+    {
+      "name": "N$3",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "R7.2"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,203 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "ds3231-rtc"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Timer_RTC",
+      "part": "DS3231M",
+      "value": null,
+      "footprint": "Package_SO:SOIC-16W_7.5x10.3mm_P1.27mm",
+      "group": "rtc_core"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "rtc_core"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "rtc_core"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "BT1",
+      "lib": "Device",
+      "part": "Battery",
+      "value": "CR2032",
+      "footprint": "Battery:BatteryHolder_Keystone_3002_1x2032",
+      "group": "battery_backup"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "power_led"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "Green",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "power_led"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": "I2C",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+      "group": "connectors"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": "AUX_OUT",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "connectors"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VCC",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "J1.1",
+        "R1.1",
+        "R2.1",
+        "R3.1",
+        "R4.1",
+        "R5.1",
+        "R6.1",
+        "U1.VCC"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "BT1.-",
+        "C1.2",
+        "C2.2",
+        "D1.A",
+        "J1.2",
+        "J2.3",
+        "U1.GND"
+      ]
+    },
+    {
+      "name": "VBAT",
+      "power": true,
+      "pins": [
+        "BT1.+",
+        "C2.1",
+        "U1.VBAT"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "R1.2",
+        "U1.SDA"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J1.4",
+        "R2.2",
+        "U1.SCL"
+      ]
+    },
+    {
+      "name": "SQW_INT",
+      "power": false,
+      "pins": [
+        "J2.1",
+        "R3.2",
+        "U1.~{INT}/SQW"
+      ]
+    },
+    {
+      "name": "OUT_32K",
+      "power": false,
+      "pins": [
+        "J2.2",
+        "R4.2",
+        "U1.32KHZ"
+      ]
+    },
+    {
+      "name": "RST_N",
+      "power": false,
+      "pins": [
+        "R5.2",
+        "U1.~{RST}"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "R6.2"
+      ]
+    }
+  ]
+}

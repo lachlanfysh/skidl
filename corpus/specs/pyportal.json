@@ -1,0 +1,1918 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "pyportal"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "USB_B_Micro",
+      "value": "USB_Micro-B",
+      "footprint": "Connector_USB:USB_Micro-B_Molex_47346-0001",
+      "group": "power_supply"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "D_Schottky",
+      "value": "MBR0530",
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "power_supply"
+    },
+    {
+      "ref": "U1",
+      "lib": "Regulator_Linear",
+      "part": "AP2112K-3.3",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "U2",
+      "lib": "MCU_Microchip_SAMD",
+      "part": "ATSAMD51J20A-A",
+      "value": "ATSAMD51J20A",
+      "footprint": "Package_QFP:LQFP-64_10x10mm_P0.5mm",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "Y1",
+      "lib": "Device",
+      "part": "Crystal",
+      "value": "32.768kHz",
+      "footprint": "Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "22pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "22pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "samd51_mcu"
+    },
+    {
+      "ref": "U3",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "RF_Module:ESP32-WROOM-32",
+      "group": "esp32_wifi",
+      "pins": [
+        {
+          "num": "1",
+          "name": "GND_1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "EN",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "SENSOR_VP",
+          "func": "input"
+        },
+        {
+          "num": "5",
+          "name": "SENSOR_VN",
+          "func": "input"
+        },
+        {
+          "num": "6",
+          "name": "IO34",
+          "func": "input"
+        },
+        {
+          "num": "7",
+          "name": "IO35",
+          "func": "input"
+        },
+        {
+          "num": "8",
+          "name": "IO32",
+          "func": "bidirectional"
+        },
+        {
+          "num": "9",
+          "name": "IO33",
+          "func": "bidirectional"
+        },
+        {
+          "num": "10",
+          "name": "IO25",
+          "func": "bidirectional"
+        },
+        {
+          "num": "11",
+          "name": "IO26",
+          "func": "bidirectional"
+        },
+        {
+          "num": "12",
+          "name": "IO27",
+          "func": "bidirectional"
+        },
+        {
+          "num": "13",
+          "name": "IO14",
+          "func": "bidirectional"
+        },
+        {
+          "num": "14",
+          "name": "IO12",
+          "func": "bidirectional"
+        },
+        {
+          "num": "15",
+          "name": "GND_2",
+          "func": "power_in"
+        },
+        {
+          "num": "16",
+          "name": "IO13",
+          "func": "bidirectional"
+        },
+        {
+          "num": "17",
+          "name": "SHD_SD2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "18",
+          "name": "SWP_SD3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "19",
+          "name": "SCS_CMD",
+          "func": "bidirectional"
+        },
+        {
+          "num": "20",
+          "name": "SCK_CLK",
+          "func": "bidirectional"
+        },
+        {
+          "num": "21",
+          "name": "SDO_SD0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "22",
+          "name": "SDI_SD1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "23",
+          "name": "IO15",
+          "func": "bidirectional"
+        },
+        {
+          "num": "24",
+          "name": "IO2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "25",
+          "name": "IO0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "26",
+          "name": "IO4",
+          "func": "bidirectional"
+        },
+        {
+          "num": "27",
+          "name": "IO16",
+          "func": "bidirectional"
+        },
+        {
+          "num": "28",
+          "name": "IO17",
+          "func": "bidirectional"
+        },
+        {
+          "num": "29",
+          "name": "IO5",
+          "func": "bidirectional"
+        },
+        {
+          "num": "30",
+          "name": "IO18",
+          "func": "bidirectional"
+        },
+        {
+          "num": "31",
+          "name": "IO23",
+          "func": "bidirectional"
+        },
+        {
+          "num": "32",
+          "name": "GND_3",
+          "func": "power_in"
+        },
+        {
+          "num": "33",
+          "name": "IO19",
+          "func": "bidirectional"
+        },
+        {
+          "num": "34",
+          "name": "IO22",
+          "func": "bidirectional"
+        },
+        {
+          "num": "35",
+          "name": "RXD0",
+          "func": "input"
+        },
+        {
+          "num": "36",
+          "name": "TXD0",
+          "func": "output"
+        },
+        {
+          "num": "37",
+          "name": "IO21",
+          "func": "bidirectional"
+        },
+        {
+          "num": "38",
+          "name": "IO3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "39",
+          "name": "GND_4",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "esp32_wifi"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "esp32_wifi"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "esp32_wifi"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "esp32_wifi"
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "esp32_wifi"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "esp32_wifi"
+    },
+    {
+      "ref": "U4",
+      "lib": null,
+      "part": null,
+      "value": "ILI9341_320x240",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_2x07_P2.54mm_Vertical",
+      "group": "tft_display",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GND_1",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "CS",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "DC",
+          "func": "input"
+        },
+        {
+          "num": "5",
+          "name": "MOSI",
+          "func": "input"
+        },
+        {
+          "num": "6",
+          "name": "SCK",
+          "func": "input"
+        },
+        {
+          "num": "7",
+          "name": "LED",
+          "func": "input"
+        },
+        {
+          "num": "8",
+          "name": "MISO",
+          "func": "output"
+        },
+        {
+          "num": "9",
+          "name": "RST",
+          "func": "input"
+        },
+        {
+          "num": "10",
+          "name": "GND_2",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "TOUCH_YD",
+          "func": "passive"
+        },
+        {
+          "num": "12",
+          "name": "TOUCH_XL",
+          "func": "passive"
+        },
+        {
+          "num": "13",
+          "name": "TOUCH_YU",
+          "func": "passive"
+        },
+        {
+          "num": "14",
+          "name": "TOUCH_XR",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_FET",
+      "part": "2N7002",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "tft_display"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "tft_display"
+    },
+    {
+      "ref": "C15",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "tft_display"
+    },
+    {
+      "ref": "U5",
+      "lib": "Memory_Flash",
+      "part": "W25Q128JVS",
+      "value": "W25Q64JV-8MB",
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": "spi_flash"
+    },
+    {
+      "ref": "C16",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "spi_flash"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector",
+      "part": "Micro_SD_Card",
+      "value": "microSD",
+      "footprint": "Connector_Card:microSD_HC_Molex_104031-0811",
+      "group": "sd_card"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "sd_card"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "sd_card"
+    },
+    {
+      "ref": "C17",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "sd_card"
+    },
+    {
+      "ref": "U6",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": "temp_sensor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "SCL",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "SDA",
+          "func": "bidirectional"
+        },
+        {
+          "num": "3",
+          "name": "A0",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "GND_ADT",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "CT",
+          "func": "output"
+        },
+        {
+          "num": "6",
+          "name": "INT_ADT",
+          "func": "output"
+        },
+        {
+          "num": "7",
+          "name": "A1",
+          "func": "input"
+        },
+        {
+          "num": "8",
+          "name": "VDD",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C18",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "temp_sensor"
+    },
+    {
+      "ref": "U7",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_0805_2012Metric",
+      "group": "light_sensor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "C",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "E",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "light_sensor"
+    },
+    {
+      "ref": "D2",
+      "lib": "LED",
+      "part": "SK6812",
+      "value": "NeoPixel",
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "neopixel_led"
+    },
+    {
+      "ref": "C19",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "neopixel_led"
+    },
+    {
+      "ref": "U8",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": "speaker_amp",
+      "pins": [
+        {
+          "num": "1",
+          "name": "nSD",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "INP",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "INN",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "GND_AMP1",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "OUTP",
+          "func": "output"
+        },
+        {
+          "num": "6",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "GND_AMP2",
+          "func": "power_in"
+        },
+        {
+          "num": "8",
+          "name": "OUTN",
+          "func": "output"
+        }
+      ]
+    },
+    {
+      "ref": "C20",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "speaker_amp"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "Speaker",
+      "footprint": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+      "group": "speaker_amp"
+    },
+    {
+      "ref": "C21",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "speaker_amp"
+    },
+    {
+      "ref": "C22",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "speaker_amp"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "i2c_bus"
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "i2c_bus"
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": "STEMMA_QT",
+      "footprint": "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+      "group": "i2c_bus"
+    },
+    {
+      "ref": "J5",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": "D3_A1_Port",
+      "footprint": "Connector_JST:JST_PH_S3B-PH-K_1x03_P2.00mm_Horizontal",
+      "group": "expansion_ports"
+    },
+    {
+      "ref": "J6",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": "D4_A2_Port",
+      "footprint": "Connector_JST:JST_PH_S3B-PH-K_1x03_P2.00mm_Horizontal",
+      "group": "expansion_ports"
+    },
+    {
+      "ref": "U9",
+      "lib": null,
+      "part": null,
+      "value": "Reset",
+      "footprint": "Button_Switch_SMD:SW_SPST_PTS645Sx43SMTR92",
+      "group": "debug_reset",
+      "pins": [
+        {
+          "num": "1",
+          "name": "A",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "B",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "J7",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": "SWD",
+      "footprint": "Connector_PinHeader_1.27mm:PinHeader_1x04_P1.27mm_Vertical",
+      "group": "debug_reset"
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "LED",
+      "value": "Red",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "debug_reset"
+    },
+    {
+      "ref": "R11",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "debug_reset"
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C10.1",
+        "C13.1",
+        "C14.1",
+        "C15.1",
+        "C16.1",
+        "C17.1",
+        "C18.1",
+        "C19.1",
+        "C2.1",
+        "C21.1",
+        "C22.1",
+        "C3.1",
+        "C7.1",
+        "C8.1",
+        "C9.1",
+        "D2.VDD",
+        "J2.VDD",
+        "J4.2",
+        "J5.2",
+        "J6.2",
+        "J7.1",
+        "R1.1",
+        "R10.1",
+        "R2.1",
+        "R3.1",
+        "R4.1",
+        "R5.1",
+        "R6.1",
+        "R7.1",
+        "R9.1",
+        "U1.VOUT",
+        "U2.VDDANA",
+        "U2.VDDIO",
+        "U2.VDDIOB",
+        "U2.VSW",
+        "U3.VDD",
+        "U4.VCC",
+        "U5.VCC",
+        "U5.~{HOLD}/~{RESET}/IO_{3}",
+        "U5.~{WP}/IO_{2}",
+        "U6.VDD",
+        "U7.C",
+        "U8.VDD",
+        "U8.nSD"
+      ]
+    },
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "D1.A",
+        "U1.EN",
+        "U1.VIN"
+      ]
+    },
+    {
+      "name": "VBUS",
+      "power": true,
+      "pins": [
+        "D1.K",
+        "J1.VBUS"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.2",
+        "C12.2",
+        "C13.2",
+        "C14.2",
+        "C15.2",
+        "C16.2",
+        "C17.2",
+        "C18.2",
+        "C19.2",
+        "C2.2",
+        "C21.2",
+        "C22.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "D2.VSS",
+        "J1.GND",
+        "J1.Shield",
+        "J2.SHIELD",
+        "J2.VSS",
+        "J4.1",
+        "J5.1",
+        "J6.1",
+        "J7.4",
+        "Q1.D",
+        "R11.2",
+        "R8.2",
+        "U1.GND",
+        "U2.GND",
+        "U2.GNDANA",
+        "U3.GND_1",
+        "U3.GND_2",
+        "U3.GND_3",
+        "U3.GND_4",
+        "U4.GND_1",
+        "U4.GND_2",
+        "U5.GND",
+        "U6.A0",
+        "U6.A1",
+        "U6.GND_ADT",
+        "U8.GND_AMP1",
+        "U8.GND_AMP2",
+        "U8.INN",
+        "U9.B"
+      ]
+    },
+    {
+      "name": "USB_DM",
+      "power": false,
+      "pins": [
+        "J1.D-"
+      ]
+    },
+    {
+      "name": "USB_DP",
+      "power": false,
+      "pins": [
+        "J1.D+"
+      ]
+    },
+    {
+      "name": "VDDCORE",
+      "power": false,
+      "pins": [
+        "C4.1",
+        "U2.VDDCORE"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "C5.1",
+        "U2.PA00",
+        "Y1.1"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "C6.1",
+        "U2.PA01",
+        "Y1.2"
+      ]
+    },
+    {
+      "name": "USB_DM1",
+      "power": false,
+      "pins": [
+        "U2.PA24"
+      ]
+    },
+    {
+      "name": "USB_DP1",
+      "power": false,
+      "pins": [
+        "U2.PA25"
+      ]
+    },
+    {
+      "name": "TFT_MOSI",
+      "power": false,
+      "pins": [
+        "U2.PA12"
+      ]
+    },
+    {
+      "name": "TFT_SCK",
+      "power": false,
+      "pins": [
+        "U2.PA13"
+      ]
+    },
+    {
+      "name": "TFT_MISO",
+      "power": false,
+      "pins": [
+        "U2.PA14"
+      ]
+    },
+    {
+      "name": "TFT_CS",
+      "power": false,
+      "pins": [
+        "U2.PB09"
+      ]
+    },
+    {
+      "name": "TFT_DC",
+      "power": false,
+      "pins": [
+        "U2.PB06"
+      ]
+    },
+    {
+      "name": "TFT_RST",
+      "power": false,
+      "pins": [
+        "U2.PA15"
+      ]
+    },
+    {
+      "name": "TOUCH_YD",
+      "power": false,
+      "pins": [
+        "U2.PB04"
+      ]
+    },
+    {
+      "name": "TOUCH_XL",
+      "power": false,
+      "pins": [
+        "U2.PB05"
+      ]
+    },
+    {
+      "name": "TOUCH_YU",
+      "power": false,
+      "pins": [
+        "U2.PA04"
+      ]
+    },
+    {
+      "name": "TOUCH_XR",
+      "power": false,
+      "pins": [
+        "U2.PA05"
+      ]
+    },
+    {
+      "name": "TFT_BACKLIGHT",
+      "power": false,
+      "pins": [
+        "U2.PB31"
+      ]
+    },
+    {
+      "name": "SD_MOSI",
+      "power": false,
+      "pins": [
+        "U2.PB22"
+      ]
+    },
+    {
+      "name": "SD_SCK",
+      "power": false,
+      "pins": [
+        "U2.PB23"
+      ]
+    },
+    {
+      "name": "SD_MISO",
+      "power": false,
+      "pins": [
+        "U2.PB02"
+      ]
+    },
+    {
+      "name": "SD_CS",
+      "power": false,
+      "pins": [
+        "U2.PB30"
+      ]
+    },
+    {
+      "name": "FLASH_MOSI",
+      "power": false,
+      "pins": [
+        "U2.PA08"
+      ]
+    },
+    {
+      "name": "FLASH_MISO",
+      "power": false,
+      "pins": [
+        "U2.PA09"
+      ]
+    },
+    {
+      "name": "FLASH_SCK",
+      "power": false,
+      "pins": [
+        "U2.PA10"
+      ]
+    },
+    {
+      "name": "FLASH_CS",
+      "power": false,
+      "pins": [
+        "U2.PA11"
+      ]
+    },
+    {
+      "name": "ESP_TX",
+      "power": false,
+      "pins": [
+        "U2.PB12"
+      ]
+    },
+    {
+      "name": "ESP_RX",
+      "power": false,
+      "pins": [
+        "U2.PB13"
+      ]
+    },
+    {
+      "name": "ESP_BUSY",
+      "power": false,
+      "pins": [
+        "U2.PB14"
+      ]
+    },
+    {
+      "name": "ESP_CS",
+      "power": false,
+      "pins": [
+        "U2.PB15"
+      ]
+    },
+    {
+      "name": "ESP_RESET",
+      "power": false,
+      "pins": [
+        "U2.PB16"
+      ]
+    },
+    {
+      "name": "ESP_GPIO0",
+      "power": false,
+      "pins": [
+        "U2.PB17"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "U2.PA16"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "U2.PA17"
+      ]
+    },
+    {
+      "name": "NEOPIXEL",
+      "power": false,
+      "pins": [
+        "U2.PB00"
+      ]
+    },
+    {
+      "name": "SPEAKER_OUT",
+      "power": false,
+      "pins": [
+        "U2.PA02"
+      ]
+    },
+    {
+      "name": "LIGHT_SENSE",
+      "power": false,
+      "pins": [
+        "U2.PB01"
+      ]
+    },
+    {
+      "name": "D3_A1",
+      "power": false,
+      "pins": [
+        "U2.PA06"
+      ]
+    },
+    {
+      "name": "D4_A2",
+      "power": false,
+      "pins": [
+        "U2.PA07"
+      ]
+    },
+    {
+      "name": "RESET",
+      "power": false,
+      "pins": [
+        "U2.~{RESET}"
+      ]
+    },
+    {
+      "name": "SWCLK",
+      "power": false,
+      "pins": [
+        "U2.PA30"
+      ]
+    },
+    {
+      "name": "SWDIO",
+      "power": false,
+      "pins": [
+        "U2.PA31"
+      ]
+    },
+    {
+      "name": "A0_SPEAKER",
+      "power": false,
+      "pins": [
+        "U2.PA03"
+      ]
+    },
+    {
+      "name": "D13_LED",
+      "power": false,
+      "pins": [
+        "U2.PB03"
+      ]
+    },
+    {
+      "name": "PA18_NC",
+      "power": false,
+      "pins": [
+        "U2.PA18"
+      ]
+    },
+    {
+      "name": "PA19_NC",
+      "power": false,
+      "pins": [
+        "U2.PA19"
+      ]
+    },
+    {
+      "name": "PA20_NC",
+      "power": false,
+      "pins": [
+        "U2.PA20"
+      ]
+    },
+    {
+      "name": "PA21_NC",
+      "power": false,
+      "pins": [
+        "U2.PA21"
+      ]
+    },
+    {
+      "name": "PA22_NC",
+      "power": false,
+      "pins": [
+        "U2.PA22"
+      ]
+    },
+    {
+      "name": "PA23_NC",
+      "power": false,
+      "pins": [
+        "U2.PA23"
+      ]
+    },
+    {
+      "name": "PA27_NC",
+      "power": false,
+      "pins": [
+        "U2.PA27"
+      ]
+    },
+    {
+      "name": "PB07_NC",
+      "power": false,
+      "pins": [
+        "U2.PB07"
+      ]
+    },
+    {
+      "name": "PB08_NC",
+      "power": false,
+      "pins": [
+        "U2.PB08"
+      ]
+    },
+    {
+      "name": "PB10_NC",
+      "power": false,
+      "pins": [
+        "U2.PB10"
+      ]
+    },
+    {
+      "name": "PB11_NC",
+      "power": false,
+      "pins": [
+        "U2.PB11"
+      ]
+    },
+    {
+      "name": "RESET1",
+      "power": false,
+      "pins": [
+        "R1.2"
+      ]
+    },
+    {
+      "name": "RESET2",
+      "power": false,
+      "pins": [
+        "C11.1"
+      ]
+    },
+    {
+      "name": "N$3",
+      "power": false,
+      "pins": [
+        "C12.1",
+        "R2.2",
+        "U3.EN"
+      ]
+    },
+    {
+      "name": "ESP_TX1",
+      "power": false,
+      "pins": [
+        "U3.RXD0"
+      ]
+    },
+    {
+      "name": "ESP_RX1",
+      "power": false,
+      "pins": [
+        "U3.TXD0"
+      ]
+    },
+    {
+      "name": "ESP_CS1",
+      "power": false,
+      "pins": [
+        "U3.IO5"
+      ]
+    },
+    {
+      "name": "ESP_BUSY1",
+      "power": false,
+      "pins": [
+        "U3.IO33"
+      ]
+    },
+    {
+      "name": "ESP_GPIO0_1",
+      "power": false,
+      "pins": [
+        "R4.2",
+        "U3.IO0"
+      ]
+    },
+    {
+      "name": "ESP_RESET1",
+      "power": false,
+      "pins": [
+        "R3.2"
+      ]
+    },
+    {
+      "name": "ESP_SD2",
+      "power": false,
+      "pins": [
+        "U3.SHD_SD2"
+      ]
+    },
+    {
+      "name": "ESP_SD3",
+      "power": false,
+      "pins": [
+        "U3.SWP_SD3"
+      ]
+    },
+    {
+      "name": "ESP_CMD",
+      "power": false,
+      "pins": [
+        "U3.SCS_CMD"
+      ]
+    },
+    {
+      "name": "ESP_CLK",
+      "power": false,
+      "pins": [
+        "U3.SCK_CLK"
+      ]
+    },
+    {
+      "name": "ESP_SD0",
+      "power": false,
+      "pins": [
+        "U3.SDO_SD0"
+      ]
+    },
+    {
+      "name": "ESP_SD1",
+      "power": false,
+      "pins": [
+        "U3.SDI_SD1"
+      ]
+    },
+    {
+      "name": "ESP_VP",
+      "power": false,
+      "pins": [
+        "U3.SENSOR_VP"
+      ]
+    },
+    {
+      "name": "ESP_VN",
+      "power": false,
+      "pins": [
+        "U3.SENSOR_VN"
+      ]
+    },
+    {
+      "name": "ESP_IO34",
+      "power": false,
+      "pins": [
+        "U3.IO34"
+      ]
+    },
+    {
+      "name": "ESP_IO35",
+      "power": false,
+      "pins": [
+        "U3.IO35"
+      ]
+    },
+    {
+      "name": "ESP_IO32",
+      "power": false,
+      "pins": [
+        "U3.IO32"
+      ]
+    },
+    {
+      "name": "ESP_IO25",
+      "power": false,
+      "pins": [
+        "U3.IO25"
+      ]
+    },
+    {
+      "name": "ESP_IO26",
+      "power": false,
+      "pins": [
+        "U3.IO26"
+      ]
+    },
+    {
+      "name": "ESP_IO27",
+      "power": false,
+      "pins": [
+        "U3.IO27"
+      ]
+    },
+    {
+      "name": "ESP_IO14",
+      "power": false,
+      "pins": [
+        "U3.IO14"
+      ]
+    },
+    {
+      "name": "ESP_IO12",
+      "power": false,
+      "pins": [
+        "U3.IO12"
+      ]
+    },
+    {
+      "name": "ESP_IO13",
+      "power": false,
+      "pins": [
+        "U3.IO13"
+      ]
+    },
+    {
+      "name": "ESP_IO15",
+      "power": false,
+      "pins": [
+        "U3.IO15"
+      ]
+    },
+    {
+      "name": "ESP_IO2",
+      "power": false,
+      "pins": [
+        "U3.IO2"
+      ]
+    },
+    {
+      "name": "ESP_IO4",
+      "power": false,
+      "pins": [
+        "U3.IO4"
+      ]
+    },
+    {
+      "name": "ESP_IO16",
+      "power": false,
+      "pins": [
+        "U3.IO16"
+      ]
+    },
+    {
+      "name": "ESP_IO17",
+      "power": false,
+      "pins": [
+        "U3.IO17"
+      ]
+    },
+    {
+      "name": "ESP_IO18",
+      "power": false,
+      "pins": [
+        "U3.IO18"
+      ]
+    },
+    {
+      "name": "ESP_IO23",
+      "power": false,
+      "pins": [
+        "U3.IO23"
+      ]
+    },
+    {
+      "name": "ESP_IO19",
+      "power": false,
+      "pins": [
+        "U3.IO19"
+      ]
+    },
+    {
+      "name": "ESP_IO22",
+      "power": false,
+      "pins": [
+        "U3.IO22"
+      ]
+    },
+    {
+      "name": "ESP_IO21",
+      "power": false,
+      "pins": [
+        "U3.IO21"
+      ]
+    },
+    {
+      "name": "ESP_IO3",
+      "power": false,
+      "pins": [
+        "U3.IO3"
+      ]
+    },
+    {
+      "name": "TFT_CS1",
+      "power": false,
+      "pins": [
+        "U4.CS"
+      ]
+    },
+    {
+      "name": "TFT_DC1",
+      "power": false,
+      "pins": [
+        "U4.DC"
+      ]
+    },
+    {
+      "name": "TFT_MOSI1",
+      "power": false,
+      "pins": [
+        "U4.MOSI"
+      ]
+    },
+    {
+      "name": "TFT_SCK1",
+      "power": false,
+      "pins": [
+        "U4.SCK"
+      ]
+    },
+    {
+      "name": "TFT_MISO1",
+      "power": false,
+      "pins": [
+        "U4.MISO"
+      ]
+    },
+    {
+      "name": "TFT_RST1",
+      "power": false,
+      "pins": [
+        "U4.RST"
+      ]
+    },
+    {
+      "name": "TOUCH_YD1",
+      "power": false,
+      "pins": [
+        "U4.TOUCH_YD"
+      ]
+    },
+    {
+      "name": "TOUCH_XL1",
+      "power": false,
+      "pins": [
+        "U4.TOUCH_XL"
+      ]
+    },
+    {
+      "name": "TOUCH_YU1",
+      "power": false,
+      "pins": [
+        "U4.TOUCH_YU"
+      ]
+    },
+    {
+      "name": "TOUCH_XR1",
+      "power": false,
+      "pins": [
+        "U4.TOUCH_XR"
+      ]
+    },
+    {
+      "name": "TFT_BACKLIGHT1",
+      "power": false,
+      "pins": [
+        "Q1.G"
+      ]
+    },
+    {
+      "name": "N$4",
+      "power": false,
+      "pins": [
+        "Q1.S",
+        "R5.2",
+        "U4.LED"
+      ]
+    },
+    {
+      "name": "FLASH_CS1",
+      "power": false,
+      "pins": [
+        "U5.~{CS}"
+      ]
+    },
+    {
+      "name": "FLASH_MOSI1",
+      "power": false,
+      "pins": [
+        "U5.DI/IO_{0}"
+      ]
+    },
+    {
+      "name": "FLASH_MISO1",
+      "power": false,
+      "pins": [
+        "U5.DO/IO_{1}"
+      ]
+    },
+    {
+      "name": "FLASH_SCK1",
+      "power": false,
+      "pins": [
+        "U5.CLK"
+      ]
+    },
+    {
+      "name": "SD_MOSI1",
+      "power": false,
+      "pins": [
+        "J2.CMD"
+      ]
+    },
+    {
+      "name": "SD_SCK1",
+      "power": false,
+      "pins": [
+        "J2.CLK"
+      ]
+    },
+    {
+      "name": "SD_MISO1",
+      "power": false,
+      "pins": [
+        "J2.DAT0"
+      ]
+    },
+    {
+      "name": "SD_CS1",
+      "power": false,
+      "pins": [
+        "J2.DAT3/CD"
+      ]
+    },
+    {
+      "name": "N$5",
+      "power": false,
+      "pins": [
+        "J2.DAT1",
+        "R6.2"
+      ]
+    },
+    {
+      "name": "N$6",
+      "power": false,
+      "pins": [
+        "J2.DAT2",
+        "R7.2"
+      ]
+    },
+    {
+      "name": "SCL1",
+      "power": false,
+      "pins": [
+        "U6.SCL"
+      ]
+    },
+    {
+      "name": "SDA1",
+      "power": false,
+      "pins": [
+        "U6.SDA"
+      ]
+    },
+    {
+      "name": "TEMP_CT",
+      "power": false,
+      "pins": [
+        "U6.CT"
+      ]
+    },
+    {
+      "name": "TEMP_INT",
+      "power": false,
+      "pins": [
+        "U6.INT_ADT"
+      ]
+    },
+    {
+      "name": "LIGHT_SENSE1",
+      "power": false,
+      "pins": [
+        "U7.E"
+      ]
+    },
+    {
+      "name": "LIGHT_SENSE2",
+      "power": false,
+      "pins": [
+        "R8.1"
+      ]
+    },
+    {
+      "name": "NEOPIXEL1",
+      "power": false,
+      "pins": [
+        "D2.DIN"
+      ]
+    },
+    {
+      "name": "NEO_DOUT",
+      "power": false,
+      "pins": [
+        "D2.DOUT"
+      ]
+    },
+    {
+      "name": "SPEAKER_OUT1",
+      "power": false,
+      "pins": [
+        "C20.1"
+      ]
+    },
+    {
+      "name": "N$7",
+      "power": false,
+      "pins": [
+        "C20.2",
+        "U8.INP"
+      ]
+    },
+    {
+      "name": "N$8",
+      "power": false,
+      "pins": [
+        "J3.1",
+        "U8.OUTP"
+      ]
+    },
+    {
+      "name": "N$9",
+      "power": false,
+      "pins": [
+        "J3.2",
+        "U8.OUTN"
+      ]
+    },
+    {
+      "name": "SDA2",
+      "power": false,
+      "pins": [
+        "R9.2"
+      ]
+    },
+    {
+      "name": "SCL2",
+      "power": false,
+      "pins": [
+        "R10.2"
+      ]
+    },
+    {
+      "name": "SDA3",
+      "power": false,
+      "pins": [
+        "J4.3"
+      ]
+    },
+    {
+      "name": "SCL3",
+      "power": false,
+      "pins": [
+        "J4.4"
+      ]
+    },
+    {
+      "name": "D3_A1_1",
+      "power": false,
+      "pins": [
+        "J5.3"
+      ]
+    },
+    {
+      "name": "D4_A2_1",
+      "power": false,
+      "pins": [
+        "J6.3"
+      ]
+    },
+    {
+      "name": "RESET3",
+      "power": false,
+      "pins": [
+        "U9.A"
+      ]
+    },
+    {
+      "name": "SWCLK1",
+      "power": false,
+      "pins": [
+        "J7.2"
+      ]
+    },
+    {
+      "name": "SWDIO1",
+      "power": false,
+      "pins": [
+        "J7.3"
+      ]
+    },
+    {
+      "name": "D13_LED1",
+      "power": false,
+      "pins": [
+        "D3.K"
+      ]
+    },
+    {
+      "name": "N$10",
+      "power": false,
+      "pins": [
+        "D3.A",
+        "R11.1"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "ads1115-adc"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Analog_ADC",
+      "part": "ADS1115IDGS",
+      "value": null,
+      "footprint": "Package_SO:TSSOP-10_3x3mm_P0.5mm",
+      "group": "ads1115_adc"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "ads1115_adc"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "ads1115_adc"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "addr_config"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "addr_config"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "addr_config"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "0R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "addr_config"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x10",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x10_P2.54mm_Vertical",
+      "group": "breakout_header"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": null,
+      "footprint": "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+      "group": "stemma_qt"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": null,
+      "footprint": "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+      "group": "stemma_qt"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VDD",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C2.1",
+        "J1.1",
+        "J2.2",
+        "J3.2",
+        "R1.1",
+        "R2.1",
+        "R3.1",
+        "U1.VDD"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "J1.2",
+        "J2.1",
+        "J3.1",
+        "R4.2",
+        "U1.GND"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J1.4",
+        "J2.3",
+        "J3.3",
+        "R1.2",
+        "U1.SDA"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "J2.4",
+        "J3.4",
+        "R2.2",
+        "U1.SCL"
+      ]
+    },
+    {
+      "name": "ALERT_RDY",
+      "power": false,
+      "pins": [
+        "J1.6",
+        "R3.2",
+        "U1.ALERT/RDY"
+      ]
+    },
+    {
+      "name": "ADDR",
+      "power": false,
+      "pins": [
+        "J1.5",
+        "R4.1",
+        "U1.ADDR"
+      ]
+    },
+    {
+      "name": "AIN0",
+      "power": false,
+      "pins": [
+        "J1.7",
+        "U1.AIN0"
+      ]
+    },
+    {
+      "name": "AIN1",
+      "power": false,
+      "pins": [
+        "J1.8",
+        "U1.AIN1"
+      ]
+    },
+    {
+      "name": "AIN2",
+      "power": false,
+      "pins": [
+        "J1.9",
+        "U1.AIN2"
+      ]
+    },
+    {
+      "name": "AIN3",
+      "power": false,
+      "pins": [
+        "J1.10",
+        "U1.AIN3"
+      ]
+    }
+  ]
+}

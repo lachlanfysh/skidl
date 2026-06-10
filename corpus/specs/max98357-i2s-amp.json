@@ -1,0 +1,177 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "max98357-i2s-amp"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Audio",
+      "part": "MAX98357A",
+      "value": null,
+      "footprint": "Package_DFN_QFN:TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm",
+      "group": "amp_core"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "amp_core"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "amp_core"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x07",
+      "value": "I2S_Header",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical",
+      "group": "input_interface"
+    },
+    {
+      "ref": "L1",
+      "lib": "Device",
+      "part": "L",
+      "value": "FB_600R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "input_interface"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "100K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "input_interface"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "100K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "input_interface"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "Speaker",
+      "footprint": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+      "group": "speaker_output"
+    },
+    {
+      "ref": "L2",
+      "lib": "Device",
+      "part": "L",
+      "value": "FB_600R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "speaker_output"
+    },
+    {
+      "ref": "L3",
+      "lib": "Device",
+      "part": "L",
+      "value": "FB_600R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "speaker_output"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VDD",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C2.1",
+        "J1.1",
+        "L1.1",
+        "L1.2",
+        "R1.1",
+        "U1.VDD"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "J1.2",
+        "R2.2",
+        "U1.GND",
+        "U1.PAD"
+      ]
+    },
+    {
+      "name": "DIN",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "U1.DIN"
+      ]
+    },
+    {
+      "name": "BCLK",
+      "power": false,
+      "pins": [
+        "J1.4",
+        "U1.BCLK"
+      ]
+    },
+    {
+      "name": "LRCLK",
+      "power": false,
+      "pins": [
+        "J1.5",
+        "U1.LRCLK"
+      ]
+    },
+    {
+      "name": "SD_MODE",
+      "power": false,
+      "pins": [
+        "J1.7",
+        "R1.2",
+        "U1.~{SD_MODE}"
+      ]
+    },
+    {
+      "name": "GAIN_SLOT",
+      "power": false,
+      "pins": [
+        "J1.6",
+        "R2.1",
+        "U1.GAIN_SLOT"
+      ]
+    },
+    {
+      "name": "OUTP",
+      "power": false,
+      "pins": [
+        "J2.1",
+        "L2.1",
+        "L2.2",
+        "U1.OUTP"
+      ]
+    },
+    {
+      "name": "OUTN",
+      "power": false,
+      "pins": [
+        "J2.2",
+        "L3.1",
+        "L3.2",
+        "U1.OUTN"
+      ]
+    }
+  ]
+}

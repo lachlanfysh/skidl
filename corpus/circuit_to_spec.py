@@ -84,7 +84,13 @@ for line in source.splitlines():
     lines.append(line)
 code = "\n".join(lines)
 
-exec(compile(code, circuit_path, "exec"), {"__name__": "__main__", "__file__": circuit_path})
+# Redirect stdout during exec so circuit print() calls don't corrupt JSON output
+_real_stdout = sys.stdout
+sys.stdout = sys.stderr
+try:
+    exec(compile(code, circuit_path, "exec"), {"__name__": "__main__", "__file__": circuit_path})
+finally:
+    sys.stdout = _real_stdout
 
 ckt = builtins.default_circuit
 from skidl import POWER
@@ -92,6 +98,8 @@ from skidl import POWER
 # Walk parts
 parts = []
 for p in ckt.parts:
+    if p.ref.startswith("#"):
+        continue
     is_custom = (p.tool == "skidl")
     raw_lib = None if is_custom else getattr(p.lib, "filename", None)
     lib_name = os.path.basename(raw_lib).removesuffix(".kicad_sym") if raw_lib else None
@@ -138,9 +146,13 @@ for n in ckt.nets:
         continue
     if not n.pins:
         continue
+    # Filter out KiCad power flag pseudo-parts (#FLG*)
+    real_pins = [pin for pin in n.pins if not pin.part.ref.startswith("#")]
+    if not real_pins:
+        continue
     is_power = (n.drive == POWER)
     pin_refs = []
-    for pin in n.pins:
+    for pin in real_pins:
         ref = pin.part.ref
         # For library parts, prefer pin name; for custom parts, use pin name too
         pname = str(pin.name) if pin.name else ""

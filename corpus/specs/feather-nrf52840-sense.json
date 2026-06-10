@@ -1,0 +1,2162 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "feather-nrf52840-sense"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Connector_USB:USB_C_Receptacle_XKB_U262-16XN-4BVC11",
+      "group": "usb_input",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VBUS",
+          "func": "power_out"
+        },
+        {
+          "num": "2",
+          "name": "D-",
+          "func": "bidirectional"
+        },
+        {
+          "num": "3",
+          "name": "D+",
+          "func": "bidirectional"
+        },
+        {
+          "num": "4",
+          "name": "CC1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "5",
+          "name": "CC2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "6",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "SHIELD",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "usb_input"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "5.1K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "usb_input"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power_supply",
+      "pins": [
+        {
+          "num": "1",
+          "name": "STAT",
+          "func": "output"
+        },
+        {
+          "num": "2",
+          "name": "VSS",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "VBAT",
+          "func": "power_out"
+        },
+        {
+          "num": "4",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "PROG",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "2K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "ORANGE",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "U3",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power_supply",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VIN",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "EN",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "NC",
+          "func": "no_connect"
+        },
+        {
+          "num": "5",
+          "name": "VOUT",
+          "func": "power_out"
+        }
+      ]
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_supply"
+    },
+    {
+      "ref": "U4",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_DFN_QFN:Nordic_AQFN-73-1EP_7x7mm_P0.5mm",
+      "group": "nrf52840_mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "DEC1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P0.00",
+          "func": "bidirectional"
+        },
+        {
+          "num": "3",
+          "name": "P0.01",
+          "func": "bidirectional"
+        },
+        {
+          "num": "4",
+          "name": "P0.02",
+          "func": "bidirectional"
+        },
+        {
+          "num": "5",
+          "name": "P0.03",
+          "func": "bidirectional"
+        },
+        {
+          "num": "6",
+          "name": "P0.04",
+          "func": "bidirectional"
+        },
+        {
+          "num": "7",
+          "name": "P0.05",
+          "func": "bidirectional"
+        },
+        {
+          "num": "8",
+          "name": "P0.06",
+          "func": "bidirectional"
+        },
+        {
+          "num": "9",
+          "name": "P0.07",
+          "func": "bidirectional"
+        },
+        {
+          "num": "10",
+          "name": "P0.08",
+          "func": "bidirectional"
+        },
+        {
+          "num": "11",
+          "name": "VDD_1",
+          "func": "power_in"
+        },
+        {
+          "num": "12",
+          "name": "P0.09",
+          "func": "bidirectional"
+        },
+        {
+          "num": "13",
+          "name": "P0.10",
+          "func": "bidirectional"
+        },
+        {
+          "num": "14",
+          "name": "NFC1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "15",
+          "name": "NFC2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "16",
+          "name": "P0.13",
+          "func": "bidirectional"
+        },
+        {
+          "num": "17",
+          "name": "P0.14",
+          "func": "bidirectional"
+        },
+        {
+          "num": "18",
+          "name": "P0.15",
+          "func": "bidirectional"
+        },
+        {
+          "num": "19",
+          "name": "P0.16",
+          "func": "bidirectional"
+        },
+        {
+          "num": "20",
+          "name": "P0.17",
+          "func": "bidirectional"
+        },
+        {
+          "num": "21",
+          "name": "P0.18",
+          "func": "bidirectional"
+        },
+        {
+          "num": "22",
+          "name": "P0.19",
+          "func": "bidirectional"
+        },
+        {
+          "num": "23",
+          "name": "P0.20",
+          "func": "bidirectional"
+        },
+        {
+          "num": "24",
+          "name": "P0.21",
+          "func": "bidirectional"
+        },
+        {
+          "num": "25",
+          "name": "P0.22",
+          "func": "bidirectional"
+        },
+        {
+          "num": "26",
+          "name": "P0.23",
+          "func": "bidirectional"
+        },
+        {
+          "num": "27",
+          "name": "P0.24",
+          "func": "bidirectional"
+        },
+        {
+          "num": "28",
+          "name": "SWDCLK",
+          "func": "input"
+        },
+        {
+          "num": "29",
+          "name": "SWDIO",
+          "func": "bidirectional"
+        },
+        {
+          "num": "30",
+          "name": "P0.25",
+          "func": "bidirectional"
+        },
+        {
+          "num": "31",
+          "name": "ANT",
+          "func": "passive"
+        },
+        {
+          "num": "32",
+          "name": "VSS_1",
+          "func": "power_in"
+        },
+        {
+          "num": "33",
+          "name": "DEC2",
+          "func": "passive"
+        },
+        {
+          "num": "34",
+          "name": "DEC3",
+          "func": "passive"
+        },
+        {
+          "num": "35",
+          "name": "XC1",
+          "func": "input"
+        },
+        {
+          "num": "36",
+          "name": "XC2",
+          "func": "output"
+        },
+        {
+          "num": "37",
+          "name": "VDD_2",
+          "func": "power_in"
+        },
+        {
+          "num": "38",
+          "name": "P0.26",
+          "func": "bidirectional"
+        },
+        {
+          "num": "39",
+          "name": "P0.27",
+          "func": "bidirectional"
+        },
+        {
+          "num": "40",
+          "name": "P0.28",
+          "func": "bidirectional"
+        },
+        {
+          "num": "41",
+          "name": "P0.29",
+          "func": "bidirectional"
+        },
+        {
+          "num": "42",
+          "name": "P0.30",
+          "func": "bidirectional"
+        },
+        {
+          "num": "43",
+          "name": "P0.31",
+          "func": "bidirectional"
+        },
+        {
+          "num": "44",
+          "name": "P1.00",
+          "func": "bidirectional"
+        },
+        {
+          "num": "45",
+          "name": "P1.01",
+          "func": "bidirectional"
+        },
+        {
+          "num": "46",
+          "name": "P1.02",
+          "func": "bidirectional"
+        },
+        {
+          "num": "47",
+          "name": "P1.03",
+          "func": "bidirectional"
+        },
+        {
+          "num": "48",
+          "name": "P1.04",
+          "func": "bidirectional"
+        },
+        {
+          "num": "49",
+          "name": "P1.05",
+          "func": "bidirectional"
+        },
+        {
+          "num": "50",
+          "name": "P1.06",
+          "func": "bidirectional"
+        },
+        {
+          "num": "51",
+          "name": "P1.07",
+          "func": "bidirectional"
+        },
+        {
+          "num": "52",
+          "name": "VDD_3",
+          "func": "power_in"
+        },
+        {
+          "num": "53",
+          "name": "P1.08",
+          "func": "bidirectional"
+        },
+        {
+          "num": "54",
+          "name": "P1.09",
+          "func": "bidirectional"
+        },
+        {
+          "num": "55",
+          "name": "P1.10",
+          "func": "bidirectional"
+        },
+        {
+          "num": "56",
+          "name": "P1.11",
+          "func": "bidirectional"
+        },
+        {
+          "num": "57",
+          "name": "P1.12",
+          "func": "bidirectional"
+        },
+        {
+          "num": "58",
+          "name": "P1.13",
+          "func": "bidirectional"
+        },
+        {
+          "num": "59",
+          "name": "P1.14",
+          "func": "bidirectional"
+        },
+        {
+          "num": "60",
+          "name": "P1.15",
+          "func": "bidirectional"
+        },
+        {
+          "num": "61",
+          "name": "VDD_4",
+          "func": "power_in"
+        },
+        {
+          "num": "62",
+          "name": "D-",
+          "func": "bidirectional"
+        },
+        {
+          "num": "63",
+          "name": "D+",
+          "func": "bidirectional"
+        },
+        {
+          "num": "64",
+          "name": "VBUS_NRF",
+          "func": "power_in"
+        },
+        {
+          "num": "65",
+          "name": "VSS_2",
+          "func": "power_in"
+        },
+        {
+          "num": "66",
+          "name": "DEC4",
+          "func": "passive"
+        },
+        {
+          "num": "67",
+          "name": "DCC",
+          "func": "passive"
+        },
+        {
+          "num": "68",
+          "name": "VDD_5",
+          "func": "power_in"
+        },
+        {
+          "num": "69",
+          "name": "DEC5",
+          "func": "passive"
+        },
+        {
+          "num": "70",
+          "name": "DEC6",
+          "func": "passive"
+        },
+        {
+          "num": "71",
+          "name": "VDDH",
+          "func": "power_in"
+        },
+        {
+          "num": "72",
+          "name": "VSS_3",
+          "func": "power_in"
+        },
+        {
+          "num": "73",
+          "name": "RESET",
+          "func": "input"
+        },
+        {
+          "num": "74",
+          "name": "EP",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "4.7uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C15",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "L1",
+      "lib": "Device",
+      "part": "L",
+      "value": "10uH",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "Y1",
+      "lib": "Device",
+      "part": "Crystal",
+      "value": "32MHz",
+      "footprint": "Crystal:Crystal_SMD_2016-4Pin_2.0x1.6mm",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C16",
+      "lib": "Device",
+      "part": "C",
+      "value": "12pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C17",
+      "lib": "Device",
+      "part": "C",
+      "value": "12pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "L2",
+      "lib": "Device",
+      "part": "L",
+      "value": "3.3nH",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C18",
+      "lib": "Device",
+      "part": "C",
+      "value": "0.8pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "C19",
+      "lib": "Device",
+      "part": "C",
+      "value": "1.0pF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "U5",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "RF_Antenna:Johanson_2450AT18x100_2400-2500Mhz",
+      "group": "nrf52840_mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "ANT",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "U6",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2",
+      "group": "nrf52840_mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "A",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "B",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "U7",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2",
+      "group": "nrf52840_mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "A",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "B",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "LED",
+      "value": "RED",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "LED",
+      "value": "BLUE",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "U8",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+      "group": "nrf52840_mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "DOUT",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "VSS",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "DIN",
+          "func": "input"
+        }
+      ]
+    },
+    {
+      "ref": "C20",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "U9",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": "nrf52840_mcu",
+      "pins": [
+        {
+          "num": "1",
+          "name": "CS",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "DO",
+          "func": "output"
+        },
+        {
+          "num": "3",
+          "name": "WP",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "DI",
+          "func": "input"
+        },
+        {
+          "num": "6",
+          "name": "CLK",
+          "func": "input"
+        },
+        {
+          "num": "7",
+          "name": "HOLD",
+          "func": "input"
+        },
+        {
+          "num": "8",
+          "name": "VCC",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C21",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "nrf52840_mcu"
+    },
+    {
+      "ref": "U10",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_LGA:LGA-14_3x2.5mm_P0.5mm_LayoutBorder3x4y",
+      "group": "lsm6ds33_sensor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "SDO_SA0",
+          "func": "bidirectional"
+        },
+        {
+          "num": "2",
+          "name": "SDX",
+          "func": "bidirectional"
+        },
+        {
+          "num": "3",
+          "name": "SCX",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "INT1",
+          "func": "output"
+        },
+        {
+          "num": "5",
+          "name": "VDDIO",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "GND1",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "GND2",
+          "func": "power_in"
+        },
+        {
+          "num": "8",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "9",
+          "name": "INT2",
+          "func": "output"
+        },
+        {
+          "num": "10",
+          "name": "OCS_AUX",
+          "func": "bidirectional"
+        },
+        {
+          "num": "11",
+          "name": "SDO_AUX",
+          "func": "bidirectional"
+        },
+        {
+          "num": "12",
+          "name": "CS",
+          "func": "input"
+        },
+        {
+          "num": "13",
+          "name": "SCL",
+          "func": "input"
+        },
+        {
+          "num": "14",
+          "name": "SDA",
+          "func": "bidirectional"
+        }
+      ]
+    },
+    {
+      "ref": "C22",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "lsm6ds33_sensor"
+    },
+    {
+      "ref": "U11",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_LGA:LGA-12_2x2mm_P0.5mm",
+      "group": "lis3mdl_sensor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "SCL",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "GND1",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "C1",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "VDD_IO",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "INT",
+          "func": "output"
+        },
+        {
+          "num": "7",
+          "name": "DRDY",
+          "func": "output"
+        },
+        {
+          "num": "8",
+          "name": "SDA",
+          "func": "bidirectional"
+        },
+        {
+          "num": "9",
+          "name": "SDO",
+          "func": "bidirectional"
+        },
+        {
+          "num": "10",
+          "name": "CS",
+          "func": "input"
+        },
+        {
+          "num": "11",
+          "name": "GND2",
+          "func": "power_in"
+        },
+        {
+          "num": "12",
+          "name": "GND3",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C23",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "lis3mdl_sensor"
+    },
+    {
+      "ref": "C24",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "lis3mdl_sensor"
+    },
+    {
+      "ref": "U12",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_LGA:AMS_LGA-10-1EP_2.7x4mm_P0.6mm",
+      "group": "apds9960_sensor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "SDA",
+          "func": "bidirectional"
+        },
+        {
+          "num": "2",
+          "name": "GND1",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "LEDK",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "LEDA",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "GND2",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "SCL",
+          "func": "input"
+        },
+        {
+          "num": "8",
+          "name": "INT",
+          "func": "output"
+        },
+        {
+          "num": "9",
+          "name": "LDR",
+          "func": "passive"
+        },
+        {
+          "num": "10",
+          "name": "VLED",
+          "func": "power_in"
+        },
+        {
+          "num": "11",
+          "name": "EP",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R",
+      "value": "68R",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "apds9960_sensor"
+    },
+    {
+      "ref": "C25",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "apds9960_sensor"
+    },
+    {
+      "ref": "C26",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "apds9960_sensor"
+    },
+    {
+      "ref": "U13",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_LGA:ST_HLGA-10_2.5x2.5mm_P0.6mm_LayoutBorder3x2y",
+      "group": "pdm_microphone",
+      "pins": [
+        {
+          "num": "1",
+          "name": "SDO",
+          "func": "output"
+        },
+        {
+          "num": "2",
+          "name": "WS",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "NC1",
+          "func": "no_connect"
+        },
+        {
+          "num": "4",
+          "name": "GND1",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "NC2",
+          "func": "no_connect"
+        },
+        {
+          "num": "7",
+          "name": "NC3",
+          "func": "no_connect"
+        },
+        {
+          "num": "8",
+          "name": "CLK",
+          "func": "input"
+        },
+        {
+          "num": "9",
+          "name": "GND2",
+          "func": "power_in"
+        },
+        {
+          "num": "10",
+          "name": "GND3",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C27",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "pdm_microphone"
+    },
+    {
+      "ref": "U14",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_DFN_QFN:DFN-8_2x2mm_P0.5mm",
+      "group": "sht30_sensor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "SDA",
+          "func": "bidirectional"
+        },
+        {
+          "num": "2",
+          "name": "ADDR",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "ALERT",
+          "func": "output"
+        },
+        {
+          "num": "4",
+          "name": "SCL",
+          "func": "input"
+        },
+        {
+          "num": "5",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "NRESET",
+          "func": "input"
+        },
+        {
+          "num": "7",
+          "name": "R",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "VSS",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C28",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "sht30_sensor"
+    },
+    {
+      "ref": "U15",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_LGA:Bosch_LGA-8_2x2.5mm_P0.65mm_ClockwisePinNumbering",
+      "group": "bmp280_sensor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "GND1",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "CSB",
+          "func": "input"
+        },
+        {
+          "num": "3",
+          "name": "SDA",
+          "func": "bidirectional"
+        },
+        {
+          "num": "4",
+          "name": "SCL",
+          "func": "input"
+        },
+        {
+          "num": "5",
+          "name": "GND2",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "VDDIO",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "GND3",
+          "func": "power_in"
+        },
+        {
+          "num": "8",
+          "name": "VDD",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "C29",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0402_1005Metric",
+      "group": "bmp280_sensor"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x16",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical",
+      "group": "feather_headers"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x12",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical",
+      "group": "feather_headers"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": null,
+      "footprint": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+      "group": "battery_connector"
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+      "group": "swd_header"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VBUS",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "J2.3",
+        "U1.VBUS",
+        "U2.VDD",
+        "U4.VBUS_NRF"
+      ]
+    },
+    {
+      "name": "VBAT",
+      "power": true,
+      "pins": [
+        "C2.1",
+        "C3.1",
+        "J2.1",
+        "J3.1",
+        "U2.VBAT",
+        "U3.EN",
+        "U3.VIN"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C20.1",
+        "C21.1",
+        "C22.1",
+        "C24.1",
+        "C25.1",
+        "C26.1",
+        "C27.1",
+        "C28.1",
+        "C29.1",
+        "C4.1",
+        "C5.1",
+        "C6.1",
+        "C7.1",
+        "C8.1",
+        "C9.1",
+        "J1.2",
+        "J4.1",
+        "L1.2",
+        "R5.1",
+        "R8.1",
+        "R9.1",
+        "U10.CS",
+        "U10.VDD",
+        "U10.VDDIO",
+        "U11.CS",
+        "U11.VDD",
+        "U11.VDD_IO",
+        "U12.LEDA",
+        "U12.VDD",
+        "U12.VLED",
+        "U13.VDD",
+        "U14.NRESET",
+        "U14.VDD",
+        "U15.CSB",
+        "U15.VDD",
+        "U15.VDDIO",
+        "U3.VOUT",
+        "U4.VDDH",
+        "U4.VDD_1",
+        "U4.VDD_2",
+        "U4.VDD_3",
+        "U4.VDD_4",
+        "U4.VDD_5",
+        "U8.VDD",
+        "U9.VCC"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.2",
+        "C12.2",
+        "C13.2",
+        "C14.2",
+        "C15.2",
+        "C16.2",
+        "C17.2",
+        "C18.2",
+        "C19.2",
+        "C2.2",
+        "C20.2",
+        "C21.2",
+        "C22.2",
+        "C23.2",
+        "C24.2",
+        "C25.2",
+        "C26.2",
+        "C27.2",
+        "C28.2",
+        "C29.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "D1.A",
+        "D2.A",
+        "D3.A",
+        "J1.4",
+        "J3.2",
+        "J4.4",
+        "R1.2",
+        "R10.2",
+        "R2.2",
+        "R3.2",
+        "U1.GND",
+        "U1.SHIELD",
+        "U10.GND1",
+        "U10.GND2",
+        "U10.SDO_SA0",
+        "U11.GND1",
+        "U11.GND2",
+        "U11.GND3",
+        "U11.SDO",
+        "U12.EP",
+        "U12.GND1",
+        "U12.GND2",
+        "U13.GND1",
+        "U13.GND2",
+        "U13.GND3",
+        "U13.WS",
+        "U14.ADDR",
+        "U14.VSS",
+        "U15.GND1",
+        "U15.GND2",
+        "U15.GND3",
+        "U2.VSS",
+        "U3.GND",
+        "U4.EP",
+        "U4.VSS_1",
+        "U4.VSS_2",
+        "U4.VSS_3",
+        "U5.GND",
+        "U6.B",
+        "U7.B",
+        "U8.VSS",
+        "U9.GND"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": true,
+      "pins": [
+        "J2.11",
+        "R8.2",
+        "U10.SDA",
+        "U11.SDA",
+        "U12.SDA",
+        "U14.SDA",
+        "U15.SDA",
+        "U4.P0.26"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": true,
+      "pins": [
+        "J2.12",
+        "R9.2",
+        "U10.SCL",
+        "U11.SCL",
+        "U12.SCL",
+        "U14.SCL",
+        "U15.SCL",
+        "U4.P0.27"
+      ]
+    },
+    {
+      "name": "USB_DP",
+      "power": false,
+      "pins": [
+        "U1.D+",
+        "U4.D+"
+      ]
+    },
+    {
+      "name": "USB_DM",
+      "power": false,
+      "pins": [
+        "U1.D-",
+        "U4.D-"
+      ]
+    },
+    {
+      "name": "CC1",
+      "power": false,
+      "pins": [
+        "R1.1",
+        "U1.CC1"
+      ]
+    },
+    {
+      "name": "CC2",
+      "power": false,
+      "pins": [
+        "R2.1",
+        "U1.CC2"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "R3.1",
+        "U2.PROG"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "R4.1",
+        "U2.STAT"
+      ]
+    },
+    {
+      "name": "N$3",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "LDO_NC",
+      "power": true,
+      "pins": [
+        "U3.NC"
+      ]
+    },
+    {
+      "name": "N$4",
+      "power": false,
+      "pins": [
+        "C10.1",
+        "U4.DEC1"
+      ]
+    },
+    {
+      "name": "N$5",
+      "power": false,
+      "pins": [
+        "C11.1",
+        "U4.DEC2"
+      ]
+    },
+    {
+      "name": "N$6",
+      "power": false,
+      "pins": [
+        "C12.1",
+        "U4.DEC3"
+      ]
+    },
+    {
+      "name": "N$7",
+      "power": false,
+      "pins": [
+        "C13.1",
+        "U4.DEC4"
+      ]
+    },
+    {
+      "name": "N$8",
+      "power": false,
+      "pins": [
+        "C14.1",
+        "U4.DEC5"
+      ]
+    },
+    {
+      "name": "N$9",
+      "power": false,
+      "pins": [
+        "C15.1",
+        "U4.DEC6"
+      ]
+    },
+    {
+      "name": "N$10",
+      "power": false,
+      "pins": [
+        "L1.1",
+        "U4.DCC"
+      ]
+    },
+    {
+      "name": "N$11",
+      "power": false,
+      "pins": [
+        "C16.1",
+        "U4.XC1",
+        "Y1.1"
+      ]
+    },
+    {
+      "name": "N$12",
+      "power": false,
+      "pins": [
+        "C17.1",
+        "U4.XC2",
+        "Y1.2"
+      ]
+    },
+    {
+      "name": "ANT_RF",
+      "power": false,
+      "pins": [
+        "C19.1",
+        "L2.2",
+        "U5.ANT"
+      ]
+    },
+    {
+      "name": "N$13",
+      "power": false,
+      "pins": [
+        "C18.1",
+        "L2.1",
+        "U4.ANT"
+      ]
+    },
+    {
+      "name": "N$14",
+      "power": false,
+      "pins": [
+        "R5.2",
+        "U4.RESET",
+        "U6.A"
+      ]
+    },
+    {
+      "name": "N$15",
+      "power": false,
+      "pins": [
+        "U4.P1.02",
+        "U7.A"
+      ]
+    },
+    {
+      "name": "N$16",
+      "power": false,
+      "pins": [
+        "R6.1",
+        "U4.P1.15"
+      ]
+    },
+    {
+      "name": "N$17",
+      "power": false,
+      "pins": [
+        "D2.K",
+        "R6.2"
+      ]
+    },
+    {
+      "name": "N$18",
+      "power": false,
+      "pins": [
+        "R7.1",
+        "U4.P1.10"
+      ]
+    },
+    {
+      "name": "N$19",
+      "power": false,
+      "pins": [
+        "D3.K",
+        "R7.2"
+      ]
+    },
+    {
+      "name": "N$20",
+      "power": false,
+      "pins": [
+        "U4.P0.16",
+        "U8.DIN"
+      ]
+    },
+    {
+      "name": "NEO_DOUT",
+      "power": true,
+      "pins": [
+        "U8.DOUT"
+      ]
+    },
+    {
+      "name": "N$21",
+      "power": false,
+      "pins": [
+        "U4.P0.20",
+        "U9.CS"
+      ]
+    },
+    {
+      "name": "N$22",
+      "power": false,
+      "pins": [
+        "U4.P0.21",
+        "U9.CLK"
+      ]
+    },
+    {
+      "name": "N$23",
+      "power": false,
+      "pins": [
+        "U4.P0.22",
+        "U9.DI"
+      ]
+    },
+    {
+      "name": "N$24",
+      "power": false,
+      "pins": [
+        "U4.P0.23",
+        "U9.DO"
+      ]
+    },
+    {
+      "name": "N$25",
+      "power": false,
+      "pins": [
+        "U4.P0.24",
+        "U9.WP"
+      ]
+    },
+    {
+      "name": "N$26",
+      "power": false,
+      "pins": [
+        "U4.P0.25",
+        "U9.HOLD"
+      ]
+    },
+    {
+      "name": "IMU_INT1",
+      "power": true,
+      "pins": [
+        "U10.INT1"
+      ]
+    },
+    {
+      "name": "IMU_INT2",
+      "power": true,
+      "pins": [
+        "U10.INT2"
+      ]
+    },
+    {
+      "name": "IMU_SDX",
+      "power": true,
+      "pins": [
+        "U10.SDX"
+      ]
+    },
+    {
+      "name": "IMU_SCX",
+      "power": true,
+      "pins": [
+        "U10.SCX"
+      ]
+    },
+    {
+      "name": "IMU_OCS_AUX",
+      "power": true,
+      "pins": [
+        "U10.OCS_AUX"
+      ]
+    },
+    {
+      "name": "IMU_SDO_AUX",
+      "power": true,
+      "pins": [
+        "U10.SDO_AUX"
+      ]
+    },
+    {
+      "name": "MAG_INT",
+      "power": true,
+      "pins": [
+        "U11.INT"
+      ]
+    },
+    {
+      "name": "MAG_DRDY",
+      "power": true,
+      "pins": [
+        "U11.DRDY"
+      ]
+    },
+    {
+      "name": "N$27",
+      "power": false,
+      "pins": [
+        "C23.1",
+        "U11.C1"
+      ]
+    },
+    {
+      "name": "N$28",
+      "power": false,
+      "pins": [
+        "R10.1",
+        "U12.LEDK"
+      ]
+    },
+    {
+      "name": "APDS_LDR",
+      "power": true,
+      "pins": [
+        "U12.LDR"
+      ]
+    },
+    {
+      "name": "APDS_INT",
+      "power": true,
+      "pins": [
+        "U12.INT"
+      ]
+    },
+    {
+      "name": "MIC_NC1",
+      "power": true,
+      "pins": [
+        "U13.NC1"
+      ]
+    },
+    {
+      "name": "MIC_NC2",
+      "power": true,
+      "pins": [
+        "U13.NC2"
+      ]
+    },
+    {
+      "name": "MIC_NC3",
+      "power": true,
+      "pins": [
+        "U13.NC3"
+      ]
+    },
+    {
+      "name": "PDM_DATA",
+      "power": true,
+      "pins": [
+        "U13.SDO"
+      ]
+    },
+    {
+      "name": "PDM_CLK",
+      "power": true,
+      "pins": [
+        "U13.CLK"
+      ]
+    },
+    {
+      "name": "SHT_ALERT",
+      "power": true,
+      "pins": [
+        "U14.ALERT"
+      ]
+    },
+    {
+      "name": "SHT_R",
+      "power": true,
+      "pins": [
+        "U14.R"
+      ]
+    },
+    {
+      "name": "HDR_RST",
+      "power": true,
+      "pins": [
+        "J1.1"
+      ]
+    },
+    {
+      "name": "AREF",
+      "power": true,
+      "pins": [
+        "J1.3"
+      ]
+    },
+    {
+      "name": "A0",
+      "power": true,
+      "pins": [
+        "J1.5"
+      ]
+    },
+    {
+      "name": "A1",
+      "power": true,
+      "pins": [
+        "J1.6"
+      ]
+    },
+    {
+      "name": "A2",
+      "power": true,
+      "pins": [
+        "J1.7"
+      ]
+    },
+    {
+      "name": "A3",
+      "power": true,
+      "pins": [
+        "J1.8"
+      ]
+    },
+    {
+      "name": "A4",
+      "power": true,
+      "pins": [
+        "J1.9"
+      ]
+    },
+    {
+      "name": "A5",
+      "power": true,
+      "pins": [
+        "J1.10"
+      ]
+    },
+    {
+      "name": "SCK",
+      "power": true,
+      "pins": [
+        "J1.11"
+      ]
+    },
+    {
+      "name": "MOSI",
+      "power": true,
+      "pins": [
+        "J1.12"
+      ]
+    },
+    {
+      "name": "MISO",
+      "power": true,
+      "pins": [
+        "J1.13"
+      ]
+    },
+    {
+      "name": "UART_RX",
+      "power": true,
+      "pins": [
+        "J1.14"
+      ]
+    },
+    {
+      "name": "UART_TX",
+      "power": true,
+      "pins": [
+        "J1.15"
+      ]
+    },
+    {
+      "name": "D4",
+      "power": true,
+      "pins": [
+        "J1.16"
+      ]
+    },
+    {
+      "name": "EN",
+      "power": true,
+      "pins": [
+        "J2.2"
+      ]
+    },
+    {
+      "name": "D13",
+      "power": true,
+      "pins": [
+        "J2.4"
+      ]
+    },
+    {
+      "name": "D12",
+      "power": true,
+      "pins": [
+        "J2.5"
+      ]
+    },
+    {
+      "name": "D11",
+      "power": true,
+      "pins": [
+        "J2.6"
+      ]
+    },
+    {
+      "name": "D10",
+      "power": true,
+      "pins": [
+        "J2.7"
+      ]
+    },
+    {
+      "name": "D9",
+      "power": true,
+      "pins": [
+        "J2.8"
+      ]
+    },
+    {
+      "name": "D6",
+      "power": true,
+      "pins": [
+        "J2.9"
+      ]
+    },
+    {
+      "name": "D5",
+      "power": true,
+      "pins": [
+        "J2.10"
+      ]
+    },
+    {
+      "name": "SWDCLK",
+      "power": true,
+      "pins": [
+        "J4.2"
+      ]
+    },
+    {
+      "name": "SWDIO",
+      "power": true,
+      "pins": [
+        "J4.3"
+      ]
+    }
+  ]
+}

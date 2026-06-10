@@ -1,0 +1,821 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "motor-shield-v2"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Driver_LED",
+      "part": "PCA9685BS",
+      "value": null,
+      "footprint": "Package_DFN_QFN:QFN-28-1EP_6x6mm_P0.65mm_EP4.25x4.25mm",
+      "group": "pwm_driver"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "pwm_driver"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "pwm_driver"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_driver"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_driver"
+    },
+    {
+      "ref": "U2",
+      "lib": "Driver_Motor",
+      "part": "TB6612FNG",
+      "value": null,
+      "footprint": "Package_SO:SSOP-24_5.3x8.2mm_P0.65mm",
+      "group": "motor_driver"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "motor_driver"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "motor_driver"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "47uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "motor_driver"
+    },
+    {
+      "ref": "U3",
+      "lib": "Driver_Motor",
+      "part": "TB6612FNG",
+      "value": null,
+      "footprint": "Package_SO:SSOP-24_5.3x8.2mm_P0.65mm",
+      "group": "motor_driver"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "motor_driver"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "motor_driver"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "47uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "motor_driver"
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_FET",
+      "part": "Q_PMOS_GDS",
+      "value": "Si2301",
+      "footprint": "Package_TO_SOT_SMD:SOT-23-3",
+      "group": "polarity_protection"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "polarity_protection"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "ADDR_A0",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "ADDR_A1",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "ADDR_A2",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "ADDR_A3",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "J5",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "ADDR_A4",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "address_jumpers"
+    },
+    {
+      "ref": "J6",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x08",
+      "value": "PWR_HDR",
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x08_P2.54mm_Vertical",
+      "group": "arduino_headers"
+    },
+    {
+      "ref": "J7",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x06",
+      "value": "ANALOG_HDR",
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x06_P2.54mm_Vertical",
+      "group": "arduino_headers"
+    },
+    {
+      "ref": "J8",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x08",
+      "value": "DIG_HI_HDR",
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x08_P2.54mm_Vertical",
+      "group": "arduino_headers"
+    },
+    {
+      "ref": "J9",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x08",
+      "value": "DIG_LO_HDR",
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x08_P2.54mm_Vertical",
+      "group": "arduino_headers"
+    },
+    {
+      "ref": "J10",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "M1",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "motor_terminals"
+    },
+    {
+      "ref": "J11",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "M2",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "motor_terminals"
+    },
+    {
+      "ref": "J12",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "M3",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "motor_terminals"
+    },
+    {
+      "ref": "J13",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "M4",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "motor_terminals"
+    },
+    {
+      "ref": "J14",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": "EXT_PWR",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "power_input"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "100uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_input"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "GREEN",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "status_led"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "status_led"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VCC",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C2.1",
+        "C3.1",
+        "C6.1",
+        "J1.2",
+        "J2.2",
+        "J3.2",
+        "J4.2",
+        "J5.2",
+        "J6.3",
+        "R1.1",
+        "R2.1",
+        "R9.1",
+        "U1.VDD",
+        "U2.STBY",
+        "U2.VCC",
+        "U3.STBY",
+        "U3.VCC"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "D1.A",
+        "J14.2",
+        "J6.4",
+        "J6.5",
+        "J8.7",
+        "Q1.G",
+        "R3.2",
+        "R4.2",
+        "R5.2",
+        "R6.2",
+        "R7.2",
+        "R8.2",
+        "U1.A5",
+        "U1.EXTCLK",
+        "U1.VSS",
+        "U1.~{OE}",
+        "U2.GND",
+        "U2.PGND1",
+        "U2.PGND2",
+        "U3.GND",
+        "U3.PGND1",
+        "U3.PGND2"
+      ]
+    },
+    {
+      "name": "VMOTOR",
+      "power": true,
+      "pins": [
+        "C4.1",
+        "C5.1",
+        "C7.1",
+        "C8.1",
+        "Q1.D",
+        "U2.VM1",
+        "U2.VM2",
+        "U2.VM3",
+        "U3.VM1",
+        "U3.VM2",
+        "U3.VM3"
+      ]
+    },
+    {
+      "name": "VM_IN",
+      "power": false,
+      "pins": [
+        "C9.1",
+        "J14.1",
+        "Q1.S",
+        "R3.1"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J7.5",
+        "R1.2",
+        "U1.SDA"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J7.6",
+        "R2.2",
+        "U1.SCL"
+      ]
+    },
+    {
+      "name": "M1A",
+      "power": false,
+      "pins": [
+        "J10.1",
+        "U2.AO1"
+      ]
+    },
+    {
+      "name": "M1B",
+      "power": false,
+      "pins": [
+        "J10.2",
+        "U2.AO2"
+      ]
+    },
+    {
+      "name": "M2A",
+      "power": false,
+      "pins": [
+        "J11.1",
+        "U2.BO1"
+      ]
+    },
+    {
+      "name": "M2B",
+      "power": false,
+      "pins": [
+        "J11.2",
+        "U2.BO2"
+      ]
+    },
+    {
+      "name": "M3A",
+      "power": false,
+      "pins": [
+        "J12.1",
+        "U3.AO1"
+      ]
+    },
+    {
+      "name": "M3B",
+      "power": false,
+      "pins": [
+        "J12.2",
+        "U3.AO2"
+      ]
+    },
+    {
+      "name": "M4A",
+      "power": false,
+      "pins": [
+        "J13.1",
+        "U3.BO1"
+      ]
+    },
+    {
+      "name": "M4B",
+      "power": false,
+      "pins": [
+        "J13.2",
+        "U3.BO2"
+      ]
+    },
+    {
+      "name": "ADDR_A0",
+      "power": false,
+      "pins": [
+        "J1.1",
+        "R4.1",
+        "U1.A0"
+      ]
+    },
+    {
+      "name": "ADDR_A1",
+      "power": false,
+      "pins": [
+        "J2.1",
+        "R5.1",
+        "U1.A1"
+      ]
+    },
+    {
+      "name": "ADDR_A2",
+      "power": false,
+      "pins": [
+        "J3.1",
+        "R6.1",
+        "U1.A2"
+      ]
+    },
+    {
+      "name": "ADDR_A3",
+      "power": false,
+      "pins": [
+        "J4.1",
+        "R7.1",
+        "U1.A3"
+      ]
+    },
+    {
+      "name": "ADDR_A4",
+      "power": false,
+      "pins": [
+        "J5.1",
+        "R8.1",
+        "U1.A4"
+      ]
+    },
+    {
+      "name": "PWM0",
+      "power": false,
+      "pins": [
+        "U1.LED0",
+        "U2.PWMA"
+      ]
+    },
+    {
+      "name": "PWM1",
+      "power": false,
+      "pins": [
+        "U1.LED1",
+        "U2.AIN2"
+      ]
+    },
+    {
+      "name": "PWM2",
+      "power": false,
+      "pins": [
+        "U1.LED2",
+        "U2.AIN1"
+      ]
+    },
+    {
+      "name": "PWM3",
+      "power": false,
+      "pins": [
+        "U1.LED3",
+        "U2.PWMB"
+      ]
+    },
+    {
+      "name": "PWM4",
+      "power": false,
+      "pins": [
+        "U1.LED4",
+        "U2.BIN1"
+      ]
+    },
+    {
+      "name": "PWM5",
+      "power": false,
+      "pins": [
+        "U1.LED5",
+        "U2.BIN2"
+      ]
+    },
+    {
+      "name": "PWM6",
+      "power": false,
+      "pins": [
+        "U1.LED6",
+        "U3.PWMA"
+      ]
+    },
+    {
+      "name": "PWM7",
+      "power": false,
+      "pins": [
+        "U1.LED7",
+        "U3.AIN2"
+      ]
+    },
+    {
+      "name": "PWM8",
+      "power": false,
+      "pins": [
+        "U1.LED8",
+        "U3.AIN1"
+      ]
+    },
+    {
+      "name": "PWM9",
+      "power": false,
+      "pins": [
+        "U1.LED9",
+        "U3.PWMB"
+      ]
+    },
+    {
+      "name": "PWM10",
+      "power": false,
+      "pins": [
+        "U1.LED10",
+        "U3.BIN1"
+      ]
+    },
+    {
+      "name": "PWM11",
+      "power": false,
+      "pins": [
+        "U1.LED11",
+        "U3.BIN2"
+      ]
+    },
+    {
+      "name": "PWM12",
+      "power": false,
+      "pins": [
+        "U1.LED12"
+      ]
+    },
+    {
+      "name": "PWM13",
+      "power": false,
+      "pins": [
+        "U1.LED13"
+      ]
+    },
+    {
+      "name": "PWM14",
+      "power": false,
+      "pins": [
+        "U1.LED14"
+      ]
+    },
+    {
+      "name": "PWM15",
+      "power": false,
+      "pins": [
+        "U1.LED15"
+      ]
+    },
+    {
+      "name": "RESET_HDR",
+      "power": false,
+      "pins": [
+        "J6.1"
+      ]
+    },
+    {
+      "name": "3V3_HDR",
+      "power": false,
+      "pins": [
+        "J6.2"
+      ]
+    },
+    {
+      "name": "VIN_HDR",
+      "power": false,
+      "pins": [
+        "J6.6"
+      ]
+    },
+    {
+      "name": "NC_A6",
+      "power": false,
+      "pins": [
+        "J6.7"
+      ]
+    },
+    {
+      "name": "NC_A7",
+      "power": false,
+      "pins": [
+        "J6.8"
+      ]
+    },
+    {
+      "name": "A0_HDR",
+      "power": false,
+      "pins": [
+        "J7.1"
+      ]
+    },
+    {
+      "name": "A1_HDR",
+      "power": false,
+      "pins": [
+        "J7.2"
+      ]
+    },
+    {
+      "name": "A2_HDR",
+      "power": false,
+      "pins": [
+        "J7.3"
+      ]
+    },
+    {
+      "name": "A3_HDR",
+      "power": false,
+      "pins": [
+        "J7.4"
+      ]
+    },
+    {
+      "name": "D8_HDR",
+      "power": false,
+      "pins": [
+        "J8.1"
+      ]
+    },
+    {
+      "name": "D9_HDR",
+      "power": false,
+      "pins": [
+        "J8.2"
+      ]
+    },
+    {
+      "name": "D10_HDR",
+      "power": false,
+      "pins": [
+        "J8.3"
+      ]
+    },
+    {
+      "name": "D11_HDR",
+      "power": false,
+      "pins": [
+        "J8.4"
+      ]
+    },
+    {
+      "name": "D12_HDR",
+      "power": false,
+      "pins": [
+        "J8.5"
+      ]
+    },
+    {
+      "name": "D13_HDR",
+      "power": false,
+      "pins": [
+        "J8.6"
+      ]
+    },
+    {
+      "name": "AREF_HDR",
+      "power": false,
+      "pins": [
+        "J8.8"
+      ]
+    },
+    {
+      "name": "D0_HDR",
+      "power": false,
+      "pins": [
+        "J9.1"
+      ]
+    },
+    {
+      "name": "D1_HDR",
+      "power": false,
+      "pins": [
+        "J9.2"
+      ]
+    },
+    {
+      "name": "D2_HDR",
+      "power": false,
+      "pins": [
+        "J9.3"
+      ]
+    },
+    {
+      "name": "D3_HDR",
+      "power": false,
+      "pins": [
+        "J9.4"
+      ]
+    },
+    {
+      "name": "D4_HDR",
+      "power": false,
+      "pins": [
+        "J9.5"
+      ]
+    },
+    {
+      "name": "D5_HDR",
+      "power": false,
+      "pins": [
+        "J9.6"
+      ]
+    },
+    {
+      "name": "D6_HDR",
+      "power": false,
+      "pins": [
+        "J9.7"
+      ]
+    },
+    {
+      "name": "D7_HDR",
+      "power": false,
+      "pins": [
+        "J9.8"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "R9.2"
+      ]
+    }
+  ]
+}

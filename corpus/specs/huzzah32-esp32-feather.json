@@ -1,0 +1,602 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "huzzah32-esp32-feather"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "USB_B_Micro",
+      "value": null,
+      "footprint": "Connector_USB:USB_Micro-B_Amphenol_10118194_Horizontal",
+      "group": "usb_uart_bridge"
+    },
+    {
+      "ref": "U1",
+      "lib": "Interface_USB",
+      "part": "CP2104",
+      "value": null,
+      "footprint": "Package_DFN_QFN:QFN-24-1EP_4x4mm_P0.5mm_EP2.65x2.65mm",
+      "group": "usb_uart_bridge"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "usb_uart_bridge"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "usb_uart_bridge"
+    },
+    {
+      "ref": "Q1",
+      "lib": "Device",
+      "part": "Q_NPN",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "usb_uart_bridge"
+    },
+    {
+      "ref": "Q2",
+      "lib": "Device",
+      "part": "Q_NPN",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "usb_uart_bridge"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "usb_uart_bridge"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "usb_uart_bridge"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": null,
+      "footprint": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+      "group": "power_management"
+    },
+    {
+      "ref": "U2",
+      "lib": "Battery_Management",
+      "part": "MCP73831-2-OT",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power_management"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "2K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "power_management"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "power_management"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "ORANGE",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "power_management"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "4.7uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_management"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "4.7uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_management"
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "D_Schottky",
+      "value": "MBR120",
+      "footprint": "Diode_SMD:D_SOD-123",
+      "group": "power_management"
+    },
+    {
+      "ref": "U3",
+      "lib": "Regulator_Linear",
+      "part": "AP2112K-3.3",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power_management"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_management"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_management"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "power_management"
+    },
+    {
+      "ref": "U4",
+      "lib": "RF_Module",
+      "part": "ESP32-WROOM-32",
+      "value": null,
+      "footprint": "RF_Module:ESP32-WROOM-32",
+      "group": "esp32_module"
+    },
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "esp32_module"
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "esp32_module"
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "esp32_module"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x16",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical",
+      "group": "feather_headers"
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x12",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical",
+      "group": "feather_headers"
+    },
+    {
+      "ref": "SW1",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": null,
+      "footprint": "Button_Switch_SMD:SW_Push_1TS009xxxx-xxxx-xxxx_6x6x5mm",
+      "group": "feather_headers"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "feather_headers"
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "LED",
+      "value": "RED",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "feather_headers"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VBUS",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C3.1",
+        "C5.1",
+        "D2.K",
+        "J1.VBUS",
+        "J4.3",
+        "R4.1",
+        "U1.REGIN",
+        "U1.VDD",
+        "U2.V_{DD}",
+        "U3.EN",
+        "U3.VIN"
+      ]
+    },
+    {
+      "name": "VBAT",
+      "power": true,
+      "pins": [
+        "C4.1",
+        "D2.A",
+        "J2.1",
+        "J4.1",
+        "U2.V_{BAT}"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C10.1",
+        "C2.1",
+        "C6.1",
+        "C7.1",
+        "C9.1",
+        "J3.2",
+        "R1.1",
+        "R2.1",
+        "U1.VIO",
+        "U3.VOUT",
+        "U4.VDD"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "D3.K",
+        "J1.GND",
+        "J1.Shield",
+        "J2.2",
+        "J3.4",
+        "Q1.E",
+        "Q2.E",
+        "R3.2",
+        "SW1.2",
+        "U1.GND",
+        "U2.V_{SS}",
+        "U3.GND",
+        "U4.GND"
+      ]
+    },
+    {
+      "name": "USB_D+",
+      "power": false,
+      "pins": [
+        "J1.D+",
+        "U1.D+"
+      ]
+    },
+    {
+      "name": "USB_D-",
+      "power": false,
+      "pins": [
+        "J1.D-",
+        "U1.D-"
+      ]
+    },
+    {
+      "name": "TXD0",
+      "power": false,
+      "pins": [
+        "U1.RXD",
+        "U4.TXD0/IO1"
+      ]
+    },
+    {
+      "name": "RXD0",
+      "power": false,
+      "pins": [
+        "U1.TXD",
+        "U4.RXD0/IO3"
+      ]
+    },
+    {
+      "name": "~{DTR}",
+      "power": false,
+      "pins": [
+        "Q2.B",
+        "U1.~{DTR}"
+      ]
+    },
+    {
+      "name": "~{RTS}",
+      "power": false,
+      "pins": [
+        "Q1.B",
+        "U1.~{RTS}"
+      ]
+    },
+    {
+      "name": "EN",
+      "power": false,
+      "pins": [
+        "C8.1",
+        "J3.1",
+        "J4.2",
+        "Q1.C",
+        "R1.2",
+        "SW1.1",
+        "U4.EN"
+      ]
+    },
+    {
+      "name": "IO0",
+      "power": false,
+      "pins": [
+        "Q2.C",
+        "R2.2",
+        "U4.IO0"
+      ]
+    },
+    {
+      "name": "IO2",
+      "power": false,
+      "pins": [
+        "U4.IO2"
+      ]
+    },
+    {
+      "name": "IO4",
+      "power": false,
+      "pins": [
+        "J3.10",
+        "U4.IO4"
+      ]
+    },
+    {
+      "name": "IO5",
+      "power": false,
+      "pins": [
+        "J3.11",
+        "U4.IO5"
+      ]
+    },
+    {
+      "name": "IO12",
+      "power": false,
+      "pins": [
+        "J4.5",
+        "U4.IO12"
+      ]
+    },
+    {
+      "name": "IO13",
+      "power": false,
+      "pins": [
+        "J4.4",
+        "R5.1",
+        "U4.IO13"
+      ]
+    },
+    {
+      "name": "IO14",
+      "power": false,
+      "pins": [
+        "J4.10",
+        "U4.IO14"
+      ]
+    },
+    {
+      "name": "IO15",
+      "power": false,
+      "pins": [
+        "J4.8",
+        "U4.IO15"
+      ]
+    },
+    {
+      "name": "IO16",
+      "power": false,
+      "pins": [
+        "J3.14",
+        "U4.IO16"
+      ]
+    },
+    {
+      "name": "IO17",
+      "power": false,
+      "pins": [
+        "J3.15",
+        "U4.IO17"
+      ]
+    },
+    {
+      "name": "IO18",
+      "power": false,
+      "pins": [
+        "J3.12",
+        "U4.IO18"
+      ]
+    },
+    {
+      "name": "IO19",
+      "power": false,
+      "pins": [
+        "J3.13",
+        "U4.IO19"
+      ]
+    },
+    {
+      "name": "IO21",
+      "power": false,
+      "pins": [
+        "J3.16",
+        "U4.IO21"
+      ]
+    },
+    {
+      "name": "IO22",
+      "power": false,
+      "pins": [
+        "J4.11",
+        "U4.IO22"
+      ]
+    },
+    {
+      "name": "IO23",
+      "power": false,
+      "pins": [
+        "J4.12",
+        "U4.IO23"
+      ]
+    },
+    {
+      "name": "IO25",
+      "power": false,
+      "pins": [
+        "J3.6",
+        "U4.IO25"
+      ]
+    },
+    {
+      "name": "IO26",
+      "power": false,
+      "pins": [
+        "J3.5",
+        "U4.IO26"
+      ]
+    },
+    {
+      "name": "IO27",
+      "power": false,
+      "pins": [
+        "J4.6",
+        "U4.IO27"
+      ]
+    },
+    {
+      "name": "IO32",
+      "power": false,
+      "pins": [
+        "J4.9",
+        "U4.IO32"
+      ]
+    },
+    {
+      "name": "IO33",
+      "power": false,
+      "pins": [
+        "J4.7",
+        "U4.IO33"
+      ]
+    },
+    {
+      "name": "IO34",
+      "power": false,
+      "pins": [
+        "J3.7",
+        "U4.IO34"
+      ]
+    },
+    {
+      "name": "IO35",
+      "power": false,
+      "pins": [
+        "U4.IO35"
+      ]
+    },
+    {
+      "name": "SENSOR_VP",
+      "power": false,
+      "pins": [
+        "J3.9",
+        "U4.SENSOR_VP"
+      ]
+    },
+    {
+      "name": "SENSOR_VN",
+      "power": false,
+      "pins": [
+        "J3.8",
+        "U4.SENSOR_VN"
+      ]
+    },
+    {
+      "name": "CHG_STAT",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "U2.STAT"
+      ]
+    },
+    {
+      "name": "PROG",
+      "power": false,
+      "pins": [
+        "R3.1",
+        "U2.PROG"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "D3.A",
+        "R5.2"
+      ]
+    }
+  ]
+}

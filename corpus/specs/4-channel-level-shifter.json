@@ -1,0 +1,248 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "4-channel-level-shifter"
+  },
+  "parts": [
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x06",
+      "value": "LV_HDR",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x06",
+      "value": "HV_HDR",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_FET",
+      "part": "BSS138",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "Q2",
+      "lib": "Transistor_FET",
+      "part": "BSS138",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "Q3",
+      "lib": "Transistor_FET",
+      "part": "BSS138",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "Q4",
+      "lib": "Transistor_FET",
+      "part": "BSS138",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "level_shift_channel"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0402_1005Metric",
+      "group": "level_shift_channel"
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "J1.6",
+        "Q1.G",
+        "Q2.G",
+        "Q3.G",
+        "Q4.G",
+        "R1.1",
+        "R3.1",
+        "R5.1",
+        "R7.1"
+      ]
+    },
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "C2.1",
+        "J2.6",
+        "R2.1",
+        "R4.1",
+        "R6.1",
+        "R8.1"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "J1.1",
+        "J2.1"
+      ]
+    },
+    {
+      "name": "LV1",
+      "power": false,
+      "pins": [
+        "J1.2",
+        "Q1.S",
+        "R1.2"
+      ]
+    },
+    {
+      "name": "HV1",
+      "power": false,
+      "pins": [
+        "J2.2",
+        "Q1.D",
+        "R2.2"
+      ]
+    },
+    {
+      "name": "LV2",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "Q2.S",
+        "R3.2"
+      ]
+    },
+    {
+      "name": "HV2",
+      "power": false,
+      "pins": [
+        "J2.3",
+        "Q2.D",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "LV3",
+      "power": false,
+      "pins": [
+        "J1.4",
+        "Q3.S",
+        "R5.2"
+      ]
+    },
+    {
+      "name": "HV3",
+      "power": false,
+      "pins": [
+        "J2.4",
+        "Q3.D",
+        "R6.2"
+      ]
+    },
+    {
+      "name": "LV4",
+      "power": false,
+      "pins": [
+        "J1.5",
+        "Q4.S",
+        "R7.2"
+      ]
+    },
+    {
+      "name": "HV4",
+      "power": false,
+      "pins": [
+        "J2.5",
+        "Q4.D",
+        "R8.2"
+      ]
+    }
+  ]
+}

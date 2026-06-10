@@ -1,0 +1,307 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "tcs34725-color-sensor"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "voltage_regulator",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VIN",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "EN",
+          "func": "input"
+        },
+        {
+          "num": "4",
+          "name": "NC",
+          "func": "no_connect"
+        },
+        {
+          "num": "5",
+          "name": "VOUT",
+          "func": "power_out"
+        }
+      ]
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "voltage_regulator"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "voltage_regulator"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "voltage_regulator"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_DFN_QFN:DFN-6-1EP_2x2mm_P0.65mm_EP1x1.6mm",
+      "group": "color_sensor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "VDD",
+          "func": "power_in"
+        },
+        {
+          "num": "2",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "SDA",
+          "func": "bidirectional"
+        },
+        {
+          "num": "4",
+          "name": "SCL",
+          "func": "input"
+        },
+        {
+          "num": "5",
+          "name": "INT",
+          "func": "output"
+        },
+        {
+          "num": "6",
+          "name": "LED",
+          "func": "input"
+        },
+        {
+          "num": "7",
+          "name": "EP",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "color_sensor"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "color_sensor"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "4.7K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_pullups"
+    },
+    {
+      "ref": "U3",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "led_driver",
+      "pins": [
+        {
+          "num": "1",
+          "name": "G",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "S",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "D",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "100K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "led_driver"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "WHITE",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "led_driver"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "68R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "led_driver"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x06",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+      "group": "breakout_header"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VIN",
+      "power": false,
+      "pins": [
+        "C1.1",
+        "J1.1",
+        "U1.EN",
+        "U1.VIN"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C2.1",
+        "C3.1",
+        "C4.1",
+        "C5.1",
+        "D1.K",
+        "R1.1",
+        "R2.1",
+        "R3.1",
+        "U1.VOUT",
+        "U2.VDD"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "J1.2",
+        "R4.2",
+        "U1.GND",
+        "U2.EP",
+        "U2.GND",
+        "U3.S"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "R1.2",
+        "U2.SDA"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J1.4",
+        "R2.2",
+        "U2.SCL"
+      ]
+    },
+    {
+      "name": "INT",
+      "power": false,
+      "pins": [
+        "J1.5",
+        "R3.2",
+        "U2.INT"
+      ]
+    },
+    {
+      "name": "LED_DRV",
+      "power": false,
+      "pins": [
+        "J1.6",
+        "R4.1",
+        "U2.LED",
+        "U3.G"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "D1.A",
+        "R5.1"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "R5.2",
+        "U3.D"
+      ]
+    }
+  ]
+}

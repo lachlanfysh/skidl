@@ -1,0 +1,101 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "als-pt19-light-sensor"
+  },
+  "parts": [
+    {
+      "ref": "Q1",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "LED_SMD:LED_1206_3216Metric",
+      "group": "als_pt19_sensor",
+      "pins": [
+        {
+          "num": "1",
+          "name": "C",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "E",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "als_pt19_sensor"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "als_pt19_sensor"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "als_pt19_sensor"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "VCC",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "J1.1",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "J1.2",
+        "Q1.E"
+      ]
+    },
+    {
+      "name": "AOUT",
+      "power": false,
+      "pins": [
+        "C2.1",
+        "J1.3",
+        "Q1.C",
+        "R1.2"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "C2.1",
+        "J1.3",
+        "Q1.C",
+        "R1.2"
+      ]
+    }
+  ]
+}

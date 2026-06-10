@@ -1,0 +1,906 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "16-channel-pwm-servo"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Driver_LED",
+      "part": "PCA9685PW",
+      "value": null,
+      "footprint": "Package_SO:TSSOP-28_4.4x9.7mm_P0.65mm",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R7",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R8",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R9",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R10",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "pwm_controller"
+    },
+    {
+      "ref": "R11",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R12",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R13",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R14",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R15",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J5",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R16",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J6",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R17",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J7",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R18",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J8",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R19",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J9",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R20",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J10",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R21",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J11",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R22",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J12",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R23",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J13",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R24",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J14",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R25",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J15",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "R26",
+      "lib": "Device",
+      "part": "R",
+      "value": "220",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "output_stage"
+    },
+    {
+      "ref": "J16",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x03",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+      "group": "output_stage"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "servo_power_protection",
+      "pins": [
+        {
+          "num": "1",
+          "name": "G",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "S",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "D",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100uF",
+      "footprint": "Capacitor_SMD:C_1206_3216Metric",
+      "group": "servo_power_protection"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "servo_power_protection"
+    },
+    {
+      "ref": "J17",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "connectors"
+    },
+    {
+      "ref": "J18",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "connectors"
+    },
+    {
+      "ref": "J19",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+      "group": "connectors"
+    },
+    {
+      "ref": "J20",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x04",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+      "group": "connectors"
+    },
+    {
+      "ref": "J21",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x02",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+      "group": "connectors"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "LED",
+      "value": "GREEN",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "connectors"
+    },
+    {
+      "ref": "R27",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "connectors"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VDD",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C2.1",
+        "J17.1",
+        "J19.1",
+        "J20.1",
+        "R1.1",
+        "R2.1",
+        "R27.1",
+        "R3.1",
+        "U1.VDD"
+      ]
+    },
+    {
+      "name": "VSERVO",
+      "power": true,
+      "pins": [
+        "C3.1",
+        "C4.1",
+        "J1.2",
+        "J10.2",
+        "J11.2",
+        "J12.2",
+        "J13.2",
+        "J14.2",
+        "J15.2",
+        "J16.2",
+        "J2.2",
+        "J3.2",
+        "J4.2",
+        "J5.2",
+        "J6.2",
+        "J7.2",
+        "J8.2",
+        "J9.2",
+        "U2.D"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "D1.A",
+        "J1.3",
+        "J10.3",
+        "J11.3",
+        "J12.3",
+        "J13.3",
+        "J14.3",
+        "J15.3",
+        "J16.3",
+        "J17.2",
+        "J18.2",
+        "J19.2",
+        "J2.3",
+        "J20.2",
+        "J21.2",
+        "J3.3",
+        "J4.3",
+        "J5.3",
+        "J6.3",
+        "J7.3",
+        "J8.3",
+        "J9.3",
+        "R10.2",
+        "R4.2",
+        "R5.2",
+        "R6.2",
+        "R7.2",
+        "R8.2",
+        "R9.2",
+        "U1.VSS",
+        "U2.G"
+      ]
+    },
+    {
+      "name": "SDA",
+      "power": false,
+      "pins": [
+        "J19.3",
+        "J20.3",
+        "R1.2",
+        "U1.SDA"
+      ]
+    },
+    {
+      "name": "SCL",
+      "power": false,
+      "pins": [
+        "J19.4",
+        "J20.4",
+        "R2.2",
+        "U1.SCL"
+      ]
+    },
+    {
+      "name": "OE",
+      "power": false,
+      "pins": [
+        "J21.1",
+        "R3.2",
+        "U1.~{OE}"
+      ]
+    },
+    {
+      "name": "PWM0",
+      "power": false,
+      "pins": [
+        "R11.1",
+        "U1.LED0"
+      ]
+    },
+    {
+      "name": "PWM1",
+      "power": false,
+      "pins": [
+        "R12.1",
+        "U1.LED1"
+      ]
+    },
+    {
+      "name": "PWM2",
+      "power": false,
+      "pins": [
+        "R13.1",
+        "U1.LED2"
+      ]
+    },
+    {
+      "name": "PWM3",
+      "power": false,
+      "pins": [
+        "R14.1",
+        "U1.LED3"
+      ]
+    },
+    {
+      "name": "PWM4",
+      "power": false,
+      "pins": [
+        "R15.1",
+        "U1.LED4"
+      ]
+    },
+    {
+      "name": "PWM5",
+      "power": false,
+      "pins": [
+        "R16.1",
+        "U1.LED5"
+      ]
+    },
+    {
+      "name": "PWM6",
+      "power": false,
+      "pins": [
+        "R17.1",
+        "U1.LED6"
+      ]
+    },
+    {
+      "name": "PWM7",
+      "power": false,
+      "pins": [
+        "R18.1",
+        "U1.LED7"
+      ]
+    },
+    {
+      "name": "PWM8",
+      "power": false,
+      "pins": [
+        "R19.1",
+        "U1.LED8"
+      ]
+    },
+    {
+      "name": "PWM9",
+      "power": false,
+      "pins": [
+        "R20.1",
+        "U1.LED9"
+      ]
+    },
+    {
+      "name": "PWM10",
+      "power": false,
+      "pins": [
+        "R21.1",
+        "U1.LED10"
+      ]
+    },
+    {
+      "name": "PWM11",
+      "power": false,
+      "pins": [
+        "R22.1",
+        "U1.LED11"
+      ]
+    },
+    {
+      "name": "PWM12",
+      "power": false,
+      "pins": [
+        "R23.1",
+        "U1.LED12"
+      ]
+    },
+    {
+      "name": "PWM13",
+      "power": false,
+      "pins": [
+        "R24.1",
+        "U1.LED13"
+      ]
+    },
+    {
+      "name": "PWM14",
+      "power": false,
+      "pins": [
+        "R25.1",
+        "U1.LED14"
+      ]
+    },
+    {
+      "name": "PWM15",
+      "power": false,
+      "pins": [
+        "R26.1",
+        "U1.LED15"
+      ]
+    },
+    {
+      "name": "VSERVO_IN",
+      "power": false,
+      "pins": [
+        "J18.1",
+        "U2.S"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "R4.1",
+        "U1.EXTCLK"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "R5.1",
+        "U1.A0"
+      ]
+    },
+    {
+      "name": "N$3",
+      "power": false,
+      "pins": [
+        "R6.1",
+        "U1.A1"
+      ]
+    },
+    {
+      "name": "N$4",
+      "power": false,
+      "pins": [
+        "R7.1",
+        "U1.A2"
+      ]
+    },
+    {
+      "name": "N$5",
+      "power": false,
+      "pins": [
+        "R8.1",
+        "U1.A3"
+      ]
+    },
+    {
+      "name": "N$6",
+      "power": false,
+      "pins": [
+        "R9.1",
+        "U1.A4"
+      ]
+    },
+    {
+      "name": "N$7",
+      "power": false,
+      "pins": [
+        "R10.1",
+        "U1.A5"
+      ]
+    },
+    {
+      "name": "N$8",
+      "power": false,
+      "pins": [
+        "J1.1",
+        "R11.2"
+      ]
+    },
+    {
+      "name": "N$9",
+      "power": false,
+      "pins": [
+        "J2.1",
+        "R12.2"
+      ]
+    },
+    {
+      "name": "N$10",
+      "power": false,
+      "pins": [
+        "J3.1",
+        "R13.2"
+      ]
+    },
+    {
+      "name": "N$11",
+      "power": false,
+      "pins": [
+        "J4.1",
+        "R14.2"
+      ]
+    },
+    {
+      "name": "N$12",
+      "power": false,
+      "pins": [
+        "J5.1",
+        "R15.2"
+      ]
+    },
+    {
+      "name": "N$13",
+      "power": false,
+      "pins": [
+        "J6.1",
+        "R16.2"
+      ]
+    },
+    {
+      "name": "N$14",
+      "power": false,
+      "pins": [
+        "J7.1",
+        "R17.2"
+      ]
+    },
+    {
+      "name": "N$15",
+      "power": false,
+      "pins": [
+        "J8.1",
+        "R18.2"
+      ]
+    },
+    {
+      "name": "N$16",
+      "power": false,
+      "pins": [
+        "J9.1",
+        "R19.2"
+      ]
+    },
+    {
+      "name": "N$17",
+      "power": false,
+      "pins": [
+        "J10.1",
+        "R20.2"
+      ]
+    },
+    {
+      "name": "N$18",
+      "power": false,
+      "pins": [
+        "J11.1",
+        "R21.2"
+      ]
+    },
+    {
+      "name": "N$19",
+      "power": false,
+      "pins": [
+        "J12.1",
+        "R22.2"
+      ]
+    },
+    {
+      "name": "N$20",
+      "power": false,
+      "pins": [
+        "J13.1",
+        "R23.2"
+      ]
+    },
+    {
+      "name": "N$21",
+      "power": false,
+      "pins": [
+        "J14.1",
+        "R24.2"
+      ]
+    },
+    {
+      "name": "N$22",
+      "power": false,
+      "pins": [
+        "J15.1",
+        "R25.2"
+      ]
+    },
+    {
+      "name": "N$23",
+      "power": false,
+      "pins": [
+        "J16.1",
+        "R26.2"
+      ]
+    },
+    {
+      "name": "N$24",
+      "power": false,
+      "pins": [
+        "D1.K",
+        "R27.2"
+      ]
+    }
+  ]
+}

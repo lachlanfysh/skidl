@@ -1,0 +1,297 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "trinket"
+  },
+  "parts": [
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "USB_B_Micro",
+      "value": "USB_Micro-B",
+      "footprint": "Connector_USB:USB_Micro-B_Molex_47346-0001",
+      "group": "usb_interface"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "D_Schottky",
+      "value": "MBR0520",
+      "footprint": "Diode_SMD:D_SOD-323",
+      "group": "usb_interface"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "68R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "usb_interface"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "68R",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "usb_interface"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K5",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "usb_interface"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "usb_interface"
+    },
+    {
+      "ref": "U1",
+      "lib": "Regulator_Linear",
+      "part": "MCP1700x-300xxTT",
+      "value": "MCP1700-3302",
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "power_regulation"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_regulation"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "1uF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_regulation"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power_regulation"
+    },
+    {
+      "ref": "U2",
+      "lib": "MCU_Microchip_ATtiny",
+      "part": "ATtiny85-20S",
+      "value": "ATtiny85",
+      "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "SW1",
+      "lib": "Switch",
+      "part": "SW_Push",
+      "value": "RESET",
+      "footprint": "Button_Switch_SMD:SW_Push_1TS009xxxx-xxxx-xxxx_6x6x5mm",
+      "group": "mcu_block"
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "LED",
+      "value": "GREEN",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "led_indicators"
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "led_indicators"
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "LED",
+      "value": "RED",
+      "footprint": "LED_SMD:LED_0603_1608Metric",
+      "group": "led_indicators"
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "1K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "led_indicators"
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x05",
+      "value": "GPIO",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical",
+      "group": "gpio_header"
+    }
+  ],
+  "nets": [
+    {
+      "name": "VBUS_RAW",
+      "power": true,
+      "pins": [
+        "D1.A",
+        "J1.VBUS"
+      ]
+    },
+    {
+      "name": "VBUS",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C2.1",
+        "D1.K",
+        "R3.1",
+        "U1.VI"
+      ]
+    },
+    {
+      "name": "VCC",
+      "power": true,
+      "pins": [
+        "C3.1",
+        "C4.1",
+        "C5.1",
+        "J2.5",
+        "R4.1",
+        "R5.1",
+        "U1.VO",
+        "U2.VCC"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "D2.K",
+        "D3.K",
+        "J1.GND",
+        "J1.Shield",
+        "J2.1",
+        "SW1.2",
+        "U1.GND",
+        "U2.GND"
+      ]
+    },
+    {
+      "name": "USB_CONN_DP",
+      "power": false,
+      "pins": [
+        "J1.D+",
+        "R1.1"
+      ]
+    },
+    {
+      "name": "USB_CONN_DM",
+      "power": false,
+      "pins": [
+        "J1.D-",
+        "R2.1"
+      ]
+    },
+    {
+      "name": "USB_DP",
+      "power": false,
+      "pins": [
+        "R1.2",
+        "U2.XTAL1/PB3"
+      ]
+    },
+    {
+      "name": "USB_DM",
+      "power": false,
+      "pins": [
+        "R2.2",
+        "R3.2",
+        "U2.XTAL2/PB4"
+      ]
+    },
+    {
+      "name": "~{RESET}",
+      "power": false,
+      "pins": [
+        "R4.2",
+        "SW1.1",
+        "U2.~{RESET}/PB5"
+      ]
+    },
+    {
+      "name": "PB0",
+      "power": false,
+      "pins": [
+        "J2.2",
+        "U2.AREF/PB0"
+      ]
+    },
+    {
+      "name": "PB1",
+      "power": false,
+      "pins": [
+        "J2.3",
+        "R6.1",
+        "U2.PB1"
+      ]
+    },
+    {
+      "name": "PB2",
+      "power": false,
+      "pins": [
+        "J2.4",
+        "U2.PB2"
+      ]
+    },
+    {
+      "name": "N$1",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "R5.2"
+      ]
+    },
+    {
+      "name": "N$2",
+      "power": false,
+      "pins": [
+        "D3.A",
+        "R6.2"
+      ]
+    }
+  ]
+}

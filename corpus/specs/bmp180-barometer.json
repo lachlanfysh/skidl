@@ -1,0 +1,213 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "bmp180-barometer"
+  },
+  "parts": [
+    {
+      "ref": "U1",
+      "lib": "Regulator_Linear",
+      "part": "AMS1117-3.3",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-223-3_TabPin2",
+      "group": "voltage_regulator"
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "voltage_regulator"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "10uF",
+      "footprint": "Capacitor_SMD:C_0805_2012Metric",
+      "group": "voltage_regulator"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "voltage_regulator"
+    },
+    {
+      "ref": "Q1",
+      "lib": "Transistor_FET",
+      "part": "BSS138",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "i2c_level_shift_channel"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_level_shift_channel"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_level_shift_channel"
+    },
+    {
+      "ref": "Q2",
+      "lib": "Transistor_FET",
+      "part": "BSS138",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23",
+      "group": "i2c_level_shift_channel"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_level_shift_channel"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10K",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "i2c_level_shift_channel"
+    },
+    {
+      "ref": "U2",
+      "lib": "Sensor_Pressure",
+      "part": "BMP280",
+      "value": null,
+      "footprint": "Package_LGA:Bosch_LGA-8_2x2.5mm_P0.65mm_ClockwisePinNumbering",
+      "group": "bmp_sensor"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "bmp_sensor"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "bmp_sensor"
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x05",
+      "value": null,
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical",
+      "group": null
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "100nF",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": null
+    }
+  ],
+  "nets": [
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C6.1",
+        "J1.1",
+        "R2.1",
+        "R4.1",
+        "U1.VI"
+      ]
+    },
+    {
+      "name": "+3V3",
+      "power": true,
+      "pins": [
+        "C2.1",
+        "C3.1",
+        "C4.1",
+        "C5.1",
+        "J1.5",
+        "Q1.G",
+        "Q2.G",
+        "R1.1",
+        "R3.1",
+        "U1.VO",
+        "U2.CSB",
+        "U2.VDD",
+        "U2.VDDIO"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "J1.2",
+        "U1.GND",
+        "U2.GND",
+        "U2.SDO"
+      ]
+    },
+    {
+      "name": "SDA_5V",
+      "power": false,
+      "pins": [
+        "J1.4",
+        "Q1.D",
+        "R2.2"
+      ]
+    },
+    {
+      "name": "SCL_5V",
+      "power": false,
+      "pins": [
+        "J1.3",
+        "Q2.D",
+        "R4.2"
+      ]
+    },
+    {
+      "name": "SDA_3V3",
+      "power": false,
+      "pins": [
+        "Q1.S",
+        "R1.2",
+        "U2.SDI"
+      ]
+    },
+    {
+      "name": "SCL_3V3",
+      "power": false,
+      "pins": [
+        "Q2.S",
+        "R3.2",
+        "U2.SCK"
+      ]
+    }
+  ]
+}
