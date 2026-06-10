@@ -1,0 +1,1533 @@
+{
+  "schema_version": "1",
+  "board": {
+    "name": "arduino-leonardo"
+  },
+  "parts": [
+    {
+      "ref": "C8",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "10u",
+      "footprint": "Capacitor_SMD:C_1210_3225Metric_Pad1.33x2.70mm_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "C9",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "F1",
+      "lib": "Device",
+      "part": "Fuse",
+      "value": "MF-MSMF050-2",
+      "footprint": "Fuse:Fuse_1812_4532Metric_Pad1.30x3.40mm_HandSolder",
+      "group": null
+    },
+    {
+      "ref": "FB2",
+      "lib": "Device",
+      "part": "FerriteBead",
+      "value": "1k\u03a9@100MHz",
+      "footprint": "Inductor_SMD:L_0805_2012Metric",
+      "group": null
+    },
+    {
+      "ref": "J1",
+      "lib": "Connector",
+      "part": "USB_C_Receptacle_USB2.0_16P",
+      "value": null,
+      "footprint": "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+      "group": null
+    },
+    {
+      "ref": "R5",
+      "lib": "Device",
+      "part": "R",
+      "value": "5k1",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "R6",
+      "lib": "Device",
+      "part": "R",
+      "value": "5k1",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "RN1",
+      "lib": "Device",
+      "part": "R_Pack04_Split",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_Array_Convex_4x0612",
+      "group": "power"
+    },
+    {
+      "ref": "RN3",
+      "lib": "Device",
+      "part": "R_Pack04_Split",
+      "value": "22R",
+      "footprint": "Resistor_SMD:R_Array_Convex_4x0612",
+      "group": null
+    },
+    {
+      "ref": "TP1",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": null
+    },
+    {
+      "ref": "TP2",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": null
+    },
+    {
+      "ref": "TP3",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": null
+    },
+    {
+      "ref": "TP4",
+      "lib": "Connector",
+      "part": "TestPoint",
+      "value": null,
+      "footprint": "TestPoint:TestPoint_Pad_D1.0mm",
+      "group": null
+    },
+    {
+      "ref": "U1",
+      "lib": null,
+      "part": null,
+      "value": "ATMEGA32U4-XU",
+      "footprint": "Package_DFN_QFN:QFN-44-1EP_7x7mm_P0.5mm_EP5.15x5.15mm",
+      "group": null,
+      "pins": [
+        {
+          "num": "1",
+          "name": "(INT6/AIN0)PE6",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "UVCC",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "D-",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "D+",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "UGND",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "UCAP",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "VBUS",
+          "func": "power_in"
+        },
+        {
+          "num": "8",
+          "name": "(SS/PCINT0)PB0",
+          "func": "input"
+        },
+        {
+          "num": "9",
+          "name": "(SCLK/PCINT1)PB1",
+          "func": "input"
+        },
+        {
+          "num": "10",
+          "name": "(PDI/MOSI/PCINT2)PB2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "11",
+          "name": "(PD0/MISO/PCINT3)PB3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "12",
+          "name": "(PCINT7/OC0A/OC1C/#RTS)PB7",
+          "func": "input"
+        },
+        {
+          "num": "13",
+          "name": "RESET",
+          "func": "input"
+        },
+        {
+          "num": "14",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "15",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "16",
+          "name": "XTAL2",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "XTAL1",
+          "func": "passive"
+        },
+        {
+          "num": "18",
+          "name": "(OC0B/SCL/INT0)PD0",
+          "func": "input"
+        },
+        {
+          "num": "19",
+          "name": "(SDA/INT1)PD1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "20",
+          "name": "(RXD1/AIN1/INT2)PD2",
+          "func": "input"
+        },
+        {
+          "num": "21",
+          "name": "(TXD1/INT3)PD3",
+          "func": "output"
+        },
+        {
+          "num": "22",
+          "name": "(XCK1/#CTS)PD5",
+          "func": "passive"
+        },
+        {
+          "num": "23",
+          "name": "GND1",
+          "func": "power_in"
+        },
+        {
+          "num": "24",
+          "name": "AVCC",
+          "func": "power_in"
+        },
+        {
+          "num": "25",
+          "name": "(ICP1/ADC8)PD4",
+          "func": "passive"
+        },
+        {
+          "num": "26",
+          "name": "(T1/#OC4D/ADC9)PD6",
+          "func": "passive"
+        },
+        {
+          "num": "27",
+          "name": "(T0/OC4D/ADC10)PD7",
+          "func": "passive"
+        },
+        {
+          "num": "28",
+          "name": "(ADC11/PCINT4)PB4",
+          "func": "input"
+        },
+        {
+          "num": "29",
+          "name": "(PCINT5/OC1A/#OC4B/ADC12)PB5",
+          "func": "input"
+        },
+        {
+          "num": "30",
+          "name": "(PCINT6/OC1B/OC4B/ADC13)PB6",
+          "func": "input"
+        },
+        {
+          "num": "31",
+          "name": "(OC3A/#0C4A)PC6",
+          "func": "passive"
+        },
+        {
+          "num": "32",
+          "name": "(ICP3/CLK0/OC4A)PC7",
+          "func": "input"
+        },
+        {
+          "num": "33",
+          "name": "(#HWB)PE2",
+          "func": "passive"
+        },
+        {
+          "num": "34",
+          "name": "VCC1",
+          "func": "power_in"
+        },
+        {
+          "num": "35",
+          "name": "GND2",
+          "func": "power_in"
+        },
+        {
+          "num": "36",
+          "name": "(ADC7/TDI)PF7",
+          "func": "input"
+        },
+        {
+          "num": "37",
+          "name": "(ADC6/TDO)PF6",
+          "func": "output"
+        },
+        {
+          "num": "38",
+          "name": "(ADC5/TMS)PF5",
+          "func": "passive"
+        },
+        {
+          "num": "39",
+          "name": "(ADC4/TCK)PF4",
+          "func": "passive"
+        },
+        {
+          "num": "40",
+          "name": "(ADC1)PF1",
+          "func": "passive"
+        },
+        {
+          "num": "41",
+          "name": "(ADC0)PF0",
+          "func": "passive"
+        },
+        {
+          "num": "42",
+          "name": "AREF",
+          "func": "passive"
+        },
+        {
+          "num": "43",
+          "name": "GND3",
+          "func": "power_in"
+        },
+        {
+          "num": "44",
+          "name": "AVCC1",
+          "func": "power_in"
+        },
+        {
+          "num": "45",
+          "name": "PAD",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "Z1",
+      "lib": "Device",
+      "part": "Varistor",
+      "value": "5pF@1MHz",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "Z2",
+      "lib": "Device",
+      "part": "Varistor",
+      "value": "5pF@1MHz",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": null
+    },
+    {
+      "ref": "J2",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x10",
+      "value": "PPTC101LFBN-RC",
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x10_P2.54mm_Vertical",
+      "group": "headers"
+    },
+    {
+      "ref": "J3",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x08",
+      "value": "PPTC081LFBN-RC",
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x08_P2.54mm_Vertical",
+      "group": "headers"
+    },
+    {
+      "ref": "J4",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x08",
+      "value": "PPTC081LFBN-RC",
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x08_P2.54mm_Vertical",
+      "group": "headers"
+    },
+    {
+      "ref": "J5",
+      "lib": "Connector_Generic",
+      "part": "Conn_01x06",
+      "value": "PPTC061LFBN-RC",
+      "footprint": "Connector_PinSocket_2.54mm:PinSocket_1x06_P2.54mm_Vertical",
+      "group": "headers"
+    },
+    {
+      "ref": "J6",
+      "lib": "Connector_Generic",
+      "part": "Conn_02x03_Odd_Even",
+      "value": "M20-9980345",
+      "footprint": "Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical",
+      "group": "headers"
+    },
+    {
+      "ref": "S1",
+      "lib": null,
+      "part": null,
+      "value": "TS06-667-30-BK-100-G-SMT-TR",
+      "footprint": "Arduino Leonardo:SW_TS06-667-30-BK-100-G-SMT-TR",
+      "group": "headers",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "power_in"
+        },
+        {
+          "num": "4",
+          "name": "P4",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "P5",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "C1",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power"
+    },
+    {
+      "ref": "C10",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "10u",
+      "footprint": "Capacitor_SMD:C_1210_3225Metric_Pad1.33x2.70mm_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C11",
+      "lib": "Device",
+      "part": "C",
+      "value": "1u",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power"
+    },
+    {
+      "ref": "C12",
+      "lib": "Device",
+      "part": "C_Polarized",
+      "value": "10u",
+      "footprint": "Capacitor_SMD:C_1210_3225Metric_Pad1.33x2.70mm_HandSolder",
+      "group": "power"
+    },
+    {
+      "ref": "C13",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power"
+    },
+    {
+      "ref": "C14",
+      "lib": "Device",
+      "part": "C",
+      "value": "1u",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power"
+    },
+    {
+      "ref": "C22",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "power"
+    },
+    {
+      "ref": "D1",
+      "lib": "Device",
+      "part": "D",
+      "value": "M7",
+      "footprint": "Diode_SMD:D_SMB",
+      "group": "power"
+    },
+    {
+      "ref": "D3",
+      "lib": "Device",
+      "part": "LED",
+      "value": "YELLOW",
+      "footprint": "LED_SMD:LED_0805_2012Metric",
+      "group": "power"
+    },
+    {
+      "ref": "D4",
+      "lib": "Device",
+      "part": "LED",
+      "value": "GREEN",
+      "footprint": "LED_SMD:LED_0805_2012Metric",
+      "group": "power"
+    },
+    {
+      "ref": "D5",
+      "lib": "Device",
+      "part": "LED",
+      "value": "YELLOW",
+      "footprint": "LED_SMD:LED_0805_2012Metric",
+      "group": "power"
+    },
+    {
+      "ref": "D6",
+      "lib": "Device",
+      "part": "LED",
+      "value": "YELLOW",
+      "footprint": "LED_SMD:LED_0805_2012Metric",
+      "group": "power"
+    },
+    {
+      "ref": "J7",
+      "lib": "Connector",
+      "part": "Barrel_Jack_Switch",
+      "value": "PJ-102AH",
+      "footprint": "Connector_BarrelJack:BarrelJack_Kycon_KLDX-0202-xC_Horizontal",
+      "group": "power"
+    },
+    {
+      "ref": "Q1",
+      "lib": "Device",
+      "part": "Q_PMOS_GSD",
+      "value": "FDN340P",
+      "footprint": "Package_TO_SOT_SMD:SC-59",
+      "group": "power"
+    },
+    {
+      "ref": "R4",
+      "lib": "Device",
+      "part": "R",
+      "value": "10k",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "power"
+    },
+    {
+      "ref": "RN2",
+      "lib": "Device",
+      "part": "R_Pack04_Split",
+      "value": "1k",
+      "footprint": "Resistor_SMD:R_Array_Convex_4x0612",
+      "group": "power"
+    },
+    {
+      "ref": "U3",
+      "lib": "Regulator_Linear",
+      "part": "LP2985-3.3",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+      "group": "power"
+    },
+    {
+      "ref": "U4",
+      "lib": null,
+      "part": null,
+      "value": "LMV358IDGKR",
+      "footprint": "Package_SO:MSOP-8_3x3mm_P0.65mm",
+      "group": "power",
+      "pins": [
+        {
+          "num": "1",
+          "name": "P1",
+          "func": "passive"
+        },
+        {
+          "num": "2",
+          "name": "P2",
+          "func": "passive"
+        },
+        {
+          "num": "3",
+          "name": "P3",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "5",
+          "name": "P5",
+          "func": "passive"
+        },
+        {
+          "num": "6",
+          "name": "P6",
+          "func": "power_in"
+        },
+        {
+          "num": "7",
+          "name": "P7",
+          "func": "passive"
+        },
+        {
+          "num": "8",
+          "name": "VCC+",
+          "func": "power_in"
+        }
+      ]
+    },
+    {
+      "ref": "U5",
+      "lib": "Regulator_Linear",
+      "part": "NCP1117-5.0_SOT223",
+      "value": null,
+      "footprint": "Package_TO_SOT_SMD:SOT-223-3_TabPin2",
+      "group": "power"
+    },
+    {
+      "ref": "C2",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "C3",
+      "lib": "Device",
+      "part": "C",
+      "value": "22p",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "C4",
+      "lib": "Device",
+      "part": "C",
+      "value": "22p",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "C5",
+      "lib": "Device",
+      "part": "C",
+      "value": "1u",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "C6",
+      "lib": "Device",
+      "part": "C",
+      "value": "100n",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "C7",
+      "lib": "Device",
+      "part": "C",
+      "value": "1u",
+      "footprint": "Capacitor_SMD:C_0603_1608Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "D2",
+      "lib": "Device",
+      "part": "D",
+      "value": "CD1206-S01575",
+      "footprint": "Diode_SMD:D_1206_3216Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "FB1",
+      "lib": "Device",
+      "part": "FerriteBead",
+      "value": "1k\u03a9@100MHz",
+      "footprint": "Inductor_SMD:L_0805_2012Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "R1",
+      "lib": "Device",
+      "part": "R",
+      "value": "1M",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "R2",
+      "lib": "Device",
+      "part": "R",
+      "value": "NM",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "R3",
+      "lib": "Device",
+      "part": "R",
+      "value": "NM",
+      "footprint": "Resistor_SMD:R_0603_1608Metric",
+      "group": "atmega32u4_au"
+    },
+    {
+      "ref": "U2",
+      "lib": null,
+      "part": null,
+      "value": "ATMEGA32U4-XU",
+      "footprint": "Package_QFP:TQFP-44_10x10mm_P0.8mm",
+      "group": "atmega32u4_au",
+      "pins": [
+        {
+          "num": "1",
+          "name": "(INT6/AIN0)PE6",
+          "func": "input"
+        },
+        {
+          "num": "2",
+          "name": "UVCC",
+          "func": "power_in"
+        },
+        {
+          "num": "3",
+          "name": "D-",
+          "func": "passive"
+        },
+        {
+          "num": "4",
+          "name": "D+",
+          "func": "passive"
+        },
+        {
+          "num": "5",
+          "name": "UGND",
+          "func": "power_in"
+        },
+        {
+          "num": "6",
+          "name": "UCAP",
+          "func": "passive"
+        },
+        {
+          "num": "7",
+          "name": "VBUS",
+          "func": "power_in"
+        },
+        {
+          "num": "8",
+          "name": "(SS/PCINT0)PB0",
+          "func": "input"
+        },
+        {
+          "num": "9",
+          "name": "(SCLK/PCINT1)PB1",
+          "func": "input"
+        },
+        {
+          "num": "10",
+          "name": "(PDI/MOSI/PCINT2)PB2",
+          "func": "bidirectional"
+        },
+        {
+          "num": "11",
+          "name": "(PD0/MISO/PCINT3)PB3",
+          "func": "bidirectional"
+        },
+        {
+          "num": "12",
+          "name": "(PCINT7/OC0A/OC1C/#RTS)PB7",
+          "func": "input"
+        },
+        {
+          "num": "13",
+          "name": "RESET",
+          "func": "input"
+        },
+        {
+          "num": "14",
+          "name": "VCC",
+          "func": "power_in"
+        },
+        {
+          "num": "15",
+          "name": "GND",
+          "func": "power_in"
+        },
+        {
+          "num": "16",
+          "name": "XTAL2",
+          "func": "passive"
+        },
+        {
+          "num": "17",
+          "name": "XTAL1",
+          "func": "passive"
+        },
+        {
+          "num": "18",
+          "name": "(OC0B/SCL/INT0)PD0",
+          "func": "input"
+        },
+        {
+          "num": "19",
+          "name": "(SDA/INT1)PD1",
+          "func": "bidirectional"
+        },
+        {
+          "num": "20",
+          "name": "(RXD1/AIN1/INT2)PD2",
+          "func": "input"
+        },
+        {
+          "num": "21",
+          "name": "(TXD1/INT3)PD3",
+          "func": "output"
+        },
+        {
+          "num": "22",
+          "name": "(XCK1/#CTS)PD5",
+          "func": "passive"
+        },
+        {
+          "num": "23",
+          "name": "GND1",
+          "func": "power_in"
+        },
+        {
+          "num": "24",
+          "name": "AVCC",
+          "func": "power_in"
+        },
+        {
+          "num": "25",
+          "name": "(ICP1/ADC8)PD4",
+          "func": "passive"
+        },
+        {
+          "num": "26",
+          "name": "(T1/#OC4D/ADC9)PD6",
+          "func": "passive"
+        },
+        {
+          "num": "27",
+          "name": "(T0/OC4D/ADC10)PD7",
+          "func": "passive"
+        },
+        {
+          "num": "28",
+          "name": "(ADC11/PCINT4)PB4",
+          "func": "input"
+        },
+        {
+          "num": "29",
+          "name": "(PCINT5/OC1A/#OC4B/ADC12)PB5",
+          "func": "input"
+        },
+        {
+          "num": "30",
+          "name": "(PCINT6/OC1B/OC4B/ADC13)PB6",
+          "func": "input"
+        },
+        {
+          "num": "31",
+          "name": "(OC3A/#0C4A)PC6",
+          "func": "passive"
+        },
+        {
+          "num": "32",
+          "name": "(ICP3/CLK0/OC4A)PC7",
+          "func": "input"
+        },
+        {
+          "num": "33",
+          "name": "(#HWB)PE2",
+          "func": "passive"
+        },
+        {
+          "num": "34",
+          "name": "VCC1",
+          "func": "power_in"
+        },
+        {
+          "num": "35",
+          "name": "GND2",
+          "func": "power_in"
+        },
+        {
+          "num": "36",
+          "name": "(ADC7/TDI)PF7",
+          "func": "input"
+        },
+        {
+          "num": "37",
+          "name": "(ADC6/TDO)PF6",
+          "func": "output"
+        },
+        {
+          "num": "38",
+          "name": "(ADC5/TMS)PF5",
+          "func": "passive"
+        },
+        {
+          "num": "39",
+          "name": "(ADC4/TCK)PF4",
+          "func": "passive"
+        },
+        {
+          "num": "40",
+          "name": "(ADC1)PF1",
+          "func": "passive"
+        },
+        {
+          "num": "41",
+          "name": "(ADC0)PF0",
+          "func": "passive"
+        },
+        {
+          "num": "42",
+          "name": "AREF",
+          "func": "passive"
+        },
+        {
+          "num": "43",
+          "name": "GND3",
+          "func": "power_in"
+        },
+        {
+          "num": "44",
+          "name": "AVCC1",
+          "func": "power_in"
+        },
+        {
+          "num": "45",
+          "name": "PAD",
+          "func": "passive"
+        }
+      ]
+    },
+    {
+      "ref": "Y1",
+      "lib": "Device",
+      "part": "Crystal_GND24",
+      "value": "ECS-160-18-33-JGN-TR",
+      "footprint": "Crystal:Crystal_SMD_SeikoEpson_FA238-4Pin_3.2x2.5mm",
+      "group": "atmega32u4_au"
+    }
+  ],
+  "nets": [
+    {
+      "name": "+3.3V",
+      "power": true,
+      "pins": [
+        "C14.2",
+        "J4.Pin_5",
+        "U3.VOUT",
+        "U4.6"
+      ]
+    },
+    {
+      "name": "+5V",
+      "power": true,
+      "pins": [
+        "C1.1",
+        "C11.2",
+        "C12.1",
+        "C13.1",
+        "C2.1",
+        "D2.K",
+        "FB1.1",
+        "J4.Pin_4",
+        "J4.Pin_7",
+        "J6.Pin_2",
+        "Q1.S",
+        "RN1.R4.2",
+        "RN2.R1.1",
+        "RN2.R3.1",
+        "RN2.R4.1",
+        "U1.UVCC",
+        "U1.VCC",
+        "U1.VCC1",
+        "U2.UVCC",
+        "U2.VCC",
+        "U2.VCC1",
+        "U3.ON/~{OFF}",
+        "U3.VIN",
+        "U4.VCC+",
+        "U5.VO"
+      ]
+    },
+    {
+      "name": "A0",
+      "power": false,
+      "pins": [
+        "J5.Pin_6",
+        "U1.(ADC7/TDI)PF7",
+        "U2.(ADC7/TDI)PF7"
+      ]
+    },
+    {
+      "name": "A1",
+      "power": false,
+      "pins": [
+        "J5.Pin_5",
+        "U1.(ADC6/TDO)PF6",
+        "U2.(ADC6/TDO)PF6"
+      ]
+    },
+    {
+      "name": "A2",
+      "power": false,
+      "pins": [
+        "J5.Pin_4",
+        "U1.(ADC5/TMS)PF5",
+        "U2.(ADC5/TMS)PF5"
+      ]
+    },
+    {
+      "name": "A3",
+      "power": false,
+      "pins": [
+        "J5.Pin_3",
+        "U1.(ADC4/TCK)PF4",
+        "U2.(ADC4/TCK)PF4"
+      ]
+    },
+    {
+      "name": "A4",
+      "power": false,
+      "pins": [
+        "J5.Pin_2",
+        "U1.(ADC1)PF1",
+        "U2.(ADC1)PF1"
+      ]
+    },
+    {
+      "name": "A5",
+      "power": false,
+      "pins": [
+        "J5.Pin_1",
+        "U1.(ADC0)PF0",
+        "U2.(ADC0)PF0"
+      ]
+    },
+    {
+      "name": "AGND",
+      "power": true,
+      "pins": [
+        "C6.1",
+        "R2.1",
+        "U1.GND3",
+        "U2.GND3"
+      ]
+    },
+    {
+      "name": "AREF",
+      "power": false,
+      "pins": [
+        "C6.2",
+        "J2.Pin_3",
+        "U1.AREF",
+        "U2.AREF"
+      ]
+    },
+    {
+      "name": "AVCC",
+      "power": false,
+      "pins": [
+        "C5.1",
+        "FB1.2",
+        "U1.AVCC",
+        "U1.AVCC1",
+        "U2.AVCC",
+        "U2.AVCC1"
+      ]
+    },
+    {
+      "name": "CC1",
+      "power": false,
+      "pins": [
+        "J1.CC1",
+        "R5.1"
+      ]
+    },
+    {
+      "name": "CC2",
+      "power": false,
+      "pins": [
+        "J1.CC2",
+        "R6.1"
+      ]
+    },
+    {
+      "name": "CMP",
+      "power": false,
+      "pins": [
+        "C22.2",
+        "RN1.R1.2",
+        "RN1.R2.2",
+        "U4.5"
+      ]
+    },
+    {
+      "name": "D+",
+      "power": false,
+      "pins": [
+        "J1.D+",
+        "RN3.R1.2",
+        "TP3.1",
+        "Z1.1"
+      ]
+    },
+    {
+      "name": "D-",
+      "power": false,
+      "pins": [
+        "J1.D-",
+        "RN3.R4.2",
+        "TP2.1",
+        "Z2.1"
+      ]
+    },
+    {
+      "name": "D0{slash}RX",
+      "power": false,
+      "pins": [
+        "J3.Pin_8",
+        "U1.(RXD1/AIN1/INT2)PD2",
+        "U2.(RXD1/AIN1/INT2)PD2"
+      ]
+    },
+    {
+      "name": "D1{slash}TX",
+      "power": false,
+      "pins": [
+        "J3.Pin_7",
+        "U1.(TXD1/INT3)PD3",
+        "U2.(TXD1/INT3)PD3"
+      ]
+    },
+    {
+      "name": "D2{slash}SDA",
+      "power": false,
+      "pins": [
+        "J2.Pin_2",
+        "J3.Pin_6",
+        "U1.(SDA/INT1)PD1",
+        "U2.(SDA/INT1)PD1"
+      ]
+    },
+    {
+      "name": "D3{slash}SCL",
+      "power": false,
+      "pins": [
+        "J2.Pin_1",
+        "J3.Pin_5",
+        "U1.(OC0B/SCL/INT0)PD0",
+        "U2.(OC0B/SCL/INT0)PD0"
+      ]
+    },
+    {
+      "name": "D4",
+      "power": false,
+      "pins": [
+        "J3.Pin_4",
+        "U1.(ICP1/ADC8)PD4",
+        "U2.(ICP1/ADC8)PD4"
+      ]
+    },
+    {
+      "name": "D5*",
+      "power": false,
+      "pins": [
+        "J3.Pin_3",
+        "U1.(OC3A/#0C4A)PC6",
+        "U2.(OC3A/#0C4A)PC6"
+      ]
+    },
+    {
+      "name": "D6*",
+      "power": false,
+      "pins": [
+        "J3.Pin_2",
+        "U1.(T0/OC4D/ADC10)PD7",
+        "U2.(T0/OC4D/ADC10)PD7"
+      ]
+    },
+    {
+      "name": "D7",
+      "power": false,
+      "pins": [
+        "J3.Pin_1",
+        "U1.(INT6/AIN0)PE6",
+        "U2.(INT6/AIN0)PE6"
+      ]
+    },
+    {
+      "name": "GATE_CMD",
+      "power": false,
+      "pins": [
+        "Q1.G",
+        "U4.7"
+      ]
+    },
+    {
+      "name": "GND",
+      "power": true,
+      "pins": [
+        "C1.2",
+        "C10.2",
+        "C11.1",
+        "C12.2",
+        "C13.2",
+        "C14.1",
+        "C2.2",
+        "C22.1",
+        "C3.1",
+        "C4.2",
+        "C5.2",
+        "C8.2",
+        "C9.1",
+        "D1.A",
+        "D3.K",
+        "D4.K",
+        "FB2.2",
+        "J1.SHIELD",
+        "J2.Pin_4",
+        "J4.Pin_2",
+        "J4.Pin_3",
+        "J6.Pin_6",
+        "J7.2",
+        "J7.3",
+        "R2.2",
+        "R3.1",
+        "R4.1",
+        "R5.2",
+        "R6.2",
+        "RN1.R2.1",
+        "RN1.R3.1",
+        "S1.3",
+        "S1.4",
+        "TP4.1",
+        "U1.GND",
+        "U1.GND1",
+        "U1.GND2",
+        "U1.PAD",
+        "U2.GND",
+        "U2.GND1",
+        "U2.GND2",
+        "U3.GND",
+        "U4.GND",
+        "U5.GND",
+        "Y1.2",
+        "Y1.4",
+        "Z1.2",
+        "Z2.2"
+      ]
+    },
+    {
+      "name": "HWB",
+      "power": false,
+      "pins": [
+        "RN1.R3.2",
+        "U1.(#HWB)PE2",
+        "U2.(#HWB)PE2"
+      ]
+    },
+    {
+      "name": "IO8",
+      "power": false,
+      "pins": [
+        "J2.Pin_10",
+        "U1.(ADC11/PCINT4)PB4",
+        "U2.(ADC11/PCINT4)PB4"
+      ]
+    },
+    {
+      "name": "IO9*",
+      "power": false,
+      "pins": [
+        "J2.Pin_9",
+        "U1.(PCINT5/OC1A/#OC4B/ADC12)PB5",
+        "U2.(PCINT5/OC1A/#OC4B/ADC12)PB5"
+      ]
+    },
+    {
+      "name": "IO10*",
+      "power": false,
+      "pins": [
+        "J2.Pin_8",
+        "U1.(PCINT6/OC1B/OC4B/ADC13)PB6",
+        "U2.(PCINT6/OC1B/OC4B/ADC13)PB6"
+      ]
+    },
+    {
+      "name": "IO11*",
+      "power": false,
+      "pins": [
+        "J2.Pin_7",
+        "U1.(PCINT7/OC0A/OC1C/#RTS)PB7",
+        "U2.(PCINT7/OC0A/OC1C/#RTS)PB7"
+      ]
+    },
+    {
+      "name": "IO12",
+      "power": false,
+      "pins": [
+        "J2.Pin_6",
+        "U1.(T1/#OC4D/ADC9)PD6",
+        "U2.(T1/#OC4D/ADC9)PD6"
+      ]
+    },
+    {
+      "name": "IO13*",
+      "power": false,
+      "pins": [
+        "J2.Pin_5",
+        "U1.(ICP3/CLK0/OC4A)PC7",
+        "U2.(ICP3/CLK0/OC4A)PC7",
+        "U4.3"
+      ]
+    },
+    {
+      "name": "LL",
+      "power": false,
+      "pins": [
+        "RN2.R2.1",
+        "U4.1",
+        "U4.2"
+      ]
+    },
+    {
+      "name": "MISO",
+      "power": false,
+      "pins": [
+        "J6.Pin_1",
+        "U1.(PD0/MISO/PCINT3)PB3",
+        "U2.(PD0/MISO/PCINT3)PB3"
+      ]
+    },
+    {
+      "name": "MOSI",
+      "power": false,
+      "pins": [
+        "J6.Pin_4",
+        "U1.(PDI/MOSI/PCINT2)PB2",
+        "U2.(PDI/MOSI/PCINT2)PB2"
+      ]
+    },
+    {
+      "name": "Net-(D3-A)",
+      "power": false,
+      "pins": [
+        "D3.A",
+        "RN2.R2.2"
+      ]
+    },
+    {
+      "name": "Net-(D4-A)",
+      "power": false,
+      "pins": [
+        "D4.A",
+        "RN2.R1.2"
+      ]
+    },
+    {
+      "name": "Net-(D5-A)",
+      "power": false,
+      "pins": [
+        "D5.A",
+        "RN2.R3.2"
+      ]
+    },
+    {
+      "name": "Net-(D6-A)",
+      "power": false,
+      "pins": [
+        "D6.A",
+        "RN2.R4.2"
+      ]
+    },
+    {
+      "name": "RD+",
+      "power": false,
+      "pins": [
+        "RN3.R1.1",
+        "U1.D+",
+        "U2.D+"
+      ]
+    },
+    {
+      "name": "RD-",
+      "power": false,
+      "pins": [
+        "RN3.R4.1",
+        "U1.D-",
+        "U2.D-"
+      ]
+    },
+    {
+      "name": "RESET",
+      "power": false,
+      "pins": [
+        "D2.A",
+        "J4.Pin_6",
+        "J6.Pin_5",
+        "RN1.R4.1",
+        "S1.1",
+        "S1.2",
+        "U1.RESET",
+        "U2.RESET"
+      ]
+    },
+    {
+      "name": "RXLED",
+      "power": false,
+      "pins": [
+        "D6.K",
+        "U1.(SS/PCINT0)PB0",
+        "U2.(SS/PCINT0)PB0"
+      ]
+    },
+    {
+      "name": "SCK",
+      "power": false,
+      "pins": [
+        "J6.Pin_3",
+        "U1.(SCLK/PCINT1)PB1",
+        "U2.(SCLK/PCINT1)PB1"
+      ]
+    },
+    {
+      "name": "TXLED",
+      "power": false,
+      "pins": [
+        "D5.K",
+        "U1.(XCK1/#CTS)PD5",
+        "U2.(XCK1/#CTS)PD5"
+      ]
+    },
+    {
+      "name": "UCAP",
+      "power": false,
+      "pins": [
+        "C7.1",
+        "U1.UCAP",
+        "U2.UCAP"
+      ]
+    },
+    {
+      "name": "UGND",
+      "power": false,
+      "pins": [
+        "C7.2",
+        "FB2.1",
+        "J1.GND",
+        "R3.2",
+        "U1.UGND",
+        "U2.UGND"
+      ]
+    },
+    {
+      "name": "VBUS",
+      "power": true,
+      "pins": [
+        "C8.1",
+        "C9.2",
+        "F1.1",
+        "Q1.D",
+        "R4.2",
+        "U1.VBUS",
+        "U2.VBUS"
+      ]
+    },
+    {
+      "name": "VCC",
+      "power": true,
+      "pins": [
+        "C10.1",
+        "D1.K",
+        "J4.Pin_1",
+        "J7.1",
+        "RN1.R1.1",
+        "U5.VI"
+      ]
+    },
+    {
+      "name": "XTAL1",
+      "power": false,
+      "pins": [
+        "C4.1",
+        "R1.1",
+        "U1.XTAL1",
+        "U2.XTAL1",
+        "Y1.1"
+      ]
+    },
+    {
+      "name": "XTAL2",
+      "power": false,
+      "pins": [
+        "C3.2",
+        "R1.2",
+        "U1.XTAL2",
+        "U2.XTAL2",
+        "Y1.3"
+      ]
+    },
+    {
+      "name": "XUSB",
+      "power": false,
+      "pins": [
+        "F1.2",
+        "J1.VBUS",
+        "TP1.1"
+      ]
+    }
+  ]
+}
