@@ -172,3 +172,56 @@ def test_deterministic_c1_choice_applies_candidate():
     assert choices == [{"exception_id": "e1", "candidate_id": "c1"}]
     assert next(net for net in updated.nets if net.name == "IO").stub is True
     assert applied == ["ERC_PIN_NOT_CONNECTED:stub_net:c1"]
+
+
+def test_worker_startup_failure_is_not_silent_success(tmp_path, monkeypatch):
+    spec_a = tmp_path / "a.json"
+    write_spec(spec_a, "a")
+    manifest = tmp_path / "manifest.jsonl"
+    telemetry = tmp_path / "runs.jsonl"
+    write_manifest(manifest, [manifest_row("a", spec_a)])
+
+    class BrokenClient:
+        async def __aenter__(self):
+            raise RuntimeError("client cannot start")
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+    monkeypatch.setattr(run_corpus, "_client_for", lambda cfg: BrokenClient())
+
+    cfg = config(tmp_path, manifest, telemetry)
+    results = asyncio.run(run_corpus.run_manifest(cfg))
+
+    assert len(results) == 1
+    assert results[0].status == "crashed"
+    assert "client cannot start" in results[0].failure_reason
+
+
+def test_board_timeout_covers_spec_translation(tmp_path, monkeypatch):
+    manifest = tmp_path / "manifest.jsonl"
+    telemetry = tmp_path / "runs.jsonl"
+    row = manifest_row("a", tmp_path / "missing.json")
+    write_manifest(manifest, [row])
+
+    async def slow_spec(*args, **kwargs):
+        await asyncio.sleep(1.0)
+        return CircuitSpec.model_validate(trivial_spec("a")), []
+
+    monkeypatch.setattr(run_corpus, "nl_to_input_spec", slow_spec)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    cfg = config(tmp_path, manifest, telemetry)
+    cfg.mode = "internal"
+    cfg.timeout_s = 0.01
+    result = asyncio.run(
+        run_corpus.run_board(
+            row,
+            cfg,
+            run_corpus.DirectDesignClient(),
+            run_corpus.SpendTracker(1.0),
+        )
+    )
+
+    assert result.status == "timeout"
+    assert "timeout" in result.failure_reason

@@ -22,7 +22,7 @@ import sys
 import time
 import uuid
 from collections import deque
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -138,8 +138,7 @@ class MCPDesignClient:
 
     def __init__(self, config: RunnerConfig):
         self.config = config
-        self._stdio_cm = None
-        self._session_cm = None
+        self._stack: AsyncExitStack | None = None
         self._session = None
 
     async def __aenter__(self) -> "MCPDesignClient":
@@ -156,18 +155,21 @@ class MCPDesignClient:
             args=["-m", "mcp_server.server"],
             env=env,
         )
-        self._stdio_cm = stdio_client(params)
-        read, write = await self._stdio_cm.__aenter__()
-        self._session_cm = ClientSession(read, write)
-        self._session = await self._session_cm.__aenter__()
-        await self._session.initialize()
-        return self
+        self._stack = AsyncExitStack()
+        try:
+            read, write = await self._stack.enter_async_context(stdio_client(params))
+            self._session = await self._stack.enter_async_context(ClientSession(read, write))
+            await self._session.initialize()
+            return self
+        except BaseException:
+            await self._stack.aclose()
+            self._stack = None
+            raise
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
-        if self._session_cm is not None:
-            await self._session_cm.__aexit__(exc_type, exc, tb)
-        if self._stdio_cm is not None:
-            await self._stdio_cm.__aexit__(exc_type, exc, tb)
+        if self._stack is not None:
+            await self._stack.__aexit__(exc_type, exc, tb)
+            self._stack = None
 
     async def generate_design(self, spec: dict, run_options: dict) -> dict:
         result = await self._session.call_tool(
@@ -319,6 +321,13 @@ def score_reference(spec: CircuitSpec, row: dict) -> tuple[float | None, float |
         return bom_match_score(gen, ref), netlist_match_score(gen, ref)
     except (OracleError, OSError, ValueError, subprocess.SubprocessError):
         return None, None
+
+
+async def score_reference_async(
+    spec: CircuitSpec,
+    row: dict,
+) -> tuple[float | None, float | None]:
+    return await asyncio.to_thread(score_reference, spec, row)
 
 
 def _failure_from_response(response: DesignResponse | None) -> str | None:
@@ -477,102 +486,135 @@ async def run_board(
     client: DirectDesignClient | MCPDesignClient,
     spend_tracker: SpendTracker,
 ) -> BoardResult:
+    loop = asyncio.get_running_loop()
+    board_deadline = loop.time() + config.timeout_s
     board_id = str(row["board_id"])
-    board_deadline = time.monotonic() + config.timeout_s
-    spec, mode, stages, failure_reason, terminal_status = await _spec_for_row(
-        row,
-        config.mode,
-        config,
-        spend_tracker,
-    )
-    if terminal_status:
+    spec: CircuitSpec | None = None
+    response: DesignResponse | None = None
+    mode = config.mode
+    stages: list[dict | LLMStage] = []
+    corrections: list[str] = []
+    correction_iterations = 0
+    failure_reason: str | None = None
+    status = "failed"
+
+    try:
+        async with asyncio.timeout_at(board_deadline):
+            spec, mode, stages, failure_reason, terminal_status = await _spec_for_row(
+                row,
+                config.mode,
+                config,
+                spend_tracker,
+            )
+            if terminal_status:
+                run_id = write_final_record(
+                    row=row,
+                    mode=mode,
+                    config=config,
+                    spec=spec,
+                    response=None,
+                    status=terminal_status,
+                    failure_reason=failure_reason,
+                    llm_stages=stages,
+                )
+                return BoardResult(board_id, mode, terminal_status, run_id, failure_reason or "")
+
+            parent_run_id: str | None = None
+
+            while True:
+                remaining = board_deadline - loop.time()
+                if remaining <= 0:
+                    status = "timeout"
+                    failure_reason = "per-board timeout reached before next engine attempt"
+                    break
+
+                run_options = {
+                    "out_dir": str(config.artifacts),
+                    "timeout_s": min(config.timeout_s, remaining),
+                    "mode": mode,
+                    "board_id": board_id,
+                    "telemetry_path": str(config.telemetry),
+                    "record_telemetry": False,
+                    "record_fields": row,
+                    "validation_mode": _validation_mode(row.get("validation_mode")),
+                    "model_tier": config.model_tier,
+                    "correction_iterations": correction_iterations,
+                    "corrections_applied": corrections,
+                    "llm_stages": [
+                        stage.model_dump(mode="json") if isinstance(stage, LLMStage) else stage
+                        for stage in stages
+                    ],
+                    "parent_run_id": parent_run_id,
+                }
+                response = DesignResponse.model_validate(
+                    await client.generate_design(spec.model_dump(mode="json"), run_options)
+                )
+                parent_run_id = response.run_id
+
+                exceptions = actionable_exceptions(response)
+                if response.ok or not exceptions:
+                    status = response.status
+                    failure_reason = _failure_from_response(response)
+                    break
+                if correction_iterations >= config.max_iters:
+                    status = "failed"
+                    failure_reason = f"correction loop hit max_iters={config.max_iters}"
+                    break
+
+                choices, review_stages, next_mode, degraded = await _review_choices(
+                    mode=mode,
+                    row=row,
+                    spec=spec,
+                    exceptions=exceptions,
+                    history=corrections,
+                    spend_tracker=spend_tracker,
+                )
+                mode = next_mode
+                stages.extend(review_stages)
+                if degraded:
+                    corrections.append("mode_degraded:engine_only")
+                if _token_count(stages) > config.max_board_tokens:
+                    status = "cap_exceeded"
+                    failure_reason = "board token cap exceeded"
+                    break
+                try:
+                    spec, applied = apply_choices(spec, exceptions, choices)
+                except CorrectionError as exc:
+                    status = "failed"
+                    failure_reason = f"correction application failed: {exc}"
+                    break
+                if not applied:
+                    status = "failed"
+                    failure_reason = "no applicable correction candidates"
+                    break
+                corrections.extend(applied)
+                correction_iterations += 1
+
+            bom_score, netlist_score = (
+                await score_reference_async(spec, row)
+                if spec is not None
+                else (None, None)
+            )
+    except TimeoutError:
+        status = "timeout"
+        failure_reason = f"per-board timeout exceeded ({config.timeout_s:.1f}s)"
+        bom_score, netlist_score = None, None
+
+    if spec is None:
         run_id = write_final_record(
             row=row,
             mode=mode,
             config=config,
-            spec=spec,
+            spec=None,
             response=None,
-            status=terminal_status,
+            status=status,
             failure_reason=failure_reason,
             llm_stages=stages,
+            correction_iterations=correction_iterations,
+            corrections_applied=corrections,
         )
-        return BoardResult(board_id, mode, terminal_status, run_id, failure_reason or "")
+        return BoardResult(board_id, mode, status, run_id, failure_reason or "")
 
-    response: DesignResponse | None = None
-    corrections: list[str] = []
-    correction_iterations = 0
-    parent_run_id: str | None = None
-
-    while True:
-        remaining = board_deadline - time.monotonic()
-        if remaining <= 0:
-            status = "timeout"
-            failure_reason = "per-board timeout reached before next engine attempt"
-            break
-
-        run_options = {
-            "out_dir": str(config.artifacts),
-            "timeout_s": min(config.timeout_s, remaining),
-            "mode": mode,
-            "board_id": board_id,
-            "telemetry_path": str(config.telemetry),
-            "record_telemetry": False,
-            "record_fields": row,
-            "validation_mode": _validation_mode(row.get("validation_mode")),
-            "model_tier": config.model_tier,
-            "correction_iterations": correction_iterations,
-            "corrections_applied": corrections,
-            "llm_stages": [
-                stage.model_dump(mode="json") if isinstance(stage, LLMStage) else stage
-                for stage in stages
-            ],
-            "parent_run_id": parent_run_id,
-        }
-        response = DesignResponse.model_validate(
-            await client.generate_design(spec.model_dump(mode="json"), run_options)
-        )
-        parent_run_id = response.run_id
-
-        exceptions = actionable_exceptions(response)
-        if response.ok or not exceptions:
-            status = response.status
-            failure_reason = _failure_from_response(response)
-            break
-        if correction_iterations >= config.max_iters:
-            status = "failed"
-            failure_reason = f"correction loop hit max_iters={config.max_iters}"
-            break
-
-        choices, review_stages, next_mode, degraded = await _review_choices(
-            mode=mode,
-            row=row,
-            spec=spec,
-            exceptions=exceptions,
-            history=corrections,
-            spend_tracker=spend_tracker,
-        )
-        mode = next_mode
-        stages.extend(review_stages)
-        if degraded:
-            corrections.append("mode_degraded:engine_only")
-        if _token_count(stages) > config.max_board_tokens:
-            status = "cap_exceeded"
-            failure_reason = "board token cap exceeded"
-            break
-        try:
-            spec, applied = apply_choices(spec, exceptions, choices)
-        except CorrectionError as exc:
-            status = "failed"
-            failure_reason = f"correction application failed: {exc}"
-            break
-        if not applied:
-            status = "failed"
-            failure_reason = "no applicable correction candidates"
-            break
-        corrections.extend(applied)
-        correction_iterations += 1
-
-    bom_score, netlist_score = score_reference(spec, row) if spec is not None else (None, None)
     run_id = write_final_record(
         row=row,
         mode=mode,
@@ -648,6 +690,7 @@ async def run_manifest(config: RunnerConfig) -> list[BoardResult]:
     queue = deque(rows)
     lock = asyncio.Lock()
     results: list[BoardResult] = []
+    worker_failures: list[BoardResult] = []
     spend_tracker = SpendTracker(config.max_total_spend_usd, str(config.spend_log))
     stop_after_s = max(0.0, config.max_runtime_hours * 3600.0 - 15.0 * 60.0)
     stop_at = time.monotonic() + stop_after_s
@@ -698,6 +741,14 @@ async def run_manifest(config: RunnerConfig) -> list[BoardResult]:
                         flush=True,
                     )
         except Exception as exc:
+            worker_failures.append(
+                BoardResult(
+                    f"worker-{worker_id}",
+                    config.mode,
+                    "crashed",
+                    failure_reason=f"{type(exc).__name__}: {exc}",
+                )
+            )
             print(
                 f"[worker {worker_id}] client failed: {type(exc).__name__}: {exc}",
                 file=sys.stderr,
@@ -718,6 +769,7 @@ async def run_manifest(config: RunnerConfig) -> list[BoardResult]:
         for i in range(max(1, int(config.concurrency)))
     ]
     await asyncio.gather(*workers)
+    results.extend(worker_failures)
     if queue:
         skipped = len(queue)
         print(

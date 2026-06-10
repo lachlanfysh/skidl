@@ -6,7 +6,7 @@ LOG_DIR="${LOG_DIR:-"$ROOT/artifacts/logs"}"
 PID_FILE="${PID_FILE:-"$ROOT/artifacts/run_corpus.pid"}"
 MODE="${MODE:-engine_only}"
 PYTHON_BIN="${PYTHON_BIN:-"$ROOT/.venv/bin/python"}"
-USE_MCP="${USE_MCP:-0}"
+USE_MCP="${USE_MCP:-1}"
 MAX_RUNTIME_HOURS="${MAX_RUNTIME_HOURS:-8}"
 MAX_TOTAL_SPEND_USD="${MAX_TOTAL_SPEND_USD:-10}"
 

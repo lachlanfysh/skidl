@@ -37,6 +37,11 @@ class DesignResponse(BaseModel):
     metrics: dict = Field(default_factory=dict)
     summary: str = ""
     stderr: str = ""
+    policy: dict = Field(default_factory=dict)
+    decision_required: bool = False
+    decision_kind: str = ""
+    recommended_next_tool: str = ""
+    corrections_applied: list[dict] = Field(default_factory=list)
 
 
 def _repo_root() -> Path:
