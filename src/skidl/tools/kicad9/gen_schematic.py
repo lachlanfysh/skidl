@@ -421,15 +421,59 @@ def preprocess_circuit(circuit, **options):
 
             part_unit.grab_pins()
 
-            for pin in part_unit:
+            # Check if all pins lack coordinates (tool=SKIDL parts).
+            all_pins = list(part_unit)
+            needs_synthetic_coords = all(
+                (getattr(p, "x", 0) or 0) == 0 and (getattr(p, "y", 0) or 0) == 0
+                for p in all_pins
+            ) and len(all_pins) > 1
+
+            for pin in all_pins:
                 # Normalize pin orientation from integer degrees to string direction.
-                if isinstance(pin.orientation, int):
-                    pin.orientation = deg_to_orient.get(pin.orientation % 360, "R")
+                pin_orient = getattr(pin, "orientation", "R")
+                if isinstance(pin_orient, int):
+                    pin.orientation = deg_to_orient.get(pin_orient % 360, "R")
+                elif not hasattr(pin, "orientation") or pin_orient is None:
+                    pin.orientation = "R"
                 # Pin coords from KiCad 9 libs are in mm; convert to mils
                 # so the placement/routing engine works in consistent units.
                 MM_TO_MILS = 1 / 0.0254
-                pin.pt = Point(pin.x * MM_TO_MILS, pin.y * MM_TO_MILS)
+                pin_x = getattr(pin, "x", 0) or 0
+                pin_y = getattr(pin, "y", 0) or 0
+                pin.pt = Point(pin_x * MM_TO_MILS, pin_y * MM_TO_MILS)
                 pin.routed = False
+
+            # For tool=SKIDL parts with no lib coordinates, synthesize pin
+            # positions spread around the symbol box so routing can work.
+            if needs_synthetic_coords and all_pins:
+                from skidl.pin import Pin as SkidlPin
+                n = len(all_pins)
+                # Split pins: power-in on left, power-out on right,
+                # inputs on left, outputs/bidir on right.
+                left_pins = []
+                right_pins = []
+                for p in all_pins:
+                    func = getattr(p, "func", None)
+                    if func in (SkidlPin.types.PWRIN, SkidlPin.types.INPUT):
+                        left_pins.append(p)
+                    else:
+                        right_pins.append(p)
+                if not left_pins:
+                    half = n // 2
+                    left_pins = all_pins[:half]
+                    right_pins = all_pins[half:]
+
+                pin_spacing = 100  # mils between pins
+                # Left side pins
+                total_left = len(left_pins) * pin_spacing
+                for i, p in enumerate(left_pins):
+                    p.pt = Point(-200, -total_left // 2 + i * pin_spacing)
+                    p.orientation = "R"
+                # Right side pins
+                total_right = len(right_pins) * pin_spacing
+                for i, p in enumerate(right_pins):
+                    p.pt = Point(200, -total_right // 2 + i * pin_spacing)
+                    p.orientation = "L"
 
     def rotate_power_pins(part):
         """Rotate a part based on the direction of its power pins."""

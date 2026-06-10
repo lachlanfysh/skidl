@@ -344,6 +344,25 @@ def calc_symbol_bbox(part, **options):
         bboxes[0] = bbox
         bboxes.append(bbox)
 
+    # Fallback: if all bboxes are empty (e.g. tool=SKIDL parts with no
+    # draw_cmds), synthesize a reasonable bbox from pin count so the
+    # placement engine doesn't choke on inf/NaN coordinates.
+    def _bbox_is_empty(bb):
+        import math
+        return (math.isinf(bb.min.x) or math.isinf(bb.max.x) or
+                math.isnan(bb.min.x) or math.isnan(bb.max.x))
+
+    for i in range(len(bboxes)):
+        if _bbox_is_empty(bboxes[i]):
+            # Create a synthetic bbox sized by pin count.
+            num_pins = len(getattr(part, "pins", []))
+            # ~100 mils per pin side, minimum 200x200 mils box.
+            side = max(200, 50 * max(1, num_pins // 2))
+            half = side // 2
+            bboxes[i] = BBox(Point(-half, -half), Point(half, half))
+            if i > 0 and not part.unit:
+                part.bbox = bboxes[i]
+
     return bboxes
 
 

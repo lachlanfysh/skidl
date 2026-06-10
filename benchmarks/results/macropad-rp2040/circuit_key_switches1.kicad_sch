@@ -1,0 +1,1648 @@
+(kicad_sch
+  (version 20230409)
+  (generator "skidl")
+  (generator_version "2.2.3")
+  (uuid 0e19b3f8-5745-5c63-bbf6-e9672fa74cc3)
+  (paper "A4")
+  (title_block
+    (title "SKiDL-Generated Schematic")
+    (date "2026-06-10")
+    (company "")
+    (comment 1 "Generated with SKiDL")
+    (comment 2 "")
+    (comment 3 "")
+    (comment 4 ""))
+  (lib_symbols
+    (symbol "/usr/share/kicad/symbols/Switch:SW_Push"
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "SW"
+        (at 2.032 0 90)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Value" "SW_Push"
+        (at 0 0 90)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" "~"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Push button switch, generic, two pins"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "SW_Push_0_1"
+        (circle
+          (center -2.032 0)
+          (radius 0.508)
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 1.27)
+            (xy 0 3.048))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (circle
+          (center 2.032 0)
+          (radius 0.508)
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 2.54 1.27)
+            (xy -2.54 1.27))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "SW_Push_1_1"
+        (circle
+          (center -2.032 0)
+          (radius 0.508)
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 1.27)
+            (xy 0 3.048))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (circle
+          (center 2.032 0)
+          (radius 0.508)
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 2.54 1.27)
+            (xy -2.54 1.27))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (pin passive line
+          (at -5.08 0 0)
+          (length 2.54)
+          (name "1"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27)))))
+        (pin passive line
+          (at 5.08 0 180)
+          (length 2.54)
+          (name "2"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "2"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no))
+    (symbol "power:GND"
+      (power)
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0)
+        (hide yes))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "#PWR"
+        (at 0 -6.35 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Value" "GND"
+        (at 0 -3.81 0)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "ki_keywords" "global power"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "GND_0_1"
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 -1.27)
+            (xy 1.27 -1.27)
+            (xy 0 -2.54)
+            (xy -1.27 -1.27)
+            (xy 0 -1.27))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "GND_1_1"
+        (pin power_in line
+          (at 0 0 270)
+          (length 0)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no))
+    (symbol "power:+3V3"
+      (power)
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0)
+        (hide yes))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "#PWR"
+        (at 0 -3.81 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Value" "+3V3"
+        (at 0 3.556 0)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Power symbol creates a global label with name \"+3V3\""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "ki_keywords" "global power"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "+3V3_0_1"
+        (polyline
+          (pts
+            (xy -0.762 1.27)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 2.54)
+            (xy 0.762 1.27))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "+3V3_1_1"
+        (pin power_in line
+          (at 0 0 90)
+          (length 0)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no))
+    (symbol "power:+5V"
+      (power)
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0)
+        (hide yes))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "#PWR"
+        (at 0 -3.81 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Value" "+5V"
+        (at 0 3.556 0)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Power symbol creates a global label with name \"+5V\""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "ki_keywords" "global power"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "+5V_0_1"
+        (polyline
+          (pts
+            (xy -0.762 1.27)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 2.54)
+            (xy 0.762 1.27))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "+5V_1_1"
+        (pin power_in line
+          (at 0 0 90)
+          (length 0)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no)))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 153.67 91.44 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid ae495b31-6ba9-5f26-84ae-86649efeca57)
+    (property "Reference" "SW1"
+      (at 153.67 88.89999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 153.67 93.98 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 153.67 91.44 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 153.67 91.44 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 153.67 91.44 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 4c9abd73-b271-50be-906f-0edae421d538))
+    (pin "2"
+      (uuid 4312549c-11b7-5808-b704-289742f1e097))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW1")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 153.67 160.02 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 44df289d-5050-52da-b61c-c4d6d42307c0)
+    (property "Reference" "SW2"
+      (at 153.67 157.48000000000002 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 153.67 162.56 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 153.67 160.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 153.67 160.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 153.67 160.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 81924f09-5735-5ca3-81bd-df95be365bb9))
+    (pin "2"
+      (uuid 0efeaafe-cc7c-53cf-8b7b-cbaa92978627))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW2")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 153.67 62.23 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid ee1b4523-d608-5cd1-ba14-4bdd9c0efc89)
+    (property "Reference" "SW3"
+      (at 153.67 59.69 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 153.67 64.77 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 153.67 62.23 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 153.67 62.23 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 153.67 62.23 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 36b202f5-a71a-5c69-bf3d-b2eceed4500a))
+    (pin "2"
+      (uuid 7aa6f2a9-8018-5188-9898-74899cfe790b))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW3")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 153.67 52.07 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 9a18ab80-b958-54dc-b8aa-d32deb9ffbcd)
+    (property "Reference" "SW4"
+      (at 153.67 49.53 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 153.67 54.61 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 153.67 52.07 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 153.67 52.07 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 153.67 52.07 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 30e0131a-c96a-5ea9-b701-2a8305dbeaeb))
+    (pin "2"
+      (uuid d6dd5eb9-ea65-51f1-9baf-80718206bd01))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW4")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 153.67 120.65 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 9488fb00-267e-5e4d-8058-0a491089937d)
+    (property "Reference" "SW5"
+      (at 153.67 118.11 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 153.67 123.19000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 153.67 120.65 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 153.67 120.65 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 153.67 120.65 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 55cb25e4-7852-502b-b14d-d209452bd328))
+    (pin "2"
+      (uuid 35625806-9559-54fd-9edb-14269220c973))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW5")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 153.67 81.28 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 3a653e2f-9ddb-5a84-8a25-e7e6cd24d1fe)
+    (property "Reference" "SW6"
+      (at 153.67 78.74 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 153.67 83.82000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 153.67 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 153.67 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 153.67 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid eb369e60-50f8-5cae-b7ca-7a39f7eaa235))
+    (pin "2"
+      (uuid 76daa7f0-d984-52ed-8ba9-b989102d175d))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW6")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 153.67 101.6 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid d3b3ca60-d3c7-5cdb-a3a5-676f89f16a7e)
+    (property "Reference" "SW7"
+      (at 153.67 99.05999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 153.67 104.14 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 153.67 101.6 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 153.67 101.6 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 153.67 101.6 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid d7058af9-4ad3-5427-a532-64e95a914db5))
+    (pin "2"
+      (uuid 44e0f251-4a60-532e-9939-48efa105cfb8))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW7")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 153.67 71.12 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid d64e508b-d4e0-540b-af69-ce0e4a9a8529)
+    (property "Reference" "SW8"
+      (at 153.67 68.58 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 153.67 73.66000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 153.67 71.12 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 153.67 71.12 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 153.67 71.12 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 4c6b12f8-9b75-5761-bdab-1d712527145e))
+    (pin "2"
+      (uuid 53a0224c-67d6-5df1-bca1-e86adf1c8f35))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW8")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 154.94 130.81 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid efa180ca-5927-54b7-9ad0-95df2b8aa2c2)
+    (property "Reference" "SW9"
+      (at 154.94 128.27 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 154.94 133.35 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 154.94 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 154.94 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 154.94 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid cf315bb5-e722-5938-ad2c-97f05ea67e6e))
+    (pin "2"
+      (uuid c2d86c38-b4e3-5874-9c06-5cc98213259a))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW9")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 153.67 139.7 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 29fc4987-7064-5056-b1e3-9b5177aa09d3)
+    (property "Reference" "SW10"
+      (at 153.67 137.16 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 153.67 142.23999999999998 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 153.67 139.7 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 153.67 139.7 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 153.67 139.7 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid bef8456d-a263-5f63-88f5-49a63e68ca2e))
+    (pin "2"
+      (uuid 51951772-d47f-5225-be01-73ba11596ed7))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW10")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 154.94 149.86 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid db03970a-1f53-581c-ad8a-3fc690082c1e)
+    (property "Reference" "SW11"
+      (at 154.94 147.32000000000002 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 154.94 152.4 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 154.94 149.86 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 154.94 149.86 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 154.94 149.86 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid a2d5b6ee-20c5-59c1-ba91-b64cef169b53))
+    (pin "2"
+      (uuid 4aa61aef-6ed5-51b9-9be0-d69da9b3fa14))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW11")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Switch:SW_Push")
+    (at 154.94 110.49 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 6d67f34b-ee5b-528f-a50e-97a21ea574f3)
+    (property "Reference" "SW12"
+      (at 154.94 107.94999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "SW_Push"
+      (at 154.94 113.03 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Button_Switch_Keyboard:SW_Cherry_MX_1.00u_PCB"
+      (at 154.94 110.49 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 154.94 110.49 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Push button switch, generic, two pins"
+      (at 154.94 110.49 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 2e6fe3f2-7e64-5333-a4ed-95731b1aa26b))
+    (pin "2"
+      (uuid ca9a22d8-7d7a-56f9-9a2e-04475ab4c373))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/4053dcfc-9748-4811-be9c-612c39bb99e3/0e19b3f8-5745-5c63-bbf6-e9672fa74cc3"
+          (reference "SW12")
+          (unit 1)))))
+  (global_label "KEY4_1"
+    (shape bidirectional)
+    (at 140.97 120.65 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid ae7a9057-9343-5621-a813-e2371b29fcc7))
+  (global_label "KEY5_1"
+    (shape bidirectional)
+    (at 140.97 81.28 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid a5fb3a4c-c114-5d1e-a6ad-c03ed5677f1f))
+  (global_label "KEY6_1"
+    (shape bidirectional)
+    (at 140.97 101.6 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 2dd7fe0b-331d-50c2-9e43-34a4fda56505))
+  (global_label "KEY10_1"
+    (shape bidirectional)
+    (at 142.24 149.86 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 66c40d2f-c6eb-5ca2-8f77-eae4f2088830))
+  (global_label "KEY1_1"
+    (shape bidirectional)
+    (at 140.97 160.02 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid cba725d3-2357-5e52-8394-673d94f01239))
+  (global_label "KEY7_1"
+    (shape bidirectional)
+    (at 140.97 71.12 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 08e57ec7-2d25-5c5f-9091-a787f8654271))
+  (global_label "KEY0_1"
+    (shape bidirectional)
+    (at 140.97 91.44 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 6edf4a6e-393f-5fa7-b636-dbbb2a744600))
+  (global_label "KEY9_1"
+    (shape bidirectional)
+    (at 140.97 139.7 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid aa79ac72-46c4-5a9e-bb12-721aecb69ffb))
+  (global_label "KEY2_1"
+    (shape bidirectional)
+    (at 140.97 62.23 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 16b47a96-1a67-5d38-aef5-17f98f826859))
+  (global_label "KEY11_1"
+    (shape bidirectional)
+    (at 142.24 110.49 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid f439c6df-dcca-56af-985f-1d84ba9cc375))
+  (global_label "KEY8_1"
+    (shape bidirectional)
+    (at 142.24 130.81 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 7c75e913-1112-5306-b8a1-ee646e464ae2))
+  (global_label "KEY3_1"
+    (shape bidirectional)
+    (at 140.97 52.07 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid be97b262-574e-5b63-a159-29d5f79ef49d))
+  (wire
+    (pts
+      (xy 140.97 91.44)
+      (xy 148.59 91.44))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 53e26a4f-42e4-59b4-bf81-ad8fb50a0062))
+  (wire
+    (pts
+      (xy 140.97 160.02)
+      (xy 148.59 160.02))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 164b87da-e551-5f2a-b6af-f593fa17bcea))
+  (wire
+    (pts
+      (xy 140.97 62.23)
+      (xy 148.59 62.23))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid a10b354e-7314-52b3-83ca-33e998179860))
+  (wire
+    (pts
+      (xy 140.97 52.07)
+      (xy 148.59 52.07))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid ee5c85d7-8064-5d5b-a9df-689479a1cf4f))
+  (wire
+    (pts
+      (xy 140.97 120.65)
+      (xy 148.59 120.65))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 7d6dd4e5-0b47-52e0-b58e-bdb0772b1926))
+  (wire
+    (pts
+      (xy 140.97 81.28)
+      (xy 148.59 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 69765009-6cc0-50a6-86f4-d730a88c8fbc))
+  (wire
+    (pts
+      (xy 140.97 101.6)
+      (xy 148.59 101.6))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid c742e796-0e20-5453-8d04-fb6f9dd88334))
+  (wire
+    (pts
+      (xy 140.97 71.12)
+      (xy 148.59 71.12))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 070b7955-497c-5943-ad51-55e76dbf282d))
+  (wire
+    (pts
+      (xy 142.24 130.81)
+      (xy 149.86 130.81))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 63b65f69-1fb4-5ac7-bc07-45ea636ac732))
+  (wire
+    (pts
+      (xy 140.97 139.7)
+      (xy 148.59 139.7))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid e8485765-033d-533b-892f-d620552b9d8b))
+  (wire
+    (pts
+      (xy 142.24 149.86)
+      (xy 149.86 149.86))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid a80ce7a5-75b8-5707-a2bb-fc5f45960046))
+  (wire
+    (pts
+      (xy 142.24 110.49)
+      (xy 149.86 110.49))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 3e12fe70-50f1-534d-9b5a-997f06cf1f3e))
+  (symbol
+    (lib_id "power:GND")
+    (at 158.75 91.44 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 3ea08535-312d-5789-9545-680c631127ed)
+    (property "Reference" "#PWR058"
+      (at 158.75 90.17 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 158.75 87.63 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 158.75 91.44 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 158.75 91.44 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid f130521b-51aa-5d5b-95a5-916be1b0b1ff))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR058")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 158.75 160.02 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 4a4418bf-4a6d-5862-8c16-baa1a5f51e77)
+    (property "Reference" "#PWR059"
+      (at 158.75 158.75 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 158.75 156.21 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 158.75 160.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 158.75 160.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 6abb62d2-ea5e-51c7-b60d-d42d25235ff4))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR059")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 158.75 62.23 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 2b2bdc69-be0c-549a-b57b-8d237a5ebe42)
+    (property "Reference" "#PWR060"
+      (at 158.75 60.959999999999994 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 158.75 58.419999999999995 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 158.75 62.23 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 158.75 62.23 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 019b2a80-2eb4-5606-bbad-f68f758cea99))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR060")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 158.75 52.07 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 289be354-8596-57b4-8d9e-fd340b0d9d48)
+    (property "Reference" "#PWR061"
+      (at 158.75 50.8 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 158.75 48.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 158.75 52.07 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 158.75 52.07 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid af123d36-54c6-5649-816f-bde871e0cb70))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR061")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 158.75 120.65 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 8a89ea47-218f-5157-b583-6764e9254b3f)
+    (property "Reference" "#PWR062"
+      (at 158.75 119.38000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 158.75 116.84 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 158.75 120.65 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 158.75 120.65 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 5da5b6df-1fbc-5178-9116-314c10ad02fc))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR062")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 158.75 81.28 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 438bbb80-4e50-5753-8b7b-58222a5ab0ad)
+    (property "Reference" "#PWR063"
+      (at 158.75 80.01 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 158.75 77.47 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 158.75 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 158.75 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid a89e975d-d4ab-5c1f-8daa-75fdddd6e82b))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR063")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 158.75 101.6 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 7d88b8e1-a1c8-53d3-af63-65274cea2bd1)
+    (property "Reference" "#PWR064"
+      (at 158.75 100.33 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 158.75 97.78999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 158.75 101.6 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 158.75 101.6 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid ec584517-6e34-5233-83ce-20e17a85d38e))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR064")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 158.75 71.12 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 86b5bdfd-09e5-504e-855f-8eaebecaa5a8)
+    (property "Reference" "#PWR065"
+      (at 158.75 69.85000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 158.75 67.31 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 158.75 71.12 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 158.75 71.12 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 131beeb3-97af-557b-a479-97f2e7b71991))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR065")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 160.02 130.81 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid a7daf32a-403a-5b6f-8ed7-a80cb131f730)
+    (property "Reference" "#PWR066"
+      (at 160.02 129.54 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 160.02 127.0 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 160.02 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 160.02 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid fe5b87d3-eb12-5fa5-b680-86ae8eb592a9))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR066")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 158.75 139.7 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 68b63d05-8fdd-5b96-a4b3-3a9cc216a2c3)
+    (property "Reference" "#PWR067"
+      (at 158.75 138.42999999999998 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 158.75 135.89 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 158.75 139.7 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 158.75 139.7 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 7cd2414c-cb82-5c81-b7c3-cf731c382a33))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR067")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 160.02 149.86 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 66c816b3-a30a-5e23-bd9c-4383421dbf5f)
+    (property "Reference" "#PWR068"
+      (at 160.02 148.59 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 160.02 146.05 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 160.02 149.86 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 160.02 149.86 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 4845abf7-358e-5bd0-9d66-e350c7531388))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR068")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 160.02 110.49 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 01b77092-ed01-5a5f-89eb-43aa7fc213da)
+    (property "Reference" "#PWR069"
+      (at 160.02 109.22 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 160.02 106.67999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 160.02 110.49 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 160.02 110.49 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 6b127860-aeab-51fc-9cc3-298e4c531fbf))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR069")
+          (unit 1))))))

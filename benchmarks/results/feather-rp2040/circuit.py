@@ -1,261 +1,295 @@
 """
-Feather RP2040 - SKiDL Circuit Description
-Adafruit Feather RP2040 based on Raspberry Pi RP2040 in Feather form factor.
+Feather RP2040 -- SKiDL circuit description.
 
-Key components:
-- RP2040 dual-core Cortex-M0+ MCU (QFN-56)
-- W25Q16JVSS 16Mbit QSPI Flash
-- AP2112K-3.3 LDO regulator (USB 5V -> 3.3V)
-- MCP73831 LiPo battery charger
-- USB-C connector
-- WS2812B NeoPixel LED
-- User LED (GPIO13)
-- Reset & Bootsel buttons
-- Feather header pins (12+16)
-- 12MHz crystal for RP2040
-- Battery management with Schottky diode and PMOS power switching
+Adafruit Feather RP2040 built around the Raspberry Pi RP2040 chip
+(Dual Cortex-M0+ @ 133MHz). Features USB-C, 8MB QSPI flash (GD25Q64),
+LiPo charging (MCP73831), AP2112K-3.3 LDO, NeoPixel status LED,
+STEMMA QT / Qwiic I2C connector, 12MHz crystal, and standard Feather
+headers (16-pin + 12-pin).
 """
 
 import os
 os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
 
+import sys
+sys.path.insert(0, "/home/lachlan/Projects/skidl/src")
+
 from skidl import *
 set_default_tool(KICAD9)
 
-# =============================================================================
-# Power nets
-# =============================================================================
-vbus = Net("VBUS"); vbus.drive = POWER
-vbat = Net("VBAT"); vbat.drive = POWER
-vsys = Net("VSYS"); vsys.drive = POWER
-v3v3 = Net("+3V3"); v3v3.drive = POWER
-gnd = Net("GND"); gnd.drive = POWER
+# ── Power Nets ──────────────────────────────────────────────────
+vbus = Net("VBUS"); vbus.drive = POWER        # USB 5V
+vbat = Net("VBAT"); vbat.drive = POWER        # Battery / regulated 5V
+v3v3 = Net("+3V3"); v3v3.drive = POWER        # 3.3V rail
+gnd  = Net("GND");  gnd.drive  = POWER        # Ground
 
-# Signal nets used across subcircuits
-usb_dp = Net("USB_DP")
-usb_dm = Net("USB_DM")
-run_net = Net("RUN")
-qspi_ss_net = Net("QSPI_SS")
+# ── Signal Nets ─────────────────────────────────────────────────
+usb_dp   = Net("USB_DP")
+usb_dm   = Net("USB_DM")
+neopixel = Net("NEOPIXEL")
+reset_n  = Net("RESET_N")
+swdio    = Net("SWDIO")
+swdclk   = Net("SWDCLK")
+charge_stat = Net("CHG_STAT")
 
-# GPIO signal nets (shared between MCU and headers/UI)
-gpio0 = Net("TX")
-gpio1 = Net("RX")
-gpio2 = Net("SDA")
-gpio3 = Net("SCL")
-gpio4 = Net("D4")
-gpio5 = Net("D5")
-gpio6 = Net("D6")
-gpio7 = Net("D7")
-gpio8 = Net("D8")
-gpio9 = Net("D9")
-gpio10 = Net("D10")
-gpio11 = Net("D11")
-gpio12 = Net("D12")
-gpio13 = Net("D13")
-gpio14 = Net("D14")
-gpio15 = Net("D15")
-gpio16 = Net("NEOPIXEL")
-gpio17 = Net("NEOPIXEL_PWR")
-gpio18 = Net("SCK")
-gpio19 = Net("MOSI")
-gpio20 = Net("MISO")
-gpio21 = Net("D21")
-gpio22 = Net("D22")
-gpio23 = Net("D23")
-gpio24 = Net("D24")
-gpio25 = Net("D25")
-gpio26 = Net("A0")
-gpio27 = Net("A1")
-gpio28 = Net("A2")
-gpio29 = Net("A3")
-swclk = Net("SWCLK")
-swdio = Net("SWDIO")
+# QSPI flash bus
+qspi_sclk = Net("QSPI_SCLK")
+qspi_sd0  = Net("QSPI_SD0")
+qspi_sd1  = Net("QSPI_SD1")
+qspi_sd2  = Net("QSPI_SD2")
+qspi_sd3  = Net("QSPI_SD3")
+qspi_ss   = Net("QSPI_SS")
 
-# =============================================================================
-# USB-C Connector subcircuit
-# =============================================================================
+# I2C bus
+sda = Net("SDA")
+scl = Net("SCL")
+
+# UART
+uart_tx = Net("TX")
+uart_rx = Net("RX")
+
+# SPI (exposed on headers)
+spi_sck  = Net("SPI_SCK")
+spi_mosi = Net("SPI_MOSI")
+spi_miso = Net("SPI_MISO")
+
+# Analog inputs (ADC on RP2040)
+a0 = Net("A0")
+a1 = Net("A1")
+a2 = Net("A2")
+a3 = Net("A3")
+
+# Digital pins
+d4  = Net("D4")
+d5  = Net("D5")
+d6  = Net("D6")
+d9  = Net("D9")
+d10 = Net("D10")
+d11 = Net("D11")
+d12 = Net("D12")
+d13 = Net("D13")
+d24 = Net("D24")
+d25 = Net("D25")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SUBCIRCUIT: USB-C Input
+# ═══════════════════════════════════════════════════════════════
 @subcircuit
-def usb_c_connector(vbus_net, dp_net, dm_net, gnd_net):
-    """USB-C connector with CC resistors for device mode."""
-    usb = Part("Connector", "USB_C_Receptacle_USB2.0_16P", dest=NETLIST,
-               footprint="Connector_USB:USB_C_Receptacle_XKB_U262-16XN-4BVC11")
+def usb_input(vbus, gnd, usb_dp, usb_dm):
+    """USB-C connector with CC resistors for UFP detection."""
 
-    # Power
-    usb["VBUS"] += vbus_net
-    usb["GND"] += gnd_net
-    usb["SHIELD"] += gnd_net
+    usb = Part("Connector", "USB_C_Receptacle_USB2.0_16P",
+               footprint="Connector_USB:USB_C_Receptacle_XKB_U262-16XN-4BVC11",
+               value="USB-C")
+    usb["VBUS"]   += vbus
+    usb["GND"]    += gnd
+    usb["D+"]     += usb_dp
+    usb["D-"]     += usb_dm
+    usb["SHIELD"] += gnd
+    usb["SBU1"]   += NC
+    usb["SBU2"]   += NC
 
-    # Data lines
-    usb["D+"] += dp_net
-    usb["D-"] += dm_net
-
-    # CC resistors for UFP (device) identification - 5.1k to GND
+    # CC1/CC2 pull-down resistors (5.1K for UFP / device role)
     r_cc1 = Part("Device", "R", value="5.1K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
+    r_cc1[1] += usb["CC1"]
+    r_cc1[2] += gnd
+
     r_cc2 = Part("Device", "R", value="5.1K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
-    usb["CC1"] += r_cc1[1]
-    r_cc1[2] += gnd_net
-    usb["CC2"] += r_cc2[1]
-    r_cc2[2] += gnd_net
+    r_cc2[1] += usb["CC2"]
+    r_cc2[2] += gnd
 
-    # SBU pins not connected
-    sbu1_nc = Net("SBU1_NC")
-    sbu2_nc = Net("SBU2_NC")
-    usb["SBU1"] += sbu1_nc
-    usb["SBU2"] += sbu2_nc
+    # USB input bulk capacitor
+    c_usb = Part("Device", "C", value="10uF",
+                 footprint="Capacitor_SMD:C_0805_2012Metric")
+    c_usb[1] += vbus
+    c_usb[2] += gnd
 
-usb_c_connector(vbus, usb_dp, usb_dm, gnd)
 
-# =============================================================================
-# Power management subcircuit
-# =============================================================================
+usb_input(vbus, gnd, usb_dp, usb_dm)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SUBCIRCUIT: LiPo Battery Charger (MCP73831)
+# ═══════════════════════════════════════════════════════════════
 @subcircuit
-def power_management(vbus_net, vbat_net, vsys_net, v3v3_net, gnd_net):
-    """
-    Battery charging (MCP73831) and power path management.
-    PMOS switch selects between USB and battery power.
-    AP2112K-3.3 regulates VSYS to 3.3V.
-    """
-    # --- MCP73831 LiPo charger ---
-    charger = Part("Battery_Management", "MCP73831-2-OT", value="MCP73831",
-                   footprint="Package_TO_SOT_SMD:SOT-23-5")
-    charger["V_{DD}"] += vbus_net
-    charger["V_{SS}"] += gnd_net
-    charger["V_{BAT}"] += vbat_net
+def lipo_charger(vbus, vbat, gnd, charge_stat):
+    """MCP73831 single-cell LiPo charger with status LED."""
 
-    # PROG resistor sets charge current: 2K = 500mA
+    chg = Part("Battery_Management", "MCP73831-2-OT",
+               footprint="Package_TO_SOT_SMD:SOT-23-5",
+               value="MCP73831")
+    chg["V_{DD}"]  += vbus
+    chg["V_{SS}"]  += gnd
+    chg["V_{BAT}"] += vbat
+    chg["STAT"]    += charge_stat
+
+    # Charge current programming resistor (2K = ~500mA)
     r_prog = Part("Device", "R", value="2K",
-                  footprint="Resistor_SMD:R_0402_1005Metric")
-    charger["PROG"] += r_prog[1]
-    r_prog[2] += gnd_net
+                  footprint="Resistor_SMD:R_0603_1608Metric")
+    chg["PROG"] += r_prog[1]
+    r_prog[2]   += gnd
 
-    # Charge status LED (active low)
-    chg_stat = Net("CHG_STAT")
-    charger["STAT"] += chg_stat
-    r_chg_led = Part("Device", "R", value="1K",
-                     footprint="Resistor_SMD:R_0402_1005Metric")
-    led_chg = Part("Device", "LED", value="ORANGE",
+    # Charge status LED (orange)
+    led_chg = Part("Device", "LED", value="Orange",
                    footprint="LED_SMD:LED_0603_1608Metric")
-    chg_stat += r_chg_led[1]
-    r_chg_led[2] += led_chg["A"]
-    led_chg["K"] += gnd_net
+    r_chg_led = Part("Device", "R", value="1K",
+                     footprint="Resistor_SMD:R_0603_1608Metric")
+    charge_stat += r_chg_led[1]
+    r_chg_led[2] += led_chg[1]   # Cathode
+    led_chg[2]   += vbus          # Anode — LED is active low from STAT
 
-    # Battery input cap
-    c_bat = Part("Device", "C", value="4.7uF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_bat[1] += vbat_net
-    c_bat[2] += gnd_net
+    # Battery connector (JST PH 2-pin)
+    j_bat = Part("Connector_Generic", "Conn_01x02",
+                 footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+                 value="BATT")
+    j_bat[1] += vbat
+    j_bat[2] += gnd
 
-    # --- Power path: Schottky diode OR from VBUS, PMOS switch from VBAT ---
-    # Schottky diode: VBUS -> VSYS
+    # Schottky diode for USB/battery power ORing
     d_usb = Part("Device", "D_Schottky", value="MBR120",
                  footprint="Diode_SMD:D_SOD-123")
-    d_usb["A"] += vbus_net
-    d_usb["K"] += vsys_net
+    d_usb[1] += vbat   # Cathode — to battery rail
+    d_usb[2] += vbus   # Anode — from USB VBUS
 
-    # PMOS: Source=VBAT, Drain=VSYS, Gate=VBUS
-    q_pwr = Part("Transistor_FET", "AO3401A", value="AO3401A",
-                 footprint="Package_TO_SOT_SMD:SOT-23")
-    q_pwr["S"] += vbat_net
-    q_pwr["D"] += vsys_net
-    q_pwr["G"] += vbus_net
+    # Decoupling cap for charger
+    c_chg = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_chg[1] += vbus
+    c_chg[2] += gnd
 
-    # Gate pulldown resistor
-    r_gate = Part("Device", "R", value="100K",
-                  footprint="Resistor_SMD:R_0402_1005Metric")
-    r_gate[1] += vbus_net
-    r_gate[2] += gnd_net
+    # Battery output bulk cap
+    c_bat = Part("Device", "C", value="10uF",
+                 footprint="Capacitor_SMD:C_0805_2012Metric")
+    c_bat[1] += vbat
+    c_bat[2] += gnd
 
-    # VSYS bulk cap
-    c_vsys = Part("Device", "C", value="10uF",
-                  footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_vsys[1] += vsys_net
-    c_vsys[2] += gnd_net
 
-    # --- AP2112K-3.3 LDO: VSYS -> 3.3V ---
-    reg = Part("Regulator_Linear", "AP2112K-3.3", value="AP2112K-3.3",
-               footprint="Package_TO_SOT_SMD:SOT-23-5")
-    reg["VIN"] += vsys_net
-    reg["GND"] += gnd_net
-    reg["EN"] += vsys_net  # Always enabled
-    reg["VOUT"] += v3v3_net
+lipo_charger(vbus, vbat, gnd, charge_stat)
 
-    # Input cap
-    c_reg_in = Part("Device", "C", value="1uF",
-                    footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_reg_in[1] += vsys_net
-    c_reg_in[2] += gnd_net
 
-    # Output cap
-    c_reg_out = Part("Device", "C", value="1uF",
-                     footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_reg_out[1] += v3v3_net
-    c_reg_out[2] += gnd_net
-
-power_management(vbus, vbat, vsys, v3v3, gnd)
-
-# =============================================================================
-# RP2040 MCU subcircuit
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════
+#  SUBCIRCUIT: 3.3V Voltage Regulator (AP2112K-3.3)
+# ═══════════════════════════════════════════════════════════════
 @subcircuit
-def rp2040_mcu(v3v3_net, gnd_net, usb_dp_net, usb_dm_net,
-               run_n, qspi_ss_n,
-               g0, g1, g2, g3, g4, g5, g6, g7, g8, g9,
-               g10, g11, g12, g13, g14, g15, g16, g17,
-               g18, g19, g20, g21, g22, g23, g24, g25,
-               g26, g27, g28, g29, swclk_n, swdio_n):
-    """RP2040 microcontroller with crystal, decoupling, and flash."""
+def voltage_regulator(vbat, v3v3, gnd):
+    """AP2112K-3.3 LDO regulator with bypass caps."""
 
-    mcu = Part("MCU_RaspberryPi", "RP2040", value="RP2040",
-               footprint="Package_DFN_QFN:QFN-56-1EP_7x7mm_P0.4mm_EP3.2x3.2mm")
+    reg = Part("Regulator_Linear", "AP2112K-3.3",
+               footprint="Package_TO_SOT_SMD:SOT-23-5",
+               value="AP2112K-3.3")
+    reg["VIN"]  += vbat
+    reg["VOUT"] += v3v3
+    reg["GND"]  += gnd
+    reg["EN"]   += vbat  # Always enabled
 
-    # --- Power connections ---
-    mcu["IOVDD"] += v3v3_net
-    mcu["USB_VDD"] += v3v3_net
-    mcu["VREG_VIN"] += v3v3_net
+    # Input decoupling
+    c_in = Part("Device", "C", value="100nF",
+                footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_in[1] += vbat
+    c_in[2] += gnd
 
-    # ADC_AVDD with RC filter
-    adc_avdd_net = Net("ADC_AVDD")
-    mcu["ADC_AVDD"] += adc_avdd_net
-    r_adc = Part("Device", "R", value="0R",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    c_adc = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0402_1005Metric")
-    r_adc[1] += v3v3_net
-    r_adc[2] += adc_avdd_net
-    c_adc[1] += adc_avdd_net
-    c_adc[2] += gnd_net
+    # Output decoupling
+    c_out1 = Part("Device", "C", value="100nF",
+                  footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_out1[1] += v3v3
+    c_out1[2] += gnd
 
-    # Internal 1.1V regulator output -> DVDD
-    vreg_out = Net("VREG_1V1")
-    mcu["VREG_VOUT"] += vreg_out
-    mcu["DVDD"] += vreg_out
+    c_out2 = Part("Device", "C", value="10uF",
+                  footprint="Capacitor_SMD:C_0805_2012Metric")
+    c_out2[1] += v3v3
+    c_out2[2] += gnd
 
-    # VREG output cap
+
+voltage_regulator(vbat, v3v3, gnd)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SUBCIRCUIT: RP2040 Microcontroller
+# ═══════════════════════════════════════════════════════════════
+@subcircuit
+def mcu_rp2040(v3v3, gnd, usb_dp, usb_dm, reset_n, swdio, swdclk,
+               qspi_sclk, qspi_sd0, qspi_sd1, qspi_sd2, qspi_sd3, qspi_ss,
+               neopixel, sda, scl, uart_tx, uart_rx,
+               spi_sck, spi_mosi, spi_miso,
+               a0, a1, a2, a3,
+               d4, d5, d6, d9, d10, d11, d12, d13, d24, d25):
+    """RP2040 MCU with decoupling, crystal, and flash connections."""
+
+    mcu = Part("MCU_RaspberryPi", "RP2040",
+               footprint="Package_DFN_QFN:QFN-56-1EP_7x7mm_P0.4mm_EP3.2x3.2mm",
+               value="RP2040")
+
+    # ── Power connections ────────────────────────────────
+    # IOVDD — 6 pins, all to 3.3V
+    mcu["IOVDD"]    += v3v3
+
+    # DVDD — internal core supply, connected via regulator output
+    dvdd = Net("DVDD"); dvdd.drive = POWER
+    mcu["DVDD"]     += dvdd
+
+    # On-chip voltage regulator
+    mcu["VREG_VIN"]  += v3v3     # Regulator input from 3.3V
+    mcu["VREG_VOUT"] += dvdd     # Regulator output to DVDD
+
+    # USB and ADC power
+    mcu["USB_VDD"]   += v3v3
+    mcu["ADC_AVDD"]  += v3v3
+
+    # Ground (exposed pad)
+    mcu["GND"]       += gnd
+
+    # TESTEN — tie to ground
+    mcu["TESTEN"]    += gnd
+
+    # DVDD decoupling (one per DVDD pin)
+    c_dvdd1 = Part("Device", "C", value="100nF",
+                   footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_dvdd1[1] += dvdd
+    c_dvdd1[2] += gnd
+
+    # VREG_VOUT inductor-less: 1uF cap
     c_vreg = Part("Device", "C", value="1uF",
                   footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_vreg[1] += vreg_out
-    c_vreg[2] += gnd_net
+    c_vreg[1] += dvdd
+    c_vreg[2] += gnd
 
-    # GND
-    mcu["GND"] += gnd_net
-
-    # TESTEN -> GND
-    mcu["TESTEN"] += gnd_net
-
-    # --- Decoupling caps (100nF each) ---
-    # 6x for IOVDD + 1x for DVDD + 1x for USB_VDD = 8 decoupling caps
-    for _i in range(8):
+    # IOVDD decoupling caps (100nF per IOVDD group)
+    for i in range(3):
         c = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0402_1005Metric")
-        c[1] += v3v3_net
-        c[2] += gnd_net
+                 footprint="Capacitor_SMD:C_0603_1608Metric")
+        c[1] += v3v3
+        c[2] += gnd
 
-    # --- 12MHz Crystal ---
-    xin_net = Net("XIN")
+    # USB_VDD decoupling
+    c_usbv = Part("Device", "C", value="100nF",
+                  footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_usbv[1] += v3v3
+    c_usbv[2] += gnd
+
+    # ADC_AVDD decoupling
+    c_adc = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_adc[1] += v3v3
+    c_adc[2] += gnd
+
+    # Bulk decoupling
+    c_bulk = Part("Device", "C", value="10uF",
+                  footprint="Capacitor_SMD:C_0805_2012Metric")
+    c_bulk[1] += v3v3
+    c_bulk[2] += gnd
+
+    # ── USB ──────────────────────────────────────────────
+    # RP2040 has internal USB series resistors — direct connection
+    mcu["USB_DM"] += usb_dm
+    mcu["USB_DP"] += usb_dp
+
+    # ── 12MHz Crystal ────────────────────────────────────
+    xin_net  = Net("XIN")
     xout_net = Net("XOUT")
-    mcu["XIN"] += xin_net
+    mcu["XIN"]  += xin_net
     mcu["XOUT"] += xout_net
 
     xtal = Part("Device", "Crystal", value="12MHz",
@@ -263,243 +297,287 @@ def rp2040_mcu(v3v3_net, gnd_net, usb_dp_net, usb_dm_net,
     xtal[1] += xin_net
     xtal[2] += xout_net
 
-    # Crystal load caps
+    # Crystal load capacitors
     c_x1 = Part("Device", "C", value="15pF",
                 footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_x1[1] += xin_net
+    c_x1[2] += gnd
+
     c_x2 = Part("Device", "C", value="15pF",
                 footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_x1[1] += xin_net; c_x1[2] += gnd_net
-    c_x2[1] += xout_net; c_x2[2] += gnd_net
+    c_x2[1] += xout_net
+    c_x2[2] += gnd
 
-    # --- USB data ---
-    mcu["USB_DP"] += usb_dp_net
-    mcu["USB_DM"] += usb_dm_net
+    # ── Reset ────────────────────────────────────────────
+    mcu["RUN"] += reset_n
 
-    # --- QSPI Flash (W25Q16JVSS) ---
-    flash = Part("Memory_Flash", "W25Q16JVSS", value="W25Q16JVSS",
-                 footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+    # Reset pull-up
+    r_rst = Part("Device", "R", value="10K",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
+    r_rst[1] += v3v3
+    r_rst[2] += reset_n
 
-    qspi_sclk = Net("QSPI_SCLK")
-    qspi_sd0 = Net("QSPI_SD0")
-    qspi_sd1 = Net("QSPI_SD1")
-    qspi_sd2 = Net("QSPI_SD2")
-    qspi_sd3 = Net("QSPI_SD3")
+    # Reset button
+    sw_rst = Part("Switch", "SW_Push",
+                  footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2",
+                  value="RESET")
+    sw_rst[1] += reset_n
+    sw_rst[2] += gnd
 
-    mcu["QSPI_SCLK"] += qspi_sclk
-    mcu["QSPI_SD0"] += qspi_sd0
-    mcu["QSPI_SD1"] += qspi_sd1
-    mcu["QSPI_SD2"] += qspi_sd2
-    mcu["QSPI_SD3"] += qspi_sd3
-    mcu["~{QSPI_SS}"] += qspi_ss_n
+    # Bootloader button (active-low on GPIO for BOOTSEL on Feather RP2040)
+    sw_boot = Part("Switch", "SW_Push",
+                   footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2",
+                   value="BOOTSEL")
+    boot_net = Net("BOOTSEL")
+    sw_boot[1] += boot_net
+    sw_boot[2] += gnd
 
-    flash["CLK"] += qspi_sclk
-    flash["DI/IO_{0}"] += qspi_sd0
-    flash["DO/IO_{1}"] += qspi_sd1
-    flash["~{WP}/IO_{2}"] += qspi_sd2
+    # Pull-up for bootsel
+    r_boot = Part("Device", "R", value="10K",
+                  footprint="Resistor_SMD:R_0603_1608Metric")
+    r_boot[1] += v3v3
+    r_boot[2] += boot_net
+
+    # ── SWD Debug ────────────────────────────────────────
+    mcu["SWCLK"] += swdclk
+    mcu["SWDIO"] += swdio
+
+    # ── QSPI Flash ───────────────────────────────────────
+    mcu["QSPI_SCLK"]    += qspi_sclk
+    mcu["QSPI_SD0"]     += qspi_sd0
+    mcu["QSPI_SD1"]     += qspi_sd1
+    mcu["QSPI_SD2"]     += qspi_sd2
+    mcu["QSPI_SD3"]     += qspi_sd3
+    mcu["~{QSPI_SS}"]   += qspi_ss
+
+    # ── NeoPixel (GPIO16) ────────────────────────────────
+    mcu["GPIO16"] += neopixel
+
+    # ── I2C (GPIO2=SDA, GPIO3=SCL) ──────────────────────
+    mcu["GPIO2"] += sda
+    mcu["GPIO3"] += scl
+
+    # ── UART (GPIO0=TX, GPIO1=RX) ───────────────────────
+    mcu["GPIO0"] += uart_tx
+    mcu["GPIO1"] += uart_rx
+
+    # ── SPI (GPIO18=SCK, GPIO19=MOSI, GPIO20=MISO) ─────
+    mcu["GPIO18"] += spi_sck
+    mcu["GPIO19"] += spi_mosi
+    mcu["GPIO20"] += spi_miso
+
+    # ── Analog Inputs ────────────────────────────────────
+    mcu["GPIO26/ADC0"] += a0
+    mcu["GPIO27/ADC1"] += a1
+    mcu["GPIO28/ADC2"] += a2
+    mcu["GPIO29/ADC3"] += a3
+
+    # ── Digital I/O ──────────────────────────────────────
+    mcu["GPIO4"]  += d4
+    mcu["GPIO5"]  += d5
+    mcu["GPIO6"]  += d6
+    mcu["GPIO7"]  += d9    # D9 mapped to GPIO7
+    mcu["GPIO8"]  += d10   # D10 mapped to GPIO8
+    mcu["GPIO9"]  += d11   # D11 mapped to GPIO9
+    mcu["GPIO10"] += d12   # D12 mapped to GPIO10
+    mcu["GPIO11"] += d13   # D13 mapped to GPIO11
+    mcu["GPIO24"] += d24
+    mcu["GPIO25"] += d25
+
+    # ── User LED (D13 / GPIO11) ──────────────────────────
+    led_d13 = Part("Device", "LED", value="Red",
+                   footprint="LED_SMD:LED_0603_1608Metric")
+    r_d13 = Part("Device", "R", value="1K",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
+    d13 += r_d13[1]
+    r_d13[2] += led_d13[2]    # Resistor to Anode
+    led_d13[1] += gnd          # Cathode to GND
+
+    # ── Unused GPIOs — connect to avoid ERC warnings ─────
+    mcu["GPIO12"] += NC
+    mcu["GPIO13"] += NC
+    mcu["GPIO14"] += NC
+    mcu["GPIO15"] += NC
+    mcu["GPIO17"] += NC
+    mcu["GPIO21"] += NC
+    mcu["GPIO22"] += NC
+    mcu["GPIO23"] += NC
+
+
+mcu_rp2040(v3v3, gnd, usb_dp, usb_dm, reset_n, swdio, swdclk,
+           qspi_sclk, qspi_sd0, qspi_sd1, qspi_sd2, qspi_sd3, qspi_ss,
+           neopixel, sda, scl, uart_tx, uart_rx,
+           spi_sck, spi_mosi, spi_miso,
+           a0, a1, a2, a3,
+           d4, d5, d6, d9, d10, d11, d12, d13, d24, d25)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SUBCIRCUIT: QSPI Flash (GD25Q64 / W25Q64 — 8MB)
+# ═══════════════════════════════════════════════════════════════
+@subcircuit
+def qspi_flash(v3v3, gnd, qspi_sclk, qspi_sd0, qspi_sd1, qspi_sd2, qspi_sd3, qspi_ss):
+    """8MB QSPI NOR flash for CircuitPython filesystem."""
+
+    # Using W25Q32JVSS symbol (pin-compatible with GD25Q64)
+    flash = Part("Memory_Flash", "W25Q32JVSS",
+                 footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+                 value="GD25Q64")
+    flash["VCC"]                      += v3v3
+    flash["GND"]                      += gnd
+    flash["~{CS}"]                    += qspi_ss
+    flash["CLK"]                      += qspi_sclk
+    flash["DI/IO_{0}"]               += qspi_sd0
+    flash["DO/IO_{1}"]               += qspi_sd1
+    flash["~{WP}/IO_{2}"]            += qspi_sd2
     flash["~{HOLD}/~{RESET}/IO_{3}"] += qspi_sd3
-    flash["~{CS}"] += qspi_ss_n
-    flash["VCC"] += v3v3_net
-    flash["GND"] += gnd_net
 
-    # Flash decoupling
+    # Decoupling cap
     c_flash = Part("Device", "C", value="100nF",
-                   footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_flash[1] += v3v3_net
-    c_flash[2] += gnd_net
+                   footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_flash[1] += v3v3
+    c_flash[2] += gnd
 
-    # --- RUN pin with pullup ---
-    mcu["RUN"] += run_n
-    r_run = Part("Device", "R", value="10K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_run[1] += v3v3_net
-    r_run[2] += run_n
 
-    # --- SWD debug ---
-    mcu["SWCLK"] += swclk_n
-    mcu["SWDIO"] += swdio_n
+qspi_flash(v3v3, gnd, qspi_sclk, qspi_sd0, qspi_sd1, qspi_sd2, qspi_sd3, qspi_ss)
 
-    # --- GPIO connections ---
-    mcu["GPIO0"] += g0
-    mcu["GPIO1"] += g1
-    mcu["GPIO2"] += g2
-    mcu["GPIO3"] += g3
-    mcu["GPIO4"] += g4
-    mcu["GPIO5"] += g5
-    mcu["GPIO6"] += g6
-    mcu["GPIO7"] += g7
-    mcu["GPIO8"] += g8
-    mcu["GPIO9"] += g9
-    mcu["GPIO10"] += g10
-    mcu["GPIO11"] += g11
-    mcu["GPIO12"] += g12
-    mcu["GPIO13"] += g13
-    mcu["GPIO14"] += g14
-    mcu["GPIO15"] += g15
-    mcu["GPIO16"] += g16
-    mcu["GPIO17"] += g17
-    mcu["GPIO18"] += g18
-    mcu["GPIO19"] += g19
-    mcu["GPIO20"] += g20
-    mcu["GPIO21"] += g21
-    mcu["GPIO22"] += g22
-    mcu["GPIO23"] += g23
-    mcu["GPIO24"] += g24
-    mcu["GPIO25"] += g25
-    mcu["GPIO26/ADC0"] += g26
-    mcu["GPIO27/ADC1"] += g27
-    mcu["GPIO28/ADC2"] += g28
-    mcu["GPIO29/ADC3"] += g29
 
-rp2040_mcu(v3v3, gnd, usb_dp, usb_dm, run_net, qspi_ss_net,
-           gpio0, gpio1, gpio2, gpio3, gpio4, gpio5, gpio6, gpio7, gpio8, gpio9,
-           gpio10, gpio11, gpio12, gpio13, gpio14, gpio15, gpio16, gpio17,
-           gpio18, gpio19, gpio20, gpio21, gpio22, gpio23, gpio24, gpio25,
-           gpio26, gpio27, gpio28, gpio29, swclk, swdio)
-
-# =============================================================================
-# User interface subcircuit (LEDs, buttons, NeoPixel)
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════
+#  SUBCIRCUIT: NeoPixel RGB LED
+# ═══════════════════════════════════════════════════════════════
 @subcircuit
-def user_interface(v3v3_net, gnd_net, neo_din, led13_net, run_n, qspi_ss_n):
-    """NeoPixel, user LED, reset button, bootsel button."""
+def neopixel_led(v3v3, gnd, neopixel):
+    """Single WS2812B addressable RGB LED."""
 
-    # --- WS2812B NeoPixel ---
-    neopixel = Part("LED", "WS2812B", value="WS2812B",
-                    footprint="LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm")
-    neopixel["VDD"] += v3v3_net
-    neopixel["VSS"] += gnd_net
-    neopixel["DIN"] += neo_din
+    neo = Part("LED", "SK6812",
+               footprint="LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+               value="NeoPixel")
+    neo["VDD"]  += v3v3
+    neo["VSS"]  += gnd
+    neo["DIN"]  += neopixel
+    neo["DOUT"] += NC       # Single LED, no chain
 
-    # NeoPixel DOUT left unconnected (single pixel)
-    neo_dout = Net("NEO_DOUT")
-    neopixel["DOUT"] += neo_dout
-
-    # NeoPixel decoupling
+    # Decoupling cap
     c_neo = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_neo[1] += v3v3_net
-    c_neo[2] += gnd_net
+                 footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_neo[1] += v3v3
+    c_neo[2] += gnd
 
-    # --- User LED on GPIO13 ---
-    r_led = Part("Device", "R", value="470R",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    led_user = Part("Device", "LED", value="RED",
-                    footprint="LED_SMD:LED_0603_1608Metric")
-    led13_net += r_led[1]
-    r_led[2] += led_user["A"]
-    led_user["K"] += gnd_net
 
-    # --- Reset button (active low, pulls RUN to GND) ---
-    sw_reset = Part("Switch", "SW_Push", value="RESET",
-                    footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2")
-    sw_reset[1] += run_n
-    sw_reset[2] += gnd_net
+neopixel_led(v3v3, gnd, neopixel)
 
-    # --- BOOTSEL button (pulls QSPI_SS low) ---
-    sw_boot = Part("Switch", "SW_Push", value="BOOTSEL",
-                   footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2")
-    sw_boot[1] += qspi_ss_n
-    sw_boot[2] += gnd_net
 
-user_interface(v3v3, gnd, gpio16, gpio13, run_net, qspi_ss_net)
-
-# =============================================================================
-# Feather headers subcircuit
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════
+#  SUBCIRCUIT: I2C Pull-ups and STEMMA QT Connector
+# ═══════════════════════════════════════════════════════════════
 @subcircuit
-def feather_headers(v3v3_net, gnd_net, vbus_net, vbat_net,
-                    run_n,
-                    g0, g1, g2, g3, g6, g7, g8, g9,
-                    g10, g11, g12, g13,
-                    g18, g19, g20,
-                    g24, g25, g26, g27, g28, g29):
-    """
-    Feather form factor headers:
-    - 16-pin left header: RST, 3V3, AREF, GND, A0-A3, D24, D25, SCK, MOSI, MISO, RX, TX, D4
-    - 12-pin right header: BAT, EN, USB, D13-D9, D6-D5, SCL, SDA
-    """
-    # Left header (16 pins)
-    hdr_left = Part("Connector_Generic", "Conn_01x16",
-                    footprint="Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical")
-    aref = Net("AREF")
-    hdr_left[1] += run_n
-    hdr_left[2] += v3v3_net
-    hdr_left[3] += aref
-    hdr_left[4] += gnd_net
-    hdr_left[5] += g26      # A0
-    hdr_left[6] += g27      # A1
-    hdr_left[7] += g28      # A2
-    hdr_left[8] += g29      # A3
-    hdr_left[9] += g24      # D24
-    hdr_left[10] += g25     # D25
-    hdr_left[11] += g18     # SCK
-    hdr_left[12] += g19     # MOSI
-    hdr_left[13] += g20     # MISO
-    hdr_left[14] += g1      # RX
-    hdr_left[15] += g0      # TX
-    hdr_left[16] += g6      # D4/D6
+def i2c_stemma(v3v3, gnd, sda, scl):
+    """I2C bus pull-ups and STEMMA QT / Qwiic JST-SH connector."""
+
+    # I2C pull-up resistors
+    r_sda = Part("Device", "R", value="4.7K",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
+    r_sda[1] += v3v3
+    r_sda[2] += sda
+
+    r_scl = Part("Device", "R", value="4.7K",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
+    r_scl[1] += v3v3
+    r_scl[2] += scl
+
+    # STEMMA QT connector (JST SH 4-pin: GND, VCC, SDA, SCL)
+    j_stemma = Part("Connector_Generic", "Conn_01x04",
+                    footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+                    value="STEMMA_QT")
+    j_stemma[1] += gnd
+    j_stemma[2] += v3v3
+    j_stemma[3] += sda
+    j_stemma[4] += scl
+
+
+i2c_stemma(v3v3, gnd, sda, scl)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SUBCIRCUIT: Feather Headers
+# ═══════════════════════════════════════════════════════════════
+@subcircuit
+def feather_headers(v3v3, vbat, vbus, gnd, reset_n,
+                    a0, a1, a2, a3,
+                    sda, scl, d4, d5, d6, d9,
+                    d10, d11, d12, d13,
+                    uart_tx, uart_rx, spi_mosi, spi_miso, spi_sck,
+                    d24, d25):
+    """Standard Feather form-factor headers (16-pin + 12-pin)."""
+
+    # Left header (16 pins) — matches Adafruit Feather pinout
+    j_left = Part("Connector_Generic", "Conn_01x16",
+                  footprint="Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical",
+                  value="HEADER_L")
+    j_left[1]  += reset_n
+    j_left[2]  += v3v3
+    j_left[3]  += NC        # AREF
+    j_left[4]  += gnd
+    j_left[5]  += a0
+    j_left[6]  += a1
+    j_left[7]  += a2
+    j_left[8]  += a3
+    j_left[9]  += d24
+    j_left[10] += d25
+    j_left[11] += sda
+    j_left[12] += scl
+    j_left[13] += d5
+    j_left[14] += d6
+    j_left[15] += d9
+    j_left[16] += d10
 
     # Right header (12 pins)
-    hdr_right = Part("Connector_Generic", "Conn_01x12",
-                     footprint="Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical")
-    en_net = Net("EN")
-    hdr_right[1] += vbat_net
-    hdr_right[2] += en_net
-    hdr_right[3] += vbus_net
-    hdr_right[4] += g13     # D13
-    hdr_right[5] += g12     # D12
-    hdr_right[6] += g11     # D11
-    hdr_right[7] += g10     # D10
-    hdr_right[8] += g9      # D9
-    hdr_right[9] += g8      # D6/D8
-    hdr_right[10] += g7     # D5/D7
-    hdr_right[11] += g3     # SCL
-    hdr_right[12] += g2     # SDA
+    j_right = Part("Connector_Generic", "Conn_01x12",
+                   footprint="Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical",
+                   value="HEADER_R")
+    j_right[1]  += vbat
+    j_right[2]  += NC       # EN (enable)
+    j_right[3]  += vbus
+    j_right[4]  += d13
+    j_right[5]  += d12
+    j_right[6]  += d11
+    j_right[7]  += d10
+    j_right[8]  += d9
+    j_right[9]  += d4
+    j_right[10] += uart_rx
+    j_right[11] += uart_tx
+    j_right[12] += spi_miso
 
-    # --- JST PH battery connector ---
-    jst_bat = Part("Connector_Generic", "Conn_01x02",
-                   footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal")
-    jst_bat[1] += vbat_net
-    jst_bat[2] += gnd_net
 
-feather_headers(v3v3, gnd, vbus, vbat,
-                run_net,
-                gpio0, gpio1, gpio2, gpio3, gpio6, gpio7, gpio8, gpio9,
-                gpio10, gpio11, gpio12, gpio13,
-                gpio18, gpio19, gpio20,
-                gpio24, gpio25, gpio26, gpio27, gpio28, gpio29)
+feather_headers(v3v3, vbat, vbus, gnd, reset_n,
+                a0, a1, a2, a3,
+                sda, scl, d4, d5, d6, d9,
+                d10, d11, d12, d13,
+                uart_tx, uart_rx, spi_mosi, spi_miso, spi_sck,
+                d24, d25)
 
-# =============================================================================
-# SWD debug header
-# =============================================================================
+
+# ═══════════════════════════════════════════════════════════════
+#  SUBCIRCUIT: SWD Debug Header
+# ═══════════════════════════════════════════════════════════════
 @subcircuit
-def swd_header(v3v3_net, gnd_net, swclk_n, swdio_n):
+def swd_header(v3v3, gnd, swdio, swdclk, reset_n):
     """SWD debug header."""
-    swd_hdr = Part("Connector_Generic", "Conn_01x04",
-                   footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
-    swd_hdr[1] += v3v3_net
-    swd_hdr[2] += swclk_n
-    swd_hdr[3] += swdio_n
-    swd_hdr[4] += gnd_net
 
-swd_header(v3v3, gnd, swclk, swdio)
+    j_swd = Part("Connector_Generic", "Conn_01x05",
+                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical",
+                 value="SWD")
+    j_swd[1] += v3v3
+    j_swd[2] += gnd
+    j_swd[3] += swdio
+    j_swd[4] += swdclk
+    j_swd[5] += reset_n
 
-# =============================================================================
-# STEMMA QT / Qwiic I2C connector (JST SH 4-pin)
-# =============================================================================
-@subcircuit
-def stemma_qt(v3v3_net, gnd_net, sda_net, scl_net):
-    """STEMMA QT / Qwiic I2C connector."""
-    qt = Part("Connector_Generic", "Conn_01x04",
-              footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal")
-    qt[1] += gnd_net
-    qt[2] += sda_net
-    qt[3] += scl_net
-    qt[4] += v3v3_net
 
-stemma_qt(v3v3, gnd, gpio2, gpio3)
+swd_header(v3v3, gnd, swdio, swdclk, reset_n)
 
-# =============================================================================
-# Generate schematic
-# =============================================================================
-generate_schematic(auto_stub=True, auto_stub_fanout=3, erc_max_iterations=16)
+
+# ═══════════════════════════════════════════════════════════════
+#  Generate Schematic
+# ═══════════════════════════════════════════════════════════════
+generate_schematic(auto_stub=True)

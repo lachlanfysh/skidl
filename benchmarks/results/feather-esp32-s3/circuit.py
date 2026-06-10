@@ -1,103 +1,167 @@
 """
-Feather ESP32-S3 — Adafruit-compatible Feather format board
-ESP32-S3 module with WiFi/BLE, USB-C, LiPo charging, battery monitor,
-STEMMA QT connector, NeoPixel, and full Feather Wing header compatibility.
+Feather ESP32-S3 -- SKiDL circuit description
+ESP32-S3 in Feather format with dual 240 MHz cores, WiFi/BLE, native USB,
+8 MB flash, USB-C charging, LC709203 battery monitor, STEMMA QT connector,
+and deep sleep support. Compatible with 50+ Feather Wings.
 """
 
 import os
 os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
-
 import sys
 sys.path.insert(0, "/home/lachlan/Projects/skidl/src")
 
 from skidl import *
 set_default_tool(KICAD9)
 
-# ============================================================
+def _init_skidl_pins(part):
+    """Set default schematic attributes on SKIDL-defined part pins and
+    synthesize draw_cmds so the schematic generator can compute bounding boxes.
+
+    Library-loaded parts get orientation/x/y/length/rotation from the .kicad_sym
+    file and draw_cmds from the symbol definition. Part(tool=SKIDL) pins lack
+    these, causing NaN in the placement engine.
+    """
+    spacing_mm = 2.54
+    pin_length_mm = 2.54
+    n = len(part.pins)
+
+    left_count = (n + 1) // 2
+    right_count = n - left_count
+
+    body_h = max(left_count, right_count, 1) * spacing_mm
+    body_w = max(5.08, body_h * 0.6)
+
+    draw_cmds = []
+    for idx, pin in enumerate(part.pins):
+        if idx < left_count:
+            row = idx
+            pin.x = -(body_w / 2 + pin_length_mm)
+            pin.y = body_h / 2 - row * spacing_mm
+            pin.orientation = "R"
+            pin.rotation = 0
+        else:
+            row = idx - left_count
+            pin.x = body_w / 2 + pin_length_mm
+            pin.y = body_h / 2 - row * spacing_mm
+            pin.orientation = "L"
+            pin.rotation = 180
+
+        pin.length = pin_length_mm
+
+        pin_cmd = [
+            "pin", pin.func if isinstance(pin.func, str) else "passive", "line",
+            ["at", pin.x, pin.y, int(pin.rotation)],
+            ["length", pin_length_mm],
+            ["name", pin.name,
+                ["effects", ["font", ["size", 1.27, 1.27]]]],
+            ["number", str(pin.num),
+                ["effects", ["font", ["size", 1.27, 1.27]]]],
+        ]
+        draw_cmds.append(pin_cmd)
+
+    rect_cmd = [
+        "rectangle",
+        ["start", -body_w / 2, -body_h / 2 - spacing_mm / 2],
+        ["end", body_w / 2, body_h / 2 + spacing_mm / 2],
+        ["stroke", ["width", 0.254], ["type", "default"]],
+        ["fill", ["type", "none"]],
+    ]
+    draw_cmds.append(rect_cmd)
+
+    part.draw_cmds = {1: draw_cmds, 0: draw_cmds}
+
+    if not hasattr(part, "lib") or part.lib is None:
+        class _MockLib:
+            def __init__(self, name):
+                self.filename = name
+        part.lib = _MockLib("skidl_custom")
+
+# ---------------------------------------------------------------
 # Global power nets
-# ============================================================
-VCC = Net("+3V3"); VCC.drive = POWER
-VBUS = Net("VBUS"); VBUS.drive = POWER
-VBAT = Net("VBAT"); VBAT.drive = POWER
-GND = Net("GND"); GND.drive = POWER
+# ---------------------------------------------------------------
+vbus = Net("VBUS"); vbus.drive = POWER
+vbat = Net("VBAT"); vbat.drive = POWER
+v3v3 = Net("+3V3"); v3v3.drive = POWER
+gnd  = Net("GND");  gnd.drive  = POWER
 
-# Internal nets
-VSYS = Net("VSYS")          # Post-Schottky USB or battery power
-SDA = Net("SDA")
-SCL = Net("SCL")
-NEOPIXEL = Net("NEOPIXEL")
-CHG_LED = Net("CHG_LED")
-PWR_LED = Net("PWR_LED")
-STEMMA_EN = Net("STEMMA_EN")
-STEMMA_VCC = Net("STEMMA_VCC")
-BOOT0 = Net("BOOT0")
-RST_N = Net("RST_N")
+# Internal rails
+usb_dp = Net("USB_DP")
+usb_dm = Net("USB_DM")
+sda    = Net("SDA")
+scl    = Net("SCL")
+en     = Net("EN")
+neopixel_data = Net("NEOPIXEL")
 
-# ============================================================
-# USB-C Connector subcircuit
-# ============================================================
+# ---------------------------------------------------------------
+# USB Input  (USB-C connector + ESD protection + CC resistors)
+# ---------------------------------------------------------------
 @subcircuit
-def usb_c_connector(vbus, gnd, dp, dm):
-    """USB-C receptacle with CC resistors for device mode."""
+def usb_input(vbus, gnd, dp, dm):
+    """USB-C receptacle with CC pull-down resistors for UFP (device) role."""
     usb = Part("Connector", "USB_C_Receptacle_USB2.0_16P",
                footprint="Connector_USB:USB_C_Receptacle_XKB_U262-16XN-4BVC11")
 
-    # Power pins (multiple VBUS and GND pins — connect all)
-    usb["VBUS"] += vbus
-    usb["GND"] += gnd
-    usb["SHIELD"] += gnd
+    # VBUS pins
+    usb["A4"]  += vbus
+    usb["A9"]  += vbus
+    usb["B4"]  += vbus
+    usb["B9"]  += vbus
 
-    # Data pins — USB 2.0 so D+/D- on both orientations
-    usb["D+"] += dp
-    usb["D-"] += dm
+    # GND pins
+    usb["A1"]  += gnd
+    usb["A12"] += gnd
+    usb["B1"]  += gnd
+    usb["B12"] += gnd
+    usb["S1"]  += gnd  # shield
 
-    # CC pull-downs for UFP (device) — 5.1k to GND
+    # Data lines
+    usb["A6"]  += dp
+    usb["B6"]  += dp
+    usb["A7"]  += dm
+    usb["B7"]  += dm
+
+    # CC pull-downs (5.1k for UFP device detection)
     r_cc1 = Part("Device", "R", value="5.1K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
     r_cc2 = Part("Device", "R", value="5.1K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
-    usb["CC1"] += r_cc1[1]
+    r_cc1[1] += usb["A5"]  # CC1
     r_cc1[2] += gnd
-    usb["CC2"] += r_cc2[1]
+    r_cc2[1] += usb["B5"]  # CC2
     r_cc2[2] += gnd
 
-    # SBU pins — not used, leave floating (NC internally)
+    # SBU pins - not connected
+    usb["A8"] += Net("SBU1_NC")
+    usb["B8"] += Net("SBU2_NC")
 
-    # ESD protection capacitors on VBUS
-    c_vbus = Part("Device", "C", value="100nF",
-                  footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_vbus[1] += vbus
-    c_vbus[2] += gnd
+usb_input(vbus, gnd, usb_dp, usb_dm)
 
-
-# ============================================================
-# Battery charging subcircuit (MCP73831)
-# ============================================================
+# ---------------------------------------------------------------
+# Battery Charger (MCP73831 LiPo charger)
+# ---------------------------------------------------------------
 @subcircuit
-def battery_charger(vbus, vbat, gnd, chg_status):
-    """MCP73831-based single-cell LiPo charger."""
-    # MCP73831-2-OT: pins 1=STAT, 2=VSS, 3=VBAT, 4=VDD, 5=PROG
-    chg = Part("Battery_Management", "MCP73831-2-OT",
-               footprint="Package_TO_SOT_SMD:SOT-23-5")
+def battery_charger(vbus, vbat, gnd):
+    """MCP73831 single-cell LiPo charger with charge status LED."""
+    chrg = Part("Battery_Management", "MCP73831-2-OT",
+                footprint="Package_TO_SOT_SMD:SOT-23-5")
+    chrg["V_{DD}"]  += vbus
+    chrg["V_{SS}"]  += gnd
+    chrg["V_{BAT}"] += vbat
 
-    chg["V_{DD}"] += vbus
-    chg["V_{SS}"] += gnd
-    chg["V_{BAT}"] += vbat
-
-    # PROG resistor sets charge current: 2K = 500mA
+    # Program charging current: 500mA -> R = 1000/I = 2K
     r_prog = Part("Device", "R", value="2K",
                   footprint="Resistor_SMD:R_0402_1005Metric")
-    chg["PROG"] += r_prog[1]
+    r_prog[1] += chrg["PROG"]
     r_prog[2] += gnd
 
     # Charge status LED (active low)
-    r_stat = Part("Device", "R", value="1K",
-                  footprint="Resistor_SMD:R_0402_1005Metric")
-    led_chg = Part("Device", "LED", value="ORANGE",
-                   footprint="LED_SMD:LED_0603_1608Metric")
-    chg["STAT"] += r_stat[1]
-    r_stat[2] += led_chg[2]   # LED anode
-    led_chg[1] += gnd         # LED cathode to GND (STAT pulls low)
+    chrg_led = Part("Device", "LED", value="ORANGE",
+                    footprint="LED_SMD:LED_0603_1608Metric")
+    r_led = Part("Device", "R", value="1K",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    r_led[1] += vbus
+    r_led[2] += chrg_led[1]
+    chrg_led[2] += chrg["STAT"]
 
     # Input decoupling
     c_in = Part("Device", "C", value="100nF",
@@ -105,396 +169,422 @@ def battery_charger(vbus, vbat, gnd, chg_status):
     c_in[1] += vbus
     c_in[2] += gnd
 
-    # Battery decoupling (10uF tantalum/ceramic)
+    # Battery bulk cap
     c_bat = Part("Device", "C", value="10uF",
                  footprint="Capacitor_SMD:C_0805_2012Metric")
     c_bat[1] += vbat
     c_bat[2] += gnd
 
+battery_charger(vbus, vbat, gnd)
 
-# ============================================================
-# Power path: USB/battery → VSYS via Schottky OR'ing
-# ============================================================
+# ---------------------------------------------------------------
+# Battery connector (JST PH 2-pin)
+# ---------------------------------------------------------------
 @subcircuit
-def power_path(vbus, vbat, vsys, gnd):
-    """Schottky diode OR of USB and battery into VSYS."""
-    d_usb = Part("Device", "D_Schottky", value="MBR0530",
-                 footprint="Diode_SMD:D_SOD-123")
-    d_bat = Part("Device", "D_Schottky", value="MBR0530",
-                 footprint="Diode_SMD:D_SOD-123")
+def battery_connector(vbat, gnd):
+    """JST PH 2-pin connector for LiPo battery."""
+    jst = Part("Connector_Generic", "Conn_01x02",
+               footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal")
+    jst[1] += vbat
+    jst[2] += gnd
 
-    # Diode: pin 1=K (cathode), pin 2=A (anode)
-    # VBUS → anode, VSYS ← cathode
-    d_usb[2] += vbus
-    d_usb[1] += vsys
+battery_connector(vbat, gnd)
 
-    # VBAT → anode, VSYS ← cathode
-    d_bat[2] += vbat
-    d_bat[1] += vsys
-
-    # Bulk capacitor on VSYS
-    c_sys = Part("Device", "C", value="10uF",
-                 footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_sys[1] += vsys
-    c_sys[2] += gnd
-
-
-# ============================================================
-# 3.3V LDO regulator (AP2112K-3.3)
-# ============================================================
+# ---------------------------------------------------------------
+# Battery Monitor (LC709203F)
+# ---------------------------------------------------------------
 @subcircuit
-def voltage_regulator(vin, vout, gnd):
-    """AP2112K-3.3 low-dropout 3.3V regulator."""
-    # AP2112K-3.3: 1=VIN, 2=GND, 3=EN, 4=NC, 5=VOUT
-    reg = Part("Regulator_Linear", "AP2112K-3.3",
-               footprint="Package_TO_SOT_SMD:SOT-23-5")
+def battery_monitor(vbat, gnd, sda, scl):
+    """LC709203F battery fuel gauge -- I2C voltage and SoC reporting."""
+    bm = Part("Battery_Management", "LC709203FQH-01TWG",
+              footprint="Package_DFN_QFN:DFN-8-1EP_2x2mm_P0.5mm_EP0.9x1.6mm")
+    bm["V_{DD}"]  += vbat
+    bm["V_{SS}"]  += gnd
+    bm["EP"]      += gnd
+    bm["SDA"]     += sda
+    bm["SCL"]     += scl
 
-    reg["VIN"] += vin
-    reg["GND"] += gnd
-    reg["EN"] += vin     # Always enabled (tied to input)
-    reg["VOUT"] += vout
+    # TEST pin - to GND per datasheet
+    bm["TEST"]    += gnd
 
-    # Input cap
-    c_in = Part("Device", "C", value="100nF",
-                footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_in[1] += vin
-    c_in[2] += gnd
+    # Thermistor pins: TSW to VBAT, TSENSE to thermistor divider
+    bm["T_{SW}"]    += vbat
+    # NTC thermistor (10K) for temperature sensing
+    r_ntc = Part("Device", "R", value="10K",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    r_ntc[1] += bm["T_{SENSE}"]
+    r_ntc[2] += gnd
 
-    # Output cap (10uF recommended)
-    c_out = Part("Device", "C", value="10uF",
-                 footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_out[1] += vout
-    c_out[2] += gnd
-
-    # Additional 100nF output decoupling
-    c_out2 = Part("Device", "C", value="100nF",
-                  footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_out2[1] += vout
-    c_out2[2] += gnd
-
-
-# ============================================================
-# LC709203F battery fuel gauge (SKIDL part — not in KiCad lib)
-# ============================================================
-@subcircuit
-def battery_monitor(vbat, vcc, gnd, sda, scl):
-    """LC709203F I2C battery fuel gauge."""
-    # LC709203F battery fuel gauge in SOIC-8 package.
-    # Using Conn_01x08 as proxy since KiCad doesn't have LC709203F symbol,
-    # and tool=SKIDL parts lack draw_cmds needed by the schematic placer.
-    # Pin mapping: 1=SDA, 2=ALARM, 3=NC, 4=GND, 5=TSENSE, 6=NC, 7=VCC, 8=SCL
-    bm = Part("Connector_Generic", "Conn_01x08",
-              footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
-              ref_prefix="U")
-
-    bm.value = "LC709203F"
-    bm[7] += vbat    # Pin 7 = VCC, powered from battery
-    bm[4] += gnd     # Pin 4 = GND
-    bm[1] += sda     # Pin 1 = SDA
-    bm[8] += scl     # Pin 8 = SCL
-    bm[2] += Net("BATT_ALARM")  # Pin 2 = ALARM (open-drain, unused)
-    bm[3] += NC      # Pin 3 = NC
-    bm[6] += NC      # Pin 6 = NC
-
-    # Thermistor input — pull to GND with 10K (no external thermistor)
-    r_therm = Part("Device", "R", value="10K",
+    # Alarm pin -- open drain, pull up to VBAT
+    r_alarm = Part("Device", "R", value="100K",
                    footprint="Resistor_SMD:R_0402_1005Metric")
-    bm[5] += r_therm[1]   # Pin 5 = TSENSE
-    r_therm[2] += gnd
+    r_alarm[1] += vbat
+    r_alarm[2] += bm["~{ALARMB}"]
 
     # Decoupling
+    c_bm = Part("Device", "C", value="100nF",
+                footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_bm[1] += vbat
+    c_bm[2] += gnd
+
+battery_monitor(vbat, gnd, sda, scl)
+
+# ---------------------------------------------------------------
+# 3.3V Regulator (AP2112K-3.3)
+# ---------------------------------------------------------------
+@subcircuit
+def power_regulator(vbat, v3v3, gnd, en_net):
+    """AP2112K-3.3 LDO -- 600mA, low quiescent current."""
+    reg = Part("Regulator_Linear", "AP2112K-3.3",
+               footprint="Package_TO_SOT_SMD:SOT-23-5")
+    reg["VIN"]  += vbat
+    reg["GND"]  += gnd
+    reg["EN"]   += en_net
+    reg["VOUT"] += v3v3
+
+    # Enable pull-up to keep regulator on by default
+    r_en = Part("Device", "R", value="100K",
+                footprint="Resistor_SMD:R_0402_1005Metric")
+    r_en[1] += vbat
+    r_en[2] += en_net
+
+    # Input capacitor
+    c_in = Part("Device", "C", value="10uF",
+                footprint="Capacitor_SMD:C_0805_2012Metric")
+    c_in[1] += vbat
+    c_in[2] += gnd
+
+    # Output capacitor
+    c_out = Part("Device", "C", value="10uF",
+                 footprint="Capacitor_SMD:C_0805_2012Metric")
+    c_out[1] += v3v3
+    c_out[2] += gnd
+
+    # Decoupling on output
     c_dec = Part("Device", "C", value="100nF",
                  footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_dec[1] += vbat
+    c_dec[1] += v3v3
     c_dec[2] += gnd
 
-    # I2C pull-ups (4.7K to 3.3V)
+power_regulator(vbat, v3v3, gnd, en)
+
+# ---------------------------------------------------------------
+# ESP32-S3 MCU (using SKIDL tool for custom pin mapping)
+# ---------------------------------------------------------------
+@subcircuit
+def esp32_s3_mcu(v3v3, gnd, dp, dm, sda_net, scl_net, en_net, neopixel):
+    """ESP32-S3-WROOM-1 module with native USB and extensive GPIO."""
+    esp = Part(name="ESP32-S3-WROOM-1", tool=SKIDL, dest=NETLIST,
+               footprint="RF_Module:ESP32-S3-WROOM-1",
+               pins=[
+                   Pin(num="1",  name="GND",    func=Pin.types.PWRIN),
+                   Pin(num="2",  name="3V3",    func=Pin.types.PWRIN),
+                   Pin(num="3",  name="EN",     func=Pin.types.INPUT),
+                   Pin(num="4",  name="IO4",    func=Pin.types.BIDIR),
+                   Pin(num="5",  name="IO5",    func=Pin.types.BIDIR),
+                   Pin(num="6",  name="IO6",    func=Pin.types.BIDIR),
+                   Pin(num="7",  name="IO7",    func=Pin.types.BIDIR),
+                   Pin(num="8",  name="IO15",   func=Pin.types.BIDIR),
+                   Pin(num="9",  name="IO16",   func=Pin.types.BIDIR),
+                   Pin(num="10", name="IO17",   func=Pin.types.BIDIR),
+                   Pin(num="11", name="IO18",   func=Pin.types.BIDIR),
+                   Pin(num="12", name="IO8",    func=Pin.types.BIDIR),
+                   Pin(num="13", name="IO19",   func=Pin.types.BIDIR),  # USB_D-
+                   Pin(num="14", name="IO20",   func=Pin.types.BIDIR),  # USB_D+
+                   Pin(num="15", name="IO3",    func=Pin.types.BIDIR),
+                   Pin(num="16", name="IO46",   func=Pin.types.BIDIR),
+                   Pin(num="17", name="IO9",    func=Pin.types.BIDIR),
+                   Pin(num="18", name="IO10",   func=Pin.types.BIDIR),
+                   Pin(num="19", name="IO11",   func=Pin.types.BIDIR),
+                   Pin(num="20", name="IO12",   func=Pin.types.BIDIR),
+                   Pin(num="21", name="IO13",   func=Pin.types.BIDIR),
+                   Pin(num="22", name="IO14",   func=Pin.types.BIDIR),
+                   Pin(num="23", name="IO21",   func=Pin.types.BIDIR),
+                   Pin(num="24", name="IO47",   func=Pin.types.BIDIR),
+                   Pin(num="25", name="IO48",   func=Pin.types.BIDIR),
+                   Pin(num="26", name="IO45",   func=Pin.types.BIDIR),
+                   Pin(num="27", name="IO0",    func=Pin.types.BIDIR),
+                   Pin(num="28", name="IO35",   func=Pin.types.BIDIR),
+                   Pin(num="29", name="IO36",   func=Pin.types.BIDIR),
+                   Pin(num="30", name="IO37",   func=Pin.types.BIDIR),
+                   Pin(num="31", name="IO38",   func=Pin.types.BIDIR),
+                   Pin(num="32", name="IO39",   func=Pin.types.BIDIR),
+                   Pin(num="33", name="IO40",   func=Pin.types.BIDIR),
+                   Pin(num="34", name="IO41",   func=Pin.types.BIDIR),
+                   Pin(num="35", name="IO42",   func=Pin.types.BIDIR),
+                   Pin(num="36", name="RXD0",   func=Pin.types.INPUT),
+                   Pin(num="37", name="TXD0",   func=Pin.types.OUTPUT),
+                   Pin(num="38", name="IO2",    func=Pin.types.BIDIR),
+                   Pin(num="39", name="IO1",    func=Pin.types.BIDIR),
+                   Pin(num="40", name="GND2",   func=Pin.types.PWRIN),
+                   Pin(num="41", name="EPAD",   func=Pin.types.PWRIN),
+               ])
+
+    # Power
+    esp["3V3"]  += v3v3
+    esp["GND"]  += gnd
+    esp["GND2"] += gnd
+    esp["EPAD"] += gnd
+
+    # Enable (with RC delay for reliable boot)
+    esp["EN"]   += en_net
+    c_en = Part("Device", "C", value="100nF",
+                footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_en[1] += en_net
+    c_en[2] += gnd
+
+    # Native USB
+    esp["IO19"] += dm   # USB D-
+    esp["IO20"] += dp   # USB D+
+
+    # I2C (for battery monitor + STEMMA QT)
+    esp["IO3"]  += sda_net
+    esp["IO4"]  += scl_net
+
+    # I2C pull-ups
     r_sda = Part("Device", "R", value="4.7K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
     r_scl = Part("Device", "R", value="4.7K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
-    r_sda[1] += vcc
-    r_sda[2] += sda
-    r_scl[1] += vcc
-    r_scl[2] += scl
+    r_sda[1] += v3v3; r_sda[2] += sda_net
+    r_scl[1] += v3v3; r_scl[2] += scl_net
 
+    # NeoPixel data on IO38
+    esp["IO38"] += neopixel
 
-# ============================================================
-# STEMMA QT connector with switchable power
-# ============================================================
-@subcircuit
-def stemma_qt(vcc, gnd, sda, scl, en_pin):
-    """STEMMA QT / Qwiic I2C connector with power switching for low power."""
-    # JST SH 4-pin connector: GND, VCC, SDA, SCL
-    conn = Part("Connector_Generic", "Conn_01x04",
-                footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal")
-
-    # P-channel MOSFET power switch (AO3401A): G=1, S=2, D=3
-    pfet = Part("Transistor_FET", "AO3401A",
-                footprint="Package_TO_SOT_SMD:SOT-23")
-
-    # Gate driven by ESP32 GPIO (active low — pull low to enable power)
-    pfet["G"] += en_pin
-    pfet["S"] += vcc         # Source = 3.3V rail
-    pfet["D"] += Net("STEMMA_VCC_SW")   # Drain = switched STEMMA power
-
-    # Gate pull-up to keep STEMMA off by default (deep sleep)
-    r_gate = Part("Device", "R", value="100K",
-                  footprint="Resistor_SMD:R_0402_1005Metric")
-    r_gate[1] += vcc
-    r_gate[2] += en_pin
-
-    # Connector wiring: pin 1=GND, 2=VCC, 3=SDA, 4=SCL (STEMMA QT standard)
-    conn[1] += gnd
-    conn[2] += pfet["D"]     # Switched power
-    conn[3] += sda
-    conn[4] += scl
-
-    # Bypass cap on switched rail
-    c_stemma = Part("Device", "C", value="100nF",
-                    footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_stemma[1] += pfet["D"]
-    c_stemma[2] += gnd
-
-
-# ============================================================
-# NeoPixel (WS2812B) subcircuit
-# ============================================================
-@subcircuit
-def neopixel(vcc, gnd, data_in):
-    """Single WS2812B NeoPixel for status indication."""
-    neo = Part("LED", "WS2812B",
-               footprint="LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm")
-
-    neo["VDD"] += vcc
-    neo["VSS"] += gnd
-    neo["DIN"] += data_in
-
-    # Decoupling cap right at the LED
-    c_neo = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_neo[1] += vcc
-    c_neo[2] += gnd
-
-    # Data series resistor (between MCU and DIN is best practice)
-    # Already handled by the main data_in connection; the resistor is in main
-
-
-# ============================================================
-# ESP32-S3 module subcircuit
-# ============================================================
-@subcircuit
-def esp32_s3_module(vcc, gnd, sda, scl, usb_dp, usb_dm,
-                    neopixel_out, stemma_en, rst_n, boot0,
-                    feather_left, feather_right):
-    """ESP32-S3-WROOM-1 module with supporting passives."""
-    esp = Part("RF_Module", "ESP32-S3-WROOM-1",
-               footprint="RF_Module:ESP32-S3-WROOM-1")
-
-    # Power
-    esp["3V3"] += vcc
-    esp["GND"] += gnd
-
-    # Enable / Reset — active high with RC filter
-    esp["EN"] += rst_n
-    r_en = Part("Device", "R", value="10K",
-                footprint="Resistor_SMD:R_0402_1005Metric")
-    c_en = Part("Device", "C", value="100nF",
-                footprint="Capacitor_SMD:C_0402_1005Metric")
-    r_en[1] += vcc
-    r_en[2] += rst_n
-    c_en[1] += rst_n
-    c_en[2] += gnd
-
-    # Boot mode — IO0 active low enters bootloader
-    esp["IO0"] += boot0
+    # Boot mode (IO0): pull-up for normal boot
     r_boot = Part("Device", "R", value="10K",
                   footprint="Resistor_SMD:R_0402_1005Metric")
-    r_boot[1] += vcc
-    r_boot[2] += boot0
+    r_boot[1] += v3v3
+    r_boot[2] += esp["IO0"]
 
-    # Native USB
-    esp["USB_D+"] += usb_dp
-    esp["USB_D-"] += usb_dm
+    # Decoupling capacitors
+    c1 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c1[1] += v3v3; c1[2] += gnd
 
-    # I2C
-    esp["IO3"] += sda      # IO3 = default SDA on Feather ESP32-S3
-    esp["IO4"] += scl      # IO4 = default SCL on Feather ESP32-S3
+    c2 = Part("Device", "C", value="10uF",
+              footprint="Capacitor_SMD:C_0805_2012Metric")
+    c2[1] += v3v3; c2[2] += gnd
 
-    # NeoPixel data output via series resistor
-    # IO15 used for NeoPixel (internal to board, not on headers)
-    r_neo = Part("Device", "R", value="330",
+esp32_s3_mcu(v3v3, gnd, usb_dp, usb_dm, sda, scl, en, neopixel_data)
+
+# ---------------------------------------------------------------
+# NeoPixel Status LED (WS2812B)
+# ---------------------------------------------------------------
+@subcircuit
+def neopixel_led(v3v3, gnd, data_in):
+    """Single WS2812B NeoPixel for status indication."""
+    neo = Part(name="WS2812B", tool=SKIDL, dest=NETLIST,
+               footprint="LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+               pins=[
+                   Pin(num="1", name="VDD",  func=Pin.types.PWRIN),
+                   Pin(num="2", name="DOUT", func=Pin.types.OUTPUT),
+                   Pin(num="3", name="VSS",  func=Pin.types.PWRIN),
+                   Pin(num="4", name="DIN",  func=Pin.types.INPUT),
+               ])
+    neo["VDD"] += v3v3
+    neo["VSS"] += gnd
+    neo["DIN"] += data_in
+    neo["DOUT"] += Net("NEO_DOUT_NC")  # no chain, single LED
+
+    # Bypass capacitor close to NeoPixel
+    c_neo = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_neo[1] += v3v3
+    c_neo[2] += gnd
+
+neopixel_led(v3v3, gnd, neopixel_data)
+
+# ---------------------------------------------------------------
+# STEMMA QT / Qwiic I2C Connector (with switchable power)
+# ---------------------------------------------------------------
+@subcircuit
+def stemma_qt(v3v3, gnd, sda_net, scl_net):
+    """STEMMA QT (JST SH 4-pin) I2C connector with switchable power via P-MOSFET."""
+    qt = Part("Connector_Generic", "Conn_01x04",
+              footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal")
+
+    # STEMMA QT pinout: GND, VCC, SDA, SCL
+    qt[1] += gnd
+    qt[3] += sda_net
+    qt[4] += scl_net
+
+    # Switchable 3.3V power via P-channel MOSFET for low-power mode
+    qt_pwr = Net("QT_3V3")
+    pfet = Part("Transistor_FET", "AO3401A",
+                footprint="Package_TO_SOT_SMD:SOT-23")
+    pfet["S"] += v3v3       # source to 3.3V supply
+    pfet["D"] += qt_pwr     # drain to STEMMA QT VCC
+    qt[2] += qt_pwr
+
+    # Gate control (active low enable, pull low to enable by default)
+    qt_en = Net("QT_EN")
+    pfet["G"] += qt_en
+    r_gate = Part("Device", "R", value="100K",
+                  footprint="Resistor_SMD:R_0402_1005Metric")
+    r_gate[1] += qt_en
+    r_gate[2] += gnd   # pull low = ON by default
+
+stemma_qt(v3v3, gnd, sda, scl)
+
+# ---------------------------------------------------------------
+# Reset Button
+# ---------------------------------------------------------------
+@subcircuit
+def reset_button(en_net, gnd):
+    """Tactile push button for reset (active low)."""
+    sw = Part(name="SW_RESET", tool=SKIDL, dest=NETLIST,
+              footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2",
+              pins=[
+                  Pin(num="1", name="A", func=Pin.types.PASSIVE),
+                  Pin(num="2", name="B", func=Pin.types.PASSIVE),
+              ])
+    sw["A"] += en_net
+    sw["B"] += gnd
+
+reset_button(en, gnd)
+
+# ---------------------------------------------------------------
+# User LED
+# ---------------------------------------------------------------
+@subcircuit
+def user_led(v3v3, gnd):
+    """General-purpose user LED on IO13."""
+    led = Part("Device", "LED", value="RED",
+               footprint="LED_SMD:LED_0603_1608Metric")
+    r_led = Part("Device", "R", value="1K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
-    esp["IO15"] += r_neo[1]
-    r_neo[2] += neopixel_out
+    led_net = Net("LED_IO13")
+    r_led[1] += led_net
+    r_led[2] += led[1]
+    led[2] += gnd
 
-    # STEMMA QT enable GPIO (IO7 — internal, not on headers)
-    esp["IO7"] += stemma_en
+user_led(v3v3, gnd)
 
-    # NeoPixel power control (IO46 — internal)
-    # IO46 controls a FET for NeoPixel power (for deep sleep)
-    esp["IO46"] += Net("NEO_PWR_EN")
-
-    # Decoupling caps for the module
-    c_dec1 = Part("Device", "C", value="100nF",
-                  footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_dec2 = Part("Device", "C", value="10uF",
-                  footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_dec1[1] += vcc; c_dec1[2] += gnd
-    c_dec2[1] += vcc; c_dec2[2] += gnd
-
-    # ---- Feather Wing header pin assignments ----
-    # Available WROOM-1 pins: IO0-IO14, IO15-IO18, IO21, IO35-IO42,
-    # IO45-IO48, RXD0, TXD0. Used internally: IO0(boot), IO3(SDA),
-    # IO4(SCL), IO7(STEMMA), IO15(NeoPixel), IO46(NeoPixel pwr)
-    #
-    # Left header (1x16): A0-A5, SCK, MOSI, MISO, RX, TX, D4, SDA, SCL, D5, D6
-    esp["IO18"] += feather_left[0]   # A0
-    esp["IO17"] += feather_left[1]   # A1
-    esp["IO14"] += feather_left[2]   # A2
-    esp["IO13"] += feather_left[3]   # A3
-    esp["IO12"] += feather_left[4]   # A4
-    esp["IO11"] += feather_left[5]   # A5
-    esp["IO36"] += feather_left[6]   # SCK
-    esp["IO35"] += feather_left[7]   # MOSI
-    esp["IO37"] += feather_left[8]   # MISO
-    esp["RXD0"] += feather_left[9]   # RX
-    esp["TXD0"] += feather_left[10]  # TX
-    esp["IO21"] += feather_left[11]  # D4/GPIO21
-    esp["IO3"] += feather_left[12]   # SDA (shared with I2C bus)
-    esp["IO4"] += feather_left[13]   # SCL (shared with I2C bus)
-    esp["IO5"] += feather_left[14]   # D5
-    esp["IO6"] += feather_left[15]   # D6
-
-    # Right header: 10 GPIO pins (BAT and RST handled in feather_headers)
-    esp["IO42"] += feather_right[0]  # D13 (LED)
-    esp["IO41"] += feather_right[1]  # D12
-    esp["IO40"] += feather_right[2]  # D11
-    esp["IO39"] += feather_right[3]  # D10
-    esp["IO38"] += feather_right[4]  # D9
-    esp["IO48"] += feather_right[5]  # D25/A6
-    esp["IO47"] += feather_right[6]  # D24/A7
-    esp["IO8"]  += feather_right[7]  # A8
-    esp["IO9"]  += feather_right[8]  # D24
-    esp["IO10"] += feather_right[9]  # D25
-
-
-# ============================================================
-# User interface: buttons and power LED
-# ============================================================
+# ---------------------------------------------------------------
+# Feather Headers (1x16 + 1x12)
+# ---------------------------------------------------------------
 @subcircuit
-def buttons_and_leds(vcc, gnd, rst_n, boot0, pwr_led_net):
-    """Reset button, boot button, power LED."""
-    # Reset button — pulls EN low
-    sw_rst = Part("Switch", "SW_Push",
-                  footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2")
-    sw_rst[1] += rst_n
-    sw_rst[2] += gnd
+def feather_headers(vbus, vbat, v3v3, gnd, en_net, sda_net, scl_net):
+    """Standard Feather header pinout for Wing compatibility."""
+    # Left header (16 pins)
+    hdr_l = Part("Connector_Generic", "Conn_01x16",
+                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical")
+    hdr_l[1]  += Net("RST_HDR")
+    hdr_l[2]  += v3v3
+    hdr_l[3]  += Net("AREF")
+    hdr_l[4]  += gnd
+    hdr_l[5]  += Net("A0")
+    hdr_l[6]  += Net("A1")
+    hdr_l[7]  += Net("A2")
+    hdr_l[8]  += Net("A3")
+    hdr_l[9]  += Net("A4")
+    hdr_l[10] += Net("A5")
+    hdr_l[11] += scl_net
+    hdr_l[12] += sda_net
+    hdr_l[13] += Net("GPIO_D13")
+    hdr_l[14] += Net("GPIO_D12")
+    hdr_l[15] += Net("GPIO_D11")
+    hdr_l[16] += Net("GPIO_D10")
 
-    # Boot / DFU button — pulls IO0 low
-    sw_boot = Part("Switch", "SW_Push",
-                   footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2")
-    sw_boot[1] += boot0
-    sw_boot[2] += gnd
+    # Right header (12 pins)
+    hdr_r = Part("Connector_Generic", "Conn_01x12",
+                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical")
+    hdr_r[1]  += vbat
+    hdr_r[2]  += en_net
+    hdr_r[3]  += vbus
+    hdr_r[4]  += Net("GPIO_D5")
+    hdr_r[5]  += Net("GPIO_D6")
+    hdr_r[6]  += Net("GPIO_D9")
+    hdr_r[7]  += Net("GPIO_D10_R")
+    hdr_r[8]  += Net("GPIO_D11_R")
+    hdr_r[9]  += Net("GPIO_D12_R")
+    hdr_r[10] += Net("GPIO_D13_R")
+    hdr_r[11] += Net("TX")
+    hdr_r[12] += Net("RX")
 
-    # Power LED (green, from 3.3V)
-    led_pwr = Part("Device", "LED", value="GREEN",
-                   footprint="LED_SMD:LED_0603_1608Metric")
-    r_pwr = Part("Device", "R", value="1K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_pwr[1] += vcc
-    r_pwr[2] += led_pwr[2]   # Anode
-    led_pwr[1] += gnd        # Cathode
+feather_headers(vbus, vbat, v3v3, gnd, en, sda, scl)
 
-
-# ============================================================
-# Feather headers
-# ============================================================
+# ---------------------------------------------------------------
+# SPI Flash (8 MB external flash -- W25Q64)
+# ---------------------------------------------------------------
 @subcircuit
-def feather_headers(vcc, vbat, vbus, gnd, rst_n,
-                    left_pins, right_pins):
-    """Feather-standard pin headers — 1x16 left, 1x12 right."""
-    # Left header: 16 pins
-    hdr_left = Part("Connector_Generic", "Conn_01x16",
-                    footprint="Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical")
+def spi_flash(v3v3, gnd):
+    """W25Q64 8MB SPI flash for CircuitPython filesystem / OTA."""
+    flash = Part(name="W25Q64JV", tool=SKIDL, dest=NETLIST,
+                 footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+                 pins=[
+                     Pin(num="1", name="CS",   func=Pin.types.INPUT),
+                     Pin(num="2", name="DO",   func=Pin.types.OUTPUT),
+                     Pin(num="3", name="WP",   func=Pin.types.INPUT),
+                     Pin(num="4", name="GND",  func=Pin.types.PWRIN),
+                     Pin(num="5", name="DI",   func=Pin.types.INPUT),
+                     Pin(num="6", name="CLK",  func=Pin.types.INPUT),
+                     Pin(num="7", name="HOLD", func=Pin.types.INPUT),
+                     Pin(num="8", name="VCC",  func=Pin.types.PWRIN),
+                 ])
+    flash["VCC"]  += v3v3
+    flash["GND"]  += gnd
 
-    # Right header: 12 pins
-    hdr_right = Part("Connector_Generic", "Conn_01x12",
-                     footprint="Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical")
+    # SPI connections
+    flash_cs  = Net("FLASH_CS")
+    flash_clk = Net("FLASH_CLK")
+    flash_di  = Net("FLASH_MOSI")
+    flash_do  = Net("FLASH_MISO")
 
-    # Connect left header GPIOs (16 pins, 0-indexed list)
-    for i in range(16):
-        hdr_left[i+1] += left_pins[i]
+    flash["CS"]   += flash_cs
+    flash["CLK"]  += flash_clk
+    flash["DI"]   += flash_di
+    flash["DO"]   += flash_do
 
-    # Right header — first 2 are power/special, then 10 GPIOs
-    hdr_right[1] += vbat    # BAT (pin 1)
-    hdr_right[2] += rst_n   # EN/RST (pin 2)
-    # Pins 3-12: GPIOs (0-indexed list → right_pins[0..9])
-    for i in range(10):
-        hdr_right[i+3] += right_pins[i]
+    # WP and HOLD pulled high (inactive)
+    r_wp = Part("Device", "R", value="10K",
+                footprint="Resistor_SMD:R_0402_1005Metric")
+    r_hold = Part("Device", "R", value="10K",
+                  footprint="Resistor_SMD:R_0402_1005Metric")
+    r_wp[1]   += v3v3; r_wp[2]   += flash["WP"]
+    r_hold[1] += v3v3; r_hold[2] += flash["HOLD"]
 
+    # Decoupling
+    c_flash = Part("Device", "C", value="100nF",
+                   footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_flash[1] += v3v3
+    c_flash[2] += gnd
 
-# ============================================================
-# JST PH battery connector
-# ============================================================
+spi_flash(v3v3, gnd)
+
+# ---------------------------------------------------------------
+# 32.768 kHz Crystal for RTC
+# ---------------------------------------------------------------
 @subcircuit
-def battery_connector(vbat, gnd):
-    """2-pin JST PH connector for LiPoly battery."""
-    batt = Part("Connector_Generic", "Conn_01x02",
-                footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal")
-    batt[1] += vbat
-    batt[2] += gnd
+def rtc_crystal(v3v3, gnd):
+    """32.768 kHz crystal for ESP32-S3 internal RTC."""
+    xtal = Part("Device", "Crystal", value="32.768kHz",
+                footprint="Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm")
+    xtal_p = Net("XTAL32K_P")
+    xtal_n = Net("XTAL32K_N")
+    xtal[1] += xtal_p
+    xtal[2] += xtal_n
 
+    # Load capacitors
+    c1 = Part("Device", "C", value="6.8pF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c2 = Part("Device", "C", value="6.8pF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c1[1] += xtal_p; c1[2] += gnd
+    c2[1] += xtal_n; c2[2] += gnd
 
-# ============================================================
-# Top-level instantiation
-# ============================================================
+rtc_crystal(v3v3, gnd)
 
-# Internal signal nets for data
-USB_DP = Net("USB_DP")
-USB_DM = Net("USB_DM")
+# ---------------------------------------------------------------
+# Initialize SKIDL-tool parts for schematic generation
+# ---------------------------------------------------------------
+for p in default_circuit.parts:
+    if getattr(p, "tool", None) == SKIDL:
+        _init_skidl_pins(p)
 
-# Feather wing pin buses (directly connected nets)
-feather_left_pins = [Net(f"FL{i}") for i in range(16)]
-feather_right_pins = [Net(f"FR{i}") for i in range(10)]
-
-# 1. USB-C connector
-usb_c_connector(VBUS, GND, USB_DP, USB_DM)
-
-# 2. Battery charger
-battery_charger(VBUS, VBAT, GND, CHG_LED)
-
-# 3. Battery connector
-battery_connector(VBAT, GND)
-
-# 4. Power path (Schottky OR)
-power_path(VBUS, VBAT, VSYS, GND)
-
-# 5. 3.3V regulator
-voltage_regulator(VSYS, VCC, GND)
-
-# 6. Battery fuel gauge
-battery_monitor(VBAT, VCC, GND, SDA, SCL)
-
-# 7. ESP32-S3 module
-esp32_s3_module(VCC, GND, SDA, SCL, USB_DP, USB_DM,
-                NEOPIXEL, STEMMA_EN, RST_N, BOOT0,
-                feather_left_pins, feather_right_pins)
-
-# 8. STEMMA QT connector
-stemma_qt(VCC, GND, SDA, SCL, STEMMA_EN)
-
-# 9. NeoPixel
-neopixel(VCC, GND, NEOPIXEL)
-
-# 10. Buttons and LEDs
-buttons_and_leds(VCC, GND, RST_N, BOOT0, PWR_LED)
-
-# 11. Feather headers
-feather_headers(VCC, VBAT, VBUS, GND, RST_N,
-                feather_left_pins, feather_right_pins)
-
-# ============================================================
+# ---------------------------------------------------------------
 # Generate schematic
-# ============================================================
+# ---------------------------------------------------------------
 generate_schematic(auto_stub=True, auto_stub_fanout=3, erc_max_iterations=8)

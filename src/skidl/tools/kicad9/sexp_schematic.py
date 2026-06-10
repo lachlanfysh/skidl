@@ -116,7 +116,7 @@ def _power_symbol_to_sexp(pin, net_name, tx):
     # Position at pin location.
     part_tx = getattr(pin.part, "tx", Tx())
     combined_tx = part_tx * tx
-    pin_pt = getattr(pin, "pt", Point(pin.x, pin.y))
+    pin_pt = getattr(pin, "pt", Point(getattr(pin, "x", 0) or 0, getattr(pin, "y", 0) or 0))
     pt = pin_pt * combined_tx
 
     x = _round_mm(pt.x)
@@ -306,10 +306,11 @@ def part_to_sexp(part, uuid_path, tx=Tx()):
     origin = Point(_round_mm(tx.origin.x), _round_mm(tx.origin.y))
     unit_num = getattr(part, "num", 1)
 
+    part_lib = getattr(part, "lib", None)
     lib_name = (
-        os.path.splitext(part.lib.filename)[0]
-        if hasattr(part.lib, "filename") and part.lib.filename
-        else "Device"
+        os.path.splitext(part_lib.filename)[0]
+        if part_lib and hasattr(part_lib, "filename") and part_lib.filename
+        else "skidl"
     )
     part_name = part.name or "Unknown"
     lib_id = f"{lib_name}:{part_name}"
@@ -468,10 +469,11 @@ def part_to_lib_symbol_definition(part):
     Returns:
         list: Nested list for the lib_symbols section.
     """
+    part_lib = getattr(part, "lib", None)
     lib_name = (
-        os.path.splitext(part.lib.filename)[0]
-        if hasattr(part.lib, "filename") and part.lib.filename
-        else "Device"
+        os.path.splitext(part_lib.filename)[0]
+        if part_lib and hasattr(part_lib, "filename") and part_lib.filename
+        else "skidl"
     )
     part_name = part.name or "Unknown"
     lib_id = f"{lib_name}:{part_name}"
@@ -732,7 +734,7 @@ def net_label_to_sexp(pin, tx=Tx(), force=False):
     label_type = "global_label"
 
     # Position at pin location (Y-flip is already in sheet_tx).
-    pin_pt = getattr(pin, "pt", Point(pin.x, pin.y))
+    pin_pt = getattr(pin, "pt", Point(getattr(pin, "x", 0) or 0, getattr(pin, "y", 0) or 0))
     part_tx = getattr(pin.part, "tx", Tx())
     pt = pin_pt * part_tx * tx
 
@@ -983,7 +985,11 @@ def node_to_sexp_schematic(node, uuid_path, sheet_tx=Tx(), version=20230409):
     lib_symbols = {}
     for part in node.parts:
         if not isinstance(part, NetTerminal):
-            lib_id = f"{part.lib.filename}:{part.name}"
+            part_lib = getattr(part, "lib", None)
+            if part_lib and hasattr(part_lib, "filename"):
+                lib_id = f"{part_lib.filename}:{part.name}"
+            else:
+                lib_id = f"skidl:{part.name}"
             lib_symbols[lib_id] = part
 
     # Add power lib_symbols for any power symbols used in this sheet.

@@ -1,85 +1,54 @@
-"""Run the SKiDL layout pipeline on the CLUE nRF52840 circuit."""
-
-import os, sys, json, builtins, re, traceback
-
+import os, sys, json, builtins, re
 os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
 sys.path.insert(0, "/home/lachlan/Projects/skidl/src")
-
 from skidl import *
 set_default_tool(KICAD9)
-
-# Read and modify circuit.py — remove generate_schematic call
-circuit_path = "/home/lachlan/Projects/skidl/benchmarks/results/clue-nrf52840/circuit.py"
-with open(circuit_path) as f:
+with open("/home/lachlan/Projects/skidl/benchmarks/results/clue-nrf52840/circuit.py") as f:
     code = f.read()
-
-# Remove generate_schematic call and the print statements after it
-code = re.sub(
-    r'^generate_schematic\(.*?\).*$',
-    '# generate_schematic removed for layout eval',
-    code,
-    flags=re.MULTILINE,
-)
-# Also remove the os.environ and sys.path and import lines that would conflict
-# since we already set them up above
-code = re.sub(r'^os\.environ\["KICAD9_SYMBOL_DIR"\].*$', '# env already set', code, flags=re.MULTILINE)
-code = re.sub(r'^from skidl import \*.*$', '# already imported', code, flags=re.MULTILINE)
-code = re.sub(r'^set_default_tool\(KICAD9\).*$', '# already set', code, flags=re.MULTILINE)
-code = re.sub(r'^import os, sys$', '# already imported', code, flags=re.MULTILINE)
-
-exec(compile(code, circuit_path, 'exec'))
-
+code = re.sub(r'^generate_schematic\(.*\).*$', '# removed', code, flags=re.MULTILINE)
+code = re.sub(r'^generate_netlist\(.*\).*$', '# removed', code, flags=re.MULTILINE)
+# Also remove the _init_skidl_pins loop (only needed for schematic gen)
+code = re.sub(r'^for p in default_circuit.*\n.*_init_skidl_pins.*$', '# removed', code, flags=re.MULTILINE)
+exec(compile(code, "circuit.py", "exec"))
 ckt = builtins.default_circuit
-print(f"Circuit has {len(ckt.parts)} parts, {len(ckt.nets)} nets")
-
 from skidl.layout import (
-    plan_layout, write_kicad_pcb,
-    LayoutConstraints, BoardOutline,
-    load_footprint_bboxes,
+    extract_groups, place_parts, validate, write_kicad_pcb,
+    LayoutConstraints, derive_outline, derive_outline_from_circuit,
+    load_footprint_bboxes, validate_footprints, FORM_FACTORS,
 )
+parts_with_fp = [p for p in ckt.parts if getattr(p, "footprint", None)]
+fp_names = {str(p.footprint) for p in parts_with_fp}
+fp_bboxes = load_footprint_bboxes(fp_names, ["/usr/share/kicad/footprints"])
 
-fp_lib_dirs = ["/usr/share/kicad/footprints"]
+# Check for missing footprints
+valid_fps, missing_fps = validate_footprints(fp_names, ["/usr/share/kicad/footprints"])
+if missing_fps:
+    print(f"WARNING: Missing footprints: {missing_fps}")
 
-# Use plan_layout — the high-level orchestrator
-result = plan_layout(
-    circuit=ckt,
-    fp_lib_dirs=fp_lib_dirs,
-    derive_outline_if_missing=True,
-    margin_mm=3.0,
-    clearance_mm=0.5,
-)
+# Form factor detection
+form_factor = None  # no standard form factor detected
+if form_factor and form_factor in FORM_FACTORS:
+    outline = FORM_FACTORS[form_factor]
+    print(f"Using form factor: {form_factor} ({outline.width_mm}x{outline.height_mm}mm)")
+else:
+    # Density-aware outline
+    density_outline = derive_outline_from_circuit(ckt, fp_bboxes)
+    min_area = density_outline.width_mm * density_outline.height_mm
+    outline = derive_outline([], fp_bboxes, min_area_mm2=min_area)
+    print(f"Auto-derived outline: {outline.width_mm:.1f}x{outline.height_mm:.1f}mm (min area: {min_area:.0f}mm2)")
 
-print("\n--- Layout Result ---")
-print(result.summary())
-
-validation = result.validation
-placed = result.placed_parts
-
-# Write PCB
-pcb_path = "/home/lachlan/Projects/skidl/benchmarks/results/clue-nrf52840/board.kicad_pcb"
-pcb_ok = False
-pcb_error = None
+constraints = LayoutConstraints(outline=outline, form_factor=None)
+groups = extract_groups(ckt)
+placed = place_parts(groups, constraints, fp_bboxes, circuit=ckt)
+validation = validate(placed, ckt, fp_bboxes, outline=constraints.outline)
+print(f"Layout: ok={validation.ok}, overlaps={len(validation.overlaps)}, outline_viol={len(validation.outline_violations)}, placed={len(placed)}")
+print(f"Outline: {constraints.outline.width_mm:.1f}x{constraints.outline.height_mm:.1f}mm")
+if validation.overlaps:
+    print(f"Overlapping pairs: {validation.overlaps[:5]}")
+if validation.outline_violations:
+    print(f"Outline violations: {validation.outline_violations[:5]}")
 try:
-    write_kicad_pcb(
-        placed, ckt, fp_lib_dirs, pcb_path,
-        outline=result.outline,
-        strict_missing_footprints=False,
-    )
-    pcb_ok = True
-    print(f"\nPCB written to {pcb_path}")
+    write_kicad_pcb(placed, ckt, ["/usr/share/kicad/footprints"], "/home/lachlan/Projects/skidl/benchmarks/results/clue-nrf52840/board.kicad_pcb", outline=constraints.outline)
+    print("PCB written")
 except Exception as e:
-    pcb_error = str(e)
-    print(f"\nPCB write failed: {e}")
-    traceback.print_exc()
-
-output = {
-    "board": "clue-nrf52840",
-    "layout_ok": validation.ok,
-    "overlaps": len(validation.overlaps),
-    "outline_violations": len(validation.outline_violations),
-    "missing_refs": len(validation.missing_refs),
-    "parts_placed": len(placed),
-    "pcb_written": pcb_ok,
-}
-print("\n--- JSON ---")
-print(json.dumps(output))
+    print(f"PCB write failed: {e}")

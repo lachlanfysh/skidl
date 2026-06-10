@@ -1,1115 +1,865 @@
-"""Feather nRF52840 Sense (Bluefruit) — Feather form factor with full sensor suite.
-
-Nordic nRF52840 ARM Cortex M4F @ 64MHz, 1MB flash, 256KB SRAM, BLE 5.0.
-Sensors: LSM6DS33 Accel/Gyro + LIS3MDL magnetometer (9-DoF), APDS9960
-proximity/light/color/gesture, PDM microphone, SHT30 humidity, BMP280
-barometric pressure/temperature. NeoPixel RGB LED, USB-C, LiPo charging,
-21 GPIO, 6x 12-bit ADC, SWD debug header. Feather headers (1x12 + 1x16).
 """
+Feather nRF52840 Sense (Bluefruit) -- SKiDL circuit description.
 
-import os, sys
-
-os.environ.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
+Nordic nRF52840 BLE SoC with built-in 9-DoF (LSM6DS33 + LIS3MDL),
+APDS9960 gesture/color/proximity, PDM microphone, SHT30 humidity,
+BMP280 barometric pressure, NeoPixel, USB-C, LiPo charger,
+3.3V regulator, and Feather headers.
+"""
+import os
+os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
 
 from skidl import *
-
 set_default_tool(KICAD9)
 
-from collections import defaultdict
 
+def _fix_skidl_pins(part):
+    """Set default orientation/position on SKIDL-tool part pins for schematic gen.
 
-def make_pin(num, name, func, orientation="R"):
-    """Create a Pin with schematic-required attributes."""
-    return Pin(num=num, name=name, func=func,
-               x=0, y=0, orientation=orientation, length=100, rotation=0)
+    Also synthesize minimal draw_cmds so calc_symbol_bbox produces a real
+    bounding box instead of an empty/inf one.
+    """
+    n = len(part.pins)
+    spacing = 2.54  # mm between pins
+    pin_len = 2.54  # mm pin stub length
 
+    # Assign pin positions: stack vertically, pin stub pointing right
+    for i, pin in enumerate(part.pins):
+        if not hasattr(pin, "orientation") or not pin.orientation:
+            pin.orientation = "R"
+        pin.x = float(pin_len)           # tip of pin (connection point)
+        pin.y = float(-i * spacing)      # stack downward
 
-def add_skidl_draw_cmds(part):
-    """Add rectangle + pin draw_cmds to a tool=SKIDL Part for schematic gen."""
-    pins = list(part.pins)
-    n = len(pins)
-    if n == 0:
-        return
+    # Build draw_cmds with pin entries and a body rectangle so
+    # calc_symbol_bbox can compute a proper bounding box.
+    # Format: nested lists mimicking KiCad s-expression structure.
+    body_w = max(5.0, pin_len + 2.0)
+    body_h = max(5.0, (n - 1) * spacing + 2.0)
+    body_top = 1.0
+    body_bot = body_top - body_h
+    body_left = pin_len + 0.5
+    body_right = body_left + body_w
 
-    spacing = 2.54
-    pin_len = 2.54
-
-    left_pins = pins[:n // 2]
-    right_pins = pins[n // 2:]
-
-    max_side = max(len(left_pins), len(right_pins), 1)
-    body_h = max(max_side * spacing, spacing * 2)
-    body_w = max(spacing * 4, spacing * 2)
-
-    rect_cmd = [
-        "rectangle",
-        ["start", -body_w / 2, -body_h / 2],
-        ["end", body_w / 2, body_h / 2],
-        ["stroke", ["width", 0.254], ["type", "default"]],
-        ["fill", ["type", "none"]],
-    ]
-
-    pin_cmds = []
-    for i, pin in enumerate(left_pins):
-        y = -body_h / 2 + spacing * (i + 0.5)
-        x = -body_w / 2 - pin_len
-        pin.x = x
-        pin.y = y
-        pin.orientation = "R"
-        pin.rotation = 0
-        pin_cmds.append([
+    cmds = []
+    # Rectangle for the body (nested list format for _draw_cmd_to_dict)
+    cmds.append(["rectangle",
+                 ["start", body_left, body_top],
+                 ["end", body_right, body_bot]])
+    # Pin entries
+    for i, pin in enumerate(part.pins):
+        cmds.append([
             "pin", "passive", "line",
-            ["at", x, y, 0],
+            ["at", 0.0, float(-i * spacing), 0],
             ["length", pin_len],
-            ["name", pin.name, ["effects", ["font", ["size", 1.27, 1.27]]]],
-            ["number", str(pin.num), ["effects", ["font", ["size", 1.27, 1.27]]]],
+            ["name", pin.name or f"P{pin.num}"],
+            ["number", str(pin.num)],
         ])
 
-    for i, pin in enumerate(right_pins):
-        y = -body_h / 2 + spacing * (i + 0.5)
-        x = body_w / 2 + pin_len
-        pin.x = x
-        pin.y = y
-        pin.orientation = "L"
-        pin.rotation = 180
-        pin_cmds.append([
-            "pin", "passive", "line",
-            ["at", x, y, 180],
-            ["length", pin_len],
-            ["name", pin.name, ["effects", ["font", ["size", 1.27, 1.27]]]],
-            ["number", str(pin.num), ["effects", ["font", ["size", 1.27, 1.27]]]],
-        ])
+    part.draw_cmds = {1: cmds, 0: []}
 
-    part.draw_cmds = defaultdict(list)
-    part.draw_cmds[0] = [rect_cmd]
-    part.draw_cmds[1] = pin_cmds + [rect_cmd]
+    # SKIDL-tool parts also need a lib attribute with filename for schematic output
+    if not hasattr(part, "lib") or part.lib is None:
+        class _FakeLib:
+            filename = "SKIDL"
+        part.lib = _FakeLib()
+
+    return part
 
 
-# =============================================================================
-# Power nets
-# =============================================================================
-vcc = Net("+3V3")
-vcc.drive = POWER
-vbat = Net("VBAT")
-vbat.drive = POWER
-gnd = Net("GND")
-gnd.drive = POWER
-vbus = Net("VBUS")
-vbus.drive = POWER
+# ---------------------------------------------------------------
+# Global nets
+# ---------------------------------------------------------------
+vbus = Net("VBUS"); vbus.drive = POWER
+vbat = Net("VBAT"); vbat.drive = POWER
+v3v3 = Net("+3V3"); v3v3.drive = POWER
+gnd  = Net("GND");  gnd.drive  = POWER
 
+i2c_sda = Net("SDA")
+i2c_scl = Net("SCL")
 
-# =============================================================================
-# MCU — Nordic nRF52840 (AQFN-73 package)
-# =============================================================================
+# ---------------------------------------------------------------
+# USB Input
+# ---------------------------------------------------------------
 @subcircuit
-def mcu_block(vcc, gnd, sda, scl, neo_data, pdm_clk, pdm_data,
-              btn_usr, uart_tx, uart_rx, a0, a1, a2, a3, a4, a5,
-              d5, d6, d9, d10, d11, d12, d13,
-              qspi_sck, qspi_cs, qspi_d0, qspi_d1, qspi_d2, qspi_d3):
-    """nRF52840 MCU with decoupling, crystal, and antenna matching."""
-    nrf = Part(
-        name="nRF52840",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Package_DFN_QFN:Nordic_AQFN-73-1EP_7x7mm_P0.5mm",
-        pins=[
-            # Power
-            make_pin("1", "DEC1", Pin.types.PASSIVE),
-            make_pin("2", "P0.00/XL1", Pin.types.BIDIR),
-            make_pin("3", "P0.01/XL2", Pin.types.BIDIR),
-            make_pin("4", "P0.02/AIN0", Pin.types.BIDIR),
-            make_pin("5", "P0.03/AIN1", Pin.types.BIDIR),
-            make_pin("6", "P0.04/AIN2", Pin.types.BIDIR),
-            make_pin("7", "P0.05/AIN3", Pin.types.BIDIR),
-            make_pin("8", "P0.06", Pin.types.BIDIR),
-            make_pin("9", "P0.07", Pin.types.BIDIR),
-            make_pin("10", "P0.08", Pin.types.BIDIR),
-            make_pin("11", "P0.09/NFC1", Pin.types.BIDIR),
-            make_pin("12", "P0.10/NFC2", Pin.types.BIDIR),
-            make_pin("13", "VDD1", Pin.types.PWRIN),
-            make_pin("14", "P0.11", Pin.types.BIDIR),
-            make_pin("15", "P0.12", Pin.types.BIDIR),
-            make_pin("16", "P0.13", Pin.types.BIDIR),
-            make_pin("17", "P0.14", Pin.types.BIDIR),
-            make_pin("18", "P0.15", Pin.types.BIDIR),
-            make_pin("19", "P0.16", Pin.types.BIDIR),
-            make_pin("20", "P0.17", Pin.types.BIDIR),
-            make_pin("21", "P0.18/NRESET", Pin.types.INPUT),
-            make_pin("22", "P0.19", Pin.types.BIDIR),
-            make_pin("23", "P0.20", Pin.types.BIDIR),
-            make_pin("24", "P0.21", Pin.types.BIDIR),
-            make_pin("25", "P0.22", Pin.types.BIDIR),
-            make_pin("26", "P0.23", Pin.types.BIDIR),
-            make_pin("27", "P0.24", Pin.types.BIDIR),
-            make_pin("28", "P0.25", Pin.types.BIDIR),
-            make_pin("29", "ANT", Pin.types.PASSIVE),
-            make_pin("30", "VSS1", Pin.types.PWRIN),
-            make_pin("31", "DEC2", Pin.types.PASSIVE),
-            make_pin("32", "DEC3", Pin.types.PASSIVE),
-            make_pin("33", "XC1", Pin.types.INPUT),
-            make_pin("34", "XC2", Pin.types.OUTPUT),
-            make_pin("35", "VDD2", Pin.types.PWRIN),
-            make_pin("36", "P0.26", Pin.types.BIDIR),
-            make_pin("37", "P0.27", Pin.types.BIDIR),
-            make_pin("38", "P0.28/AIN4", Pin.types.BIDIR),
-            make_pin("39", "P0.29/AIN5", Pin.types.BIDIR),
-            make_pin("40", "P0.30/AIN6", Pin.types.BIDIR),
-            make_pin("41", "P0.31/AIN7", Pin.types.BIDIR),
-            make_pin("42", "NC1", Pin.types.NOCONNECT),
-            make_pin("43", "NC2", Pin.types.NOCONNECT),
-            make_pin("44", "P1.00", Pin.types.BIDIR),
-            make_pin("45", "P1.01", Pin.types.BIDIR),
-            make_pin("46", "P1.02", Pin.types.BIDIR),
-            make_pin("47", "P1.03", Pin.types.BIDIR),
-            make_pin("48", "P1.04", Pin.types.BIDIR),
-            make_pin("49", "P1.05", Pin.types.BIDIR),
-            make_pin("50", "P1.06", Pin.types.BIDIR),
-            make_pin("51", "P1.07", Pin.types.BIDIR),
-            make_pin("52", "P1.08", Pin.types.BIDIR),
-            make_pin("53", "P1.09", Pin.types.BIDIR),
-            make_pin("54", "VDD3", Pin.types.PWRIN),
-            make_pin("55", "P1.10", Pin.types.BIDIR),
-            make_pin("56", "P1.11", Pin.types.BIDIR),
-            make_pin("57", "P1.12", Pin.types.BIDIR),
-            make_pin("58", "P1.13", Pin.types.BIDIR),
-            make_pin("59", "P1.14", Pin.types.BIDIR),
-            make_pin("60", "P1.15", Pin.types.BIDIR),
-            make_pin("61", "VDD4", Pin.types.PWRIN),
-            make_pin("62", "USB_DM", Pin.types.BIDIR),
-            make_pin("63", "USB_DP", Pin.types.BIDIR),
-            make_pin("64", "VBUS_DET", Pin.types.INPUT),
-            make_pin("65", "DEC4", Pin.types.PASSIVE),
-            make_pin("66", "USB_REG_VOUT", Pin.types.PWROUT),
-            make_pin("67", "DEC5", Pin.types.PASSIVE),
-            make_pin("68", "DEC6", Pin.types.PASSIVE),
-            make_pin("69", "VDD5", Pin.types.PWRIN),
-            make_pin("70", "SWDIO", Pin.types.BIDIR),
-            make_pin("71", "SWDCLK", Pin.types.INPUT),
-            make_pin("72", "VSS2", Pin.types.PWRIN),
-            make_pin("73", "GNDPAD", Pin.types.PWRIN),
-        ],
-    )
+def usb_input(vbus, gnd, usb_dp, usb_dm):
+    """USB-C connector with ESD protection."""
+    usb_conn = Part(name="USB_C_Receptacle", tool=SKIDL, dest=NETLIST,
+                    footprint="Connector_USB:USB_C_Receptacle_XKB_U262-16XN-4BVC11",
+                    pins=[
+                        Pin(num="1",  name="VBUS",   func=Pin.types.PWROUT),
+                        Pin(num="2",  name="D-",     func=Pin.types.BIDIR),
+                        Pin(num="3",  name="D+",     func=Pin.types.BIDIR),
+                        Pin(num="4",  name="CC1",    func=Pin.types.BIDIR),
+                        Pin(num="5",  name="CC2",    func=Pin.types.BIDIR),
+                        Pin(num="6",  name="GND",    func=Pin.types.PWRIN),
+                        Pin(num="7",  name="SHIELD", func=Pin.types.PASSIVE),
+                    ])
+    usb_conn["VBUS"]  += vbus
+    usb_conn["GND"]   += gnd
+    usb_conn["D+"]    += usb_dp
+    usb_conn["D-"]    += usb_dm
+    usb_conn["CC1"]   += Net("CC1")
+    usb_conn["CC2"]   += Net("CC2")
+    usb_conn["SHIELD"] += gnd
 
-    # Power connections
-    for p in ["VDD1", "VDD2", "VDD3", "VDD4", "VDD5"]:
-        nrf[p] += vcc
-    for p in ["VSS1", "VSS2", "GNDPAD"]:
-        nrf[p] += gnd
-    nrf["NC1"] += NC
-    nrf["NC2"] += NC
-
-    # Decoupling capacitors (4x 100nF for VDD pins)
-    for i in range(4):
-        c = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-        c[1] += vcc
-        c[2] += gnd
-
-    # DEC pins need 100nF to GND per datasheet
-    for dec_pin in ["DEC1", "DEC2", "DEC3", "DEC4", "DEC5", "DEC6"]:
-        cdec = Part("Device", "C", value="100nF",
-                    footprint="Capacitor_SMD:C_0402_1005Metric")
-        cdec[1] += nrf[dec_pin]
-        cdec[2] += gnd
-
-    # 32.768 kHz crystal (low-frequency clock for BLE timing)
-    xtal_lf = Part("Device", "Crystal", value="32.768kHz",
-                   footprint="Crystal:Crystal_SMD_2012-2Pin_2.0x1.2mm")
-    xtal_lf[1] += nrf["P0.00/XL1"]
-    xtal_lf[2] += nrf["P0.01/XL2"]
-
-    # 32 MHz crystal (high-frequency clock)
-    xtal_hf = Part("Device", "Crystal", value="32MHz",
-                   footprint="Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm")
-    xtal_hf[1] += nrf["XC1"]
-    xtal_hf[2] += nrf["XC2"]
-
-    # Crystal load caps for HF
-    for xpin in ["XC1", "XC2"]:
-        cxl = Part("Device", "C", value="12pF",
-                   footprint="Capacitor_SMD:C_0402_1005Metric")
-        cxl[1] += nrf[xpin]
-        cxl[2] += gnd
-
-    # Antenna matching network (simple pi network)
-    ant_net = Net("ANT_FEED")
-    nrf["ANT"] += ant_net
-
-    # Chip antenna (2.4GHz BLE)
-    ant = Part(
-        name="ANT_2.4GHz",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="AE",
-        footprint="RF_Antenna:Johanson_2450AT18x100_2400-2500Mhz",
-        pins=[
-            make_pin("1", "FEED", Pin.types.PASSIVE),
-            make_pin("2", "GND", Pin.types.PASSIVE),
-        ],
-    )
-    ant["GND"] += gnd
-
-    # Matching: series inductor + shunt cap
-    l_match = Part("Device", "L", value="3.9nH",
-                   footprint="Inductor_SMD:L_0402_1005Metric")
-    l_match[1] += ant_net
-    l_match[2] += ant["FEED"]
-
-    c_match = Part("Device", "C", value="0.8pF",
-                   footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_match[1] += ant_net
-    c_match[2] += gnd
-
-    # Reset pullup + button
-    r_rst = Part("Device", "R", value="10K",
+    # CC pull-down resistors (5.1k for device mode)
+    for net_name in ["CC1", "CC2"]:
+        r = Part("Device", "R", value="5.1K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
-    r_rst[1] += vcc
-    r_rst[2] += nrf["P0.18/NRESET"]
+        r[1] += usb_conn[net_name]
+        r[2] += gnd
 
-    sw_rst = Part("Switch", "SW_Push", value="RESET",
-                  footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2")
-    sw_rst[1] += nrf["P0.18/NRESET"]
-    sw_rst[2] += gnd
+usb_dp = Net("USB_DP")
+usb_dm = Net("USB_DM")
+usb_input(vbus, gnd, usb_dp, usb_dm)
 
-    # USB data lines
-    usb_dm = Net("USB_DM")
-    usb_dp = Net("USB_DP")
-    nrf["USB_DM"] += usb_dm
-    nrf["USB_DP"] += usb_dp
-    nrf["VBUS_DET"] += vbus
-
-    # USB regulator output decoupling
-    c_usbreg = Part("Device", "C", value="1uF",
-                    footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_usbreg[1] += nrf["USB_REG_VOUT"]
-    c_usbreg[2] += gnd
-
-    # SWD debug header (2x5 1.27mm)
-    swd_net_dio = Net("SWDIO")
-    swd_net_clk = Net("SWDCLK")
-    nrf["SWDIO"] += swd_net_dio
-    nrf["SWDCLK"] += swd_net_clk
-
-    # Signal pin assignments (matching Adafruit Feather nRF52840 Sense)
-    nrf["P0.26"] += sda       # I2C SDA
-    nrf["P0.27"] += scl       # I2C SCL
-    nrf["P0.16"] += neo_data  # NeoPixel
-    nrf["P0.00/XL1"]  # Already used for LF crystal
-    nrf["P1.00"] += pdm_clk   # PDM CLK
-    nrf["P0.06"] += pdm_data  # PDM DATA
-    nrf["P1.02"] += btn_usr   # User switch (active low)
-    nrf["P0.24"] += uart_tx   # UART TX
-    nrf["P0.25"] += uart_rx   # UART RX
-
-    # Analog pins (A0-A5 on Feather header)
-    nrf["P0.04/AIN2"] += a0
-    nrf["P0.05/AIN3"] += a1
-    nrf["P0.30/AIN6"] += a2
-    nrf["P0.28/AIN4"] += a3
-    nrf["P0.02/AIN0"] += a4
-    nrf["P0.03/AIN1"] += a5
-
-    # Digital pins
-    nrf["P0.14"] += d5
-    nrf["P0.13"] += d6
-    nrf["P0.15"] += d9
-    nrf["P1.06"] += d10
-    nrf["P1.08"] += d11
-    nrf["P1.09"] += d12
-    nrf["P0.08"] += d13     # Built-in red LED
-
-    # QSPI flash
-    nrf["P0.19"] += qspi_sck
-    nrf["P0.20"] += qspi_cs
-    nrf["P0.17"] += qspi_d0
-    nrf["P0.22"] += qspi_d1
-    nrf["P0.23"] += qspi_d2
-    nrf["P0.21"] += qspi_d3
-
-    # Unused GPIO pins as NC
-    for p in ["P0.07", "P0.09/NFC1", "P0.10/NFC2", "P0.11", "P0.12",
-              "P1.01", "P1.03", "P1.04", "P1.05", "P1.07",
-              "P1.10", "P1.11", "P1.12", "P1.13", "P1.14", "P1.15",
-              "P0.29/AIN5", "P0.31/AIN7", "P1.10"]:
-        try:
-            nrf[p] += NC
-        except Exception:
-            pass  # Duplicate pin names handled
-
-
-# =============================================================================
-# Power — LDO Regulator + LiPo Charger
-# =============================================================================
+# ---------------------------------------------------------------
+# Power Supply -- LiPo charger + 3.3V LDO
+# ---------------------------------------------------------------
 @subcircuit
-def power_supply(vbat, vbus, vcc, gnd):
-    """AP2112K-3.3 LDO regulator + MCP73831 LiPo charger."""
-    # AP2112K-3.3 LDO regulator (SOT-23-5)
-    reg = Part(
-        name="AP2112K-3.3",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Package_TO_SOT_SMD:SOT-23-5",
-        pins=[
-            make_pin("1", "VIN", Pin.types.PWRIN),
-            make_pin("2", "GND", Pin.types.PWRIN),
-            make_pin("3", "EN", Pin.types.INPUT),
-            make_pin("4", "NC_PIN", Pin.types.NOCONNECT),
-            make_pin("5", "VOUT", Pin.types.PWROUT),
-        ],
-    )
-
-    reg["VIN"] += vbat
-    reg["GND"] += gnd
-    reg["EN"] += vbat  # Always enabled
-    reg["VOUT"] += vcc
-    reg["NC_PIN"] += NC
-
-    # Input cap
-    cin = Part("Device", "C", value="4.7uF",
-               footprint="Capacitor_SMD:C_0805_2012Metric")
-    cin[1] += vbat
-    cin[2] += gnd
-
-    # Output cap
-    cout = Part("Device", "C", value="4.7uF",
-                footprint="Capacitor_SMD:C_0805_2012Metric")
-    cout[1] += vcc
-    cout[2] += gnd
-
-    # 100nF decoupling
-    c_dec = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_dec[1] += vcc
-    c_dec[2] += gnd
-
-    # Schottky diode for battery/USB OR-ing
-    d_usb = Part("Device", "D_Schottky", value="MBR120",
-                 footprint="Diode_SMD:D_SOD-123")
-    d_usb[1] += vbus   # anode = USB
-    d_usb[2] += vbat   # cathode = VBAT rail
+def power_supply(vbus, vbat, v3v3, gnd):
+    """MCP73831 LiPo charger + AP2112 3.3V LDO."""
 
     # MCP73831 LiPo charger (SOT-23-5)
-    chg = Part(
-        name="MCP73831",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Package_TO_SOT_SMD:SOT-23-5",
-        pins=[
-            make_pin("1", "STAT", Pin.types.OUTPUT),
-            make_pin("2", "VSS", Pin.types.PWRIN),
-            make_pin("3", "VBAT", Pin.types.PWROUT),
-            make_pin("4", "VDD", Pin.types.PWRIN),
-            make_pin("5", "PROG", Pin.types.PASSIVE),
-        ],
-    )
-
-    chg["VDD"] += vbus
-    chg["VSS"] += gnd
+    chg = Part(name="MCP73831", tool=SKIDL, dest=NETLIST,
+               footprint="Package_TO_SOT_SMD:SOT-23-5",
+               pins=[
+                   Pin(num="1", name="STAT",  func=Pin.types.OUTPUT),
+                   Pin(num="2", name="VSS",   func=Pin.types.PWRIN),
+                   Pin(num="3", name="VBAT",  func=Pin.types.PWROUT),
+                   Pin(num="4", name="VDD",   func=Pin.types.PWRIN),
+                   Pin(num="5", name="PROG",  func=Pin.types.INPUT),
+               ])
+    chg["VDD"]  += vbus
+    chg["VSS"]  += gnd
     chg["VBAT"] += vbat
 
-    # Charge current set resistor (2K = 500mA)
+    # Charge-rate resistor (2K = 500mA)
     r_prog = Part("Device", "R", value="2K",
                   footprint="Resistor_SMD:R_0402_1005Metric")
     r_prog[1] += chg["PROG"]
     r_prog[2] += gnd
 
-    # Charge status LED (orange)
-    led_chg = Part("Device", "LED", value="Orange",
+    # Charge LED
+    led_chg = Part("Device", "LED", value="ORANGE",
                    footprint="LED_SMD:LED_0603_1608Metric")
-    r_led_chg = Part("Device", "R", value="1K",
-                     footprint="Resistor_SMD:R_0402_1005Metric")
-    r_led_chg[1] += vbus
-    r_led_chg[2] += led_chg[1]
-    led_chg[2] += chg["STAT"]
+    r_led = Part("Device", "R", value="1K",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    chg["STAT"] += r_led[1]
+    r_led[2] += led_chg[1]
+    led_chg[2] += gnd
 
-    # Battery connector (JST-PH 2-pin)
-    j_batt = Part("Connector_Generic", "Conn_01x02",
-                  footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal")
-    j_batt[1] += vbat
-    j_batt[2] += gnd
+    # Input decoupling for charger
+    c_chg_in = Part("Device", "C", value="100nF",
+                    footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_chg_in[1] += vbus
+    c_chg_in[2] += gnd
 
+    # Battery decoupling
+    c_bat = Part("Device", "C", value="10uF",
+                 footprint="Capacitor_SMD:C_0805_2012Metric")
+    c_bat[1] += vbat
+    c_bat[2] += gnd
 
-# =============================================================================
-# USB-C connector
-# =============================================================================
+    # AP2112K-3.3 LDO (SOT-23-5)
+    ldo = Part(name="AP2112K-3.3", tool=SKIDL, dest=NETLIST,
+               footprint="Package_TO_SOT_SMD:SOT-23-5",
+               pins=[
+                   Pin(num="1", name="VIN",  func=Pin.types.PWRIN),
+                   Pin(num="2", name="GND",  func=Pin.types.PWRIN),
+                   Pin(num="3", name="EN",   func=Pin.types.INPUT),
+                   Pin(num="4", name="NC",   func=Pin.types.NOCONNECT),
+                   Pin(num="5", name="VOUT", func=Pin.types.PWROUT),
+               ])
+    ldo["VIN"]  += vbat
+    ldo["GND"]  += gnd
+    ldo["EN"]   += vbat  # Always enabled
+    ldo["VOUT"] += v3v3
+
+    # NC pin
+    nc_net = Net("LDO_NC")
+    nc_net.drive = POWER
+    ldo["NC"] += nc_net
+
+    # LDO input cap
+    c_ldo_in = Part("Device", "C", value="100nF",
+                    footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_ldo_in[1] += vbat
+    c_ldo_in[2] += gnd
+
+    # LDO output cap
+    c_ldo_out = Part("Device", "C", value="100nF",
+                     footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_ldo_out[1] += v3v3
+    c_ldo_out[2] += gnd
+
+    # Bulk output cap
+    c_ldo_bulk = Part("Device", "C", value="10uF",
+                      footprint="Capacitor_SMD:C_0805_2012Metric")
+    c_ldo_bulk[1] += v3v3
+    c_ldo_bulk[2] += gnd
+
+power_supply(vbus, vbat, v3v3, gnd)
+
+# ---------------------------------------------------------------
+# nRF52840 MCU
+# ---------------------------------------------------------------
 @subcircuit
-def usb_connector(vbus, gnd):
-    """USB-C connector for power and data."""
-    usb = Part(
-        name="USB_C_Receptacle",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="J",
-        footprint="Connector_USB:USB_C_Receptacle_XKB_U262-16XN-4BVC11",
-        pins=[
-            make_pin("A1", "GND_A", Pin.types.PWRIN),
-            make_pin("A4", "VBUS_A", Pin.types.PWRIN),
-            make_pin("A5", "CC1", Pin.types.BIDIR),
-            make_pin("A6", "DP1", Pin.types.BIDIR),
-            make_pin("A7", "DN1", Pin.types.BIDIR),
-            make_pin("A8", "SBU1", Pin.types.BIDIR),
-            make_pin("A9", "VBUS_A2", Pin.types.PWRIN),
-            make_pin("A12", "GND_A2", Pin.types.PWRIN),
-            make_pin("B1", "GND_B", Pin.types.PWRIN),
-            make_pin("B4", "VBUS_B", Pin.types.PWRIN),
-            make_pin("B5", "CC2", Pin.types.BIDIR),
-            make_pin("B6", "DP2", Pin.types.BIDIR),
-            make_pin("B7", "DN2", Pin.types.BIDIR),
-            make_pin("B8", "SBU2", Pin.types.BIDIR),
-            make_pin("B9", "VBUS_B2", Pin.types.PWRIN),
-            make_pin("B12", "GND_B2", Pin.types.PWRIN),
-            make_pin("S1", "SHIELD", Pin.types.PASSIVE),
-        ],
-    )
+def nrf52840_mcu(v3v3, gnd, usb_dp, usb_dm, sda, scl):
+    """Nordic nRF52840 BLE SoC with essential passives."""
 
-    usb["GND_A"] += gnd
-    usb["GND_A2"] += gnd
-    usb["GND_B"] += gnd
-    usb["GND_B2"] += gnd
-    usb["VBUS_A"] += vbus
-    usb["VBUS_A2"] += vbus
-    usb["VBUS_B"] += vbus
-    usb["VBUS_B2"] += vbus
-    usb["SHIELD"] += gnd
+    nrf = Part(name="nRF52840", tool=SKIDL, dest=NETLIST,
+               footprint="Package_DFN_QFN:Nordic_AQFN-73-1EP_7x7mm_P0.5mm",
+               pins=[
+                   # Power pins
+                   Pin(num="1",  name="DEC1",     func=Pin.types.PASSIVE),
+                   Pin(num="2",  name="P0.00",    func=Pin.types.BIDIR),
+                   Pin(num="3",  name="P0.01",    func=Pin.types.BIDIR),
+                   Pin(num="4",  name="P0.02",    func=Pin.types.BIDIR),
+                   Pin(num="5",  name="P0.03",    func=Pin.types.BIDIR),
+                   Pin(num="6",  name="P0.04",    func=Pin.types.BIDIR),
+                   Pin(num="7",  name="P0.05",    func=Pin.types.BIDIR),
+                   Pin(num="8",  name="P0.06",    func=Pin.types.BIDIR),
+                   Pin(num="9",  name="P0.07",    func=Pin.types.BIDIR),
+                   Pin(num="10", name="P0.08",    func=Pin.types.BIDIR),
+                   Pin(num="11", name="VDD_1",    func=Pin.types.PWRIN),
+                   Pin(num="12", name="P0.09",    func=Pin.types.BIDIR),
+                   Pin(num="13", name="P0.10",    func=Pin.types.BIDIR),
+                   Pin(num="14", name="NFC1",     func=Pin.types.BIDIR),
+                   Pin(num="15", name="NFC2",     func=Pin.types.BIDIR),
+                   Pin(num="16", name="P0.13",    func=Pin.types.BIDIR),
+                   Pin(num="17", name="P0.14",    func=Pin.types.BIDIR),
+                   Pin(num="18", name="P0.15",    func=Pin.types.BIDIR),
+                   Pin(num="19", name="P0.16",    func=Pin.types.BIDIR),
+                   Pin(num="20", name="P0.17",    func=Pin.types.BIDIR),
+                   Pin(num="21", name="P0.18",    func=Pin.types.BIDIR),
+                   Pin(num="22", name="P0.19",    func=Pin.types.BIDIR),
+                   Pin(num="23", name="P0.20",    func=Pin.types.BIDIR),
+                   Pin(num="24", name="P0.21",    func=Pin.types.BIDIR),
+                   Pin(num="25", name="P0.22",    func=Pin.types.BIDIR),
+                   Pin(num="26", name="P0.23",    func=Pin.types.BIDIR),
+                   Pin(num="27", name="P0.24",    func=Pin.types.BIDIR),
+                   Pin(num="28", name="SWDCLK",   func=Pin.types.INPUT),
+                   Pin(num="29", name="SWDIO",    func=Pin.types.BIDIR),
+                   Pin(num="30", name="P0.25",    func=Pin.types.BIDIR),
+                   Pin(num="31", name="ANT",      func=Pin.types.PASSIVE),
+                   Pin(num="32", name="VSS_1",    func=Pin.types.PWRIN),
+                   Pin(num="33", name="DEC2",     func=Pin.types.PASSIVE),
+                   Pin(num="34", name="DEC3",     func=Pin.types.PASSIVE),
+                   Pin(num="35", name="XC1",      func=Pin.types.INPUT),
+                   Pin(num="36", name="XC2",      func=Pin.types.OUTPUT),
+                   Pin(num="37", name="VDD_2",    func=Pin.types.PWRIN),
+                   Pin(num="38", name="P0.26",    func=Pin.types.BIDIR),
+                   Pin(num="39", name="P0.27",    func=Pin.types.BIDIR),
+                   Pin(num="40", name="P0.28",    func=Pin.types.BIDIR),  # AIN4
+                   Pin(num="41", name="P0.29",    func=Pin.types.BIDIR),  # AIN5
+                   Pin(num="42", name="P0.30",    func=Pin.types.BIDIR),  # AIN6
+                   Pin(num="43", name="P0.31",    func=Pin.types.BIDIR),  # AIN7
+                   Pin(num="44", name="P1.00",    func=Pin.types.BIDIR),
+                   Pin(num="45", name="P1.01",    func=Pin.types.BIDIR),
+                   Pin(num="46", name="P1.02",    func=Pin.types.BIDIR),
+                   Pin(num="47", name="P1.03",    func=Pin.types.BIDIR),
+                   Pin(num="48", name="P1.04",    func=Pin.types.BIDIR),
+                   Pin(num="49", name="P1.05",    func=Pin.types.BIDIR),
+                   Pin(num="50", name="P1.06",    func=Pin.types.BIDIR),
+                   Pin(num="51", name="P1.07",    func=Pin.types.BIDIR),
+                   Pin(num="52", name="VDD_3",    func=Pin.types.PWRIN),
+                   Pin(num="53", name="P1.08",    func=Pin.types.BIDIR),
+                   Pin(num="54", name="P1.09",    func=Pin.types.BIDIR),
+                   Pin(num="55", name="P1.10",    func=Pin.types.BIDIR),
+                   Pin(num="56", name="P1.11",    func=Pin.types.BIDIR),
+                   Pin(num="57", name="P1.12",    func=Pin.types.BIDIR),
+                   Pin(num="58", name="P1.13",    func=Pin.types.BIDIR),
+                   Pin(num="59", name="P1.14",    func=Pin.types.BIDIR),
+                   Pin(num="60", name="P1.15",    func=Pin.types.BIDIR),
+                   Pin(num="61", name="VDD_4",    func=Pin.types.PWRIN),
+                   Pin(num="62", name="D-",       func=Pin.types.BIDIR),
+                   Pin(num="63", name="D+",       func=Pin.types.BIDIR),
+                   Pin(num="64", name="VBUS_NRF", func=Pin.types.PWRIN),
+                   Pin(num="65", name="VSS_2",    func=Pin.types.PWRIN),
+                   Pin(num="66", name="DEC4",     func=Pin.types.PASSIVE),
+                   Pin(num="67", name="DCC",      func=Pin.types.PASSIVE),
+                   Pin(num="68", name="VDD_5",    func=Pin.types.PWRIN),
+                   Pin(num="69", name="DEC5",     func=Pin.types.PASSIVE),
+                   Pin(num="70", name="DEC6",     func=Pin.types.PASSIVE),
+                   Pin(num="71", name="VDDH",     func=Pin.types.PWRIN),
+                   Pin(num="72", name="VSS_3",    func=Pin.types.PWRIN),
+                   Pin(num="73", name="RESET",    func=Pin.types.INPUT),
+                   Pin(num="74", name="EP",       func=Pin.types.PWRIN),  # Exposed pad
+               ])
+
+    # Power connections
+    for p in ["VDD_1", "VDD_2", "VDD_3", "VDD_4", "VDD_5"]:
+        nrf[p] += v3v3
+    nrf["VDDH"]     += v3v3
+    nrf["VBUS_NRF"] += vbus
+    for p in ["VSS_1", "VSS_2", "VSS_3", "EP"]:
+        nrf[p] += gnd
 
     # USB data
-    usb_dm = Net("USB_DM")
-    usb_dp = Net("USB_DP")
-    usb["DN1"] += usb_dm
-    usb["DN2"] += usb_dm
-    usb["DP1"] += usb_dp
-    usb["DP2"] += usb_dp
+    nrf["D+"] += usb_dp
+    nrf["D-"] += usb_dm
 
-    # CC pulldown resistors (5.1K for UFP/device mode)
-    r_cc1 = Part("Device", "R", value="5.1K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_cc1[1] += usb["CC1"]
-    r_cc1[2] += gnd
+    # I2C
+    nrf["P0.26"] += sda
+    nrf["P0.27"] += scl
 
-    r_cc2 = Part("Device", "R", value="5.1K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_cc2[1] += usb["CC2"]
-    r_cc2[2] += gnd
+    # Decoupling caps for VDD (100nF per VDD pair + one bulk 4.7uF)
+    for _ in range(3):
+        c = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0402_1005Metric")
+        c[1] += v3v3
+        c[2] += gnd
 
-    # SBU pins not used
-    usb["SBU1"] += NC
-    usb["SBU2"] += NC
-
-
-# =============================================================================
-# IMU — LSM6DS33 (Accel/Gyro) + LIS3MDL (Magnetometer) = 9-DoF
-# =============================================================================
-@subcircuit
-def imu_9dof(vcc, gnd, sda, scl):
-    """LSM6DS33 accel/gyro + LIS3MDL magnetometer on I2C."""
-    # LSM6DS33 — LGA-14
-    lsm = Part(
-        name="LSM6DS33",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Package_LGA:LGA-14_3x2.5mm_P0.5mm_LayoutBorder3x4y",
-        pins=[
-            make_pin("1", "SDO/SA0", Pin.types.BIDIR),
-            make_pin("2", "SDX", Pin.types.BIDIR),
-            make_pin("3", "SCX", Pin.types.INPUT),
-            make_pin("4", "INT1", Pin.types.OUTPUT),
-            make_pin("5", "VDDIO", Pin.types.PWRIN),
-            make_pin("6", "GND1", Pin.types.PWRIN),
-            make_pin("7", "GND2", Pin.types.PWRIN),
-            make_pin("8", "VDD", Pin.types.PWRIN),
-            make_pin("9", "INT2", Pin.types.OUTPUT),
-            make_pin("10", "OCS_AUX", Pin.types.BIDIR),
-            make_pin("11", "ODA_AUX", Pin.types.BIDIR),
-            make_pin("12", "SDO_AUX", Pin.types.BIDIR),
-            make_pin("13", "CS", Pin.types.INPUT),
-            make_pin("14", "SDA", Pin.types.BIDIR),
-        ],
-    )
-
-    lsm["VDD"] += vcc
-    lsm["VDDIO"] += vcc
-    lsm["GND1"] += gnd
-    lsm["GND2"] += gnd
-    lsm["SDA"] += sda
-    lsm["SCX"] += scl
-    lsm["CS"] += vcc  # I2C mode
-    lsm["SDO/SA0"] += gnd  # Address select
-
-    # Decoupling
-    c_lsm = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_lsm[1] += vcc
-    c_lsm[2] += gnd
-
-    # Unused pins NC
-    lsm["INT1"] += NC
-    lsm["INT2"] += NC
-    lsm["OCS_AUX"] += NC
-    lsm["ODA_AUX"] += NC
-    lsm["SDO_AUX"] += NC
-    lsm["SDX"] += NC
-
-    # LIS3MDL — LGA-12
-    lis = Part(
-        name="LIS3MDL",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Package_LGA:LGA-12_2x2mm_P0.5mm",
-        pins=[
-            make_pin("1", "SCL", Pin.types.INPUT),
-            make_pin("2", "GND1", Pin.types.PWRIN),
-            make_pin("3", "C1", Pin.types.PASSIVE),
-            make_pin("4", "VDD", Pin.types.PWRIN),
-            make_pin("5", "VDD_IO", Pin.types.PWRIN),
-            make_pin("6", "INT", Pin.types.OUTPUT),
-            make_pin("7", "DRDY", Pin.types.OUTPUT),
-            make_pin("8", "SDA", Pin.types.BIDIR),
-            make_pin("9", "SDO", Pin.types.OUTPUT),
-            make_pin("10", "CS", Pin.types.INPUT),
-            make_pin("11", "GND2", Pin.types.PWRIN),
-            make_pin("12", "GND3", Pin.types.PWRIN),
-        ],
-    )
-
-    lis["VDD"] += vcc
-    lis["VDD_IO"] += vcc
-    lis["GND1"] += gnd
-    lis["GND2"] += gnd
-    lis["GND3"] += gnd
-    lis["SDA"] += sda
-    lis["SCL"] += scl
-    lis["CS"] += vcc  # I2C mode
-    lis["SDO"] += gnd  # Address select
-
-    # C1 decoupling
-    c_lis_c1 = Part("Device", "C", value="100nF",
-                    footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_lis_c1[1] += lis["C1"]
-    c_lis_c1[2] += gnd
-
-    # VDD decoupling
-    c_lis = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_lis[1] += vcc
-    c_lis[2] += gnd
-
-    lis["INT"] += NC
-    lis["DRDY"] += NC
-
-
-# =============================================================================
-# APDS9960 — Proximity, Light, Color, Gesture sensor
-# =============================================================================
-@subcircuit
-def apds9960_block(vcc, gnd, sda, scl):
-    """APDS-9960 proximity/light/color/gesture sensor."""
-    apds = Part(
-        name="APDS-9960",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Package_DFN_QFN:DFN-8-1EP_3x3mm_P0.5mm_EP1.65x2.38mm",
-        pins=[
-            make_pin("1", "SDA", Pin.types.BIDIR),
-            make_pin("2", "GND1", Pin.types.PWRIN),
-            make_pin("3", "LEDA", Pin.types.PASSIVE),
-            make_pin("4", "SCL", Pin.types.INPUT),
-            make_pin("5", "VDD", Pin.types.PWRIN),
-            make_pin("6", "INT", Pin.types.OUTPUT),
-            make_pin("7", "LDR", Pin.types.PASSIVE),
-            make_pin("8", "GND2", Pin.types.PWRIN),
-            make_pin("9", "GNDPAD", Pin.types.PWRIN),
-        ],
-    )
-
-    apds["VDD"] += vcc
-    apds["GND1"] += gnd
-    apds["GND2"] += gnd
-    apds["GNDPAD"] += gnd
-    apds["SDA"] += sda
-    apds["SCL"] += scl
-
-    # LED current limit resistor for proximity IR LED
-    r_ldr = Part("Device", "R", value="10R",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_ldr[1] += vcc
-    r_ldr[2] += apds["LEDA"]
-
-    # Decoupling
-    c_apds = Part("Device", "C", value="100nF",
+    c_bulk = Part("Device", "C", value="4.7uF",
                   footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_apds[1] += vcc
-    c_apds[2] += gnd
+    c_bulk[1] += v3v3
+    c_bulk[2] += gnd
 
-    # Bulk cap
-    c_apds_bulk = Part("Device", "C", value="1uF",
-                       footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_apds_bulk[1] += vcc
-    c_apds_bulk[2] += gnd
+    # DEC pins need their own decoupling caps (100nF each)
+    for dec_pin in ["DEC1", "DEC2", "DEC3", "DEC4", "DEC5", "DEC6"]:
+        c = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0402_1005Metric")
+        c[1] += nrf[dec_pin]
+        c[2] += gnd
 
-    apds["INT"] += NC
-    apds["LDR"] += NC
+    # DC/DC inductor on DCC pin
+    l_dcc = Part("Device", "L", value="10uH",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
+    l_dcc[1] += nrf["DCC"]
+    l_dcc[2] += v3v3
 
+    # 32 MHz crystal
+    xtal = Part("Device", "Crystal", value="32MHz",
+                footprint="Crystal:Crystal_SMD_2016-4Pin_2.0x1.6mm")
+    xtal[1] += nrf["XC1"]
+    xtal[2] += nrf["XC2"]
+    # Crystal load caps
+    c_x1 = Part("Device", "C", value="12pF",
+                footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_x2 = Part("Device", "C", value="12pF",
+                footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_x1[1] += nrf["XC1"]
+    c_x1[2] += gnd
+    c_x2[1] += nrf["XC2"]
+    c_x2[2] += gnd
 
-# =============================================================================
-# SHT30 — Humidity + Temperature sensor
-# =============================================================================
-@subcircuit
-def sht_block(vcc, gnd, sda, scl):
-    """SHT30 humidity and temperature sensor."""
-    sht = Part(
-        name="SHT30-DIS",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Sensor_Humidity:Sensirion_DFN-8-1EP_2.5x2.5mm_P0.5mm_EP1.1x1.7mm",
-        pins=[
-            make_pin("1", "SDA", Pin.types.BIDIR),
-            make_pin("2", "ADDR", Pin.types.INPUT),
-            make_pin("3", "ALERT", Pin.types.OUTPUT),
-            make_pin("4", "SCL", Pin.types.INPUT),
-            make_pin("5", "VDD", Pin.types.PWRIN),
-            make_pin("6", "NRESET", Pin.types.INPUT),
-            make_pin("7", "R", Pin.types.PASSIVE),
-            make_pin("8", "VSS", Pin.types.PWRIN),
-            make_pin("9", "GNDPAD", Pin.types.PWRIN),
-        ],
-    )
+    # Antenna matching network (simple pi: series inductor + shunt caps)
+    ant_net = Net("ANT_RF")
+    l_ant = Part("Device", "L", value="3.3nH",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    c_ant1 = Part("Device", "C", value="0.8pF",
+                  footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_ant2 = Part("Device", "C", value="1.0pF",
+                  footprint="Capacitor_SMD:C_0402_1005Metric")
+    nrf["ANT"] += c_ant1[1]
+    c_ant1[2] += gnd
+    nrf["ANT"] += l_ant[1]
+    l_ant[2] += ant_net
+    c_ant2[1] += ant_net
+    c_ant2[2] += gnd
 
-    sht["VDD"] += vcc
-    sht["VSS"] += gnd
-    sht["GNDPAD"] += gnd
-    sht["SDA"] += sda
-    sht["SCL"] += scl
-    sht["ADDR"] += gnd  # Address 0x44
-    sht["NRESET"] += vcc  # Not reset
+    # Chip antenna
+    antenna = Part(name="ANT_2.4GHz", tool=SKIDL, dest=NETLIST,
+                   footprint="RF_Antenna:Johanson_2450AT18x100_2400-2500Mhz",
+                   pins=[
+                       Pin(num="1", name="ANT",  func=Pin.types.PASSIVE),
+                       Pin(num="2", name="GND",  func=Pin.types.PASSIVE),
+                   ])
+    antenna["ANT"] += ant_net
+    antenna["GND"] += gnd
 
-    # Decoupling
-    c_sht = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_sht[1] += vcc
-    c_sht[2] += gnd
+    # Reset button + pullup
+    sw_rst = Part("Device", "R", value="10K",
+                  footprint="Resistor_SMD:R_0402_1005Metric")
+    sw_rst[1] += v3v3
+    sw_rst[2] += nrf["RESET"]
 
-    sht["ALERT"] += NC
-    sht["R"] += NC
+    btn_rst = Part(name="SW_RST", tool=SKIDL, dest=NETLIST,
+                   footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2",
+                   pins=[
+                       Pin(num="1", name="A", func=Pin.types.PASSIVE),
+                       Pin(num="2", name="B", func=Pin.types.PASSIVE),
+                   ])
+    btn_rst["A"] += nrf["RESET"]
+    btn_rst["B"] += gnd
 
+    # User button (active-low on P1.02)
+    btn_usr = Part(name="SW_USR", tool=SKIDL, dest=NETLIST,
+                   footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2",
+                   pins=[
+                       Pin(num="1", name="A", func=Pin.types.PASSIVE),
+                       Pin(num="2", name="B", func=Pin.types.PASSIVE),
+                   ])
+    btn_usr["A"] += nrf["P1.02"]
+    btn_usr["B"] += gnd
 
-# =============================================================================
-# BMP280 — Barometric pressure / temperature / altitude
-# =============================================================================
-@subcircuit
-def bmp280_block(vcc, gnd, sda, scl):
-    """BMP280 barometric pressure and temperature sensor."""
-    bmp = Part(
-        name="BMP280",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Package_LGA:Bosch_LGA-8_2x2.5mm_P0.65mm_ClockwisePinNumbering",
-        pins=[
-            make_pin("1", "GND", Pin.types.PWRIN),
-            make_pin("2", "CSB", Pin.types.INPUT),
-            make_pin("3", "SDI", Pin.types.BIDIR),
-            make_pin("4", "SCK", Pin.types.INPUT),
-            make_pin("5", "SDO", Pin.types.OUTPUT),
-            make_pin("6", "VDDIO", Pin.types.PWRIN),
-            make_pin("7", "GND2", Pin.types.PWRIN),
-            make_pin("8", "VDD", Pin.types.PWRIN),
-        ],
-    )
+    # User LED (red, active-low on P1.15)
+    led_usr = Part("Device", "LED", value="RED",
+                   footprint="LED_SMD:LED_0603_1608Metric")
+    r_led_usr = Part("Device", "R", value="1K",
+                     footprint="Resistor_SMD:R_0402_1005Metric")
+    nrf["P1.15"] += r_led_usr[1]
+    r_led_usr[2] += led_usr[1]
+    led_usr[2] += gnd
 
-    bmp["VDD"] += vcc
-    bmp["VDDIO"] += vcc
-    bmp["GND"] += gnd
-    bmp["GND2"] += gnd
-    bmp["SDI"] += sda
-    bmp["SCK"] += scl
-    bmp["CSB"] += vcc  # I2C mode
-    bmp["SDO"] += gnd  # Address 0x76
+    # Blue BLE LED on P1.10
+    led_ble = Part("Device", "LED", value="BLUE",
+                   footprint="LED_SMD:LED_0603_1608Metric")
+    r_led_ble = Part("Device", "R", value="1K",
+                     footprint="Resistor_SMD:R_0402_1005Metric")
+    nrf["P1.10"] += r_led_ble[1]
+    r_led_ble[2] += led_ble[1]
+    led_ble[2] += gnd
 
-    # Decoupling
-    c_bmp = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_bmp[1] += vcc
-    c_bmp[2] += gnd
-
-
-# =============================================================================
-# PDM Microphone (MP34DT01-like / SPH0645)
-# =============================================================================
-@subcircuit
-def pdm_mic_block(vcc, gnd, clk, data):
-    """PDM MEMS microphone."""
-    mic = Part(
-        name="PDM_MIC",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Sensor_Audio:Knowles_SPH0645LM4H-6_3.5x2.65mm",
-        pins=[
-            make_pin("1", "VDD", Pin.types.PWRIN),
-            make_pin("2", "LR", Pin.types.INPUT),
-            make_pin("3", "CLK", Pin.types.INPUT),
-            make_pin("4", "DATA", Pin.types.OUTPUT),
-            make_pin("5", "GND", Pin.types.PWRIN),
-            make_pin("6", "GND2", Pin.types.PWRIN),
-        ],
-    )
-
-    mic["VDD"] += vcc
-    mic["GND"] += gnd
-    mic["GND2"] += gnd
-    mic["CLK"] += clk
-    mic["DATA"] += data
-    mic["LR"] += gnd  # Channel select
-
-    # Decoupling
-    c_mic = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_mic[1] += vcc
-    c_mic[2] += gnd
-
-
-# =============================================================================
-# 2MB QSPI Flash (GD25Q16C)
-# =============================================================================
-@subcircuit
-def qspi_flash(vcc, gnd, sck, cs, d0, d1, d2, d3):
-    """2MB QSPI NOR flash for CircuitPython storage."""
-    flash = Part(
-        name="GD25Q16C",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="U",
-        footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
-        pins=[
-            make_pin("1", "CS", Pin.types.INPUT),
-            make_pin("2", "DO/IO1", Pin.types.BIDIR),
-            make_pin("3", "WP/IO2", Pin.types.BIDIR),
-            make_pin("4", "GND", Pin.types.PWRIN),
-            make_pin("5", "DI/IO0", Pin.types.BIDIR),
-            make_pin("6", "CLK", Pin.types.INPUT),
-            make_pin("7", "HOLD/IO3", Pin.types.BIDIR),
-            make_pin("8", "VCC", Pin.types.PWRIN),
-        ],
-    )
-
-    flash["VCC"] += vcc
-    flash["GND"] += gnd
-    flash["CLK"] += sck
-    flash["CS"] += cs
-    flash["DI/IO0"] += d0
-    flash["DO/IO1"] += d1
-    flash["WP/IO2"] += d2
-    flash["HOLD/IO3"] += d3
-
-    # Decoupling
-    c_flash = Part("Device", "C", value="100nF",
-                   footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_flash[1] += vcc
-    c_flash[2] += gnd
-
-
-# =============================================================================
-# NeoPixel RGB LED (WS2812B)
-# =============================================================================
-@subcircuit
-def neopixel_block(vcc, gnd, data_in):
-    """Single NeoPixel RGB LED."""
-    neo = Part(
-        name="WS2812B",
-        tool=SKIDL,
-        dest=NETLIST,
-        ref_prefix="D",
-        footprint="LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
-        pins=[
-            make_pin("1", "VDD", Pin.types.PWRIN),
-            make_pin("2", "DOUT", Pin.types.OUTPUT),
-            make_pin("3", "VSS", Pin.types.PWRIN),
-            make_pin("4", "DIN", Pin.types.INPUT),
-        ],
-    )
-
-    neo["VDD"] += vcc
+    # NeoPixel on P0.16
+    neo = Part(name="WS2812B", tool=SKIDL, dest=NETLIST,
+               footprint="LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
+               pins=[
+                   Pin(num="1", name="VDD",  func=Pin.types.PWRIN),
+                   Pin(num="2", name="DOUT", func=Pin.types.OUTPUT),
+                   Pin(num="3", name="VSS",  func=Pin.types.PWRIN),
+                   Pin(num="4", name="DIN",  func=Pin.types.INPUT),
+               ])
+    neo["VDD"] += v3v3
     neo["VSS"] += gnd
-    neo["DIN"] += data_in
+    neo["DIN"] += nrf["P0.16"]
+    neo_dout = Net("NEO_DOUT")
+    neo_dout.drive = POWER
+    neo["DOUT"] += neo_dout
 
-    # Decoupling
+    # NeoPixel decoupling
     c_neo = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_neo[1] += vcc
+                 footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_neo[1] += v3v3
     c_neo[2] += gnd
 
-    neo["DOUT"] += NC
-
-
-# =============================================================================
-# User Button
-# =============================================================================
-@subcircuit
-def user_button(gnd, btn_net):
-    """User button with debounce cap."""
-    sw = Part("Switch", "SW_Push", value="SW_USR",
-              footprint="Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2")
-    sw[1] += btn_net
-    sw[2] += gnd
-
-    # Debounce cap
-    c_deb = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_deb[1] += btn_net
-    c_deb[2] += gnd
-
-
-# =============================================================================
-# Built-in Red LED (D13)
-# =============================================================================
-@subcircuit
-def builtin_led(gnd, ctrl):
-    """Red LED on D13 with current-limiting resistor."""
-    led = Part("Device", "LED", value="Red",
-               footprint="LED_SMD:LED_0603_1608Metric")
-    r_led = Part("Device", "R", value="1K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_led[1] += ctrl
-    r_led[2] += led[1]
-    led[2] += gnd
-
-
-# =============================================================================
-# Blue BLE Connection LED
-# =============================================================================
-@subcircuit
-def ble_led(vcc, gnd):
-    """Blue BLE connection indicator LED."""
-    ble_ctrl = Net("BLE_LED")
-    led = Part("Device", "LED", value="Blue",
-               footprint="LED_SMD:LED_0603_1608Metric")
-    r_led = Part("Device", "R", value="1K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_led[1] += ble_ctrl
-    r_led[2] += led[1]
-    led[2] += gnd
-
-
-# =============================================================================
-# I2C Pullups
-# =============================================================================
-@subcircuit
-def i2c_pullups(vcc, sda, scl):
-    """I2C bus pullup resistors."""
+    # I2C pull-ups
     r_sda = Part("Device", "R", value="4.7K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
-    r_sda[1] += vcc
-    r_sda[2] += sda
-
     r_scl = Part("Device", "R", value="4.7K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
-    r_scl[1] += vcc
-    r_scl[2] += scl
+    r_sda[1] += v3v3; r_sda[2] += sda
+    r_scl[1] += v3v3; r_scl[2] += scl
 
+    # SPI flash (QSPI) GD25Q16 on SOIC-8
+    flash = Part(name="GD25Q16", tool=SKIDL, dest=NETLIST,
+                 footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+                 pins=[
+                     Pin(num="1", name="CS",   func=Pin.types.INPUT),
+                     Pin(num="2", name="DO",   func=Pin.types.OUTPUT),
+                     Pin(num="3", name="WP",   func=Pin.types.INPUT),
+                     Pin(num="4", name="GND",  func=Pin.types.PWRIN),
+                     Pin(num="5", name="DI",   func=Pin.types.INPUT),
+                     Pin(num="6", name="CLK",  func=Pin.types.INPUT),
+                     Pin(num="7", name="HOLD", func=Pin.types.INPUT),
+                     Pin(num="8", name="VCC",  func=Pin.types.PWRIN),
+                 ])
+    flash["VCC"] += v3v3
+    flash["GND"] += gnd
+    flash["CS"]  += nrf["P0.20"]   # QSPI CS
+    flash["CLK"] += nrf["P0.21"]   # QSPI CLK
+    flash["DI"]  += nrf["P0.22"]   # QSPI D0
+    flash["DO"]  += nrf["P0.23"]   # QSPI D1
+    flash["WP"]  += nrf["P0.24"]   # QSPI D2
+    flash["HOLD"]+= nrf["P0.25"]   # QSPI D3
 
-# =============================================================================
-# STEMMA QT / Qwiic I2C connector
-# =============================================================================
+    c_flash = Part("Device", "C", value="100nF",
+                   footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_flash[1] += v3v3
+    c_flash[2] += gnd
+
+nrf52840_mcu(v3v3, gnd, usb_dp, usb_dm, i2c_sda, i2c_scl)
+
+# ---------------------------------------------------------------
+# LSM6DS33 Accel/Gyro (I2C)
+# ---------------------------------------------------------------
 @subcircuit
-def stemma_qt(vcc, gnd, sda, scl):
-    """STEMMA QT / Qwiic JST SH 4-pin I2C connector."""
-    j_qt = Part("Connector_Generic", "Conn_01x04",
-                footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal")
-    j_qt[1] += gnd
-    j_qt[2] += vcc
-    j_qt[3] += sda
-    j_qt[4] += scl
+def lsm6ds33_sensor(v3v3, gnd, sda, scl):
+    """LSM6DS33 6-DoF IMU on I2C."""
+    imu = Part(name="LSM6DS33", tool=SKIDL, dest=NETLIST,
+               footprint="Package_LGA:LGA-14_3x2.5mm_P0.5mm_LayoutBorder3x4y",
+               pins=[
+                   Pin(num="1",  name="SDO_SA0",  func=Pin.types.BIDIR),
+                   Pin(num="2",  name="SDX",       func=Pin.types.BIDIR),
+                   Pin(num="3",  name="SCX",       func=Pin.types.INPUT),
+                   Pin(num="4",  name="INT1",      func=Pin.types.OUTPUT),
+                   Pin(num="5",  name="VDDIO",     func=Pin.types.PWRIN),
+                   Pin(num="6",  name="GND1",      func=Pin.types.PWRIN),
+                   Pin(num="7",  name="GND2",      func=Pin.types.PWRIN),
+                   Pin(num="8",  name="VDD",       func=Pin.types.PWRIN),
+                   Pin(num="9",  name="INT2",      func=Pin.types.OUTPUT),
+                   Pin(num="10", name="OCS_AUX",   func=Pin.types.BIDIR),
+                   Pin(num="11", name="SDO_AUX",   func=Pin.types.BIDIR),
+                   Pin(num="12", name="CS",        func=Pin.types.INPUT),
+                   Pin(num="13", name="SCL",       func=Pin.types.INPUT),
+                   Pin(num="14", name="SDA",       func=Pin.types.BIDIR),
+               ])
+    imu["VDD"]   += v3v3
+    imu["VDDIO"] += v3v3
+    imu["GND1"]  += gnd
+    imu["GND2"]  += gnd
+    imu["SDA"]   += sda
+    imu["SCL"]   += scl
+    imu["CS"]    += v3v3   # CS high = I2C mode
+    imu["SDO_SA0"] += gnd  # SA0 low = address 0x6A
 
+    # Tie unused aux pins
+    imu_int1_net = Net("IMU_INT1")
+    imu_int1_net.drive = POWER
+    imu["INT1"] += imu_int1_net
+    imu_int2_net = Net("IMU_INT2")
+    imu_int2_net.drive = POWER
+    imu["INT2"] += imu_int2_net
+    imu_sdx_net = Net("IMU_SDX")
+    imu_sdx_net.drive = POWER
+    imu["SDX"] += imu_sdx_net
+    imu_scx_net = Net("IMU_SCX")
+    imu_scx_net.drive = POWER
+    imu["SCX"] += imu_scx_net
+    imu_ocsaux_net = Net("IMU_OCS_AUX")
+    imu_ocsaux_net.drive = POWER
+    imu["OCS_AUX"] += imu_ocsaux_net
+    imu_sdoaux_net = Net("IMU_SDO_AUX")
+    imu_sdoaux_net.drive = POWER
+    imu["SDO_AUX"] += imu_sdoaux_net
 
-# =============================================================================
-# SWD Debug Header
-# =============================================================================
+    # Decoupling caps
+    c1 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c1[1] += v3v3; c1[2] += gnd
+
+lsm6ds33_sensor(v3v3, gnd, i2c_sda, i2c_scl)
+
+# ---------------------------------------------------------------
+# LIS3MDL Magnetometer (I2C)
+# ---------------------------------------------------------------
 @subcircuit
-def swd_header(vcc, gnd):
-    """2x5 1.27mm SWD debug header."""
-    swd = Part("Connector_Generic", "Conn_02x05_Odd_Even",
-               footprint="Connector_PinHeader_1.27mm:PinHeader_2x05_P1.27mm_Vertical")
-    swdio = Net("SWDIO")
-    swdclk = Net("SWDCLK")
+def lis3mdl_sensor(v3v3, gnd, sda, scl):
+    """LIS3MDL 3-axis magnetometer."""
+    mag = Part(name="LIS3MDL", tool=SKIDL, dest=NETLIST,
+               footprint="Package_LGA:LGA-12_2x2mm_P0.5mm",
+               pins=[
+                   Pin(num="1",  name="SCL",   func=Pin.types.INPUT),
+                   Pin(num="2",  name="GND1",  func=Pin.types.PWRIN),
+                   Pin(num="3",  name="C1",    func=Pin.types.PASSIVE),
+                   Pin(num="4",  name="VDD",   func=Pin.types.PWRIN),
+                   Pin(num="5",  name="VDD_IO",func=Pin.types.PWRIN),
+                   Pin(num="6",  name="INT",   func=Pin.types.OUTPUT),
+                   Pin(num="7",  name="DRDY",  func=Pin.types.OUTPUT),
+                   Pin(num="8",  name="SDA",   func=Pin.types.BIDIR),
+                   Pin(num="9",  name="SDO",   func=Pin.types.BIDIR),
+                   Pin(num="10", name="CS",    func=Pin.types.INPUT),
+                   Pin(num="11", name="GND2",  func=Pin.types.PWRIN),
+                   Pin(num="12", name="GND3",  func=Pin.types.PWRIN),
+               ])
+    mag["VDD"]    += v3v3
+    mag["VDD_IO"] += v3v3
+    mag["GND1"]   += gnd
+    mag["GND2"]   += gnd
+    mag["GND3"]   += gnd
+    mag["SDA"]    += sda
+    mag["SCL"]    += scl
+    mag["CS"]     += v3v3   # CS high = I2C mode
+    mag["SDO"]    += gnd    # SDO low = address 0x1C
 
-    swd[1] += vcc        # VTref
-    swd[2] += vcc        # VSUPPLY
-    swd[3] += gnd        # GND
-    swd[4] += gnd        # GND
-    swd[5] += gnd        # GND (key)
-    swd[6] += gnd        # GND
-    swd[7] += swdio      # SWDIO
-    swd[8] += gnd        # GND
-    swd[9] += swdclk     # SWDCLK
-    swd[10] += gnd       # GND
+    mag_int_net = Net("MAG_INT")
+    mag_int_net.drive = POWER
+    mag["INT"] += mag_int_net
+    mag_drdy_net = Net("MAG_DRDY")
+    mag_drdy_net.drive = POWER
+    mag["DRDY"] += mag_drdy_net
 
+    # C1 filter cap
+    c1 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c1[1] += mag["C1"]
+    c1[2] += gnd
 
-# =============================================================================
+    # Decoupling
+    c2 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c2[1] += v3v3; c2[2] += gnd
+
+lis3mdl_sensor(v3v3, gnd, i2c_sda, i2c_scl)
+
+# ---------------------------------------------------------------
+# APDS9960 Proximity/Light/Color/Gesture (I2C)
+# ---------------------------------------------------------------
+@subcircuit
+def apds9960_sensor(v3v3, gnd, sda, scl):
+    """APDS9960 gesture/color/proximity sensor."""
+    apds = Part(name="APDS9960", tool=SKIDL, dest=NETLIST,
+                footprint="Package_LGA:AMS_LGA-10-1EP_2.7x4mm_P0.6mm",
+                pins=[
+                    Pin(num="1",  name="SDA",     func=Pin.types.BIDIR),
+                    Pin(num="2",  name="GND1",    func=Pin.types.PWRIN),
+                    Pin(num="3",  name="LEDK",    func=Pin.types.PASSIVE),
+                    Pin(num="4",  name="LEDA",    func=Pin.types.PASSIVE),
+                    Pin(num="5",  name="VDD",     func=Pin.types.PWRIN),
+                    Pin(num="6",  name="GND2",    func=Pin.types.PWRIN),
+                    Pin(num="7",  name="SCL",     func=Pin.types.INPUT),
+                    Pin(num="8",  name="INT",     func=Pin.types.OUTPUT),
+                    Pin(num="9",  name="LDR",     func=Pin.types.PASSIVE),
+                    Pin(num="10", name="VLED",    func=Pin.types.PWRIN),
+                    Pin(num="11", name="EP",      func=Pin.types.PWRIN),
+                ])
+    apds["VDD"]  += v3v3
+    apds["VLED"] += v3v3
+    apds["GND1"] += gnd
+    apds["GND2"] += gnd
+    apds["EP"]   += gnd
+    apds["SDA"]  += sda
+    apds["SCL"]  += scl
+
+    # LED drive resistor
+    r_led = Part("Device", "R", value="68R",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    apds["LEDA"] += v3v3
+    apds["LEDK"] += r_led[1]
+    r_led[2] += gnd
+
+    # LDR connection
+    apds_ldr_net = Net("APDS_LDR")
+    apds_ldr_net.drive = POWER
+    apds["LDR"] += apds_ldr_net
+
+    # Interrupt
+    apds_int_net = Net("APDS_INT")
+    apds_int_net.drive = POWER
+    apds["INT"] += apds_int_net
+
+    # Decoupling
+    c1 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c1[1] += v3v3; c1[2] += gnd
+
+    c2 = Part("Device", "C", value="1uF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c2[1] += v3v3; c2[2] += gnd
+
+apds9960_sensor(v3v3, gnd, i2c_sda, i2c_scl)
+
+# ---------------------------------------------------------------
+# PDM Microphone
+# ---------------------------------------------------------------
+@subcircuit
+def pdm_microphone(v3v3, gnd):
+    """MP34DT01 MEMS PDM microphone."""
+    mic = Part(name="MP34DT01", tool=SKIDL, dest=NETLIST,
+               footprint="Package_LGA:ST_HLGA-10_2.5x2.5mm_P0.6mm_LayoutBorder3x2y",
+               pins=[
+                   Pin(num="1",  name="SDO",    func=Pin.types.OUTPUT),
+                   Pin(num="2",  name="WS",     func=Pin.types.INPUT),
+                   Pin(num="3",  name="NC1",    func=Pin.types.NOCONNECT),
+                   Pin(num="4",  name="GND1",   func=Pin.types.PWRIN),
+                   Pin(num="5",  name="VDD",    func=Pin.types.PWRIN),
+                   Pin(num="6",  name="NC2",    func=Pin.types.NOCONNECT),
+                   Pin(num="7",  name="NC3",    func=Pin.types.NOCONNECT),
+                   Pin(num="8",  name="CLK",    func=Pin.types.INPUT),
+                   Pin(num="9",  name="GND2",   func=Pin.types.PWRIN),
+                   Pin(num="10", name="GND3",   func=Pin.types.PWRIN),
+               ])
+    mic["VDD"]  += v3v3
+    mic["GND1"] += gnd
+    mic["GND2"] += gnd
+    mic["GND3"] += gnd
+
+    # NC pins
+    mic_nc1 = Net("MIC_NC1"); mic_nc1.drive = POWER
+    mic_nc2 = Net("MIC_NC2"); mic_nc2.drive = POWER
+    mic_nc3 = Net("MIC_NC3"); mic_nc3.drive = POWER
+    mic["NC1"] += mic_nc1
+    mic["NC2"] += mic_nc2
+    mic["NC3"] += mic_nc3
+
+    # PDM data and clock connected to nRF52840
+    pdm_data = Net("PDM_DATA")
+    pdm_clk  = Net("PDM_CLK")
+    pdm_data.drive = POWER
+    pdm_clk.drive  = POWER
+    mic["SDO"] += pdm_data
+    mic["CLK"] += pdm_clk
+
+    # WS (L/R select) tied to GND for left channel
+    mic["WS"] += gnd
+
+    # Decoupling
+    c1 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c1[1] += v3v3; c1[2] += gnd
+
+pdm_microphone(v3v3, gnd)
+
+# ---------------------------------------------------------------
+# SHT30 Humidity/Temperature (I2C)
+# ---------------------------------------------------------------
+@subcircuit
+def sht30_sensor(v3v3, gnd, sda, scl):
+    """SHT30 humidity and temperature sensor."""
+    sht = Part(name="SHT30", tool=SKIDL, dest=NETLIST,
+               footprint="Package_DFN_QFN:DFN-8_2x2mm_P0.5mm",
+               pins=[
+                   Pin(num="1", name="SDA",   func=Pin.types.BIDIR),
+                   Pin(num="2", name="ADDR",  func=Pin.types.INPUT),
+                   Pin(num="3", name="ALERT", func=Pin.types.OUTPUT),
+                   Pin(num="4", name="SCL",   func=Pin.types.INPUT),
+                   Pin(num="5", name="VDD",   func=Pin.types.PWRIN),
+                   Pin(num="6", name="NRESET",func=Pin.types.INPUT),
+                   Pin(num="7", name="R",     func=Pin.types.PASSIVE),
+                   Pin(num="8", name="VSS",   func=Pin.types.PWRIN),
+               ])
+    sht["VDD"]    += v3v3
+    sht["VSS"]    += gnd
+    sht["SDA"]    += sda
+    sht["SCL"]    += scl
+    sht["ADDR"]   += gnd    # Address 0x44
+    sht["NRESET"] += v3v3   # Not reset
+
+    # Alert (unused, float OK with net)
+    sht_alert_net = Net("SHT_ALERT")
+    sht_alert_net.drive = POWER
+    sht["ALERT"] += sht_alert_net
+
+    # R pin - filter
+    sht_r_net = Net("SHT_R")
+    sht_r_net.drive = POWER
+    sht["R"] += sht_r_net
+
+    # Decoupling
+    c1 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c1[1] += v3v3; c1[2] += gnd
+
+sht30_sensor(v3v3, gnd, i2c_sda, i2c_scl)
+
+# ---------------------------------------------------------------
+# BMP280 Barometric Pressure/Temperature (I2C)
+# ---------------------------------------------------------------
+@subcircuit
+def bmp280_sensor(v3v3, gnd, sda, scl):
+    """BMP280 pressure/temperature sensor."""
+    bmp = Part(name="BMP280", tool=SKIDL, dest=NETLIST,
+               footprint="Package_LGA:Bosch_LGA-8_2x2.5mm_P0.65mm_ClockwisePinNumbering",
+               pins=[
+                   Pin(num="1", name="GND1",   func=Pin.types.PWRIN),
+                   Pin(num="2", name="CSB",    func=Pin.types.INPUT),
+                   Pin(num="3", name="SDA",    func=Pin.types.BIDIR),
+                   Pin(num="4", name="SCL",    func=Pin.types.INPUT),
+                   Pin(num="5", name="GND2",   func=Pin.types.PWRIN),
+                   Pin(num="6", name="VDDIO",  func=Pin.types.PWRIN),
+                   Pin(num="7", name="GND3",   func=Pin.types.PWRIN),
+                   Pin(num="8", name="VDD",    func=Pin.types.PWRIN),
+               ])
+    bmp["VDD"]   += v3v3
+    bmp["VDDIO"] += v3v3
+    bmp["GND1"]  += gnd
+    bmp["GND2"]  += gnd
+    bmp["GND3"]  += gnd
+    bmp["SDA"]   += sda
+    bmp["SCL"]   += scl
+    bmp["CSB"]   += v3v3  # CS high = I2C mode
+
+    # Decoupling
+    c1 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c1[1] += v3v3; c1[2] += gnd
+
+bmp280_sensor(v3v3, gnd, i2c_sda, i2c_scl)
+
+# ---------------------------------------------------------------
 # Feather Headers (1x16 + 1x12)
-# =============================================================================
+# ---------------------------------------------------------------
 @subcircuit
-def feather_headers(vcc, vbat, vbus, gnd,
-                    a0, a1, a2, a3, a4, a5,
-                    d5, d6, d9, d10, d11, d12, d13,
-                    sda, scl, uart_tx, uart_rx):
-    """Feather form factor pin headers."""
-    # Left header (1x16)
-    j_left = Part("Connector_Generic", "Conn_01x16",
-                  footprint="Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical")
-    j_left[1] += gnd       # GND (RST side)
-    j_left[2] += vbus      # USB (5V)
-    j_left[3] += vbat      # VBAT
-    j_left[4] += gnd       # GND
-    j_left[5] += vcc       # 3V3
-    j_left[6] += a0        # A0
-    j_left[7] += a1        # A1
-    j_left[8] += a2        # A2
-    j_left[9] += a3        # A3
-    j_left[10] += a4       # A4
-    j_left[11] += a5       # A5
-    j_left[12] += d5       # D5/SCK
-    j_left[13] += d6       # D6/MOSI
-    j_left[14] += d9       # D9/MISO
-    j_left[15] += uart_rx  # RX
-    j_left[16] += uart_tx  # TX
+def feather_headers(v3v3, vbus, vbat, gnd):
+    """Standard Feather-format pin headers."""
+    # 16-pin header (left side)
+    hdr_l = Part("Connector_Generic", "Conn_01x16",
+                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical")
+    # Pin assignments: RST, 3V3, AREF, GND, A0-A5, SCK, MOSI, MISO, RX, TX, D4
+    hdr_l[1]  += Net("HDR_RST")
+    hdr_l[2]  += v3v3
+    hdr_l[3]  += Net("AREF")
+    hdr_l[4]  += gnd
+    hdr_l[5]  += Net("A0")
+    hdr_l[6]  += Net("A1")
+    hdr_l[7]  += Net("A2")
+    hdr_l[8]  += Net("A3")
+    hdr_l[9]  += Net("A4")
+    hdr_l[10] += Net("A5")
+    hdr_l[11] += Net("SCK")
+    hdr_l[12] += Net("MOSI")
+    hdr_l[13] += Net("MISO")
+    hdr_l[14] += Net("UART_RX")
+    hdr_l[15] += Net("UART_TX")
+    hdr_l[16] += Net("D4")
 
-    # Right header (1x12)
-    j_right = Part("Connector_Generic", "Conn_01x12",
-                   footprint="Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical")
-    j_right[1] += sda      # SDA
-    j_right[2] += scl      # SCL
-    j_right[3] += d5       # D5
-    j_right[4] += d6       # D6
-    j_right[5] += d9       # D9
-    j_right[6] += d10      # D10
-    j_right[7] += d11      # D11
-    j_right[8] += d12      # D12
-    j_right[9] += d13      # D13
-    j_right[10] += gnd     # GND
-    j_right[11] += gnd     # AREF (used as GND)
-    j_right[12] += vcc     # 3V3 OUT
+    # Drive all header nets
+    for n in [hdr_l[p].net for p in range(1, 17) if hdr_l[p].net]:
+        n.drive = POWER
 
+    # 12-pin header (right side)
+    hdr_r = Part("Connector_Generic", "Conn_01x12",
+                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical")
+    # Pin assignments: BAT, EN, VBUS, D13-D5
+    hdr_r[1]  += vbat
+    hdr_r[2]  += Net("EN")
+    hdr_r[3]  += vbus
+    hdr_r[4]  += Net("D13")
+    hdr_r[5]  += Net("D12")
+    hdr_r[6]  += Net("D11")
+    hdr_r[7]  += Net("D10")
+    hdr_r[8]  += Net("D9")
+    hdr_r[9]  += Net("D6")
+    hdr_r[10] += Net("D5")
+    hdr_r[11] += i2c_sda
+    hdr_r[12] += i2c_scl
 
-# =============================================================================
-# Build the circuit
-# =============================================================================
+    for n in [hdr_r[p].net for p in range(1, 13) if hdr_r[p].net]:
+        n.drive = POWER
 
-# I2C bus nets
-sda = Net("SDA")
-scl = Net("SCL")
+feather_headers(v3v3, vbus, vbat, gnd)
 
-# NeoPixel data
-neo_data = Net("NEOPIXEL")
+# ---------------------------------------------------------------
+# Battery Connector (JST-PH 2-pin)
+# ---------------------------------------------------------------
+@subcircuit
+def battery_connector(vbat, gnd):
+    """JST-PH 2-pin LiPo battery connector."""
+    jst = Part("Connector_Generic", "Conn_01x02",
+               footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal")
+    jst[1] += vbat
+    jst[2] += gnd
 
-# PDM microphone
-pdm_clk = Net("PDM_CLK")
-pdm_data_net = Net("PDM_DATA")
+battery_connector(vbat, gnd)
 
-# User button
-btn_usr = Net("BTN_USR")
+# ---------------------------------------------------------------
+# SWD Debug Header
+# ---------------------------------------------------------------
+@subcircuit
+def swd_header(v3v3, gnd):
+    """SWD debug header (2x5 1.27mm)."""
+    swd = Part("Connector_Generic", "Conn_01x04",
+               footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+    swd[1] += v3v3
+    swdclk_net = Net("SWDCLK")
+    swdclk_net.drive = POWER
+    swdio_net = Net("SWDIO")
+    swdio_net.drive = POWER
+    swd[2] += swdclk_net
+    swd[3] += swdio_net
+    swd[4] += gnd
 
-# UART
-uart_tx = Net("UART_TX")
-uart_rx = Net("UART_RX")
+swd_header(v3v3, gnd)
 
-# Analog pins
-a0 = Net("A0")
-a1 = Net("A1")
-a2 = Net("A2")
-a3 = Net("A3")
-a4 = Net("A4")
-a5 = Net("A5")
-
-# Digital pins
-d5 = Net("D5")
-d6 = Net("D6")
-d9 = Net("D9")
-d10 = Net("D10")
-d11 = Net("D11")
-d12 = Net("D12")
-d13 = Net("D13")
-
-# QSPI flash
-qspi_sck = Net("QSPI_SCK")
-qspi_cs = Net("QSPI_CS")
-qspi_d0 = Net("QSPI_D0")
-qspi_d1 = Net("QSPI_D1")
-qspi_d2 = Net("QSPI_D2")
-qspi_d3 = Net("QSPI_D3")
-
-# Instantiate all subcircuits
-power_supply(vbat, vbus, vcc, gnd)
-
-usb_connector(vbus, gnd)
-
-mcu_block(vcc, gnd, sda, scl, neo_data, pdm_clk, pdm_data_net,
-          btn_usr, uart_tx, uart_rx, a0, a1, a2, a3, a4, a5,
-          d5, d6, d9, d10, d11, d12, d13,
-          qspi_sck, qspi_cs, qspi_d0, qspi_d1, qspi_d2, qspi_d3)
-
-imu_9dof(vcc, gnd, sda, scl)
-
-apds9960_block(vcc, gnd, sda, scl)
-
-sht_block(vcc, gnd, sda, scl)
-
-bmp280_block(vcc, gnd, sda, scl)
-
-pdm_mic_block(vcc, gnd, pdm_clk, pdm_data_net)
-
-qspi_flash(vcc, gnd, qspi_sck, qspi_cs, qspi_d0, qspi_d1, qspi_d2, qspi_d3)
-
-neopixel_block(vcc, gnd, neo_data)
-
-user_button(gnd, btn_usr)
-
-builtin_led(gnd, d13)
-
-ble_led(vcc, gnd)
-
-i2c_pullups(vcc, sda, scl)
-
-stemma_qt(vcc, gnd, sda, scl)
-
-swd_header(vcc, gnd)
-
-feather_headers(vcc, vbat, vbus, gnd,
-                a0, a1, a2, a3, a4, a5,
-                d5, d6, d9, d10, d11, d12, d13,
-                sda, scl, uart_tx, uart_rx)
-
-
-# =============================================================================
-# Add draw_cmds and lib stubs for schematic generation
-# =============================================================================
-class _FakeLib:
-    """Minimal lib stub so sexp_schematic can write lib_id."""
-    def __init__(self, name="skidl"):
-        self.filename = name
-
-_fake_lib = _FakeLib()
-
+# ---------------------------------------------------------------
+# Fix all SKIDL-tool parts for schematic generation
+# ---------------------------------------------------------------
 for part in default_circuit.parts:
-    if not hasattr(part, "draw_cmds") or not part.draw_cmds:
-        add_skidl_draw_cmds(part)
-    if not hasattr(part, "lib") or part.lib is None:
-        try:
-            _ = part.lib.filename
-        except (AttributeError, TypeError):
-            part.lib = _fake_lib
+    if part.tool == SKIDL:
+        _fix_skidl_pins(part)
 
-# =============================================================================
+# ---------------------------------------------------------------
 # Generate schematic
-# =============================================================================
+# ---------------------------------------------------------------
 generate_schematic(auto_stub=True, auto_stub_fanout=3, erc_max_iterations=8)
-
-print("\n--- Circuit generated successfully ---")
-print(f"Parts: {len(default_circuit.parts)}")
-print(f"Nets:  {len(default_circuit.nets)}")
