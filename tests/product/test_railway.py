@@ -621,6 +621,42 @@ class TestHTTPToolsIntegration:
             await submit_design({"not": "a valid spec"})
 
 
+class TestWorkerHealth:
+    """The worker must answer Railway's /health probe (it has no MCP surface)."""
+
+    def test_health_endpoint_no_db(self):
+        from starlette.testclient import TestClient
+        from mcp_server.worker import health_app
+        app = health_app(DB(), "w-test", 2)
+        with TestClient(app) as client:
+            resp = client.get("/health")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["worker_id"] == "w-test"
+            assert data["concurrency"] == 2
+            assert data["db"] is False
+            assert data["status"] == "degraded"
+
+    @needs_postgres
+    @pytest.mark.asyncio
+    async def test_health_endpoint_with_db(self):
+        import httpx
+        from mcp_server.worker import health_app
+        database = DB()
+        await database.connect(DATABASE_URL)
+        try:
+            app = health_app(database, "w-db", 2)
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+                resp = await client.get("/health")
+            data = resp.json()
+            assert data["status"] == "ok"
+            assert data["db"] is True
+            assert isinstance(data["pending_jobs"], int)
+        finally:
+            await database.close()
+
+
 # ── Agent UX: tool descriptions and resources ─────────────────────────
 
 

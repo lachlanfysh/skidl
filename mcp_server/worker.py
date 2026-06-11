@@ -179,6 +179,31 @@ def _collect_artifacts(result: dict) -> dict:
     return paths
 
 
+def health_app(db: DB, worker_id: str, concurrency: int):
+    """Tiny HTTP app so Railway's healthcheck (and ops) can see the worker."""
+    from starlette.applications import Starlette
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+
+    async def health(request):
+        db_ok = db.pool is not None
+        pending = 0
+        if db_ok:
+            try:
+                pending = await db.count_pending()
+            except Exception:
+                db_ok = False
+        return JSONResponse({
+            "status": "ok" if db_ok else "degraded",
+            "worker_id": worker_id,
+            "concurrency": concurrency,
+            "db": db_ok,
+            "pending_jobs": pending,
+        })
+
+    return Starlette(routes=[Route("/health", health)])
+
+
 async def main() -> None:
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
@@ -192,11 +217,19 @@ async def main() -> None:
     await db.connect(database_url)
     print(f"Worker {worker_id} started, concurrency={concurrency}", flush=True)
 
+    import uvicorn
+    port = int(os.environ.get("PORT", 8001))
+    server = uvicorn.Server(uvicorn.Config(
+        health_app(db, worker_id, concurrency),
+        host="0.0.0.0", port=port, log_level="warning",
+    ))
+
     try:
         tasks = [
             asyncio.create_task(worker_loop(db, i, worker_id))
             for i in range(concurrency)
         ]
+        tasks.append(asyncio.create_task(server.serve()))
         await asyncio.gather(*tasks)
     finally:
         await db.close()
