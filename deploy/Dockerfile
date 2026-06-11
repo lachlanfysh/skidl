@@ -16,8 +16,9 @@ RUN pip install --no-cache-dir -r /app/deploy/requirements.txt
 # SKiDL editable install
 COPY setup.py /app/setup.py
 COPY README.md /app/README.md
+COPY HISTORY.md /app/HISTORY.md
 COPY src/ /app/src/
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir .
 
 # Product layer code
 COPY mcp_server/ /app/mcp_server/
