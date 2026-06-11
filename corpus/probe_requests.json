@@ -1,0 +1,65 @@
+[
+  {
+    "board_id": "bme280",
+    "tier": 1,
+    "description": "Bosch BME280 environmental sensor with temperature, barometric pressure and humidity. Best low-cost sensing solution for measuring humidity with +/-3% accuracy, barometric pressure with +/-1 hPa absolute accuracy, and temperature with +/-1.0C accuracy. Can also be used as an altimeter with +/-1 meter or better accuracy. Next-generation upgrade to BMP085/BMP180/BMP183 with low altitude noise of 0.25m and fast conversion time. Supports both I2C and SPI interfaces.",
+    "ref_spec": "corpus/specs/bme280.json",
+    "models": "all"
+  },
+  {
+    "board_id": "mcp9808",
+    "tier": 1,
+    "description": "I2C digital temperature sensor with typical accuracy of +/-0.25C over -40C to +125C range and precision of +0.0625C. Works with any microcontroller using standard I2C. 3 address pins allow up to 8 on a single I2C bus without address collisions. Wide voltage range 2.7V to 5.5V logic. Placed on a breakout board PCB with mounting holes and pull down resistors for address pins.",
+    "ref_spec": "corpus/specs/mcp9808.json",
+    "models": "all"
+  },
+  {
+    "board_id": "ina219",
+    "tier": 1,
+    "description": "INA219B chip measures both high side voltage and DC current draw over I2C with 1% precision. Handles high side current measuring up to +26VDC, even though powered with 3 or 5V. Also reports high side voltage for tracking battery life or solar panels. Precision amplifier measures voltage across 0.1 ohm 1% sense resistor. With internal 12 bit ADC, resolution at +/-3.2A range is 0.8mA. With internal gain at minimum div8, max current is +/-400mA with 0.1mA resolution. Advanced users can replace the sense resistor to change the range.",
+    "ref_spec": "corpus/specs/ina219.json",
+    "models": "all"
+  },
+  {
+    "board_id": "ads1115-adc",
+    "tier": 1,
+    "description": "PCB for the Adafruit 12 and 16 bit I2C ADC with Programmable Gain Amplifier. The ADS1115 is a precision analog-to-digital converter with up to 16-bit resolution and programmable gain amplifier. Works with both 3.3V and 5V microcontrollers.",
+    "ref_spec": "corpus/specs/ads1115-adc.json",
+    "models": "all"
+  },
+  {
+    "board_id": "max98357-i2s-amp",
+    "tier": 2,
+    "description": "All-in-one digital audio amp that takes standard I2S digital audio input, decodes it into analog, and amplifies directly into a speaker. Combines I2S DAC and amp into one breakout. Delivers 3.2 Watts into 4 ohm speaker (5V power at 10% THD). Class D controller runs from 2.7V-5.5VDC, incredibly efficient for portable and battery-powered projects. Built-in thermal and over-current protection.",
+    "ref_spec": "corpus/specs/max98357-i2s-amp.json",
+    "models": "all"
+  },
+  {
+    "board_id": "feather-rp2040",
+    "tier": 3,
+    "description": "Open source PCB for the Feather RP2040 in Feather form factor. Built around the Raspberry Pi RP2040 chip. Design has been built and tested successfully. PCB format is EagleCAD schematic and board layout. Released so folks can start creating custom designs based on the RP2040 chip.",
+    "ref_spec": "corpus/specs/feather-rp2040.json",
+    "models": "all"
+  },
+  {
+    "board_id": "feather-esp32-s3",
+    "tier": 3,
+    "description": "ESP32-S3 in Feather format with dual 240 MHz cores, WiFi and BLE support, and native USB (keyboard, disk drive, MIDI). 8 MB flash, 512KB SRAM, no PSRAM. USB-C with built-in battery charging for LiPoly. LC709203 battery monitor for voltage and state of charge reporting over I2C. STEMMA QT connector with switchable power for low power mode. Deep sleep ~100uA from LiPoly connection. Works with ESP-IDF, Arduino, or CircuitPython. Compatible with 50+ Feather Wings.",
+    "ref_spec": "corpus/specs/feather-esp32-s3.json",
+    "models": "all"
+  },
+  {
+    "board_id": "clue-nrf52840",
+    "tier": 4,
+    "description": "Sensor-packed development board in BBC micro:bit form factor with edge-connector and 5 big pads. Nordic nRF52840: 1MB Flash, 256KB RAM, 64MHz Cortex M4. 1.3 inch 240x240 Color IPS TFT display. Powers from 3-6V battery. Sensors: LSM6DS33 Accel/Gyro + LIS3MDL magnetometer (9-DoF), APDS9960 proximity/light/color/gesture, PDM microphone, SHT humidity, BMP280 temperature/barometric pressure/altitude. RGB NeoPixel, 2MB internal flash, buzzer/speaker, two white LEDs for illumination/color sensing. STEMMA QT / Qwiic connector for I2C add-ons. Programmable with Arduino IDE or CircuitPython.",
+    "ref_spec": "corpus/specs/clue-nrf52840.json",
+    "models": "all"
+  },
+  {
+    "board_id": "grand-central",
+    "tier": 4,
+    "description": "Arduino Mega form factor board with Microchip ATSAMD51P20: 120MHz Cortex M4 with floating point DSP, 1MB flash, 256KB RAM. 70 GPIO pins total, dual 1 MSPS DAC, dual 1 MSPS ADC (15 analog pins), 8x hardware SERCOM (I2C/SPI/UART), 22x PWM outputs, stereo I2S, 12-bit parallel capture controller (camera/video in), built-in AES-256 crypto, true RNG. 8 MB QSPI Flash, Micro SD card slot, NeoPixel. Power from 6-12V DC with on/off switch or micro USB. Native USB stack with UF2 bootloader. Compatible with Arduino and CircuitPython.",
+    "ref_spec": "corpus/specs/grand-central.json",
+    "models": "all"
+  }
+]

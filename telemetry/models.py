@@ -111,6 +111,7 @@ class RunRecord(BaseModel):
     congestion_score: Optional[float] = None
     bom_match_score: Optional[float] = None
     netlist_match_score: Optional[float] = None
+    circuit_grade: Optional[str] = None
     failure_reason: Optional[str] = None
 
     decisions_remaining: int = Field(
