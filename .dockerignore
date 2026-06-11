@@ -1,0 +1,33 @@
+# Large data dirs not needed at runtime
+corpus/sources/
+corpus/jlc/jlcpcb-components.sqlite3
+corpus/jlc/cache/
+corpus/jlc/footprint_cache/
+corpus/specs/
+
+# Benchmark artifacts
+benchmarks/
+
+# Local artifacts and telemetry
+artifacts/
+telemetry/*.jsonl
+telemetry/*.log
+
+# Git and IDE
+.git
+.github
+.claude
+.vscode
+__pycache__
+
+# Tests and docs
+tests/
+docsrc/
+docs/
+*.md
+
+# Build artifacts
+dist/
+*.egg-info
+.tox
+.pytest_cache
