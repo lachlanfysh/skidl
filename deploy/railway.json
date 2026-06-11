@@ -1,0 +1,21 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "dockerfilePath": "deploy/Dockerfile",
+    "watchPatterns": [
+      "mcp_server/**",
+      "schemas/**",
+      "telemetry/**",
+      "corpus/jlc/**",
+      "deploy/**",
+      "src/skidl/**",
+      "setup.py"
+    ]
+  },
+  "deploy": {
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 30,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}
