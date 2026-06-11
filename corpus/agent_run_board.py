@@ -51,10 +51,10 @@ def _exc_summary(exc: DesignException) -> dict:
             {
                 "id": c.id,
                 "action": c.action.value,
-                "description": c.description or "",
-                "confidence": getattr(c, "confidence", 0.9),
-                "source": getattr(c, "source", "deterministic"),
-                "new_value": c.new_value if hasattr(c, "new_value") else None,
+                "description": c.human_summary or "",
+                "confidence": c.confidence,
+                "source": c.source,
+                "params": c.params,
             }
             for c in exc.candidates
         ],
