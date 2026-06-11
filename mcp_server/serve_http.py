@@ -62,12 +62,25 @@ async def health(request: Request) -> JSONResponse:
     })
 
 
+async def estimates(request: Request) -> JSONResponse:
+    """Recent estimate_complexity calls with their spec_issues — for monitoring suggestion quality."""
+    if db.pool is None:
+        return JSONResponse({"error": "db not connected"}, status_code=503)
+    limit = min(int(request.query_params.get("limit", "50")), 200)
+    issues_only = request.query_params.get("issues", "false").lower() == "true"
+    rows = await db.recent_estimates(limit)
+    if issues_only:
+        rows = [r for r in rows if r["spec_issues"]]
+    return JSONResponse(rows)
+
+
 def create_app() -> Starlette:
     mcp_app = mcp.streamable_http_app()
 
     # Inject our routes and middleware into the FastMCP app so its lifespan
     # (which starts the session manager task group) runs properly.
     mcp_app.routes.insert(0, Route("/health", health))
+    mcp_app.routes.insert(1, Route("/estimates", estimates))
     mcp_app.middleware_stack = None  # force rebuild
     mcp_app.user_middleware.insert(0, Middleware(BearerTokenMiddleware))
 

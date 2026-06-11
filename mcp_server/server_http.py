@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 
 from pydantic import ValidationError
@@ -21,6 +22,8 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from mcp_server.db import DB
+
+logger = logging.getLogger("eda-mcp")
 from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import CorrectionError, apply_candidate
 from schemas.estimator import estimate_complexity as _estimate_complexity
@@ -194,6 +197,16 @@ async def estimate_complexity(input_spec: dict) -> dict:
     result = await asyncio.to_thread(
         lambda: _estimate_complexity(spec).model_dump(mode="json")
     )
+    if result.get("spec_issues"):
+        logger.info(
+            "estimate_complexity spec_issues board=%s: %s",
+            spec.board.name,
+            json.dumps(result["spec_issues"]),
+        )
+    try:
+        await db.append_estimate(spec.board.name, result)
+    except Exception:
+        pass
     return result
 
 
@@ -242,6 +255,10 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
                 f"candidate_id {cand_id!r} not found for exception {exc_id!r}. "
                 f"Available candidates: {[c.id for c in exc.candidates]}"
             )
+        logger.info(
+            "apply_correction run=%s exc=%s cand=%s action=%s params=%s",
+            run_id, exc_id, cand_id, cand.action, json.dumps(cand.params),
+        )
         spec = apply_candidate(spec, exc, cand)
 
     prev_response = run_data.get("response") or {}

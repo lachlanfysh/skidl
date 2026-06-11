@@ -178,6 +178,39 @@ class DB:
                 json.dumps(record),
             )
 
+    async def append_estimate(self, board_id: str, estimate: dict) -> None:
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO telemetry
+                   (board_id, mode, status, record)
+                   VALUES ($1, 'estimate', $2, $3)""",
+                board_id,
+                "has_issues" if estimate.get("spec_issues") else "clean",
+                json.dumps(estimate),
+            )
+
+    async def recent_estimates(self, limit: int = 50) -> list[dict]:
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT board_id, status, record, created_at
+                   FROM telemetry
+                   WHERE mode = 'estimate'
+                   ORDER BY created_at DESC
+                   LIMIT $1""",
+                limit,
+            )
+        return [
+            {
+                "board_id": r["board_id"],
+                "status": r["status"],
+                "spec_issues": json.loads(r["record"]).get("spec_issues", []),
+                "warnings": json.loads(r["record"]).get("warnings", []),
+                "tier": json.loads(r["record"]).get("complexity_tier"),
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in rows
+        ]
+
     # ── Housekeeping ──────────────────────────────────────────────────
 
     async def expire_old_jobs(self, hours: int = 48) -> int:
