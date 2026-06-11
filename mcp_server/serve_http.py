@@ -30,7 +30,7 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
     """Simple static bearer token check. No OAuth, no WWW-Authenticate header."""
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path == "/health":
+        if request.url.path in {"/health", "/estimates"}:
             return await call_next(request)
 
         if not EDA_AUTH_TOKEN:
