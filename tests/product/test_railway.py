@@ -432,7 +432,7 @@ class TestWorkerLoop:
 class TestAuthMiddleware:
     """Test bearer token auth without Postgres."""
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def client(self):
         from starlette.testclient import TestClient
         os.environ["EDA_AUTH_TOKEN"] = "test-token-123"
@@ -440,7 +440,9 @@ class TestAuthMiddleware:
         import mcp_server.serve_http as mod
         mod.EDA_AUTH_TOKEN = "test-token-123"
         app = mod.create_app()
-        return TestClient(app)
+        # Context manager runs the lifespan (session manager + db wiring)
+        with TestClient(app) as client:
+            yield client
 
     def test_health_no_auth_required(self, client):
         resp = client.get("/health")
@@ -617,3 +619,161 @@ class TestHTTPToolsIntegration:
         from mcp_server.server_http import submit_design
         with pytest.raises(Exception):
             await submit_design({"not": "a valid spec"})
+
+
+# ── Agent UX: tool descriptions and resources ─────────────────────────
+
+
+class TestAgentUX:
+    """The MCP surface must teach an agent the workflow without external docs.
+
+    These run without Postgres or KiCad — they only inspect the MCP
+    server's metadata and the guide content.
+    """
+
+    def _extract_json_blocks(self, markdown: str) -> list[dict]:
+        """Pull every ```json fenced block out of a guide."""
+        import re
+        blocks = re.findall(r"```json\n(.*?)```", markdown, re.DOTALL)
+        parsed = []
+        for block in blocks:
+            try:
+                parsed.append(json.loads(block))
+            except json.JSONDecodeError:
+                continue  # fragments (e.g. single-part snippets) are fine
+        return parsed
+
+    @pytest.mark.asyncio
+    async def test_all_tools_listed_with_descriptions(self):
+        from mcp_server.server_http import mcp
+        tools = await mcp.list_tools()
+        names = {t.name for t in tools}
+        assert names == {
+            "submit_design", "get_job", "estimate_complexity",
+            "apply_correction", "get_run",
+        }
+        for tool in tools:
+            assert tool.description and len(tool.description) > 100, (
+                f"{tool.name} description too thin for agent use"
+            )
+
+    @pytest.mark.asyncio
+    async def test_submit_design_teaches_the_loop(self):
+        """An agent reading only submit_design must learn: spec shape,
+        polling, footprint format, power-net convention, and resources."""
+        from mcp_server.server_http import mcp
+        tools = {t.name: t for t in await mcp.list_tools()}
+        desc = tools["submit_design"].description
+        for needle in (
+            "get_job", "job_id", "footprint", "Library:Name",
+            "power", "REF.PIN", "100nF", "eda://", "timeout_s",
+        ):
+            assert needle in desc, f"submit_design description missing {needle!r}"
+
+    @pytest.mark.asyncio
+    async def test_get_job_documents_statuses(self):
+        from mcp_server.server_http import mcp
+        tools = {t.name: t for t in await mcp.list_tools()}
+        desc = tools["get_job"].description
+        for status in ("queued", "running", "succeeded", "failed", "timeout"):
+            assert status in desc
+        assert "run_id" in desc and "exceptions" in desc
+
+    @pytest.mark.asyncio
+    async def test_apply_correction_documents_selection(self):
+        from mcp_server.server_http import mcp
+        tools = {t.name: t for t in await mcp.list_tools()}
+        desc = tools["apply_correction"].description
+        assert "exception_id" in desc and "candidate_id" in desc
+        assert "confidence" in desc
+
+    @pytest.mark.asyncio
+    async def test_resources_listed(self):
+        from mcp_server.server_http import mcp
+        resources = await mcp.list_resources()
+        uris = {str(r.uri) for r in resources}
+        assert uris == {
+            "eda://schema/circuit-spec",
+            "eda://guide/circuit-spec",
+            "eda://guide/workflow",
+            "eda://guide/exceptions",
+        }
+        for r in resources:
+            assert r.description, f"{r.uri} has no description"
+
+    @pytest.mark.asyncio
+    async def test_schema_resource_is_live_model_schema(self):
+        from mcp_server.server_http import mcp
+        from schemas.circuit_spec import CircuitSpec
+        content = await mcp.read_resource("eda://schema/circuit-spec")
+        schema = json.loads(list(content)[0].content)
+        assert schema == CircuitSpec.model_json_schema()
+
+    @pytest.mark.asyncio
+    async def test_guide_examples_validate_against_schema(self):
+        """Every complete spec example embedded in the guides must be a
+        valid CircuitSpec — otherwise the docs teach agents broken input."""
+        from mcp_server.server_http import CIRCUIT_SPEC_GUIDE
+        from schemas.circuit_spec import CircuitSpec
+        specs = [
+            b for b in self._extract_json_blocks(CIRCUIT_SPEC_GUIDE)
+            if isinstance(b, dict) and "board" in b and "parts" in b
+        ]
+        assert specs, "guide contains no complete spec example"
+        for spec in specs:
+            CircuitSpec.model_validate(spec)
+
+    def test_submit_design_inline_example_validates(self):
+        """The JSON example inside the submit_design docstring must parse
+        and validate — agents copy it verbatim."""
+        import re
+        from mcp_server import server_http
+        from schemas.circuit_spec import CircuitSpec
+        doc = server_http.submit_design.__doc__
+        m = re.search(r"^    (\{\n.*?\n    \})$", doc, re.DOTALL | re.MULTILINE)
+        assert m, "no JSON example found in submit_design docstring"
+        block = "\n".join(line[4:] if line.startswith("    ") else line
+                          for line in m.group(1).split("\n"))
+        spec = json.loads(block)
+        CircuitSpec.model_validate(spec)
+
+    @needs_kicad
+    def test_guide_example_parts_exist_in_kicad_libs(self):
+        """Symbols and footprints named in the worked example must exist in
+        the KiCad libraries the worker image ships."""
+        from mcp_server.server_http import CIRCUIT_SPEC_GUIDE
+        specs = [
+            b for b in self._extract_json_blocks(CIRCUIT_SPEC_GUIDE)
+            if isinstance(b, dict) and "board" in b and "parts" in b
+        ]
+        fp_root = Path("/usr/share/kicad/footprints")
+        sym_root = Path("/usr/share/kicad/symbols")
+        for spec in specs:
+            for part in spec["parts"]:
+                if part.get("lib"):
+                    sym_file = sym_root / f"{part['lib']}.kicad_sym"
+                    assert sym_file.exists(), f"missing symbol lib {part['lib']}"
+                    assert f'"{part["part"]}"' in sym_file.read_text(), (
+                        f"symbol {part['part']} not in {part['lib']}"
+                    )
+                lib, name = part["footprint"].split(":")
+                fp_file = fp_root / f"{lib}.pretty" / f"{name}.kicad_mod"
+                assert fp_file.exists(), f"missing footprint {part['footprint']}"
+
+    @pytest.mark.asyncio
+    async def test_exceptions_guide_covers_all_codes_and_actions(self):
+        """The reference must stay complete as the enums grow."""
+        from mcp_server.server_http import EXCEPTIONS_GUIDE
+        from schemas.exceptions import ActionType, ExcCode
+        for code in ExcCode:
+            assert f"`{code.value}`" in EXCEPTIONS_GUIDE, f"{code.value} undocumented"
+        for action in ActionType:
+            assert f"`{action.value}`" in EXCEPTIONS_GUIDE, f"{action.value} undocumented"
+
+    @pytest.mark.asyncio
+    async def test_server_instructions_point_to_resources(self):
+        from mcp_server.server_http import mcp
+        instructions = mcp.instructions
+        assert instructions
+        assert "submit_design" in instructions
+        assert "eda://" in instructions
