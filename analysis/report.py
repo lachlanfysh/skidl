@@ -64,6 +64,27 @@ def single_run_report(records: list[dict], label: str = "") -> str:
     success_count = sum(1 for r in records if r["status"] in ("succeeded", "succeeded_with_warnings"))
     out.append(f"\n**Overall success rate: {pct(success_count, total)}**")
 
+    # Decisions-remaining view
+    has_decisions = [r for r in records if r.get("decisions_remaining") is not None]
+    if has_decisions:
+        out.append(report_section("Decisions Remaining"))
+        out.append("How many human/LLM decisions each board needs to finish:\n")
+        buckets = [(0, 0, "Done (0)"), (1, 2, "Nearly done (1-2)"),
+                   (3, 5, "Some work (3-5)"), (6, 99999, "Significant (6+)")]
+        for lo, hi, label in buckets:
+            count = sum(1 for r in has_decisions if lo <= r.get("decisions_remaining", 0) <= hi)
+            out.append(f"- **{label}**: {count} ({pct(count, len(has_decisions))})")
+
+        # Breakdown by type
+        type_totals: Counter[str] = Counter()
+        for r in has_decisions:
+            for dtype, n in r.get("decision_breakdown", {}).items():
+                type_totals[dtype] += n
+        if type_totals:
+            out.append(f"\nDecision types across all boards:")
+            for dtype, n in type_totals.most_common():
+                out.append(f"- {dtype}: {n}")
+
     # Per-mode breakdown
     out.append(report_section("Per-Mode Breakdown"))
     for mode, recs in sorted(by_mode.items()):

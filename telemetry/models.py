@@ -113,6 +113,15 @@ class RunRecord(BaseModel):
     netlist_match_score: Optional[float] = None
     failure_reason: Optional[str] = None
 
+    decisions_remaining: int = Field(
+        default=0,
+        description="Count of unresolved exceptions needing human/LLM decision. 0 = done.",
+    )
+    decision_breakdown: dict[str, int] = Field(
+        default_factory=dict,
+        description="Unresolved decisions by type: {footprint: N, pin: N, layout: N, ...}",
+    )
+
     def finalize(self) -> "RunRecord":
         """Compute derived totals before the record is persisted.
 
@@ -122,11 +131,11 @@ class RunRecord(BaseModel):
         """
         self.total_cost_usd = sum(s.cost_usd for s in self.llm_stages)
         self.total_tokens = sum(s.tokens_in + s.tokens_out for s in self.llm_stages)
-        if self.started_at and self.finished_at:
+        if self.wall_time_s == 0.0 and self.started_at and self.finished_at:
             try:
                 t0 = datetime.fromisoformat(self.started_at)
                 t1 = datetime.fromisoformat(self.finished_at)
                 self.wall_time_s = (t1 - t0).total_seconds()
             except (ValueError, TypeError):
-                pass  # keep whatever wall_time_s already holds
+                pass
         return self

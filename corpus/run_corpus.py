@@ -259,6 +259,31 @@ def load_cached_spec(row: dict) -> CircuitSpec | None:
     return CircuitSpec.model_validate_json(path.read_text())
 
 
+_EXC_CODE_TO_DECISION_TYPE = {
+    "SPEC_BAD_FOOTPRINT": "footprint",
+    "SPEC_UNKNOWN_PIN": "pin",
+    "SPEC_UNKNOWN_PART": "part",
+    "SPEC_UNKNOWN_LIB": "library",
+    "LAYOUT_OVERLAP": "layout",
+    "LAYOUT_OUTLINE_VIOLATION": "layout",
+    "LAYOUT_KEEPOUT": "layout",
+    "HIGH_CONGESTION": "layout",
+    "ERC_PIN_NOT_CONNECTED": "erc",
+    "ERC_PIN_NOT_DRIVEN": "erc",
+    "ERC_REAL_ERROR": "erc",
+}
+
+
+def _count_decisions(exceptions: list[DesignException]) -> tuple[int, dict[str, int]]:
+    breakdown: dict[str, int] = {}
+    for exc in exceptions:
+        if exc.severity.value == "advisory":
+            continue
+        dtype = _EXC_CODE_TO_DECISION_TYPE.get(exc.code.value, "other")
+        breakdown[dtype] = breakdown.get(dtype, 0) + 1
+    return sum(breakdown.values()), breakdown
+
+
 def deterministic_choices(exceptions: list[DesignException], min_confidence: float = 0.8) -> list[dict]:
     choices = []
     for exc in exceptions:
@@ -394,6 +419,9 @@ def write_final_record(
             record.erc_iterations = int(response.metrics.get("erc_iterations", 0) or 0)
             record.schematic_retries = int(response.metrics.get("schematic_retries", 0) or 0)
             record.exceptions_raised = [exc.code.value for exc in response.exceptions]
+            record.decisions_remaining, record.decision_breakdown = _count_decisions(
+                response.exceptions
+            )
         record.status = status
         record.failure_reason = failure_reason or _failure_from_response(response)
         if wall_time_s is not None:
