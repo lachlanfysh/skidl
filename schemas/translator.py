@@ -184,7 +184,7 @@ _PASSIVE_RE = re.compile(
 )
 _PASSIVE_LIB_MAP = {"R": "Resistor_SMD", "C": "Capacitor_SMD", "L": "Inductor_SMD"}
 
-_HANDSOLDER_STRIP = re.compile(r"_?HandSolder$", re.IGNORECASE)
+_HANDSOLDER_STRIP = re.compile(r"_?HandSolder(?:ing)?$", re.IGNORECASE)
 
 
 def _remap_footprint(fp: str, fp_dirs: list[str]) -> str | None:
@@ -270,6 +270,59 @@ def _remap_footprint(fp: str, fp_dirs: list[str]) -> str | None:
             matches = _close(name, pool, n=1)
             if matches:
                 return f"TestPoint:{matches[0]}"
+
+    # 5b. Keyboard switch footprints (Kailh Choc, Gateron LP, etc.)
+    choc_m = re.match(
+        r"(?i)SW_(?:choc|kailh|gateron_lp)[_\-].*?(\d+(?:\.\d+)?)\s*u",
+        name,
+    )
+    if choc_m:
+        ku = choc_m.group(1)
+        _CHOC_SIZE_MAP = {
+            "1": "1.00u", "1.0": "1.00u", "1.00": "1.00u",
+            "1.25": "1.25u", "1.5": "1.50u", "1.50": "1.50u",
+            "1.75": "1.75u", "2": "2.00u", "2.0": "2.00u", "2.00": "2.00u",
+            "2.25": "2.25u", "2.75": "2.75u", "6.25": "6.25u",
+        }
+        mx_size = _CHOC_SIZE_MAP.get(ku, "1.00u")
+        target = f"SW_Cherry_MX_{mx_size}_PCB"
+        for d in fp_dirs:
+            if os.path.isfile(os.path.join(d, "Button_Switch_Keyboard.pretty", f"{target}.kicad_mod")):
+                return f"Button_Switch_Keyboard:{target}"
+
+    # 5c. Addressable RGB LED (SK6812, WS2812) from custom keyboard/LED libs
+    if re.search(r"(?i)(SK6812|WS2812|LED_choc|LED_cherry|rgb.*led|led.*rgb)", name):
+        for d in fp_dirs:
+            pretty_dir = os.path.join(d, "LED_SMD.pretty")
+            if not os.path.isdir(pretty_dir):
+                continue
+            pool = [f[:-len(".kicad_mod")] for f in os.listdir(pretty_dir) if f.endswith(".kicad_mod")]
+            for preferred in ["LED_SK6812MINI_PLCC4_3.5x3.5mm_P1.75mm",
+                              "LED_WS2812B-Mini_PLCC4_3.5x3.5mm",
+                              "LED_SK6812_PLCC4_5.0x5.0mm_P3.2mm",
+                              "LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"]:
+                if preferred in pool:
+                    return f"LED_SMD:{preferred}"
+
+    # 5d. USB-C receptacle variants (HRO, Korean Hroparts, etc.)
+    usbc_m = re.match(
+        r"(?i)USB_C_Receptacle.*HRO.*TYPE-C-31-M-(\d+)",
+        name,
+    )
+    if usbc_m:
+        target = "USB_C_Receptacle_HRO_TYPE-C-31-M-12"
+        for d in fp_dirs:
+            if os.path.isfile(os.path.join(d, "Connector_USB.pretty", f"{target}.kicad_mod")):
+                return f"Connector_USB:{target}"
+
+    # 5e. Pogo pin connectors -> pin headers (extract pin count from name)
+    pogo_m = re.match(r"(?i)Pogo.*?(\d+)p", name)
+    if pogo_m:
+        n_pins = pogo_m.group(1)
+        target = f"PinHeader_1x{n_pins.zfill(2)}_P2.54mm_Vertical"
+        for d in fp_dirs:
+            if os.path.isfile(os.path.join(d, "Connector_PinHeader_2.54mm.pretty", f"{target}.kicad_mod")):
+                return f"Connector_PinHeader_2.54mm:{target}"
 
     # 6. Generic domain substitutions — close-enough footprint for engine testing
     _GENERIC_MAP = [
