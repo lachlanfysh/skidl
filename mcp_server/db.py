@@ -138,6 +138,11 @@ class DB:
                 "SELECT run_id, job_id, spec, exceptions, response, artifacts FROM runs WHERE run_id = $1",
                 run_id,
             )
+            if row is None:
+                row = await conn.fetchrow(
+                    "SELECT run_id, job_id, spec, exceptions, response, artifacts FROM runs WHERE job_id = $1 ORDER BY created_at DESC LIMIT 1",
+                    run_id,
+                )
         if row is None:
             raise KeyError(f"run {run_id!r} not found")
         return {
