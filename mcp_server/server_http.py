@@ -43,8 +43,16 @@ mcp = FastMCP(
 db = DB()
 
 
-def _validate_spec(input_spec: dict) -> CircuitSpec:
+def _validate_spec(input_spec: dict | str) -> CircuitSpec:
     """Validate input_spec and raise ValueError with clean, actionable messages."""
+    if isinstance(input_spec, str):
+        try:
+            input_spec = json.loads(input_spec)
+        except (json.JSONDecodeError, TypeError):
+            raise ValueError(
+                "input_spec must be a JSON object, not a string. "
+                "Pass it as a dict/object, not a JSON-encoded string."
+            )
     try:
         return CircuitSpec.model_validate(input_spec)
     except ValidationError as exc:
