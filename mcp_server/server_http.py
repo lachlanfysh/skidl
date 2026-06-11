@@ -10,6 +10,7 @@ import asyncio
 import os
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from mcp_server.db import DB
 from schemas.circuit_spec import CircuitSpec
@@ -17,7 +18,10 @@ from schemas.corrections import CorrectionError, apply_candidate
 from schemas.estimator import estimate_complexity as _estimate_complexity
 from schemas.exceptions import DesignException
 
-mcp = FastMCP("eda-mcp")
+mcp = FastMCP(
+    "eda-mcp",
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+)
 db = DB()
 
 
