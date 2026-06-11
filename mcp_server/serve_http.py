@@ -10,7 +10,6 @@ Creates a Starlette app with:
 from __future__ import annotations
 
 import os
-import sys
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -19,7 +18,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
+from starlette.routing import Route
 
 from mcp_server.db import DB
 from mcp_server.server_http import db, mcp
@@ -63,32 +62,35 @@ async def health(request: Request) -> JSONResponse:
     })
 
 
-@asynccontextmanager
-async def lifespan(app):
-    database_url = os.environ.get("DATABASE_URL")
-    if database_url:
-        await db.connect(database_url)
-        print("Postgres connected", flush=True)
-    else:
-        print("WARNING: No DATABASE_URL — job features disabled", flush=True)
-    yield
-    await db.close()
-
-
 def create_app() -> Starlette:
     mcp_app = mcp.streamable_http_app()
 
-    app = Starlette(
-        routes=[
-            Route("/health", health),
-            Mount("/mcp", app=mcp_app),
-        ],
-        middleware=[
-            Middleware(BearerTokenMiddleware),
-        ],
-        lifespan=lifespan,
-    )
-    return app
+    # Inject our routes and middleware into the FastMCP app so its lifespan
+    # (which starts the session manager task group) runs properly.
+    mcp_app.routes.insert(0, Route("/health", health))
+    mcp_app.middleware_stack = None  # force rebuild
+    mcp_app.user_middleware.insert(0, Middleware(BearerTokenMiddleware))
+
+    # Wrap the original lifespan to also manage Postgres
+    original_lifespan = mcp_app.router.lifespan_context
+
+    @asynccontextmanager
+    async def combined_lifespan(app):
+        database_url = os.environ.get("DATABASE_URL")
+        if database_url:
+            await db.connect(database_url)
+            print("Postgres connected", flush=True)
+        else:
+            print("WARNING: No DATABASE_URL — job features disabled", flush=True)
+        try:
+            async with original_lifespan(app) as state:
+                yield state
+        finally:
+            await db.close()
+
+    mcp_app.router.lifespan_context = combined_lifespan
+
+    return mcp_app
 
 
 def main() -> None:
