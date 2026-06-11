@@ -43,5 +43,6 @@ COPY deploy/start_mcp.sh /app/deploy/start_mcp.sh
 COPY deploy/start_worker.sh /app/deploy/start_worker.sh
 RUN chmod +x /app/deploy/start_mcp.sh /app/deploy/start_worker.sh
 
+ENV SERVICE_ROLE=mcp
 EXPOSE 8000
-CMD ["deploy/start_mcp.sh"]
+CMD ["sh", "-c", "if [ \"$SERVICE_ROLE\" = 'worker' ]; then exec deploy/start_worker.sh; else exec deploy/start_mcp.sh; fi"]
