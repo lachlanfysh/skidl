@@ -452,7 +452,7 @@ async def _spec_for_row(
         spec = load_cached_spec(row)
         if spec is None:
             return None, "engine_only", [], "reversed board has no cached spec", "failed"
-        return spec, "engine_only", [], None, ""
+        return spec, requested_mode, [], None, ""
 
     stages: list[dict] = []
     try:
