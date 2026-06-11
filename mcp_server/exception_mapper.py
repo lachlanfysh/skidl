@@ -106,6 +106,10 @@ def layout_exceptions(layout_result) -> list[DesignException]:
             n = len(pairs)
             # Scale factor proportional to how many overlaps — more overlaps = bigger jump
             factor = min(1.25 + 0.05 * (n - 1), 2.0)
+            scale_params: dict = {"area_factor": factor}
+            if outline is not None:
+                scale_params["base_w_mm"] = getattr(outline, "width_mm", 50.0)
+                scale_params["base_h_mm"] = getattr(outline, "height_mm", 50.0)
             out.append(
                 DesignException(
                     id="e-layout-overlap",
@@ -118,7 +122,7 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                         _candidate(
                             "c1",
                             ActionType.SCALE_OUTLINE,
-                            {"area_factor": factor},
+                            scale_params,
                             f"increase board area by {int((factor-1)*100)}% ({n} overlaps) and re-run",
                             "cheap",
                         ),
