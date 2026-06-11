@@ -29,9 +29,10 @@ from schemas.exceptions import ActionType, DesignException, ExcCode
 mcp = FastMCP(
     "eda-mcp",
     instructions=(
-        "PCB design generation service. Workflow: build a CircuitSpec JSON "
-        "(read resource eda://guide/circuit-spec for the format), optionally "
-        "estimate_complexity() to gauge difficulty, then submit_design() -> "
+        "PCB design generation service. Read eda://guide/circuit-spec FIRST "
+        "— it has the exact JSON format, valid field values, and a worked "
+        "example. Workflow: build a CircuitSpec JSON, optionally "
+        "estimate_complexity() to pre-check, then submit_design() -> "
         "poll get_job() until finished -> if exceptions are returned, pick "
         "candidate fixes and apply_correction() to iterate. Fetch final "
         "KiCad artifacts with get_run(). Read eda://guide/workflow for the "
@@ -84,7 +85,7 @@ async def submit_design(
 
     input_spec is a CircuitSpec JSON object. Minimal example:
     {
-      "board": {"name": "blinky"},
+      "board": {"name": "blinky", "outline_hint_mm": [30, 25]},
       "parts": [
         {"ref": "U1", "lib": "Analog_ADC", "part": "ADS1115IDGS",
          "footprint": "Package_SO:TSSOP-10_3x3mm_P0.5mm"},
@@ -98,17 +99,19 @@ async def submit_design(
     }
 
     Rules that matter:
+    - board: set outline_hint_mm: [width, height] in mm for board size.
+      Do NOT set form_factor unless targeting a specific Adafruit dev board
+      shape (feather, qt_py, metro etc). Most boards just need outline_hint_mm.
+    - lib must be a KiCad symbol library (Device, Sensor_Temperature,
+      Connector_Generic, Transistor_FET...), NOT a manufacturer name.
     - Every part needs footprint as "Library:Name" (KiCad footprint id).
-    - Library parts: set lib+part (KiCad symbol library/symbol). Custom
-      parts: lib=null and define pins=[{num,name,func}] explicitly.
+    - Connectors: lib="Connector_Generic", part="Conn_01x04" (not PinHeader).
     - Net pins are "REF.PIN" strings; PIN is a pin number or pin name.
     - Power/ground nets: set power=true and use standard names (VCC, VDD,
       3V3, 5V, VBAT, GND, AGND...) — placement quality depends on it.
     - Decoupling caps: value "100nF" wired power-to-ground is auto-detected
       and placed 1.5mm from its IC. Other values/names are not detected.
-    - Optional board fields: form_factor (feather, qt_py, metro...),
-      outline_hint_mm [w,h], layers (2 or 4).
-    Full schema: read resource eda://schema/circuit-spec.
+    Read resource eda://guide/circuit-spec for full docs and worked example.
 
     run_options (all optional): {"timeout_s": 300} engine wall-clock limit —
     raise to 600-1500 for dense boards; {"board_id": "..."} telemetry label.
