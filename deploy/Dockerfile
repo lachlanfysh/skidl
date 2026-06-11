@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r /app/deploy/requirements.txt
 
 # SKiDL editable install
 COPY setup.py /app/setup.py
+COPY README.md /app/README.md
 COPY src/ /app/src/
 RUN pip install --no-cache-dir -e .
 
