@@ -208,7 +208,17 @@ def main() -> int:
     call_log = (out / "call_log.txt").open("w")
 
     mcp = MCPClient(args.server, args.token)
-    init = mcp.connect()
+    for mcp_attempt in range(3):
+        try:
+            init = mcp.connect()
+            break
+        except Exception as exc:
+            print(f"MCP connect attempt {mcp_attempt+1} failed: {exc}", flush=True)
+            if mcp_attempt < 2:
+                time.sleep(5)
+            else:
+                print("Cannot connect to MCP server after 3 attempts", file=sys.stderr)
+                return 1
     instructions = init.get("instructions", "(none)")
     tools = openai_tools(mcp.list_tools(), mcp.list_resources())
 
@@ -225,21 +235,50 @@ def main() -> int:
     nudges = 0
 
     for turn in range(MAX_MODEL_TURNS):
-        resp = or_http.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={
-                "model": args.model,
-                "messages": messages,
-                "tools": tools,
-                "temperature": 0.2,
-            },
-        )
-        resp.raise_for_status()
-        body = resp.json()
+        for attempt in range(3):
+            try:
+                resp = or_http.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json={
+                        "model": args.model,
+                        "messages": messages,
+                        "tools": tools,
+                        "temperature": 0.2,
+                    },
+                )
+                resp.raise_for_status()
+                body = resp.json()
+                break
+            except httpx.HTTPStatusError as exc:
+                code = exc.response.status_code
+                detail = exc.response.text[:300]
+                print(f"[{turn:02d}] OpenRouter HTTP {code} (attempt {attempt+1}): {detail}", flush=True)
+                if code == 429 or code >= 500:
+                    time.sleep(10 * (attempt + 1))
+                    continue
+                if code == 400 and attempt < 2:
+                    # 400 often means our message history is malformed —
+                    # drop the last assistant+tool messages and retry
+                    while messages and messages[-1]["role"] in ("assistant", "tool"):
+                        messages.pop()
+                    messages.append({"role": "user", "content": "Continue with the design task. Use tool calls."})
+                    continue
+                final_report = f"(OpenRouter HTTP {code}: {detail})"
+                break
+            except httpx.HTTPError as exc:
+                print(f"[{turn:02d}] HTTP error (attempt {attempt+1}): {exc}", flush=True)
+                time.sleep(5 * (attempt + 1))
+                continue
+        else:
+            final_report = "(OpenRouter unreachable after 3 retries)"
+            break
+        if final_report is not None:
+            break
         if "choices" not in body:
             print(f"OpenRouter error: {json.dumps(body)[:500]}", file=sys.stderr)
-            return 1
+            final_report = f"(OpenRouter returned no choices: {json.dumps(body)[:200]})"
+            break
         for k in usage_totals:
             usage_totals[k] += body.get("usage", {}).get(k, 0)
         msg = body["choices"][0]["message"]

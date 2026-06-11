@@ -15,6 +15,8 @@ import asyncio
 import json
 import os
 
+from pydantic import ValidationError
+
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
@@ -38,6 +40,31 @@ mcp = FastMCP(
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 db = DB()
+
+
+def _validate_spec(input_spec: dict) -> CircuitSpec:
+    """Validate input_spec and raise ValueError with clean, actionable messages."""
+    try:
+        return CircuitSpec.model_validate(input_spec)
+    except ValidationError as exc:
+        lines = []
+        for err in exc.errors():
+            loc = " → ".join(str(l) for l in err["loc"])
+            msg = err["msg"]
+            for prefix in ("Value error, ",):
+                if msg.startswith(prefix):
+                    msg = msg[len(prefix):]
+            ctx = err.get("ctx", {})
+            fix = ""
+            if "expected" in ctx:
+                fix = f" Expected: {ctx['expected']}."
+            if err["type"] == "missing":
+                fix = " This field is required."
+            lines.append(f"• {loc}: {msg}{fix}")
+        raise ValueError(
+            "Spec validation failed — fix these and resubmit:\n"
+            + "\n".join(lines)
+        )
 
 
 # ── Tools ──────────────────────────────────────────────────────────────
@@ -94,10 +121,10 @@ async def submit_design(
     advisories by itself, and only surfaces decisions that need judgment
     (BOM substitutions, outline changes, unknown pinouts).
 
-    Returns: {"job_id": "...", "status": "queued"}. Invalid specs fail
-    validation here (immediately) with a Pydantic error message.
+    Returns: {"job_id": "...", "status": "queued"}. Invalid specs return
+    a clear validation error immediately — read it, fix the fields, resubmit.
     """
-    spec = CircuitSpec.model_validate(input_spec)
+    spec = _validate_spec(input_spec)
     job_id = await db.create_job(
         spec.model_dump(mode="json"),
         run_options,
@@ -142,7 +169,7 @@ async def estimate_complexity(input_spec: dict) -> dict:
     problems you can fix before spending a run. Also returns
     remapped_footprints — substitutions the engine will make automatically.
     """
-    spec = CircuitSpec.model_validate(input_spec)
+    spec = _validate_spec(input_spec)
     result = await asyncio.to_thread(
         lambda: _estimate_complexity(spec).model_dump(mode="json")
     )
@@ -279,9 +306,14 @@ parts, electrical connections, and board metadata.
 | field | type | notes |
 |---|---|---|
 | name | str, required | used for output file naming |
-| form_factor | str | fixes the outline: `feather`, `qt_py`, `metro`, `metro_mini`, `trinket`, `itsybitsy`, `shield_uno` |
-| outline_hint_mm | [w, h] | board size hint when no form_factor applies |
+| form_factor | str | ONLY these exact values: `feather`, `qt_py`, `metro`, `metro_mini`, `trinket`, `itsybitsy`, `shield_uno`. Omit for custom boards |
+| outline_hint_mm | [w, h] | board size in mm when form_factor is omitted. **Use this for most boards** — form_factor is only for Adafruit-compatible dev boards |
 | layers | int | copper layers, 2 (default) or 4. Use 4 for dense boards |
+
+**Choosing board size:** Most boards should omit `form_factor` and set
+`outline_hint_mm` instead. A "compact" sensor breakout might be `[25, 20]`,
+a medium MCU board `[50, 40]`. Do NOT use descriptive words like "compact"
+or "small" — these are not valid form_factor values.
 
 ## parts
 
@@ -306,11 +338,31 @@ Two kinds of part, distinguished by `lib`:
 Pin `func` values: power_in, power_out, input, output, bidirectional,
 tristate, passive, unspecified, no_connect.
 
+**`lib` must be a KiCad symbol library name, NOT a manufacturer.** Common ones:
+- Passives: `Device` (R, C, L, LED, D, D_Zener)
+- Sensors: `Sensor_Temperature`, `Sensor_Humidity`, `Sensor_Pressure`,
+  `Sensor_Motion`, `Sensor_Optical`
+- ICs: `Analog_ADC`, `Analog_DAC`, `Interface_I2C`, `Interface_SPI`
+- MCUs: `MCU_Microchip`, `MCU_Nordic`, `MCU_RaspberryPi`, `MCU_ST`
+- Connectors: `Connector_Generic` (Conn_01x04, Conn_01x06, Conn_02x05...),
+  `Connector_USB`, `Connector_JST` (for Qwiic/STEMMA QT)
+- FETs/transistors: `Transistor_FET`, `Transistor_BJT`
+- Power: `Regulator_Linear`, `Regulator_Switching`
+- RF: `RF_Module`
+
+Wrong: `"lib": "Bosch"`, `"lib": "MOSFET"`, `"lib": "TI"`.
+Right: `"lib": "Sensor_Pressure"`, `"lib": "Transistor_FET"`, `"lib": "Analog_ADC"`.
+
+**Connectors (common mistake):** For pin headers use `lib: "Connector_Generic"`,
+`part: "Conn_01x06"` (not "PinHeader_1x06"). For screw terminals use
+`part: "Screw_Terminal_01x02"` etc.
+
 Other part fields:
 - `value` — "10K", "100nF" etc. Matters for passives.
 - `footprint` — required for every part, "Library:Name" format
   (e.g. "Resistor_SMD:R_0603_1608Metric"). The engine validates these and
-  proposes substitutions when unknown.
+  proposes substitutions when unknown. Don't guess — if unsure, use a
+  reasonable default and the engine will suggest corrections.
 - `group` — functional block name ("power", "mcu", "sensors"). Parts in a
   group are placed together and get their own schematic sheet. Use it for
   any board over ~10 parts.
