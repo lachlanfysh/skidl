@@ -1,4 +1,5 @@
 FROM python:3.12-slim
+# force rebuild
 
 # System deps for kicad-cli (ERC/DRC loops)
 RUN apt-get update && \
