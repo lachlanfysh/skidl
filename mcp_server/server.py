@@ -17,6 +17,7 @@ from mcp_server.policy import (
 from mcp_server.runs import RunStore
 from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import CorrectionError, apply_candidate
+from schemas.estimator import estimate_complexity as _estimate_complexity
 
 
 ARTIFACT_ROOT = Path(os.environ.get("EDA_MCP_ARTIFACT_DIR", "artifacts/runs"))
@@ -148,6 +149,17 @@ def generate_design(
         out_dir=out_dir,
         corrections=corrections,
     )
+
+
+@mcp.tool()
+def estimate_complexity(input_spec: dict) -> dict:
+    """Pre-run complexity estimate — predicts decisions, cost, and success probability.
+
+    Call before generate_design() to gauge how much work a board will need.
+    Fast (<2s), no side effects, no cost.
+    """
+    spec = CircuitSpec.model_validate(input_spec)
+    return _estimate_complexity(spec).model_dump(mode="json")
 
 
 @mcp.tool()
