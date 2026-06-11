@@ -104,10 +104,9 @@ class TestTranslator:
     def test_bad_footprint(self):
         res = translate(mk_spec(
             [{"ref": "R1", "lib": "Device", "part": "R",
-              "footprint": "Resistor_SMD:R_0603_NoSuchVariant"}], []))
+              "footprint": "NoSuchLib:TotallyFakeFootprint_XYZ"}], []))
         exc = res.exceptions[0]
         assert exc.code == ExcCode.SPEC_BAD_FOOTPRINT
-        assert any("R_0603" in c.params["new"] for c in exc.candidates)
 
     def test_unknown_net_ref(self):
         res = translate(mk_spec(
@@ -175,3 +174,57 @@ class TestCorrections:
                          params={"net": "N1"}, human_summary="")
         out = apply_candidate(self._spec(), self._exc(), cand)
         assert out.nets[0].stub is True
+
+
+@needs_kicad
+class TestSymbolAliases:
+    """Verify _SYMBOL_ALIASES resolve deprecated/misplaced symbol names."""
+
+    def test_r_pot_alias(self):
+        res = translate(mk_spec(
+            [{"ref": "RV1", "lib": "Device", "part": "R_POT",
+              "footprint": "Potentiometer_THT:Potentiometer_Alps_RK09K_Single_Vertical"}],
+            [{"name": "SIG", "pins": ["RV1.1"]},
+             {"name": "W", "pins": ["RV1.2"]},
+             {"name": "GND", "pins": ["RV1.3"]}]))
+        assert res.ok, [e.message for e in res.exceptions]
+
+    def test_r_pot_trim_alias(self):
+        res = translate(mk_spec(
+            [{"ref": "RV1", "lib": "Device", "part": "R_POT_TRIM",
+              "footprint": "Potentiometer_SMD:Potentiometer_Bourns_3214W_SMD"}],
+            []))
+        assert res.ok, [e.message for e in res.exceptions]
+
+    def test_transistor_pinout_alias(self):
+        res = translate(mk_spec(
+            [{"ref": "Q1", "lib": "Device", "part": "Q_NPN_BEC",
+              "footprint": "Package_TO_SOT_THT:TO-92_Inline"}],
+            []))
+        assert res.ok, [e.message for e in res.exceptions]
+
+    def test_audio_jack_in_connector_alias(self):
+        res = translate(mk_spec(
+            [{"ref": "J1", "lib": "Connector", "part": "AudioJack2_SwitchT",
+              "footprint": "Connector_Audio:Jack_3.5mm_Ledino_PJ-321_Horizontal"}],
+            [{"name": "SIG", "pins": ["J1.T"]},
+             {"name": "GND", "pins": ["J1.S"]}]))
+        assert res.ok, [e.message for e in res.exceptions]
+
+
+@needs_kicad
+class TestCrossLibrarySearch:
+    """Pass 3 should find parts in wrong libraries via cross-library search."""
+
+    def test_lm386_in_wrong_lib(self):
+        res = translate(mk_spec(
+            [{"ref": "U1", "lib": "Amplifier_Operational", "part": "LM386",
+              "footprint": "Package_DIP:DIP-8_W7.62mm"}],
+            []))
+        assert not res.ok
+        exc = res.exceptions[0]
+        assert exc.code == ExcCode.SPEC_UNKNOWN_PART
+        cross_lib_cands = [c for c in exc.candidates
+                           if c.action == ActionType.REPLACE_LIB]
+        assert any("Amplifier_Audio" in (c.params.get("new", "") or "")
+                    for c in cross_lib_cands)

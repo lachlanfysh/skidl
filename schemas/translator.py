@@ -32,6 +32,43 @@ from .exceptions import ActionType, Candidate, DesignException, ExcCode, Severit
 DEFAULT_SYM_DIR = "/usr/share/kicad/symbols"
 DEFAULT_FP_DIR = "/usr/share/kicad/footprints"
 
+# KiCad version renames and common LLM hallucinations → canonical KiCad 9 names.
+# Checked at get_template() time before fuzzy fallback.
+_SYMBOL_ALIASES: dict[tuple[str, str], tuple[str, str]] = {
+    # Potentiometers — renamed in KiCad 6+
+    ("Device", "R_POT"): ("Device", "R_Potentiometer"),
+    ("Device", "R_POT_TRIM"): ("Device", "R_Potentiometer_Trim"),
+    ("Device", "R_POT_DUAL"): ("Device", "R_Potentiometer_Dual"),
+    ("Device", "R_POT_MountingPin"): ("Device", "R_Potentiometer_MountingPin"),
+    # Transistor pinout suffixes — KiCad 9 uses generic Q_NPN/Q_PNP
+    ("Device", "Q_NPN_BEC"): ("Device", "Q_NPN"),
+    ("Device", "Q_NPN_BCE"): ("Device", "Q_NPN"),
+    ("Device", "Q_NPN_CBE"): ("Device", "Q_NPN"),
+    ("Device", "Q_NPN_ECB"): ("Device", "Q_NPN"),
+    ("Device", "Q_PNP_BEC"): ("Device", "Q_PNP"),
+    ("Device", "Q_PNP_BCE"): ("Device", "Q_PNP"),
+    ("Device", "Q_PNP_CBE"): ("Device", "Q_PNP"),
+    ("Device", "Q_PNP_ECB"): ("Device", "Q_PNP"),
+    # N-channel/P-channel MOSFET pinout variants
+    ("Device", "Q_NMOS_GSD"): ("Device", "Q_NMOS_GDS"),
+    ("Device", "Q_NMOS_SGD"): ("Device", "Q_NMOS_GDS"),
+    ("Device", "Q_NMOS_DSG"): ("Device", "Q_NMOS_GDS"),
+    ("Device", "Q_PMOS_GSD"): ("Device", "Q_PMOS_GDS"),
+    ("Device", "Q_PMOS_SGD"): ("Device", "Q_PMOS_GDS"),
+    # Audio jacks: LLMs put them in "Connector" but they live in "Connector_Audio"
+    ("Connector", "AudioJack2"): ("Connector_Audio", "AudioJack2"),
+    ("Connector", "AudioJack2_SwitchT"): ("Connector_Audio", "AudioJack2_SwitchT"),
+    ("Connector", "AudioJack2_Ground"): ("Connector_Audio", "AudioJack2_Ground"),
+    ("Connector", "AudioJack2_Ground_Switch"): ("Connector_Audio", "AudioJack2_Ground_Switch"),
+    ("Connector", "AudioJack2_Ground_SwitchT"): ("Connector_Audio", "AudioJack2_Ground_SwitchT"),
+    ("Connector", "AudioJack3"): ("Connector_Audio", "AudioJack3"),
+    ("Connector", "AudioJack3_SwitchTR"): ("Connector_Audio", "AudioJack3_SwitchTR"),
+    ("Connector", "AudioJack3_Ground"): ("Connector_Audio", "AudioJack3_Ground"),
+    # Resistor pack renamed
+    ("Device", "R_PACK"): ("Device", "R_Pack04"),
+    ("Device", "R_Pack"): ("Device", "R_Pack04"),
+}
+
 
 @dataclass
 class TranslationResult:
@@ -110,6 +147,13 @@ class _SymbolResolver:
         key = (lib, part)
         if key in self._templates:
             return self._templates[key]
+        # Check alias table before hitting the library
+        alias_key = (lib, part)
+        if alias_key in _SYMBOL_ALIASES:
+            alias_lib, alias_part = _SYMBOL_ALIASES[alias_key]
+            tmpl = self.get_template(alias_lib, alias_part)
+            self._templates[key] = tmpl
+            return tmpl
         schlib = self.get_lib(lib)
         tmpl = None
         if schlib is not None:
@@ -119,17 +163,46 @@ class _SymbolResolver:
         self._templates[key] = tmpl
         return tmpl
 
+    def resolve_alias(self, lib: str, part: str) -> tuple[str, str]:
+        """Return the canonical (lib, part) after alias lookup."""
+        alias_key = (lib, part)
+        if alias_key in _SYMBOL_ALIASES:
+            return _SYMBOL_ALIASES[alias_key]
+        return lib, part
+
     def find_part_across_libs(self, part: str, limit: int = 5) -> list[tuple[str, str]]:
-        """Search all libraries for a part name. Returns [(lib, part_name), ...]."""
-        results = []
+        """Fast cross-library search using regex on raw .kicad_sym files.
+
+        Avoids full SKiDL parsing — just greps for top-level symbol definitions.
+        Exact case-insensitive matches sort first.
+        """
+        results: list[tuple[str, str]] = []
+        exact: list[tuple[str, str]] = []
         part_lower = part.lower()
+        sym_re = re.compile(r'\(symbol "([^"]+)"\s')
         for lib in self.lib_names():
-            for pname in self.part_names(lib):
-                if pname.lower() == part_lower or part_lower in pname.lower():
-                    results.append((lib, pname))
-                    if len(results) >= limit:
-                        return results
-        return results
+            path = os.path.join(self.sym_dir, f"{lib}.kicad_sym")
+            try:
+                with open(path) as f:
+                    content = f.read()
+            except OSError:
+                continue
+            seen = set()
+            for m in sym_re.finditer(content):
+                name = m.group(1)
+                # Skip sub-symbols (contain _N_N suffix like MyPart_0_1)
+                if "_0_1" in name or "_1_1" in name or "_2_1" in name:
+                    continue
+                if name in seen:
+                    continue
+                seen.add(name)
+                if name.lower() == part_lower:
+                    exact.append((lib, name))
+                elif part_lower in name.lower():
+                    results.append((lib, name))
+            if len(exact) + len(results) >= limit:
+                break
+        return (exact + results)[:limit]
 
     @staticmethod
     def pin_ids(tmpl) -> dict[str, str]:
@@ -505,10 +578,25 @@ def translate(spec: CircuitSpec,
     for pspec in lib_parts:
         if resolver.get_template(pspec.lib, pspec.part) is None:
             bad_parts.add((pspec.lib, pspec.part))
-            cands = [Candidate(id=f"c{i+1}", action=ActionType.REPLACE_PART,
-                               params={"ref": pspec.ref, "new": m},
-                               human_summary=f"use symbol {m!r} from {pspec.lib}")
-                     for i, m in enumerate(_close(pspec.part, resolver.part_names(pspec.lib)))]
+            cands: list[Candidate] = []
+            # Cross-library search: find the part name in any library
+            cross_lib_hits = resolver.find_part_across_libs(pspec.part, limit=3)
+            for found_lib, found_part in cross_lib_hits:
+                cands.append(Candidate(
+                    id=f"c{len(cands)+1}",
+                    action=ActionType.REPLACE_LIB,
+                    params={"ref": pspec.ref, "old": pspec.lib, "new": found_lib,
+                            "also_replace_part": found_part},
+                    human_summary=f"use {found_lib!r}:{found_part!r} instead",
+                    confidence=0.85 if found_part.lower() == pspec.part.lower() else 0.6,
+                ))
+            # Fuzzy within declared library
+            for m in _close(pspec.part, resolver.part_names(pspec.lib)):
+                cands.append(Candidate(
+                    id=f"c{len(cands)+1}", action=ActionType.REPLACE_PART,
+                    params={"ref": pspec.ref, "new": m},
+                    human_summary=f"use symbol {m!r} from {pspec.lib}",
+                ))
             cands.append(Candidate(id=f"c{len(cands)+1}", action=ActionType.REMOVE_PART,
                                    params={"ref": pspec.ref},
                                    human_summary=f"remove part {pspec.ref} entirely",
@@ -639,10 +727,13 @@ def _build_circuit(spec: CircuitSpec, pin_maps: dict[str, dict[str, str]]):
 
         def _instantiate(pspec: PartSpec):
             if pspec.lib is not None:
+                real_lib, real_part = _SYMBOL_ALIASES.get(
+                    (pspec.lib, pspec.part), (pspec.lib, pspec.part)
+                )
                 kwargs = {"footprint": pspec.footprint}
                 if pspec.value:
                     kwargs["value"] = pspec.value
-                part = Part(pspec.lib, pspec.part, **kwargs)
+                part = Part(real_lib, real_part, **kwargs)
             else:
                 ref_prefix = "".join(c for c in pspec.ref if not c.isdigit()) or "U"
                 part = Part(
