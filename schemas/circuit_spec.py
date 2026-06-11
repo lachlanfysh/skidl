@@ -95,6 +95,31 @@ class BoardSpec(BaseModel):
     outline_hint_mm: Optional[tuple[float, float]] = Field(default=None, description="(width_mm, height_mm) outline hint when no form_factor applies")
     layers: int = Field(default=2, description="Copper layer count (2 or 4)")
 
+    @field_validator("form_factor")
+    @classmethod
+    def _known_form_factor(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        known = _known_form_factors()
+        if v not in known:
+            raise ValueError(
+                f"unknown form_factor {v!r} — valid values: {', '.join(known)}. "
+                f"For a custom board size, omit form_factor and set "
+                f"outline_hint_mm: [width_mm, height_mm] instead"
+            )
+        return v
+
+
+def _known_form_factors() -> list[str]:
+    """Authoritative list lives in the layout engine; fall back to a static
+    copy when skidl isn't importable (lightweight schema-only contexts)."""
+    try:
+        from skidl.layout.constraints import FORM_FACTORS
+        return sorted(FORM_FACTORS)
+    except Exception:
+        return ["feather", "itsybitsy", "metro", "metro_mini",
+                "qt_py", "shield_uno", "trinket"]
+
 
 class CircuitSpec(BaseModel):
     """Complete board specification — the input to generate_design."""

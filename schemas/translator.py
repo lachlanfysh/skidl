@@ -228,23 +228,60 @@ def _footprint_exists(fp: str, fp_dirs: list[str]) -> bool:
     )
 
 
-def _footprint_candidates(fp: str, fp_dirs: list[str]) -> list[str]:
-    """Closest existing footprints: same-library first, then cross-library by name."""
-    out: list[str] = []
+def _footprint_candidates(fp: str, fp_dirs: list[str]) -> list[tuple[str, float]]:
+    """Closest existing footprints as (footprint, confidence), best first.
+
+    Cross-library results are ranked globally by footprint-name similarity —
+    never by library discovery order, which put a string-close library's
+    poor name matches (TQFP-176 for a QFN-16) ahead of the same footprint
+    living under its real library name.
+    """
     lib, name = (fp.split(":", 1) + [""])[:2] if ":" in fp else (fp, "")
+    scored: list[tuple[float, str]] = []
     for d in fp_dirs:
         pretty = os.path.join(d, f"{lib}.pretty")
         if os.path.isdir(pretty):
             pool = [f[: -len(".kicad_mod")] for f in os.listdir(pretty) if f.endswith(".kicad_mod")]
-            out += [f"{lib}:{m}" for m in _close(name, pool)]
+            for m in _close(name, pool):
+                scored.append((_name_score(name, m), f"{lib}:{m}"))
         else:
             lib_pool = [p[: -len(".pretty")] for p in os.listdir(d) if p.endswith(".pretty")]
-            for cand_lib in _close(lib, lib_pool, n=2):
+            for cand_lib in _close(lib, lib_pool, n=4):
                 cpretty = os.path.join(d, f"{cand_lib}.pretty")
                 pool = [f[: -len(".kicad_mod")] for f in os.listdir(cpretty) if f.endswith(".kicad_mod")]
-                out += [f"{cand_lib}:{m}" for m in _close(name, pool, n=3)]
+                for m in _close(name, pool, n=4):
+                    scored.append((_name_score(name, m), f"{cand_lib}:{m}"))
+    scored.sort(key=lambda t: -t[0])
+    out: list[tuple[str, float]] = []
     seen: set[str] = set()
-    return [x for x in out if not (x in seen or seen.add(x))][:6]
+    for score, cand in scored:
+        if cand in seen:
+            continue
+        seen.add(cand)
+        out.append((cand, _score_confidence(score)))
+    return out[:6]
+
+
+def _name_score(wanted: str, got: str) -> float:
+    """Similarity of a candidate footprint name to the requested one.
+    Exact and prefix matches (the same footprint with a fuller suffix,
+    e.g. ..._EP1.9x1.9mm) outrank any fuzzy similarity."""
+    if got == wanted:
+        return 3.0
+    if got.startswith(wanted) or wanted.startswith(got):
+        return 2.0
+    return difflib.SequenceMatcher(None, wanted, got).ratio()
+
+
+def _score_confidence(score: float) -> float:
+    """Map a name score to candidate confidence. Only exact/prefix matches
+    clear the documented 0.8 auto-apply threshold — a fuzzy string match is
+    a suggestion, not a substitution we would make unsupervised."""
+    if score >= 2.0:
+        return 0.9
+    if score >= 0.75:
+        return 0.6
+    return 0.4
 
 
 # --- footprint remapping -------------------------------------------------
@@ -618,8 +655,9 @@ def translate(spec: CircuitSpec,
         if not _footprint_exists(fp, fp_dirs):
             cands = [Candidate(id=f"c{i+1}", action=ActionType.REPLACE_FOOTPRINT,
                                params={"old": fp, "new": m},
-                               human_summary=f"use footprint {m!r}")
-                     for i, m in enumerate(_footprint_candidates(fp, fp_dirs))]
+                               human_summary=f"use footprint {m!r}",
+                               confidence=conf)
+                     for i, (m, conf) in enumerate(_footprint_candidates(fp, fp_dirs))]
 
             # JLC candidates: lower confidence, surfaced for LLM review
             try:

@@ -228,3 +228,70 @@ class TestCrossLibrarySearch:
                            if c.action == ActionType.REPLACE_LIB]
         assert any("Amplifier_Audio" in (c.params.get("new", "") or "")
                     for c in cross_lib_cands)
+
+
+@needs_kicad
+class TestFootprintCandidateRanking:
+    """Cross-library footprint candidates must rank by name similarity, not
+    library discovery order. Found by the Llama UX probe: requesting
+    Package_QFN:QFN-16... offered TQFP-176 (24x24mm!) as c1 because
+    Package_QFP is string-closer to Package_QFN than Package_DFN_QFN is.
+    """
+
+    BME280_FP = "Package_QFN:QFN-16-1EP_3x3mm_P0.5mm"
+
+    def _exc(self):
+        res = translate(mk_spec(
+            [{"ref": "U1", "lib": "Device", "part": "C", "value": "1uF",
+              "footprint": self.BME280_FP}], []))
+        return next(e for e in res.exceptions
+                    if e.code == ExcCode.SPEC_BAD_FOOTPRINT)
+
+    def test_same_name_in_sibling_lib_ranks_first(self):
+        exc = self._exc()
+        fps = [c.params["new"] for c in exc.candidates
+               if c.action == ActionType.REPLACE_FOOTPRINT
+               and c.source == "deterministic"]
+        assert fps, "no deterministic candidates offered"
+        assert fps[0].startswith("Package_DFN_QFN:QFN-16-1EP_3x3mm_P0.5mm"), (
+            f"best candidate should be the same footprint under its real "
+            f"library, got {fps[0]}"
+        )
+
+    def test_dissimilar_candidates_below_auto_apply_confidence(self):
+        """A 176-pin QFP is not a 0.9-confidence substitute for a 16-pin QFN.
+        Anything that isn't a close name match must sit below the documented
+        0.8 auto-apply threshold."""
+        exc = self._exc()
+        for c in exc.candidates:
+            if c.action != ActionType.REPLACE_FOOTPRINT or c.source != "deterministic":
+                continue
+            name = c.params["new"].split(":")[1]
+            if not name.startswith("QFN-16"):
+                assert c.confidence < 0.8, (
+                    f"{c.params['new']} (confidence {c.confidence}) is a "
+                    f"dissimilar substitute ranked as auto-applicable"
+                )
+
+
+class TestFormFactorValidation:
+    """form_factor must fail fast at spec validation, not deep in the engine.
+    Found by the Llama UX probe: form_factor='compact' was accepted silently."""
+
+    def test_unknown_form_factor_rejected(self):
+        with pytest.raises(ValueError, match="form_factor"):
+            mk_spec([], [], board={"name": "b", "form_factor": "compact"})
+
+    def test_known_form_factors_accepted(self):
+        for ff in ("feather", "qt_py", "metro", "metro_mini",
+                   "trinket", "itsybitsy", "shield_uno"):
+            spec = mk_spec([], [], board={"name": "b", "form_factor": ff})
+            assert spec.board.form_factor == ff
+
+    def test_error_message_lists_valid_options(self):
+        try:
+            mk_spec([], [], board={"name": "b", "form_factor": "bogus"})
+        except ValueError as exc:
+            assert "feather" in str(exc)
+        else:
+            pytest.fail("bogus form_factor accepted")
