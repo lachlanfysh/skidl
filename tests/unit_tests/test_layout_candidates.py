@@ -56,7 +56,8 @@ def test_generate_placement_candidates_is_deterministic_and_named():
     baseline_j1 = candidates[0].placed_parts[0]
     edge_j1 = candidates[1].placed_parts[0]
     assert baseline_j1.y_mm != pytest.approx(edge_j1.y_mm)
-    assert edge_j1.y_mm + 2.5 == pytest.approx(30.0)
+    # courtyard bottom edge sits 0.5mm inside the board edge (default inset)
+    assert edge_j1.y_mm + 2.5 == pytest.approx(29.5)
 
 
 def test_repeated_channel_candidate_distributes_channel_refs():

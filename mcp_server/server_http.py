@@ -156,7 +156,17 @@ async def get_job(job_id: str) -> dict:
     be null. A failed/timeout status with exceptions is normal — that is
     the correction loop, not a malfunction; inspect the candidates.
     """
-    return await db.get_job(job_id)
+    job = await db.get_job(job_id)
+
+    # Trim response size — full spec and verbose layout are available via get_run.
+    result = job.get("result")
+    if isinstance(result, dict):
+        result.pop("spec", None)
+        layout = result.get("layout")
+        if isinstance(layout, str) and len(layout) > 2000:
+            result["layout"] = layout[:2000] + "\n... (use get_run for full data)"
+
+    return job
 
 
 @mcp.tool()
@@ -213,11 +223,17 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
         exc_id = correction.get("exception_id")
         cand_id = correction.get("candidate_id")
         if exc_id not in by_exc:
-            raise ValueError(f"unknown exception_id {exc_id!r} for run {run_id}")
+            raise ValueError(
+                f"exception_id {exc_id!r} not found in run {run_id}. "
+                f"Available exception IDs: {list(by_exc.keys())}"
+            )
         exc = by_exc[exc_id]
         cand = next((c for c in exc.candidates if c.id == cand_id), None)
         if cand is None:
-            raise ValueError(f"unknown candidate_id {cand_id!r} for exception {exc_id!r}")
+            raise ValueError(
+                f"candidate_id {cand_id!r} not found for exception {exc_id!r}. "
+                f"Available candidates: {[c.id for c in exc.candidates]}"
+            )
         spec = apply_candidate(spec, exc, cand)
 
     prev_response = run_data.get("response") or {}
@@ -394,6 +410,10 @@ Other part fields:
   1.5mm from its IC. Name the value "100nF" — "104" or "bypass" defeat it.
 - One decoupling cap per IC power pin is good practice; the engine flags
   ICs whose decaps ended up >5mm away.
+- **Pin headers as edge connectors**: parts with "Connector" in the
+  reference or name are auto-placed on the board edge. The placer adds
+  0.5mm inset from the edge. If your header doesn't need edge placement,
+  set a `group` on it to keep it with its functional block instead.
 
 ## Complete worked example (I2C sensor board)
 
@@ -483,6 +503,21 @@ exception comes back to you. To let the server iterate by itself:
   guessed footprints. If the same exception recurs with the same candidate,
   pick a different candidate instead of repeating.
 - Run data expires ~48h after completion — fetch artifacts promptly.
+
+## Important tips
+
+- **After corrections succeed**, call `get_run(run_id)` to fetch your
+  .kicad_pcb and .kicad_sch artifacts. The run_id comes from the last
+  get_job() result. You can also pass a job_id to get_run().
+- **Pin names on ICs often differ from net names.** BME280 uses SDI/SCK
+  (not SDA/SCL). When you get SPEC_UNKNOWN_PIN errors, check the
+  `available_pins` list in the exception — it shows the real pin names.
+- **auto_apply: "safe"** handles placement retries and advisory waivers
+  but NOT library or footprint swaps (those are always manual decisions,
+  even at high confidence).
+- **Exception IDs (e1, e2...) are per-run.** After apply_correction()
+  creates a new job, poll the NEW job and use IDs from its exceptions,
+  not from the previous run.
 """
 
 

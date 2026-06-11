@@ -259,23 +259,41 @@ def _edge_anchor_position(
         return 10.0, 10.0, anchor.rot_deg or 0.0
     edge = anchor.edge.lower()
     x_mid, y_mid = _bounds_center(outline)
+
+    # Auto-rotate so the part's long axis runs coplanar to the edge.
+    # A tall part (h > w) on a horizontal edge needs 90° rotation, and
+    # a wide part (w > h) on a vertical edge likewise.
+    if anchor.rot_deg is not None:
+        rot = anchor.rot_deg
+        ew, eh = (height, width) if rot % 180 == 90 else (width, height)
+    else:
+        horizontal_edge = edge in {"top", "bottom"}
+        tall = height > width * 1.3
+        wide = width > height * 1.3
+        if (horizontal_edge and tall) or (not horizontal_edge and wide):
+            rot = 90.0
+            ew, eh = height, width
+        else:
+            rot = 0.0
+            ew, eh = width, height
+
     if edge in {"top", "bottom"}:
         x = anchor.offset_mm if anchor.offset_mm is not None else x_mid
         y = (
-            outline.y_min + height / 2 + anchor.inset_mm
+            outline.y_min + eh / 2 + anchor.inset_mm
             if edge == "top"
-            else outline.y_max - height / 2 - anchor.inset_mm
+            else outline.y_max - eh / 2 - anchor.inset_mm
         )
     elif edge in {"left", "right"}:
         x = (
-            outline.x_min + width / 2 + anchor.inset_mm
+            outline.x_min + ew / 2 + anchor.inset_mm
             if edge == "left"
-            else outline.x_max - width / 2 - anchor.inset_mm
+            else outline.x_max - ew / 2 - anchor.inset_mm
         )
         y = anchor.offset_mm if anchor.offset_mm is not None else y_mid
     else:
         raise ValueError(f"Unknown edge anchor '{anchor.edge}' for {anchor.ref}")
-    return x, y, anchor.rot_deg if anchor.rot_deg is not None else 0.0
+    return x, y, rot
 
 
 def _is_primary_part(part) -> bool:
@@ -532,12 +550,14 @@ def place_parts(
         target_x, target_y, rot = _edge_anchor_position(
             edge_map[part.ref], w, h, constraints.outline
         )
+        # Use effective (post-rotation) dimensions for collision/clamping
+        ew, eh = (h, w) if rot % 180 == 90 else (w, h)
         bounds = constraints.outline
-        target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
+        target_x, target_y = _clamp_to_bounds(target_x, target_y, ew, eh, bounds)
         x, y = _find_clear_position(
-            target_x, target_y, w, h, _grid, bounds=bounds
+            target_x, target_y, ew, eh, _grid, bounds=bounds
         )
-        x, y = _clamp_to_bounds(x, y, w, h, bounds)
+        x, y = _clamp_to_bounds(x, y, ew, eh, bounds)
         _commit(
             PlacedPart(
                 ref=part.ref,
@@ -546,8 +566,8 @@ def place_parts(
                 rot_deg=rot,
                 footprint=_footprint_name(part),
             ),
-            w,
-            h,
+            ew,
+            eh,
         )
 
     # Layer 3: primary parts before passives. This gives capacitors and

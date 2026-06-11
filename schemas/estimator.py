@@ -16,7 +16,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from .circuit_spec import CircuitSpec
-from .exceptions import ExcCode, Severity
+from .exceptions import ActionType, ExcCode, Severity
 from .translator import (
     DEFAULT_FP_DIR,
     DEFAULT_SYM_DIR,
@@ -76,6 +76,7 @@ class ComplexityEstimate(BaseModel):
     complexity_tier: str = Field(description="simple | moderate | complex | ambitious")
     geometry: Optional[dict] = None
     warnings: list[str] = Field(default_factory=list)
+    spec_issues: list[dict] = Field(default_factory=list, description="Structured per-part issues with suggested fixes")
     remapped_footprints: dict[str, str] = Field(default_factory=dict)
 
 
@@ -224,10 +225,10 @@ def estimate_complexity(
     else:
         tier = "ambitious"
 
-    # Generate warnings
-    warnings = _generate_warnings(
+    # Generate warnings and structured spec issues
+    warnings, spec_issues = _generate_warnings(
         decisions, auto_fixable, needs_review, component_count, pin_count,
-        remapped, rates, timeout_prob,
+        remapped, rates, timeout_prob, result.exceptions,
     )
 
     return ComplexityEstimate(
@@ -240,6 +241,7 @@ def estimate_complexity(
         complexity_tier=tier,
         geometry=geometry_dict,
         warnings=warnings,
+        spec_issues=spec_issues,
         remapped_footprints=remapped,
     )
 
@@ -253,29 +255,153 @@ def _generate_warnings(
     remapped: dict[str, str],
     success_rates: dict,
     timeout_prob: float,
-) -> list[str]:
+    exceptions: list | None = None,
+) -> tuple[list[str], list[dict]]:
     warnings: list[str] = []
+    spec_issues: list[dict] = []
+    exceptions = exceptions or []
 
     if remapped:
         warnings.append(f"{len(remapped)} footprint(s) auto-remapped to standard KiCad equivalents")
 
-    if decisions.footprint > 0:
-        if auto_fixable > 0:
-            warnings.append(
-                f"{decisions.footprint} missing footprint(s) — {auto_fixable} can auto-fix, "
-                f"{needs_review} need review"
-            )
-        else:
-            warnings.append(f"{decisions.footprint} missing footprint(s) need manual selection")
+    # Generate specific per-part warnings from exceptions
+    for exc in exceptions:
+        if exc.severity == Severity.ADVISORY:
+            continue
 
-    if decisions.pin > 0:
-        warnings.append(f"{decisions.pin} pin mismatch(es) detected — review required")
+        if exc.code == ExcCode.SPEC_UNKNOWN_LIB:
+            lib = exc.subject.get("lib", "?")
+            refs = exc.subject.get("refs", [])
+            # Check candidates for cross-lib search results vs fuzzy lib matches
+            cross_lib_cands = [c for c in exc.candidates
+                               if c.action == ActionType.REPLACE_LIB
+                               and c.params.get("also_replace_part")]
+            fuzzy_lib_cands = [c for c in exc.candidates
+                               if c.action == ActionType.REPLACE_LIB
+                               and not c.params.get("also_replace_part")]
 
-    if decisions.library > 0:
-        warnings.append(f"{decisions.library} unknown symbol library/libraries")
+            for ref in refs:
+                # Find cross-lib candidate for this specific ref
+                ref_cross = [c for c in cross_lib_cands if c.params.get("ref") == ref]
+                if ref_cross:
+                    c = ref_cross[0]
+                    new_lib = c.params["new"]
+                    new_part = c.params["also_replace_part"]
+                    msg = (f"{ref}: lib {lib!r} not found — part {new_part!r} "
+                           f"exists in {new_lib!r} library "
+                           f"(use lib:{new_lib!r}, part:{new_part!r})")
+                    warnings.append(msg)
+                    spec_issues.append({
+                        "ref": ref, "code": exc.code.value, "message": msg,
+                        "suggested_fix": {"lib": new_lib, "part": new_part},
+                    })
+                elif fuzzy_lib_cands:
+                    similar = [c.params["new"] for c in fuzzy_lib_cands[:3]]
+                    msg = (f"{ref}: lib {lib!r} not found — "
+                           f"similar libraries: {', '.join(similar)}")
+                    warnings.append(msg)
+                    spec_issues.append({
+                        "ref": ref, "code": exc.code.value, "message": msg,
+                        "suggested_fix": {"similar_libs": similar},
+                    })
+                else:
+                    msg = f"{ref}: lib {lib!r} not found — no candidates"
+                    warnings.append(msg)
+                    spec_issues.append({
+                        "ref": ref, "code": exc.code.value, "message": msg,
+                        "suggested_fix": None,
+                    })
 
-    if decisions.part > 0:
-        warnings.append(f"{decisions.part} unknown symbol(s) within their libraries")
+        elif exc.code == ExcCode.SPEC_UNKNOWN_PART:
+            ref = exc.subject.get("ref", "?")
+            lib = exc.subject.get("lib", "?")
+            part = exc.subject.get("part", "?")
+            cross_lib_cands = [c for c in exc.candidates
+                               if c.action == ActionType.REPLACE_LIB
+                               and c.params.get("also_replace_part")]
+            fuzzy_cands = [c for c in exc.candidates
+                           if c.action == ActionType.REPLACE_PART]
+
+            if cross_lib_cands:
+                c = cross_lib_cands[0]
+                new_lib = c.params["new"]
+                new_part = c.params["also_replace_part"]
+                msg = (f"{ref}: part {part!r} not in {lib!r} — "
+                       f"found in: {new_lib}:{new_part}")
+                warnings.append(msg)
+                spec_issues.append({
+                    "ref": ref, "code": exc.code.value, "message": msg,
+                    "suggested_fix": {"lib": new_lib, "part": new_part},
+                })
+            elif fuzzy_cands:
+                similar = [c.params["new"] for c in fuzzy_cands[:3]]
+                msg = (f"{ref}: part {part!r} not in {lib!r} — "
+                       f"similar: {', '.join(similar)}")
+                warnings.append(msg)
+                spec_issues.append({
+                    "ref": ref, "code": exc.code.value, "message": msg,
+                    "suggested_fix": {"similar_parts": similar},
+                })
+            else:
+                msg = f"{ref}: part {part!r} not in {lib!r} — no candidates"
+                warnings.append(msg)
+                spec_issues.append({
+                    "ref": ref, "code": exc.code.value, "message": msg,
+                    "suggested_fix": None,
+                })
+
+        elif exc.code == ExcCode.SPEC_BAD_FOOTPRINT:
+            fp = exc.subject.get("footprint", "?")
+            refs = exc.subject.get("refs", [])
+            ref_label = ", ".join(refs[:3]) if refs else "?"
+            if len(refs) > 3:
+                ref_label += f" (+{len(refs) - 3} more)"
+            fp_cands = [c for c in exc.candidates
+                        if c.action == ActionType.REPLACE_FOOTPRINT]
+            if fp_cands:
+                best = fp_cands[0]
+                best_fp = best.params.get("new", "?")
+                conf = best.confidence
+                msg = (f"{ref_label}: footprint {fp!r} not found — "
+                       f"candidates: {best_fp} ({conf:.1f} confidence)")
+                if len(fp_cands) > 1:
+                    msg += f" +{len(fp_cands) - 1} more"
+                warnings.append(msg)
+                for ref in refs:
+                    spec_issues.append({
+                        "ref": ref, "code": exc.code.value, "message": msg,
+                        "suggested_fix": {
+                            "footprint": best_fp,
+                            "confidence": conf,
+                            "source": best.source,
+                        },
+                    })
+            else:
+                msg = f"{ref_label}: footprint {fp!r} not found — no candidates"
+                warnings.append(msg)
+                for ref in refs:
+                    spec_issues.append({
+                        "ref": ref, "code": exc.code.value, "message": msg,
+                        "suggested_fix": None,
+                    })
+
+        elif exc.code == ExcCode.SPEC_UNKNOWN_PIN:
+            ref = exc.subject.get("ref", "?")
+            pin = exc.subject.get("pin", "?")
+            available = exc.subject.get("available_pins", [])
+            available_str = ", ".join(str(p) for p in available[:8])
+            if len(available) > 8:
+                available_str += f" (+{len(available) - 8} more)"
+            msg = (f"{ref}: pin {pin!r} not found — "
+                   f"available pins: {available_str}")
+            warnings.append(msg)
+            # Build suggested fix from candidates
+            close_pins = [c.params["new"] for c in exc.candidates
+                          if c.action == ActionType.REPLACE_PIN][:3]
+            spec_issues.append({
+                "ref": ref, "code": exc.code.value, "message": msg,
+                "suggested_fix": {"close_pins": close_pins} if close_pins else None,
+            })
 
     rate = success_rates.get("rate", 0)
     total = success_rates.get("total", 0)
@@ -291,4 +417,4 @@ def _generate_warnings(
             f"consider allowing extra time"
         )
 
-    return warnings
+    return warnings, spec_issues

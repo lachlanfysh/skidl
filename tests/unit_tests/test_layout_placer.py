@@ -319,7 +319,8 @@ def test_edge_anchor_places_connector_on_bottom_edge():
     j1 = next(p for p in result if p.ref == "J1")
     _, h = _FP_BBOXES[j1.footprint]
     assert j1.x_mm == pytest.approx(55.0)
-    assert j1.y_mm + h / 2 == pytest.approx(outline.y_max)
+    # courtyard bottom edge sits 0.5mm inside the board edge (default inset)
+    assert j1.y_mm + h / 2 == pytest.approx(outline.y_max - 0.5)
     assert j1.rot_deg == 180.0
 
 

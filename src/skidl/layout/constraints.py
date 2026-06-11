@@ -34,7 +34,7 @@ class EdgeAnchor:
     ref: str
     edge: str
     offset_mm: float | None = None
-    inset_mm: float = 0.0
+    inset_mm: float = 0.5
     rot_deg: float | None = None
 
 

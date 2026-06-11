@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from skidl.layout.constraints import (
     BoardOutline,
     EdgeAnchor,
@@ -174,7 +176,8 @@ def test_plan_layout_returns_candidates_report_and_preserves_edge_anchors():
     assert result.report.part_reasons["J1"]
     assert result.report.power_corridors
     assert j1.x_mm == 50.0
-    assert j1.y_mm + h / 2 == outline.y_max
+    # courtyard bottom edge sits 0.5mm inside the board edge (default inset)
+    assert j1.y_mm + h / 2 == pytest.approx(outline.y_max - 0.5)
     assert j1.rot_deg == 180.0
 
 
