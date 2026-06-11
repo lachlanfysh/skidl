@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 # whether the body ever set an explicit outcome before it crashed.
 DEFAULT_STATUS = "succeeded"
 
-Mode = Literal["internal", "external", "engine_only"]
+Mode = Literal["internal", "external", "engine_only", "agent"]
 Status = Literal[
     "succeeded",
     "succeeded_with_warnings",
