@@ -43,3 +43,4 @@ COPY deploy/start_worker.sh /app/deploy/start_worker.sh
 RUN chmod +x /app/deploy/start_mcp.sh /app/deploy/start_worker.sh
 
 EXPOSE 8000
+CMD ["deploy/start_mcp.sh"]
