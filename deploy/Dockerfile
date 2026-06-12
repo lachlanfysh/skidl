@@ -4,8 +4,24 @@ FROM python:3.12-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         kicad kicad-symbols kicad-footprints \
-        git && \
+        git wget gnupg && \
     rm -rf /var/lib/apt/lists/*
+
+# Java 21 for Freerouting 2.0.1 (via Eclipse Adoptium Temurin)
+RUN mkdir -p /etc/apt/keyrings && \
+    wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public \
+      | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb bookworm main" \
+      > /etc/apt/sources.list.d/adoptium.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends temurin-21-jre-headless && \
+    rm -rf /var/lib/apt/lists/*
+
+# Freerouting autorouter (bundled JAR — v2.2.4+ needs Java 25, stick with 2.0.1)
+RUN mkdir -p /opt/freerouting && \
+    wget -qO /opt/freerouting/freerouting-2.0.1.jar \
+      https://github.com/freerouting/freerouting/releases/download/v2.0.1/freerouting-2.0.1.jar && \
+    test -s /opt/freerouting/freerouting-2.0.1.jar
 
 WORKDIR /app
 
