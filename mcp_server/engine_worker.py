@@ -569,12 +569,12 @@ def run(envelope: dict) -> dict:
         )
         route_skipped = any(e.code == ExcCode.ROUTE_UNAVAILABLE for e in route_exceptions)
 
-        if not route_failed:
+        if not route_failed and not route_skipped:
             drc_exceptions = _run_drc(str(pcb_path))
             all_exceptions.extend(drc_exceptions)
             drc_errors = [e for e in drc_exceptions
                           if e.severity in (Severity.FATAL, Severity.ERROR)]
-            manufacturable = not drc_errors and not route_skipped
+            manufacturable = not drc_errors
 
     outputs = {
         "run_dir": str(out_dir),

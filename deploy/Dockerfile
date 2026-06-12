@@ -44,7 +44,7 @@ COPY corpus/jlc/lookup.py /app/corpus/jlc/lookup.py
 COPY corpus/jlc/footprint_resolver.py /app/corpus/jlc/footprint_resolver.py
 COPY corpus/__init__.py /app/corpus/__init__.py
 
-ENV PYTHONPATH=/app:/app/src
+ENV PYTHONPATH=/app:/app/src:/usr/lib/python3/dist-packages
 ENV KICAD9_SYMBOL_DIR=/usr/share/kicad/symbols
 ENV KICAD9_FOOTPRINT_DIR=/usr/share/kicad/footprints
 
