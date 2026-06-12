@@ -601,6 +601,24 @@ Other part fields:
 WORKFLOW_GUIDE = """\
 # Design workflow
 
+## Step 0 — Think like an engineer BEFORE writing JSON
+
+Before you touch any tools, write out a plain-English bill of materials
+for the board you're designing. For each functional block, list:
+- Every IC with its exact function (sensor, regulator, MCU, etc.)
+- Every passive: decoupling caps (100nF per IC power pin), bulk caps
+  (10uF on each power rail), pull-up/pull-down resistors, current-sense
+  shunt resistors, LED current limiters
+- Every connector: count the pins by listing what each pin carries
+  (e.g. VCC, GND, SDA, SCL, A0, A1 = 6 pins, not 4)
+- Address selection hardware (solder jumpers, pull-downs)
+
+This step is critical — models that skip it consistently forget bulk caps,
+shunt resistors, and produce wrong pin counts on headers. Describe the
+full circuit in English first, then convert to the CircuitSpec JSON.
+
+## Step 1 — Submit and iterate
+
 Every design succeeds if you persist. The engine gives you exact errors
 and suggested fixes at every step — apply them, resubmit, and the board
 converges to a manufacturable PCB. First-pass specs typically need 3-8
@@ -624,7 +642,6 @@ translate → design review → schematic + ERC → placement → routing
 structured exceptions with candidates — you never need to inspect
 intermediate artifacts or call external tools. The final .kicad_pcb
 is a routed board when routing succeeds.
-```
 
 ## Polling
 
