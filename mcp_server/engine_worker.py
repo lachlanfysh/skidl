@@ -34,6 +34,39 @@ from schemas.exceptions import DesignException, ExcCode, Severity
 from schemas.translator import DEFAULT_FP_DIR, DEFAULT_SYM_DIR, translate
 
 
+EASYEDA_CACHE_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "corpus", "jlc", "easyeda_cache"
+)
+
+
+def _easyeda_fp_dirs() -> list[str]:
+    """Collect .pretty dirs from easyeda2kicad cache for footprint resolution."""
+    dirs: list[str] = []
+    if not os.path.isdir(EASYEDA_CACHE_DIR):
+        return dirs
+    for lcsc_dir in os.listdir(EASYEDA_CACHE_DIR):
+        lcsc_path = os.path.join(EASYEDA_CACHE_DIR, lcsc_dir)
+        if not os.path.isdir(lcsc_path):
+            continue
+        for sub in os.listdir(lcsc_path):
+            sub_path = os.path.join(lcsc_path, sub)
+            if sub.endswith(".pretty") and os.path.isdir(sub_path):
+                dirs.append(sub_path)
+    return dirs
+
+
+def _easyeda_sym_dirs() -> list[str]:
+    """Collect symbol dirs from easyeda2kicad cache for SKiDL lib_search_paths."""
+    dirs: list[str] = []
+    if not os.path.isdir(EASYEDA_CACHE_DIR):
+        return dirs
+    for lcsc_dir in os.listdir(EASYEDA_CACHE_DIR):
+        lcsc_path = os.path.join(EASYEDA_CACHE_DIR, lcsc_dir)
+        if os.path.isdir(lcsc_path):
+            dirs.append(lcsc_path)
+    return dirs
+
+
 def _safe_name(name: str) -> str:
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", name.strip()).strip("-")
     return safe or "board"
@@ -464,6 +497,12 @@ def _exec_skidl(code: str):
     namespace = {}
     exec("from skidl import *\nset_default_tool(KICAD9)", namespace)
 
+    # Add easyeda2kicad converted libraries
+    from skidl import lib_search_paths
+    for d in _easyeda_sym_dirs():
+        if d not in lib_search_paths.get("kicad9", []):
+            lib_search_paths.setdefault("kicad9", []).append(d)
+
     cleaned = re.sub(
         r'(?:[\w.]*\.)?generate_(?:schematic|netlist|pcb)\s*\([^)]*\)',
         'pass',
@@ -511,6 +550,8 @@ def _run_skidl_code(envelope: dict) -> dict:
     os.environ.setdefault("KICAD9_SYMBOL_DIR", DEFAULT_SYM_DIR)
     os.environ.setdefault("KICAD9_FOOTPRINT_DIR", DEFAULT_FP_DIR)
     fp_dirs = [os.environ["KICAD9_FOOTPRINT_DIR"]]
+
+    fp_dirs.extend(_easyeda_fp_dirs())
 
     try:
         circuit = _exec_skidl(code)
@@ -654,6 +695,8 @@ def run(envelope: dict) -> dict:
     os.environ.setdefault("KICAD9_SYMBOL_DIR", DEFAULT_SYM_DIR)
     os.environ.setdefault("KICAD9_FOOTPRINT_DIR", DEFAULT_FP_DIR)
     fp_dirs = [os.environ["KICAD9_FOOTPRINT_DIR"]]
+
+    fp_dirs.extend(_easyeda_fp_dirs())
 
     try:
         spec = CircuitSpec.model_validate(spec_dict)

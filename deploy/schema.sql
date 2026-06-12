@@ -51,3 +51,13 @@ CREATE TABLE IF NOT EXISTS telemetry (
 CREATE INDEX IF NOT EXISTS idx_telemetry_board ON telemetry(board_id);
 CREATE INDEX IF NOT EXISTS idx_telemetry_status ON telemetry(status);
 CREATE INDEX IF NOT EXISTS idx_telemetry_created ON telemetry(created_at);
+
+-- Converted LCSC parts (easyeda2kicad cache)
+CREATE TABLE IF NOT EXISTS converted_parts (
+    lcsc TEXT PRIMARY KEY,
+    sym_data BYTEA,
+    fp_data BYTEA,
+    step_data BYTEA,
+    meta JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);

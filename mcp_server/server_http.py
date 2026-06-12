@@ -586,18 +586,193 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
     lcsc = _lcsc_variants(query)
     if lcsc:
         result["lcsc_variants"] = lcsc
-        result["hint"] = (
-            "Use the 'usage' field directly in your SKiDL code. "
-            "Set detail=true for pin names. "
-            "lcsc_variants shows available packages with pricing — "
-            "pick suggested_footprint for the package you want."
-        )
+        has_kicad_sym = len(result["symbols"]) > 0
+        if has_kicad_sym:
+            result["hint"] = (
+                "Use the 'usage' field directly in your SKiDL code. "
+                "Set detail=true for pin names. "
+                "lcsc_variants shows available packages with pricing — "
+                "pick suggested_footprint for the package you want."
+            )
+        else:
+            result["hint"] = (
+                "No KiCad symbol found, but LCSC parts exist. "
+                "Call convert_lcsc(lcsc='CXXXXXX') with any lcsc ID below "
+                "to generate a KiCad symbol+footprint from EasyEDA, then "
+                "use the returned Part() call in your SKiDL code."
+            )
     else:
         result["hint"] = (
             "Use the 'usage' field directly in your SKiDL code. "
             "Set detail=true to see pin names for wiring."
         )
     return result
+
+
+EASYEDA_CACHE = os.path.join(os.path.dirname(__file__), "..", "corpus", "jlc", "easyeda_cache")
+
+
+async def _convert_easyeda(lcsc: str) -> dict | None:
+    """Convert LCSC part via easyeda2kicad. Checks DB cache → disk cache → API."""
+    import subprocess
+
+    lcsc = lcsc.upper()
+    if not lcsc.startswith("C"):
+        lcsc = f"C{lcsc}"
+
+    # 1. DB cache (persists across deploys)
+    try:
+        row = await db.fetchrow(
+            "SELECT meta, sym_data, fp_data FROM converted_parts WHERE lcsc = $1",
+            lcsc,
+        )
+        if row:
+            meta = json.loads(row["meta"]) if isinstance(row["meta"], str) else row["meta"]
+            # Restore files to disk cache if missing
+            cache_dir = os.path.join(EASYEDA_CACHE, lcsc)
+            sym_file = meta.get("sym_file", "")
+            if sym_file and not os.path.exists(sym_file) and row["sym_data"]:
+                os.makedirs(cache_dir, exist_ok=True)
+                with open(sym_file, "wb") as f:
+                    f.write(row["sym_data"])
+            fp_dir = meta.get("fp_dir")
+            if fp_dir and not os.path.isdir(fp_dir) and row["fp_data"]:
+                os.makedirs(fp_dir, exist_ok=True)
+                with open(os.path.join(fp_dir, meta["footprint"].split(":")[-1] + ".kicad_mod"), "wb") as f:
+                    f.write(row["fp_data"])
+            return meta
+    except Exception:
+        pass
+
+    # 2. Disk cache
+    cache_dir = os.path.join(EASYEDA_CACHE, lcsc)
+    meta_file = os.path.join(cache_dir, "meta.json")
+
+    if os.path.exists(meta_file):
+        try:
+            with open(meta_file) as f:
+                return json.loads(f.read())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # 3. Convert via easyeda2kicad API
+    os.makedirs(cache_dir, exist_ok=True)
+    output_prefix = os.path.join(cache_dir, lcsc)
+
+    try:
+        proc = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: subprocess.run(
+                ["easyeda2kicad", "--full", f"--lcsc_id={lcsc}",
+                 f"--output={output_prefix}"],
+                capture_output=True, text=True, timeout=30,
+            ),
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+
+    sym_file = f"{output_prefix}.kicad_sym"
+    pretty_dir = f"{output_prefix}.pretty"
+
+    if not os.path.exists(sym_file):
+        return None
+
+    sym_name = None
+    with open(sym_file) as f:
+        for line in f:
+            if "(symbol " in line and ":" not in line:
+                parts = line.strip().split('"')
+                if len(parts) >= 2:
+                    sym_name = parts[1]
+                    break
+
+    fp_name = None
+    fp_file = None
+    if os.path.isdir(pretty_dir):
+        mods = [fn for fn in os.listdir(pretty_dir) if fn.endswith(".kicad_mod")]
+        if mods:
+            fp_name = mods[0][:-9]
+            fp_file = os.path.join(pretty_dir, mods[0])
+
+    step_file = None
+    shapes_dir = f"{output_prefix}.3dshapes"
+    if os.path.isdir(shapes_dir):
+        steps = [fn for fn in os.listdir(shapes_dir) if fn.endswith(".step")]
+        if steps:
+            step_file = os.path.join(shapes_dir, steps[0])
+
+    lib_name = lcsc
+    meta = {
+        "lcsc": lcsc,
+        "library": lib_name,
+        "symbol": sym_name,
+        "footprint": f"{lib_name}:{fp_name}" if fp_name else None,
+        "sym_file": sym_file,
+        "fp_dir": pretty_dir if fp_name else None,
+    }
+
+    with open(meta_file, "w") as f:
+        f.write(json.dumps(meta, indent=2))
+
+    # 4. Persist to DB for cross-deploy cache
+    try:
+        sym_data = open(sym_file, "rb").read() if os.path.exists(sym_file) else None
+        fp_data = open(fp_file, "rb").read() if fp_file and os.path.exists(fp_file) else None
+        step_data = open(step_file, "rb").read() if step_file and os.path.exists(step_file) else None
+        await db.execute(
+            """INSERT INTO converted_parts (lcsc, sym_data, fp_data, step_data, meta)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (lcsc) DO UPDATE SET
+                 sym_data = EXCLUDED.sym_data,
+                 fp_data = EXCLUDED.fp_data,
+                 step_data = EXCLUDED.step_data,
+                 meta = EXCLUDED.meta""",
+            lcsc, sym_data, fp_data, step_data, json.dumps(meta),
+        )
+    except Exception:
+        pass
+
+    return meta
+
+
+@mcp.tool()
+async def convert_lcsc(lcsc: str) -> dict:
+    """Convert an LCSC/JLCPCB part to a KiCad symbol+footprint.
+
+    Use this when search_kicad() finds LCSC parts but no KiCad symbol.
+    Converts the EasyEDA component to KiCad format so you can use it
+    in your SKiDL code. The generated library is automatically available
+    to submit_skidl_code().
+
+    lcsc: LCSC part number, e.g. "C191206" or "C14877"
+
+    Returns the Part() call to use in your SKiDL code, with correct
+    library name, part name, and footprint.
+    """
+    meta = await _convert_easyeda(lcsc)
+
+    if meta is None:
+        return {
+            "ok": False,
+            "error": f"Failed to convert {lcsc}. The part may not exist on LCSC.",
+            "hint": "Try a different LCSC part number from search_kicad() results.",
+        }
+
+    sym = meta.get("symbol", "Unknown")
+    fp = meta.get("footprint")
+    lib = meta.get("library")
+
+    usage = f'Part("{lib}", "{sym}", footprint="{fp}")' if fp else f'Part("{lib}", "{sym}")'
+
+    return {
+        "ok": True,
+        "lcsc": meta["lcsc"],
+        "library": lib,
+        "symbol": sym,
+        "footprint": fp,
+        "usage": usage,
+        "hint": "Use the 'usage' field in your SKiDL code. The library is auto-loaded.",
+    }
 
 
 # ── Resources: deep reference an agent reads on demand ─────────────────
