@@ -49,20 +49,7 @@ MODELS = [
 ]
 
 SYSTEM_PROMPT = """\
-You are a hardware design agent with access to a PCB design service via tool \
-calls. The service provides documentation through readable resources — start \
-by reading the workflow guide and circuit spec guide to learn the format.
-
-Your goal is a SUCCEEDED job. After submit_design(), poll get_job() until \
-finished. If it fails with exceptions, apply ALL suggested corrections and \
-resubmit. Keep iterating — library mismatches, pin name errors, and footprint \
-fixes are normal and each round gets closer. Do NOT stop until get_job() \
-returns status "succeeded" or you have exhausted every correction option.
-
-The server auto-adds decoupling caps, pull-ups, and standard passives — \
-focus on the main ICs, connectors, and signal nets.
-
-Service instructions: {instructions}"""
+You have access to a PCB design service. {instructions}"""
 
 MAX_TURNS = 60
 POLL_SPACING_S = 5.0
