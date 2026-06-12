@@ -28,6 +28,7 @@ from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import CorrectionError, apply_candidate
 from schemas.estimator import estimate_complexity as _estimate_complexity
 from schemas.exceptions import ActionType, DesignException, ExcCode
+from schemas.review import review_design as _review_design
 
 mcp = FastMCP(
     "eda-mcp",
@@ -305,10 +306,64 @@ def _estimate_hint(result: dict) -> str:
 
     if not issues:
         parts.append(
-            "Spec looks valid. Submit with submit_design() when ready"
+            "Spec looks valid. Run review_design(spec, marketing_text) to check "
+            "for missing components before submitting"
         )
 
     return ". ".join(parts) + "."
+
+
+@mcp.tool()
+async def review_design(input_spec: dict, marketing_text: str = "") -> dict:
+    """Pre-submission design review — checks for missing components.
+
+    Analyzes your spec against PCB design best practices and the marketing
+    description to find likely missing parts BEFORE you submit. Fast, free,
+    no side effects. Fix the issues it finds, then submit_design().
+
+    Checks include:
+    - Missing decoupling caps on ICs
+    - Missing bulk capacitors on power rails
+    - I2C pull-up resistors
+    - Address pin tie-down resistors
+    - Reset/open-drain pull-ups
+    - USB-C CC pull-downs
+    - Connector presence
+    - Marketing text cross-reference: if the description mentions I2C,
+      current sensing, USB-C, NeoPixel, STEMMA QT, etc., checks that
+      the corresponding components exist in the spec
+
+    Pass marketing_text for the fullest review — without it, only
+    structural checks run. Each issue has a severity (error/warning/
+    suggestion), category, message, and fix_hint with specific parts
+    and values to add.
+
+    Returns: {"issues": [...], "issue_count": N, "hint": "..."}.
+    Zero issues = ready to submit.
+    """
+    spec = _validate_spec(input_spec)
+    issues = await asyncio.to_thread(
+        lambda: _review_design(spec.model_dump(mode="json"), marketing_text)
+    )
+    error_count = sum(1 for i in issues if i["severity"] == "error")
+    warning_count = sum(1 for i in issues if i["severity"] == "warning")
+
+    if not issues:
+        hint = "No issues found — your spec looks complete. Submit with submit_design()."
+    elif error_count:
+        hint = (
+            f"Found {error_count} error(s) and {warning_count} warning(s). "
+            f"Fix at least the errors before submitting — they indicate "
+            f"missing critical components. Read each fix_hint for specific parts to add."
+        )
+    else:
+        hint = (
+            f"Found {warning_count} warning(s) and {len(issues) - warning_count} "
+            f"suggestion(s). Consider fixing warnings before submitting. "
+            f"Suggestions are optional but improve quality."
+        )
+
+    return {"issues": issues, "issue_count": len(issues), "hint": hint}
 
 
 @mcp.tool()
