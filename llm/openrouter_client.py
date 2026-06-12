@@ -83,6 +83,8 @@ async def complete(
     max_tokens: int = 8192,
     temperature: float = 0.2,
     response_format: Optional[dict] = None,
+    web_search: bool = False,
+    tools: Optional[list[dict]] = None,
     spend_tracker: Any = None,
     client: Optional[httpx.AsyncClient] = None,
 ) -> LLMResponse:
@@ -107,6 +109,13 @@ async def complete(
     }
     if response_format is not None:
         body["response_format"] = response_format
+    if web_search:
+        body.setdefault("tools", []).append({
+            "type": "openrouter:web_search",
+            "parameters": {"max_results": 5, "search_context_size": "medium"},
+        })
+    if tools:
+        body.setdefault("tools", []).extend(tools)
 
     headers = {"Authorization": f"Bearer {api_key}"}
     url = f"{OPENROUTER_BASE}/chat/completions"

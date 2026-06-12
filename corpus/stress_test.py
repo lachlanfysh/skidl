@@ -119,6 +119,7 @@ async def _run_one(
     spend_tracker: SpendTracker,
     ref_specs: dict,
     sem: asyncio.Semaphore,
+    web_search: bool = False,
 ) -> RunResult:
     board_id = board["board_id"]
     description = board["description"]
@@ -128,6 +129,7 @@ async def _run_one(
         try:
             spec, stages = await nl_to_input_spec(
                 description, board_id, model=model, spend_tracker=spend_tracker,
+                web_search=web_search,
             )
             latency = time.monotonic() - t0
             cost = sum(s.get("cost_usd", 0) for s in stages)
@@ -201,6 +203,7 @@ async def run_stress(
     models: list[str],
     board_filter: str | None = None,
     limit: int | None = None,
+    web_search: bool = False,
 ):
     boards = _load_manifest()
     if board_filter == "probe9":
@@ -236,7 +239,7 @@ async def run_stress(
 
     async def _run_and_report(board, model):
         nonlocal completed
-        result = await _run_one(board, model, spend_tracker, ref_specs, sem)
+        result = await _run_one(board, model, spend_tracker, ref_specs, sem, web_search=web_search)
         metrics.results.append(result)
         completed += 1
         _print_live(completed, total, result, metrics.total_cost)
@@ -397,6 +400,8 @@ def main():
                         help="Filter boards by substring")
     parser.add_argument("--limit", type=int, default=None,
                         help="Max total runs")
+    parser.add_argument("--web-search", action="store_true",
+                        help="Enable web search for models that support it ($0.005/search)")
     args = parser.parse_args()
 
     if not os.environ.get("OPENROUTER_API_KEY"):
@@ -410,6 +415,7 @@ def main():
         models=models,
         board_filter=args.board,
         limit=args.limit,
+        web_search=args.web_search,
     ))
     print_report(metrics, args.concurrency)
 

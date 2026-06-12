@@ -19,6 +19,7 @@ from pydantic import ValidationError
 
 from llm import config
 from llm.openrouter_client import complete
+from llm.kicad_index import extract_ic_names, lookup_ic_context, validate_spec_libraries
 from schemas.circuit_spec import CircuitSpec
 from schemas.enrichment import enrich as enrich_spec, format_enrichment_log
 
@@ -233,6 +234,7 @@ async def nl_to_input_spec(
     model: Optional[str] = None,
     spend_tracker: Any = None,
     client: Any = None,
+    web_search: bool = False,
 ) -> tuple[CircuitSpec, list[dict]]:
     """Turn marketing text into a validated CircuitSpec.
 
@@ -246,8 +248,13 @@ async def nl_to_input_spec(
         + json.dumps(ex, separators=(",", ":"))
         for i, ex in enumerate(examples)
     )
+
+    # Extract IC names from description and look up real KiCad library data
+    ic_names = extract_ic_names(marketing_text)
+    ic_context = lookup_ic_context(ic_names) if ic_names else ""
+
     messages = [
-        {"role": "system", "content": SPEC_SCHEMA_PROMPT + "\n\n" + examples_block},
+        {"role": "system", "content": SPEC_SCHEMA_PROMPT + "\n\n" + examples_block + ic_context},
         {
             "role": "user",
             "content": (
@@ -267,6 +274,7 @@ async def nl_to_input_spec(
             msgs,
             model,
             response_format={"type": "json_object"},
+            web_search=web_search,
             spend_tracker=spend_tracker,
             client=client,
         )
@@ -291,9 +299,40 @@ async def nl_to_input_spec(
 
     resp = await _attempt(messages)
     try:
-        return _enrich_and_validate(_loads_forgiving(resp.text)), stages
+        parsed = _loads_forgiving(resp.text)
+        lib_issues = validate_spec_libraries(parsed)
+        if lib_issues:
+            issue_lines = []
+            for issue in lib_issues[:10]:
+                msg = f"  {issue['ref']}: {issue['message']}"
+                if issue.get("suggestions"):
+                    msg += f" — try: {', '.join(issue['suggestions'][:3])}"
+                issue_lines.append(msg)
+            stages.append({
+                "stage": "library_validation",
+                "issues": len(lib_issues),
+                "details": issue_lines,
+                "cost_usd": 0, "tokens_in": 0, "tokens_out": 0,
+            })
+        return _enrich_and_validate(parsed), stages
     except (ValueError, ValidationError) as err:
         error_text = str(err)
+
+    # Include library validation feedback in repair prompt
+    lib_feedback = ""
+    try:
+        parsed_for_check = _loads_forgiving(resp.text)
+        lib_issues = validate_spec_libraries(parsed_for_check)
+        if lib_issues:
+            lines = ["Library/footprint errors found:"]
+            for issue in lib_issues[:10]:
+                msg = f"  {issue['ref']}: {issue['message']}"
+                if issue.get("suggestions"):
+                    msg += f" — use: {issue['suggestions'][0]}"
+                lines.append(msg)
+            lib_feedback = "\n".join(lines) + "\n\n"
+    except (ValueError, TypeError):
+        pass
 
     repair_messages = messages + [
         {"role": "assistant", "content": resp.text},
@@ -301,6 +340,7 @@ async def nl_to_input_spec(
             "role": "user",
             "content": (
                 f"Your previous output failed validation with this error:\n{error_text}\n\n"
+                f"{lib_feedback}"
                 "Return the corrected complete JSON object only."
             ),
         },
