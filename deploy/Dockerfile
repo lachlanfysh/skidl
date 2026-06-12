@@ -39,8 +39,9 @@ COPY telemetry/ /app/telemetry/
 COPY llm/ /app/llm/
 COPY deploy/schema.sql /app/deploy/schema.sql
 
-# JLC offline data (3.8MB CSV, used by footprint resolver)
+# JLC offline data (basic passives 3.8MB + ICs 21MB, used by footprint resolver)
 COPY corpus/jlc/jlcpcb-basic-preferred.csv /app/corpus/jlc/jlcpcb-basic-preferred.csv
+COPY corpus/jlc/jlcpcb-ics.csv /app/corpus/jlc/jlcpcb-ics.csv
 COPY corpus/jlc/__init__.py /app/corpus/jlc/__init__.py
 COPY corpus/jlc/lookup.py /app/corpus/jlc/lookup.py
 COPY corpus/jlc/footprint_resolver.py /app/corpus/jlc/footprint_resolver.py

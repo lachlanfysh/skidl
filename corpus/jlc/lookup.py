@@ -24,6 +24,7 @@ from typing import Optional
 import httpx
 
 BASIC_CSV = Path(__file__).parent / "jlcpcb-basic-preferred.csv"
+ICS_CSV = Path(__file__).parent / "jlcpcb-ics.csv"
 SQLITE_DB = Path(__file__).parent / "jlcpcb-components.sqlite3"
 JLCSEARCH_API = "https://jlcsearch.tscircuit.com"
 CACHE_DIR = Path(__file__).parent / "cache"
@@ -79,6 +80,18 @@ class JLCLookup:
         with open(BASIC_CSV, encoding="utf-8", errors="replace") as f:
             self._basic_parts = list(csv.DictReader(f))
         return self._basic_parts
+
+    def _load_ics(self) -> list[dict]:
+        if not hasattr(self, "_ic_parts"):
+            self._ic_parts: list[dict] | None = None
+        if self._ic_parts is not None:
+            return self._ic_parts
+        if not ICS_CSV.exists():
+            self._ic_parts = []
+            return []
+        with open(ICS_CSV, encoding="utf-8", errors="replace") as f:
+            self._ic_parts = list(csv.DictReader(f))
+        return self._ic_parts
 
     def search_basic(self, query: str, limit: int = 5) -> list[JLCPart]:
         """Search basic/preferred parts CSV (offline)."""
@@ -173,9 +186,10 @@ class JLCLookup:
     def search_by_mfr(self, mfr_query: str, limit: int = 10) -> list[JLCPart]:
         """Search by manufacturer part number. Returns all package variants.
 
-        Uses SQLite when available (616K parts), falls back to CSV + API.
-        Ideal for finding footprint options: e.g. MCP9808 -> MSOP-8 and DFN-8.
+        Search order: SQLite (616K, local only) → IC CSV (131K, shipped in Docker)
+        → basic CSV + API fallback.
         """
+        # 1. SQLite — full database, local dev only
         conn = self._get_sqlite()
         if conn is not None:
             cur = conn.execute(
@@ -198,6 +212,28 @@ class JLCLookup:
             if results:
                 return results
 
+        # 2. IC CSV — 131K ICs/modules, shipped in Docker image
+        ics = self._load_ics()
+        if ics:
+            query_lower = mfr_query.lower()
+            matches = [
+                JLCPart(
+                    lcsc=p.get("lcsc", ""),
+                    mfr=p.get("mfr", ""),
+                    package=p.get("package", ""),
+                    description=p.get("description", ""),
+                    stock=int(p.get("stock", 0) or 0),
+                    price=float(p.get("price", 0) or 0),
+                    basic=p.get("basic") == "1",
+                )
+                for p in ics
+                if query_lower in p.get("mfr", "").lower()
+            ]
+            if matches:
+                matches.sort(key=lambda p: p.stock, reverse=True)
+                return matches[:limit]
+
+        # 3. Fallback — basic CSV + API
         return self.search(mfr_query, limit)
 
     def get_price_breaks(self, lcsc: str) -> list[dict]:
