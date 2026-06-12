@@ -190,6 +190,13 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
             candidates=[],
         )]
 
+    # Inject semantic net classes before routing
+    try:
+        from mcp_server.dsn_rules import inject_net_classes
+        inject_net_classes(dsn_path)
+    except Exception:
+        pass  # non-fatal — Freerouting works fine with flat classes
+
     try:
         result = sp.run(
             [java_bin, "-jar", jar_path,
