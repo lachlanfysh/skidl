@@ -54,6 +54,8 @@ mechanism. Stop after at most 5 correction rounds.
 anything you had to guess, and what the service could explain better.
 """
 
+USER_ONLY_SUFFIX = ""
+
 MAX_MODEL_TURNS = 60
 MAX_TOOL_RESULT_CHARS = 15000
 POLL_SPACING_S = 5.0
@@ -198,6 +200,8 @@ def main() -> int:
     ap.add_argument("--token", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--request", default=USER_REQUEST)
+    ap.add_argument("--no-system-prompt", action="store_true",
+                    help="User prompt only — no system message. Tests raw MCP discoverability.")
     args = ap.parse_args()
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -225,10 +229,16 @@ def main() -> int:
     instructions = init.get("instructions", "(none)")
     tools = openai_tools(mcp.list_tools(), mcp.list_resources())
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT.format(instructions=instructions)},
-        {"role": "user", "content": args.request},
-    ]
+    if args.no_system_prompt:
+        messages = [
+            {"role": "system", "content": f"Connected service: {instructions}"},
+            {"role": "user", "content": args.request},
+        ]
+    else:
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT.format(instructions=instructions)},
+            {"role": "user", "content": args.request},
+        ]
 
     or_http = httpx.Client(timeout=300)
     usage_totals = {"prompt_tokens": 0, "completion_tokens": 0}
