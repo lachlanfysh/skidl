@@ -1,5 +1,6 @@
 FROM python:3.13-slim
 
+# Build cache buster: 2026-06-12T10:15
 # System deps for kicad-cli (ERC/DRC loops)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
