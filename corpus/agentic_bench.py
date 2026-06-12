@@ -91,6 +91,7 @@ class AgentRunResult:
     enrichment_actions: int = 0
     missing_parts: list | None = None
     extra_parts: list | None = None
+    server_status: str | None = None
     error: str = ""
     final_report: str | None = None
     transcript: list | None = None
@@ -284,6 +285,15 @@ def run_agent_board(
                     except Exception as exc:
                         tool_result = f"TOOL ERROR: {exc}"
 
+                    if name == "get_job" and isinstance(tool_result, str):
+                        try:
+                            job_data = json.loads(tool_result)
+                            s = job_data.get("status")
+                            if s and s not in ("pending", "running"):
+                                result.server_status = s
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
                 tool_result = shrink_result(name, tool_result, board_arts)
                 messages.append({
                     "role": "tool",
@@ -384,13 +394,14 @@ def _print_live(idx: int, total: int, result: AgentRunResult, cumulative_cost: f
     grade_str = result.grade or "---"
     bom_str = f"{result.bom_score:.2f}" if result.bom_score is not None else "-.--"
     status = "OK" if result.ok else "FAIL"
+    srv = result.server_status or "?"
     enrich_str = ""
     if result.enriched_grade and result.enriched_grade != result.grade:
         enrich_str = f" ->{result.enriched_grade}(+{result.enrichment_actions})"
     res_str = ",".join(r.split("/")[-1][:10] for r in result.resources_read[:3])
     print(
         f"[{idx:>3}/{total}] {result.board_id:30s} {model_short:20s} "
-        f"{status:4s} {grade_str:>3s}{enrich_str:12s} bom={bom_str} "
+        f"{status:4s} srv={srv:10s} {grade_str:>3s}{enrich_str:12s} bom={bom_str} "
         f"turns={result.turns_used:>2d} tools={result.tool_calls_made:>2d} "
         f"res=[{res_str}] "
         f"{result.wall_time_s:5.1f}s ${result.cost_usd:.4f}  "
@@ -491,6 +502,8 @@ def print_report(metrics: BenchMetrics):
     print(f"  Wall time: {metrics.wall_time:.1f}s")
     print(f"  Total runs: {len(metrics.results)}")
     print(f"  Success rate: {sum(1 for r in metrics.results if r.ok) / max(len(metrics.results), 1):.1%}")
+    srv_counts = Counter(r.server_status or "none" for r in metrics.results)
+    print(f"  Server status: {dict(srv_counts)}")
     print(f"  Total cost: ${metrics.total_cost:.4f}")
 
     by_model: dict[str, list[AgentRunResult]] = {}
@@ -585,6 +598,7 @@ def save_results(metrics: BenchMetrics):
             "enrichment_actions": r.enrichment_actions,
             "missing_parts": r.missing_parts,
             "extra_parts": r.extra_parts,
+            "server_status": r.server_status,
             "error": r.error,
             "final_report": r.final_report,
             "final_spec": r.final_spec,
@@ -613,6 +627,7 @@ def save_results(metrics: BenchMetrics):
                 "resources_read": r.resources_read,
                 "specs_submitted": r.specs_submitted,
                 "corrections_made": r.corrections_made,
+                "server_status": r.server_status,
                 "error": r.error,
             }
             for r in metrics.results
