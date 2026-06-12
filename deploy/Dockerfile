@@ -36,6 +36,7 @@ RUN pip install --no-cache-dir .
 COPY mcp_server/ /app/mcp_server/
 COPY schemas/ /app/schemas/
 COPY telemetry/ /app/telemetry/
+COPY llm/ /app/llm/
 COPY deploy/schema.sql /app/deploy/schema.sql
 
 # JLC offline data (3.8MB CSV, used by footprint resolver)
