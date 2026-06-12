@@ -65,6 +65,7 @@ class AgentRunResult:
     resources_read: list = field(default_factory=list)
     specs_submitted: int = 0
     final_spec: dict | None = None
+    final_code: str | None = None
     corrections_made: int = 0
     wall_time_s: float = 0.0
     cost_usd: float = 0.0
@@ -125,6 +126,65 @@ def _load_ref_specs():
 def _estimate_cost(tokens_in: int, tokens_out: int, model: str) -> float:
     in_price, out_price = price_for(model)
     return tokens_in / 1e6 * in_price + tokens_out / 1e6 * out_price
+
+
+def _code_to_spec(code: str) -> dict | None:
+    """Parse SKiDL code into a minimal CircuitSpec dict for scoring."""
+    import re
+
+    parts = []
+    nets = []
+    ref_counter = {"U": 0, "R": 0, "C": 0, "J": 0, "D": 0, "L": 0, "Q": 0, "X": 0}
+
+    for m in re.finditer(
+        r'Part\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"'
+        r'(?:.*?value\s*=\s*"([^"]*)")?'
+        r'(?:.*?footprint\s*=\s*"([^"]*)")?',
+        code,
+        re.DOTALL,
+    ):
+        lib, part_name = m.group(1), m.group(2)
+        value = m.group(3) or ""
+        footprint = m.group(4) or ""
+        prefix = "U"
+        if lib == "Device":
+            if part_name.startswith("R"):
+                prefix = "R"
+            elif part_name.startswith("C"):
+                prefix = "C"
+            elif part_name.startswith("L"):
+                prefix = "L"
+            elif part_name.startswith("D") or part_name.startswith("LED"):
+                prefix = "D"
+        elif "Connector" in lib:
+            prefix = "J"
+        elif "Transistor" in lib:
+            prefix = "Q"
+        ref_counter[prefix] = ref_counter.get(prefix, 0) + 1
+        ref = f"{prefix}{ref_counter[prefix]}"
+        parts.append({
+            "ref": ref, "lib": lib, "part": part_name,
+            "value": value, "footprint": footprint,
+        })
+
+    for m in re.finditer(
+        r'Net\s*\(\s*"([^"]+)"\s*\)',
+        code,
+    ):
+        net_name = m.group(1)
+        is_power = net_name.upper() in {
+            "VCC", "VDD", "VDDA", "3V3", "5V", "VBUS", "VIN", "VBAT",
+            "GND", "AGND", "DGND", "VSS",
+        }
+        nets.append({"name": net_name, "power": is_power, "pins": []})
+
+    if not parts:
+        return None
+    return {
+        "board": {"name": "from_code"},
+        "parts": parts,
+        "nets": nets,
+    }
 
 
 def _extract_spec_from_args(arguments: dict) -> dict | None:
@@ -224,10 +284,12 @@ def run_agent_board(
                     "role": "user",
                     "content": (
                         "You must use tool calls. Your goal is a SUCCEEDED job. "
-                        "If you haven't submitted yet, read eda://guide/workflow "
-                        "and eda://guide/circuit-spec first, then submit_design(). "
-                        "If your job failed with exceptions, apply_correction() "
-                        "for each one and poll again. Keep going until succeeded. "
+                        "Submit via submit_skidl_code() (preferred — write Python) "
+                        "or submit_design() (JSON). If you haven't submitted yet, "
+                        "read eda://guide/workflow first. "
+                        "If your job failed with exceptions, fix the code/spec "
+                        "and resubmit, or use apply_correction(). "
+                        "Keep going until succeeded. "
                         "Only reply with 'FINAL REPORT:' after get_job() shows succeeded."
                     ),
                 })
@@ -254,6 +316,15 @@ def run_agent_board(
                         extracted = _extract_spec_from_args(arguments)
                         if extracted is not None:
                             captured_spec = extracted
+
+                    if name == "submit_skidl_code":
+                        result.specs_submitted += 1
+                        code_str = arguments.get("code", "")
+                        if code_str:
+                            result.final_code = code_str
+                            extracted = _code_to_spec(code_str)
+                            if extracted is not None:
+                                captured_spec = extracted
 
                     if name == "apply_correction":
                         result.corrections_made += 1
@@ -386,11 +457,12 @@ def _print_live(idx: int, total: int, result: AgentRunResult, cumulative_cost: f
     if result.enriched_grade and result.enriched_grade != result.grade:
         enrich_str = f" ->{result.enriched_grade}(+{result.enrichment_actions})"
     res_str = ",".join(r.split("/")[-1][:10] for r in result.resources_read[:3])
+    mode = "py" if result.final_code else "json"
     print(
         f"[{idx:>3}/{total}] {result.board_id:30s} {model_short:20s} "
         f"{status:4s} srv={srv:10s} {grade_str:>3s}{enrich_str:12s} bom={bom_str} "
         f"turns={result.turns_used:>2d} tools={result.tool_calls_made:>2d} "
-        f"res=[{res_str}] "
+        f"mode={mode} res=[{res_str}] "
         f"{result.wall_time_s:5.1f}s ${result.cost_usd:.4f}  "
         f"(total: ${cumulative_cost:.3f})",
         flush=True,
