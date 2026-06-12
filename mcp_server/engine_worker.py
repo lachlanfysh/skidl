@@ -25,7 +25,11 @@ from mcp_server.exception_mapper import (
     suppress_waived,
 )
 from schemas.circuit_spec import CircuitSpec
-from schemas.enrichment import design_review_exceptions
+from schemas.enrichment import (
+    design_review_exceptions,
+    enrich as enrich_spec,
+    enrich_blocks,
+)
 from schemas.exceptions import ExcCode, Severity
 from schemas.translator import DEFAULT_FP_DIR, DEFAULT_SYM_DIR, translate
 
@@ -483,6 +487,18 @@ def run(envelope: dict) -> dict:
             metrics=_metrics(),
         )
 
+    # Server-side enrichment: inject passives agents shouldn't need to know about
+    working = spec.model_dump(mode="json")
+    marketing = envelope.get("marketing_text", "")
+    working, _block_actions = enrich_blocks(working, marketing)
+    working, _passive_actions = enrich_spec(working)
+    if _block_actions or _passive_actions:
+        spec = CircuitSpec.model_validate(working)
+
+    # Design review: structural checks (runs before translate so agents
+    # get completeness feedback even when lib/pin matching fails)
+    review_exceptions = design_review_exceptions(spec.model_dump(mode="json"))
+
     translated = translate(spec, fp_dirs=fp_dirs)
     if translated.exceptions:
         return _json_result(
@@ -490,13 +506,11 @@ def run(envelope: dict) -> dict:
             ok=False,
             stage="translate",
             spec=spec,
-            exceptions=translated.exceptions,
+            exceptions=translated.exceptions + review_exceptions,
             metrics=_metrics(circuit=translated.circuit, fp_dirs=fp_dirs),
             summary="spec translation failed",
         )
 
-    # Design review: structural checks on the enriched spec
-    review_exceptions = design_review_exceptions(spec.model_dump(mode="json"))
     review_errors = [e for e in review_exceptions if e.severity in (Severity.FATAL, Severity.ERROR)]
     if review_errors:
         return _json_result(
