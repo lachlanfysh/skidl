@@ -682,7 +682,6 @@ PCB layout, autorouting, and DRC — do NOT call generate_schematic() etc.
 
 ```python
 from skidl import *
-set_default_tool(KICAD9)
 
 # Power rails — always set drive = POWER
 vcc = Net("VCC"); vcc.drive = POWER
@@ -747,16 +746,12 @@ def sensor_block(vcc, gnd, sda, scl):
 WORKFLOW_GUIDE = """\
 # Design workflow
 
-## Step 0 — Choose your input mode
+## Step 0 — Plan your design
 
-**Option A (preferred): SKiDL Python** — write `from skidl import *`,
-define Parts and Nets, submit via `submit_skidl_code()`. You likely know
-the API already. Read `eda://guide/skidl` for conventions.
+Write SKiDL Python code and submit via `submit_skidl_code()`.
+Read `eda://guide/skidl` for the API reference.
 
-**Option B: CircuitSpec JSON** — write a JSON spec and submit via
-`submit_design()`. Read `eda://guide/circuit-spec` for the format.
-
-For either mode, think through the full BOM before coding:
+Think through the full BOM before coding:
 - Every IC with its function (sensor, regulator, MCU, etc.)
 - Every passive: 100nF decoupling per IC power pin, 10uF bulk caps
   on each power rail, pull-ups, shunt resistors, LED limiters
@@ -773,14 +768,13 @@ correction rounds for library names, pin names, and footprints. This is
 normal and expected — each round gets closer.
 
 ```
-submit_design(spec, run_options, policy)   -> job_id
+submit_skidl_code(code, board_name)   -> job_id
         |
 get_job(job_id)  ... poll every 5-15s ...  -> result when finished
         |
   result.exceptions empty?
         |-- yes -> get_run(result.run_id) -> artifacts. Done!
-        |-- no  -> apply_correction(run_id, [{exception_id, candidate_id}, ...])
-                   -> new job_id -> poll again (keep going until succeeded)
+        |-- no  -> read the error, fix your code, resubmit
 ```
 
 The engine pipeline runs: enrich (auto-adds decoupling caps, pull-ups) →

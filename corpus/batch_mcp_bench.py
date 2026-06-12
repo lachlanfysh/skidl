@@ -35,9 +35,9 @@ DEFAULT_MODELS = [
     "deepseek/deepseek-v3.2",
     "qwen/qwen3-235b-a22b-2507",
     "qwen/qwen3-32b",
+    "google/gemini-2.5-flash-lite",
     "openai/gpt-4.1-nano",
     "openai/gpt-4.1-mini",
-    "google/gemini-2.5-flash-lite",
 ]
 
 ALL_TIERS = ("naive", "marketing", "ee_spec")
@@ -121,6 +121,7 @@ def run_one(item: dict, server: str, token: str, out_dir: Path) -> dict:
     request = f"Design me a {board_id} board: {description}"
 
     env = os.environ.copy()
+    env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
     cmd = [
         sys.executable, "-m", "corpus.mcp_ux_probe",
         "--model", model,
@@ -135,7 +136,7 @@ def run_one(item: dict, server: str, token: str, out_dir: Path) -> dict:
     try:
         proc = subprocess.run(
             cmd, capture_output=True, text=True,
-            timeout=600, env=env, cwd=str(REPO_ROOT),
+            timeout=900, env=env, cwd=str(REPO_ROOT),
         )
         wall = time.time() - started
         stdout = proc.stdout
@@ -144,7 +145,7 @@ def run_one(item: dict, server: str, token: str, out_dir: Path) -> dict:
     except subprocess.TimeoutExpired:
         wall = time.time() - started
         stdout = ""
-        stderr = "TIMEOUT after 600s"
+        stderr = "TIMEOUT after 900s"
         exit_code = -1
 
     summary_file = run_dir / "summary.json"

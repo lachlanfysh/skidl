@@ -469,6 +469,17 @@ def _exec_skidl(code: str):
         'pass',
         code,
     )
+    cleaned = re.sub(
+        r'set_default_tool\s*\([^)]*\)',
+        'pass',
+        cleaned,
+    )
+    cleaned = re.sub(
+        r'^from\s+skidl\s+import\s+\*\s*$',
+        '',
+        cleaned,
+        flags=re.MULTILINE,
+    )
     exec(cleaned, namespace)
     return _bi.default_circuit
 
