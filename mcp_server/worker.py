@@ -218,7 +218,9 @@ def _find_artifacts(run_dir: Path) -> dict[str, str]:
             if lcsc_dir.name in content:
                 used_libs.add(lcsc_dir.name)
 
-    if used_libs:
+    # Always build zip when there are multiple schematic files or custom libs
+    sch_count = sum(1 for k in artifacts if k.endswith(".kicad_sch"))
+    if used_libs or sch_count > 1:
         artifacts["_board.zip"] = _build_zip(artifacts, used_libs, easyeda_cache)
 
     return artifacts

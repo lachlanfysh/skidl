@@ -484,9 +484,9 @@ async def get_run(run_id: str) -> dict:
             run_data["hint"] = (
                 f"Run data retrieved with {len(artifacts) - 1} artifact(s) "
                 f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
-                f"This board uses custom LCSC libraries — use the _board.zip "
-                f"artifact (base64-encoded) for a self-contained KiCad project "
-                f"with all symbols, footprints, and 3D models included."
+                f"Use the _board.zip artifact (base64-encoded) for a "
+                f"self-contained KiCad project — includes all schematic "
+                f"sheets, custom libraries, 3D models, and project config."
             )
         else:
             run_data["hint"] = (
