@@ -485,6 +485,111 @@ def _drc_to_exceptions(report: dict) -> list:
     return exceptions
 
 
+def _export_gerbers(pcb_path: str, out_dir: Path) -> bool:
+    """Export Gerber + drill files via kicad-cli. Returns True on success."""
+    import shutil
+    import subprocess as sp
+
+    kicad_cli = shutil.which("kicad-cli")
+    if not kicad_cli:
+        return False
+
+    gerber_dir = out_dir / "gerbers"
+    gerber_dir.mkdir(exist_ok=True)
+
+    try:
+        sp.run(
+            [kicad_cli, "pcb", "export", "gerbers",
+             "-o", str(gerber_dir) + "/", pcb_path],
+            capture_output=True, timeout=30, text=True,
+        )
+        sp.run(
+            [kicad_cli, "pcb", "export", "drill",
+             "-o", str(gerber_dir) + "/", pcb_path],
+            capture_output=True, timeout=30, text=True,
+        )
+    except (sp.TimeoutExpired, OSError):
+        return False
+
+    return any(gerber_dir.iterdir())
+
+
+def _generate_bom(circuit, spec=None, out_dir: Path = None) -> Path | None:
+    """Generate JLCPCB BOM CSV from circuit parts."""
+    from corpus.jlc.footprint_resolver import generate_bom_csv
+
+    parts = []
+    spec_parts_by_ref = {}
+    if spec is not None:
+        for p in getattr(spec, "parts", []):
+            spec_parts_by_ref[p.ref] = p
+
+    for part in circuit.parts:
+        ref = getattr(part, "ref", "")
+        lcsc = getattr(part, "lcsc", "") or ""
+        if not lcsc and ref in spec_parts_by_ref:
+            lcsc = getattr(spec_parts_by_ref[ref], "lcsc", "") or ""
+        parts.append({
+            "comment": getattr(part, "value", "") or "",
+            "designator": ref,
+            "footprint": str(getattr(part, "footprint", "") or ""),
+            "lcsc": lcsc,
+        })
+
+    if not parts:
+        return None
+
+    bom_path = out_dir / "bom.csv"
+    generate_bom_csv(parts, str(bom_path))
+    return bom_path
+
+
+def _generate_cpl(placed_parts, out_dir: Path) -> Path | None:
+    """Generate JLCPCB CPL (pick-and-place) CSV from placed parts."""
+    from corpus.jlc.footprint_resolver import generate_cpl_csv
+
+    placements = []
+    for pp in placed_parts:
+        placements.append({
+            "designator": pp.ref,
+            "mid_x": pp.x_mm,
+            "mid_y": pp.y_mm,
+            "rotation": pp.rot_deg,
+            "layer": "Top",
+        })
+
+    if not placements:
+        return None
+
+    cpl_path = out_dir / "cpl.csv"
+    generate_cpl_csv(placements, str(cpl_path))
+    return cpl_path
+
+
+def _generate_manufacturing_files(
+    pcb_path: str,
+    circuit,
+    layout_result,
+    out_dir: Path,
+    spec=None,
+) -> dict:
+    """Generate Gerbers, BOM, and CPL for manufacturable boards."""
+    mfg = {}
+
+    if _export_gerbers(pcb_path, out_dir):
+        mfg["gerbers"] = True
+
+    bom_path = _generate_bom(circuit, spec=spec, out_dir=out_dir)
+    if bom_path:
+        mfg["bom"] = str(bom_path)
+
+    cpl_path = _generate_cpl(layout_result.placed_parts, out_dir)
+    if cpl_path:
+        mfg["cpl"] = str(cpl_path)
+
+    return mfg
+
+
 def _exec_skidl(code: str):
     """Execute SKiDL Python code and return the populated default circuit."""
     import builtins as _bi
@@ -654,6 +759,13 @@ def _run_skidl_code(envelope: dict) -> dict:
         "schematic": str(schematic_path),
         "pcb": str(pcb_path),
     }
+
+    if manufacturable:
+        mfg = _generate_manufacturing_files(
+            str(pcb_path), circuit, layout_result, out_dir,
+        )
+        outputs["manufacturing"] = mfg
+
     layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
     metrics["manufacturable"] = manufacturable
@@ -807,6 +919,13 @@ def run(envelope: dict) -> dict:
         "schematic": str(schematic_path),
         "pcb": str(pcb_path),
     }
+
+    if manufacturable:
+        mfg = _generate_manufacturing_files(
+            str(pcb_path), circuit, layout_result, out_dir, spec=spec,
+        )
+        outputs["manufacturing"] = mfg
+
     layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
     metrics["manufacturable"] = manufacturable

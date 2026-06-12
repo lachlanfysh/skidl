@@ -201,11 +201,26 @@ def _find_artifacts(run_dir: Path) -> dict[str, str]:
 
     If the board uses converted LCSC parts (easyeda2kicad), bundles
     those libraries into a self-contained zip alongside the PCB/schematic.
+    Also collects manufacturing files (Gerbers, drills, BOM, CPL) when present.
     """
     artifacts = {}
     for ext in ("*.kicad_pcb", "*.kicad_sch"):
         for path in run_dir.rglob(ext):
             artifacts[path.name] = path.read_text(errors="replace")
+
+    # BOM and CPL CSVs
+    for csv_name in ("bom.csv", "cpl.csv"):
+        csv_path = run_dir / csv_name
+        if csv_path.exists():
+            artifacts[csv_name] = csv_path.read_text(errors="replace")
+
+    # Gerber + drill files
+    gerber_dir = run_dir / "gerbers"
+    gerber_files: dict[str, str] = {}
+    if gerber_dir.is_dir():
+        for gf in gerber_dir.iterdir():
+            if gf.suffix in (".gbr", ".drl", ".gbrjob"):
+                gerber_files[gf.name] = gf.read_text(errors="replace")
 
     if not artifacts:
         return artifacts
@@ -218,10 +233,13 @@ def _find_artifacts(run_dir: Path) -> dict[str, str]:
             if lcsc_dir.name in content:
                 used_libs.add(lcsc_dir.name)
 
-    # Always build zip when there are multiple schematic files or custom libs
+    # Build zip when: custom libs, multiple schematics, or manufacturing files
     sch_count = sum(1 for k in artifacts if k.endswith(".kicad_sch"))
-    if used_libs or sch_count > 1:
-        artifacts["_board.zip"] = _build_zip(artifacts, used_libs, easyeda_cache)
+    has_mfg = bool(gerber_files) or "bom.csv" in artifacts
+    if used_libs or sch_count > 1 or has_mfg:
+        artifacts["_board.zip"] = _build_zip(
+            artifacts, used_libs, easyeda_cache, gerber_files,
+        )
 
     return artifacts
 
@@ -230,8 +248,9 @@ def _build_zip(
     artifacts: dict[str, str],
     used_libs: set[str],
     easyeda_cache: Path,
+    gerber_files: dict[str, str] | None = None,
 ) -> str:
-    """Build a self-contained zip with board files, custom libs, and kicad_pro."""
+    """Build a self-contained zip with board files, custom libs, manufacturing output, and kicad_pro."""
     import base64
     import zipfile
     from io import BytesIO
@@ -243,6 +262,10 @@ def _build_zip(
             if name.startswith("_"):
                 continue
             zf.writestr(name, content)
+
+        # Manufacturing files (Gerbers + drills)
+        for name, content in (gerber_files or {}).items():
+            zf.writestr(f"gerbers/{name}", content)
 
         # Custom libraries from easyeda2kicad
         lib_entries = []

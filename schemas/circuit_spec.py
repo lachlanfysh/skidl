@@ -54,6 +54,7 @@ class PartSpec(BaseModel):
     part: Optional[str] = Field(default=None, description="Symbol name within lib, e.g. 'R'. Required when lib is set")
     value: Optional[str] = Field(default=None, description="Component value, e.g. '10K', '100nF'")
     footprint: str = Field(description="KiCad footprint as 'Library:Name', e.g. 'Resistor_SMD:R_0603_1608Metric'")
+    lcsc: Optional[str] = Field(default=None, description="LCSC/JLCPCB part number, e.g. 'C160404'. Used for BOM generation and JLCPCB ordering")
     pins: Optional[list[PinDef]] = Field(default=None, description="Explicit pin definitions — required for custom parts (lib=None), forbidden for library parts")
     group: Optional[str] = Field(default=None, description="Functional block name; parts sharing a group are placed together and get their own schematic sheet")
 

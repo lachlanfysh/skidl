@@ -157,6 +157,7 @@ async def submit_skidl_code(
     code: str,
     board_name: str = "board",
     outline_mm: list[float] | None = None,
+    kicad_version: str = "9",
     run_options: dict | None = None,
 ) -> dict:
     """Submit SKiDL Python code to generate a PCB design.
@@ -164,6 +165,15 @@ async def submit_skidl_code(
     Write standard SKiDL Python: Part(), Net(), pin connections. The server
     handles the full pipeline (schematic, PCB layout, routing, DRC) — do NOT
     call generate_schematic() or generate_netlist() in your code.
+
+    When the board passes routing + DRC, manufacturing files are generated
+    automatically: Gerbers, drill files, BOM CSV, and CPL (pick-and-place)
+    CSV — everything needed for JLCPCB ordering. These are bundled in the
+    output zip alongside the KiCad source files.
+
+    To include LCSC part numbers in the BOM (for JLCPCB assembly), set
+    part.lcsc on each Part: `u1.lcsc = "C160404"`. Use search_kicad() to
+    find LCSC variants with pricing and stock.
 
     Example code:
         from skidl import *
@@ -173,6 +183,7 @@ async def submit_skidl_code(
 
         u1 = Part("Sensor_Temperature", "TMP117xxDRV",
                    footprint="Package_SON:WSON-6-1EP_2x2mm_P0.65mm_EP1x1.6mm")
+        u1.lcsc = "C160404"
         c1 = Part("Device", "C", value="100nF",
                    footprint="Capacitor_SMD:C_0603_1608Metric")
         r1 = Part("Device", "R", value="10K",
@@ -201,6 +212,7 @@ async def submit_skidl_code(
     code: Python source defining a SKiDL circuit.
     board_name: name for output files (default "board").
     outline_mm: [width, height] in mm. Omit to auto-size from parts.
+    kicad_version: target KiCad version for output format ("9" or "10").
     run_options: {"timeout_s": 300} — raise for complex boards.
 
     Returns: {"job_id": "...", "status": "queued"}. Poll get_job(job_id).
@@ -213,6 +225,7 @@ async def submit_skidl_code(
         "code": code,
         "board_name": board_name or "board",
         "outline_mm": outline_mm,
+        "kicad_version": kicad_version or "9",
     }
     opts = dict(run_options or {})
     job_id = await db.create_job(job_spec, opts)
@@ -223,7 +236,8 @@ async def submit_skidl_code(
             "Job queued. Poll with get_job(job_id) every 10s until "
             "status is 'succeeded' or 'failed'. If your code has errors "
             "(wrong lib/part/pin names), you'll get a clear message — "
-            "fix and resubmit."
+            "fix and resubmit. When the board passes DRC, manufacturing "
+            "files (Gerbers, BOM, CPL) are included in the output zip."
         ),
     }
 
@@ -289,9 +303,16 @@ def _get_job_hint(job: dict) -> str:
     run_id = result.get("run_id", "")
 
     if not exceptions:
+        mfg = (result.get("outputs") or {}).get("manufacturing")
+        mfg_note = ""
+        if mfg:
+            mfg_note = (
+                " Manufacturing files (Gerbers, BOM, CPL) are included "
+                "in the zip — ready for JLCPCB upload."
+            )
         return (
-            f"Clean run — no issues. Fetch your KiCad schematic and PCB "
-            f"files with get_run('{run_id}')."
+            f"Clean run — no issues. Fetch your KiCad files "
+            f"with get_run('{run_id}').{mfg_note}"
         )
 
     exc_codes = [e.get("code", "") for e in exceptions if isinstance(e, dict)]
@@ -467,11 +488,16 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
 async def get_run(run_id: str) -> dict:
     """Fetch full run data: spec, exceptions, response, and KiCad artifacts.
 
-    artifacts contains .kicad_sch and .kicad_pcb file contents. If the board
-    uses converted LCSC parts (from convert_lcsc()), artifacts also includes
-    _board.zip — a base64-encoded zip with the board, custom symbol/footprint
-    libraries, 3D models, and a .kicad_pro project file. Decode and extract
-    the zip for a self-contained KiCad project.
+    artifacts contains .kicad_sch and .kicad_pcb file contents. When the
+    board passes routing + DRC, manufacturing files are also included:
+    bom.csv (JLCPCB BOM with LCSC part numbers), cpl.csv (pick-and-place),
+    and Gerber/drill files in the zip.
+
+    If custom LCSC parts, multi-sheet schematics, or manufacturing files
+    are present, artifacts includes _board.zip — a base64-encoded zip with
+    everything needed: KiCad source, custom libraries, 3D models, project
+    file, Gerbers, drill files, BOM, and CPL. Upload the gerbers/ folder
+    directly to JLCPCB for ordering.
 
     Note: run data expires ~48h after completion.
     """
@@ -479,14 +505,23 @@ async def get_run(run_id: str) -> dict:
     artifacts = run_data.get("artifacts") or {}
     file_types = [k.rsplit(".", 1)[-1] for k in artifacts if "." in k and not k.startswith("_")]
     has_zip = "_board.zip" in artifacts
+    has_mfg = "bom.csv" in artifacts or any(
+        k.endswith(".gbr") for k in artifacts
+    )
     if artifacts:
         if has_zip:
+            mfg_note = ""
+            if has_mfg:
+                mfg_note = (
+                    " Manufacturing files included: upload the gerbers/ "
+                    "folder + bom.csv + cpl.csv to JLCPCB for ordering."
+                )
             run_data["hint"] = (
                 f"Run data retrieved with {len(artifacts) - 1} artifact(s) "
                 f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
                 f"Use the _board.zip artifact (base64-encoded) for a "
-                f"self-contained KiCad project — includes all schematic "
-                f"sheets, custom libraries, 3D models, and project config."
+                f"self-contained KiCad project — includes schematic sheets, "
+                f"custom libraries, 3D models, and project config.{mfg_note}"
             )
         else:
             run_data["hint"] = (
