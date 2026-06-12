@@ -32,14 +32,10 @@ from schemas.exceptions import ActionType, DesignException, ExcCode
 mcp = FastMCP(
     "eda-mcp",
     instructions=(
-        "PCB design generation service. Read eda://guide/circuit-spec FIRST "
-        "— it has the exact JSON format, valid field values, and a worked "
-        "example. Workflow: build a CircuitSpec JSON, optionally "
-        "estimate_complexity() to pre-check, then submit_design() -> "
-        "poll get_job() until finished -> if exceptions are returned, pick "
-        "candidate fixes and apply_correction() to iterate. Fetch final "
-        "KiCad artifacts with get_run(). Read eda://guide/workflow for the "
-        "full loop and eda://guide/exceptions for the correction model."
+        "PCB design generation service. Build a CircuitSpec JSON and "
+        "submit_design() to generate schematics and PCB layout. Each tool "
+        "response includes a 'hint' field telling you what to do next — "
+        "follow the hints and read any resources they mention."
     ),
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
@@ -76,6 +72,8 @@ def _validate_spec(input_spec: dict | str) -> CircuitSpec:
         raise ValueError(
             "Spec validation failed — fix these and resubmit:\n"
             + "\n".join(lines)
+            + "\n\nHint: Read resource eda://guide/circuit-spec for the "
+            "full format reference, valid field values, and a worked example."
         )
 
 
@@ -144,7 +142,14 @@ async def submit_design(
         run_options,
         policy,
     )
-    return {"job_id": job_id, "status": "queued"}
+    return {
+        "job_id": job_id,
+        "status": "queued",
+        "hint": (
+            "Job queued. Poll with get_job(job_id) every 10s until "
+            "status is 'succeeded' or 'failed'."
+        ),
+    }
 
 
 @mcp.tool()
@@ -177,7 +182,69 @@ async def get_job(job_id: str) -> dict:
         if isinstance(layout, str) and len(layout) > 2000:
             result["layout"] = layout[:2000] + "\n... (use get_run for full data)"
 
+    job["hint"] = _get_job_hint(job)
     return job
+
+
+def _get_job_hint(job: dict) -> str:
+    """Context-sensitive hint based on job state."""
+    status = job.get("status", "")
+    if status in ("queued", "running"):
+        return "Still processing. Poll again in 10s."
+
+    result = job.get("result")
+    if not isinstance(result, dict):
+        if job.get("error"):
+            return (
+                "Job crashed. Check your spec for issues — read resource "
+                "eda://guide/circuit-spec for the format reference, then "
+                "fix and resubmit with submit_design()."
+            )
+        return "Job finished with no result. Resubmit."
+
+    exceptions = result.get("exceptions", [])
+    decision_required = result.get("decision_required", False)
+    run_id = result.get("run_id", "")
+
+    if not exceptions:
+        return (
+            f"Clean run — no issues. Fetch your KiCad schematic and PCB "
+            f"files with get_run('{run_id}')."
+        )
+
+    exc_codes = [e.get("code", "") for e in exceptions if isinstance(e, dict)]
+    has_pin_errors = any("PIN" in c for c in exc_codes)
+    has_footprint_errors = any("FOOTPRINT" in c or "BAD_FOOTPRINT" in c for c in exc_codes)
+    has_lib_errors = any("LIB" in c or "PART" in c for c in exc_codes)
+
+    if decision_required:
+        parts = []
+        if has_pin_errors:
+            parts.append(
+                "Pin errors found — check the 'available_pins' in each "
+                "exception to see valid pin names"
+            )
+        if has_footprint_errors:
+            parts.append(
+                "Footprint issues — candidates offer substitutions"
+            )
+        if has_lib_errors:
+            parts.append(
+                "Library/part not found — check lib is a KiCad library name "
+                "(e.g. 'Sensor_Temperature'), not a manufacturer"
+            )
+        parts.append(
+            "Pick candidate fixes and call apply_correction(run_id, corrections). "
+            "Read resource eda://guide/exceptions for the full correction model"
+        )
+        return ". ".join(parts) + "."
+
+    return (
+        f"Run finished with {len(exceptions)} exception(s). "
+        f"Inspect the candidates and apply_correction() to fix, or "
+        f"get_run('{run_id}') if the results are acceptable. "
+        f"Read resource eda://guide/exceptions for correction guidance."
+    )
 
 
 @mcp.tool()
@@ -207,7 +274,41 @@ async def estimate_complexity(input_spec: dict) -> dict:
         await db.append_estimate(spec.board.name, result)
     except Exception:
         pass
+
+    result["hint"] = _estimate_hint(result)
     return result
+
+
+def _estimate_hint(result: dict) -> str:
+    """Context-sensitive hint for estimate_complexity response."""
+    tier = result.get("complexity_tier", "simple")
+    issues = result.get("spec_issues", [])
+    warnings = result.get("warnings", [])
+
+    parts = []
+
+    if issues:
+        parts.append(
+            f"Found {len(issues)} spec issue(s) — fix before submitting. "
+            f"Read resource eda://guide/circuit-spec for format reference"
+        )
+    elif warnings:
+        parts.append(
+            f"{len(warnings)} warning(s) — review but not blocking"
+        )
+
+    if tier in ("complex", "ambitious"):
+        parts.append(
+            f"Complexity: {tier}. Use timeout_s=900 or higher in run_options "
+            f"when you submit_design()"
+        )
+
+    if not issues:
+        parts.append(
+            "Spec looks valid. Submit with submit_design() when ready"
+        )
+
+    return ". ".join(parts) + "."
 
 
 @mcp.tool()
@@ -269,7 +370,15 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
         {"parent_run_id": parent_run_id},
         parent_job_id=run_data.get("job_id"),
     )
-    return {"job_id": job_id, "status": "queued", "parent_run_id": parent_run_id}
+    return {
+        "job_id": job_id,
+        "status": "queued",
+        "parent_run_id": parent_run_id,
+        "hint": (
+            "Corrections applied, new job queued. "
+            "Poll get_job(job_id) every 10s for results."
+        ),
+    }
 
 
 @mcp.tool()
@@ -282,7 +391,19 @@ async def get_run(run_id: str) -> dict:
     that produced this run (after any corrections), useful as the base for
     manual edits. Note: run data expires ~48h after completion.
     """
-    return await db.load_run(run_id)
+    run_data = await db.load_run(run_id)
+    artifacts = run_data.get("artifacts") or {}
+    file_types = [k.rsplit(".", 1)[-1] for k in artifacts if "." in k]
+    if artifacts:
+        run_data["hint"] = (
+            f"Run data retrieved with {len(artifacts)} artifact(s) "
+            f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
+            f"Write these files to disk — they're complete KiCad 9 files "
+            f"you can open directly."
+        )
+    else:
+        run_data["hint"] = "Run data retrieved but no artifacts were generated."
+    return run_data
 
 
 # ── Resources: deep reference an agent reads on demand ─────────────────
