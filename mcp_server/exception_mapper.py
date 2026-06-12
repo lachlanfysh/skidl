@@ -277,11 +277,13 @@ def layout_exceptions(layout_result) -> list[DesignException]:
     return out
 
 
-def payload_exceptions(payload: dict, spec: CircuitSpec) -> list[DesignException]:
+def payload_exceptions(payload: dict, spec: CircuitSpec | None) -> list[DesignException]:
     """Validate/suppress exception dicts returned by the worker."""
 
     exceptions = [
         exc if isinstance(exc, DesignException) else DesignException.model_validate(exc)
         for exc in payload.get("exceptions", [])
     ]
-    return suppress_waived(exceptions, spec)
+    if spec is not None:
+        return suppress_waived(exceptions, spec)
+    return exceptions

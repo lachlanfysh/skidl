@@ -52,6 +52,8 @@ class ExcCode(str, Enum):
     DRC_SHORT = "DRC_SHORT"
     DRC_COURTYARD = "DRC_COURTYARD"
     DRC_TOOL_FAILURE = "DRC_TOOL_FAILURE"
+    # SKiDL code execution
+    CODE_EXEC_ERROR = "CODE_EXEC_ERROR"
     # Harness-level
     ENGINE_TIMEOUT = "ENGINE_TIMEOUT"
     ENGINE_CRASH = "ENGINE_CRASH"

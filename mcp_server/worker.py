@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 
 from mcp_server.db import DB
-from mcp_server.pipeline import DesignResponse, run_pipeline
+from mcp_server.pipeline import DesignResponse, run_pipeline, run_pipeline_code
 from mcp_server.policy import auto_corrections, correction_history_keys, decision_kind, normalize_policy
 from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import apply_candidate
@@ -64,7 +64,10 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
 
 def _execute_job(job: dict) -> dict:
     """Run the engine pipeline synchronously (called via to_thread)."""
-    spec = CircuitSpec.model_validate(job["spec"])
+    raw = job["spec"]
+    if raw.get("_mode") == "skidl_python":
+        return _execute_skidl_job(job)
+    spec = CircuitSpec.model_validate(raw)
     opts = job.get("options") or {}
     policy_dict = job.get("policy") or {}
     policy = normalize_policy(policy_dict)
@@ -126,6 +129,33 @@ def _execute_job(job: dict) -> dict:
         result = response.model_dump(mode="json")
         result["spec"] = spec.model_dump(mode="json")
         result["corrections_applied"] = corrections
+
+        if response.exceptions:
+            result["decision_required"] = True
+            result["decision_kind"] = decision_kind(response.exceptions)
+
+        result["_artifact_paths"] = _find_artifacts(Path(tmpdir))
+        return result
+
+
+def _execute_skidl_job(job: dict) -> dict:
+    """Run SKiDL Python code through the pipeline (called via to_thread)."""
+    raw = job["spec"]
+    opts = job.get("options") or {}
+    timeout_s = float(opts.get("timeout_s", 300))
+
+    with tempfile.TemporaryDirectory(prefix="eda-run-") as tmpdir:
+        response = run_pipeline_code(
+            code=raw["code"],
+            board_name=raw.get("board_name", "board"),
+            outline_mm=raw.get("outline_mm"),
+            out_dir=tmpdir,
+            timeout_s=timeout_s,
+            board_id=opts.get("board_id"),
+        )
+
+        result = response.model_dump(mode="json")
+        result["spec"] = raw
 
         if response.exceptions:
             result["decision_required"] = True

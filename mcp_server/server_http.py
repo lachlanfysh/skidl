@@ -32,14 +32,14 @@ from schemas.exceptions import ActionType, DesignException, ExcCode
 mcp = FastMCP(
     "eda-mcp",
     instructions=(
-        "PCB design generation service. BEFORE writing any JSON, describe "
-        "the full circuit in plain English: list every IC, every passive "
-        "(decoupling caps, bulk caps, pull-ups, shunt resistors), every "
-        "connector with exact pin count (count the signals!), and any "
-        "address/config hardware. Then read the circuit-spec guide to learn "
-        "the JSON format and convert your description. submit_design() to "
-        "generate schematics and PCB layout. Each tool response includes a "
-        "'hint' field — follow hints and read any resources they mention."
+        "PCB design generation service. Two input modes:\n"
+        "1. PREFERRED: Write SKiDL Python code (from skidl import *, Part(), "
+        "Net(), @subcircuit) and submit via submit_skidl_code(). You likely "
+        "know the SKiDL API from training data — use it directly.\n"
+        "2. Alternative: Write CircuitSpec JSON and submit via submit_design(). "
+        "Read eda://guide/circuit-spec first.\n"
+        "Both modes produce KiCad schematics, PCB layout, autorouting, and DRC. "
+        "Poll get_job() until done, then get_run() for artifacts."
     ),
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
@@ -152,6 +152,83 @@ async def submit_design(
         "hint": (
             "Job queued. Poll with get_job(job_id) every 10s until "
             "status is 'succeeded' or 'failed'."
+        ),
+    }
+
+
+@mcp.tool()
+async def submit_skidl_code(
+    code: str,
+    board_name: str = "board",
+    outline_mm: list[float] | None = None,
+    run_options: dict | None = None,
+) -> dict:
+    """Submit SKiDL Python code to generate a PCB design.
+
+    Write standard SKiDL Python: Part(), Net(), pin connections. The server
+    handles the full pipeline (schematic, PCB layout, routing, DRC) — do NOT
+    call generate_schematic() or generate_netlist() in your code.
+
+    Example code:
+        from skidl import *
+        set_default_tool(KICAD9)
+
+        vcc = Net("VCC"); vcc.drive = POWER
+        gnd = Net("GND"); gnd.drive = POWER
+
+        u1 = Part("Sensor_Temperature", "TMP117xxDRV",
+                   footprint="Package_SON:WSON-6-1EP_2x2mm_P0.65mm_EP1x1.6mm")
+        c1 = Part("Device", "C", value="100nF",
+                   footprint="Capacitor_SMD:C_0603_1608Metric")
+        r1 = Part("Device", "R", value="10K",
+                   footprint="Resistor_SMD:R_0603_1608Metric")
+        r2 = Part("Device", "R", value="10K",
+                   footprint="Resistor_SMD:R_0603_1608Metric")
+        j1 = Part("Connector_Generic", "Conn_01x04",
+                   footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+
+        vcc += u1["V+"], c1[1], r1[1], r2[1], j1[1]
+        gnd += u1["GND"], c1[2], j1[4]
+        sda = Net("SDA"); sda += u1["SDA"], r1[2], j1[2]
+        scl = Net("SCL"); scl += u1["SCL"], r2[2], j1[3]
+
+    Key rules:
+    - lib must be a KiCad symbol library (Device, Sensor_Temperature,
+      Connector_Generic, Analog_ADC...), NOT a manufacturer name.
+    - Every Part needs footprint="Library:Name" (KiCad footprint id).
+    - Power nets: set net.drive = POWER on every supply/ground rail.
+    - Decoupling caps: value="100nF" between power and ground per IC.
+    - Connectors: Part("Connector_Generic", "Conn_01x06", ...).
+    - Use standard power names: VCC, VDD, 3V3, 5V, VBUS, GND, AGND.
+    - Use @subcircuit to group functional blocks for cleaner schematics.
+    Read resource eda://guide/skidl for a quick reference.
+
+    code: Python source defining a SKiDL circuit.
+    board_name: name for output files (default "board").
+    outline_mm: [width, height] in mm. Omit to auto-size from parts.
+    run_options: {"timeout_s": 300} — raise for complex boards.
+
+    Returns: {"job_id": "...", "status": "queued"}. Poll get_job(job_id).
+    """
+    if not code or not code.strip():
+        raise ValueError("code must be non-empty SKiDL Python source.")
+
+    job_spec = {
+        "_mode": "skidl_python",
+        "code": code,
+        "board_name": board_name or "board",
+        "outline_mm": outline_mm,
+    }
+    opts = dict(run_options or {})
+    job_id = await db.create_job(job_spec, opts)
+    return {
+        "job_id": job_id,
+        "status": "queued",
+        "hint": (
+            "Job queued. Poll with get_job(job_id) every 10s until "
+            "status is 'succeeded' or 'failed'. If your code has errors "
+            "(wrong lib/part/pin names), you'll get a clear message — "
+            "fix and resubmit."
         ),
     }
 
@@ -441,6 +518,16 @@ def circuit_spec_guide() -> str:
 
 
 @mcp.resource(
+    "eda://guide/skidl",
+    name="SKiDL Python quick reference",
+    description="How to write SKiDL Python code for submit_skidl_code(): Part(), Net(), @subcircuit, power conventions, footprint format.",
+    mime_type="text/markdown",
+)
+def skidl_guide() -> str:
+    return SKIDL_GUIDE
+
+
+@mcp.resource(
     "eda://guide/workflow",
     name="Design workflow guide",
     description="The full submit -> poll -> inspect -> correct -> fetch loop, with policy options and polling guidance.",
@@ -602,24 +689,97 @@ Other part fields:
 """
 
 
+SKIDL_GUIDE = """\
+# SKiDL Python quick reference
+
+Write standard SKiDL Python code. The server handles schematic generation,
+PCB layout, autorouting, and DRC — do NOT call generate_schematic() etc.
+
+## Template
+
+```python
+from skidl import *
+set_default_tool(KICAD9)
+
+# Power rails — always set drive = POWER
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
+
+# Parts — every part needs footprint="Library:Name"
+u1 = Part("Analog_ADC", "ADS1115IDGS",
+          footprint="Package_SO:TSSOP-10_3x3mm_P0.5mm")
+c1 = Part("Device", "C", value="100nF",
+          footprint="Capacitor_SMD:C_0603_1608Metric")
+
+# Connect by pin name (ICs) or number (passives)
+vcc += u1["VDD"], c1[1]
+gnd += u1["GND"], c1[2]
+```
+
+## Key rules
+
+- `lib` is a KiCad symbol library name, NOT a manufacturer:
+  Device, Sensor_Temperature, Connector_Generic, Analog_ADC,
+  Regulator_Linear, Transistor_FET, MCU_Microchip, RF_Module, etc.
+- Connectors: `Part("Connector_Generic", "Conn_01x06", ...)`
+  not "PinHeader_1x06"
+- Decoupling caps: value="100nF" wired power-to-ground = auto-placed
+  near parent IC. One per IC power pin. "104" or "bypass" won't work.
+- Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND
+- Use @subcircuit for functional blocks:
+
+```python
+@subcircuit
+def sensor_block(vcc, gnd, sda, scl):
+    u = Part("Sensor_Temperature", "TMP117xxDRV",
+             footprint="Package_SON:WSON-6-1EP_2x2mm_P0.65mm_EP1x1.6mm")
+    c = Part("Device", "C", value="100nF",
+             footprint="Capacitor_SMD:C_0603_1608Metric")
+    vcc += u["V+"], c[1]
+    gnd += u["GND"], c[2]
+    sda += u["SDA"]
+    scl += u["SCL"]
+```
+
+## Common passives
+
+| Component | Example |
+|-----------|---------|
+| Resistor | `Part("Device", "R", value="10K", footprint="Resistor_SMD:R_0603_1608Metric")` |
+| Capacitor | `Part("Device", "C", value="100nF", footprint="Capacitor_SMD:C_0603_1608Metric")` |
+| Bulk cap | `Part("Device", "C_Polarized", value="10uF", footprint="Capacitor_SMD:C_0805_2012Metric")` |
+| LED | `Part("Device", "LED", footprint="LED_SMD:LED_0603_1608Metric")` |
+| Diode | `Part("Device", "D_Schottky", footprint="Diode_SMD:D_SOD-123")` |
+
+## Tips
+
+- Pin names on ICs may differ from net names — BME280 uses SDI/SCK,
+  not SDA/SCL. Check the KiCad library if unsure.
+- For address selection: use pull-up/pull-down resistors on ADDR pins.
+- Include bulk caps (10uF) on power rails and 100nF decoupling per IC.
+- Count connector pins carefully: VCC + GND + SDA + SCL + A0 + A1 = 6 pins.
+"""
+
+
 WORKFLOW_GUIDE = """\
 # Design workflow
 
-## Step 0 — Think like an engineer BEFORE writing JSON
+## Step 0 — Choose your input mode
 
-Before you touch any tools, write out a plain-English bill of materials
-for the board you're designing. For each functional block, list:
-- Every IC with its exact function (sensor, regulator, MCU, etc.)
-- Every passive: decoupling caps (100nF per IC power pin), bulk caps
-  (10uF on each power rail), pull-up/pull-down resistors, current-sense
-  shunt resistors, LED current limiters
-- Every connector: count the pins by listing what each pin carries
-  (e.g. VCC, GND, SDA, SCL, A0, A1 = 6 pins, not 4)
+**Option A (preferred): SKiDL Python** — write `from skidl import *`,
+define Parts and Nets, submit via `submit_skidl_code()`. You likely know
+the API already. Read `eda://guide/skidl` for conventions.
+
+**Option B: CircuitSpec JSON** — write a JSON spec and submit via
+`submit_design()`. Read `eda://guide/circuit-spec` for the format.
+
+For either mode, think through the full BOM before coding:
+- Every IC with its function (sensor, regulator, MCU, etc.)
+- Every passive: 100nF decoupling per IC power pin, 10uF bulk caps
+  on each power rail, pull-ups, shunt resistors, LED limiters
+- Every connector: count pins by listing signals (VCC, GND, SDA,
+  SCL, A0, A1 = 6 pins, not 4)
 - Address selection hardware (solder jumpers, pull-downs)
-
-This step is critical — models that skip it consistently forget bulk caps,
-shunt resistors, and produce wrong pin counts on headers. Describe the
-full circuit in English first, then convert to the CircuitSpec JSON.
 
 ## Step 1 — Submit and iterate
 
@@ -748,6 +908,7 @@ def _exceptions_guide() -> str:
         "DRC_TOOL_FAILURE": "advisory: DRC tool failed to run",
         "ENGINE_TIMEOUT": "engine hit timeout_s — raise it or simplify",
         "ENGINE_CRASH": "engine crashed; usually retry (regenerate)",
+        "CODE_EXEC_ERROR": "SKiDL Python code raised an error during execution",
         "BUDGET_EXHAUSTED": "correction budget used up without convergence",
     }
     action_docs = {

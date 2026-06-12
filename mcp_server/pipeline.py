@@ -275,3 +275,113 @@ def run_pipeline(
 
     store.save(run_id, circuit_spec, response.exceptions, response)
     return response
+
+
+def run_pipeline_code(
+    code: str,
+    board_name: str,
+    outline_mm: list[float] | None,
+    out_dir,
+    timeout_s: float = 300,
+    *,
+    run_id: str | None = None,
+    board_id: str | None = None,
+) -> DesignResponse:
+    """Run SKiDL Python code through the engine pipeline in an isolated worker."""
+
+    run_id = run_id or uuid.uuid4().hex[:12]
+    store = RunStore(out_dir)
+    run_dir = store.run_dir(run_id)
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    envelope = {
+        "_mode": "skidl_python",
+        "run_id": run_id,
+        "out_dir": str(run_dir),
+        "code": code,
+        "board_name": board_name,
+        "outline_mm": outline_mm,
+    }
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "mcp_server.engine_worker"],
+        cwd=str(_repo_root()),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+        env=_env(),
+    )
+
+    timed_out = False
+    try:
+        stdout, stderr = proc.communicate(
+            json.dumps(envelope), timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        _kill_process_group(proc)
+        stdout, stderr = proc.communicate()
+        response = DesignResponse(
+            run_id=run_id, ok=False, status="timeout", stage="timeout",
+            exceptions=[timeout_exception(timeout_s)],
+            stderr=stderr[-4000:],
+        )
+        store.save(
+            run_id,
+            {"_mode": "skidl_python", "code": code, "board_name": board_name},
+            response.exceptions, response,
+        )
+        return response
+
+    lines = [line for line in stdout.splitlines() if line.strip()]
+    try:
+        payload = json.loads(lines[-1]) if lines else {}
+    except (json.JSONDecodeError, IndexError) as exc:
+        payload = {}
+        exceptions = [
+            crash_exception(
+                f"worker returned invalid JSON: {type(exc).__name__}: {exc}",
+                stderr=stderr,
+            )
+        ]
+    else:
+        exceptions = [
+            exc if isinstance(exc, DesignException)
+            else DesignException.model_validate(exc)
+            for exc in payload.get("exceptions", [])
+        ]
+        if proc.returncode not in (0, None) and not exceptions:
+            exceptions = [
+                crash_exception(
+                    f"worker exited with status {proc.returncode}",
+                    stderr=stderr,
+                )
+            ]
+
+    ok = bool(payload.get("ok", False)) and not any(
+        exc.severity in (Severity.FATAL, Severity.ERROR) for exc in exceptions
+    )
+    response = DesignResponse(
+        run_id=run_id,
+        ok=ok,
+        status=str(
+            payload.get("status")
+            or _status(ok, exceptions, timed_out=timed_out)
+        ),
+        stage=str(payload.get("stage", "")),
+        exceptions=exceptions,
+        outputs=dict(payload.get("outputs", payload.get("artifacts", {}))),
+        artifacts=dict(payload.get("artifacts", {})),
+        layout=dict(payload.get("layout", {})),
+        metrics=dict(payload.get("metrics", {})),
+        summary=str(payload.get("summary", "")),
+        stderr=stderr[-4000:],
+    )
+
+    store.save(
+        run_id,
+        {"_mode": "skidl_python", "code": code, "board_name": board_name},
+        response.exceptions, response,
+    )
+    return response

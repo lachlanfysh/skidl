@@ -30,7 +30,7 @@ from schemas.enrichment import (
     enrich as enrich_spec,
     enrich_blocks,
 )
-from schemas.exceptions import ExcCode, Severity
+from schemas.exceptions import DesignException, ExcCode, Severity
 from schemas.translator import DEFAULT_FP_DIR, DEFAULT_SYM_DIR, translate
 
 
@@ -159,7 +159,7 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
         return [DesignException(
             id="e-route-unavailable",
             code=ExcCode.ROUTE_UNAVAILABLE,
-            severity=Severity.WARNING,
+            severity=Severity.ADVISORY,
             message="Routing unavailable: Freerouting JAR or Java not found — board is unrouted but placement is valid",
             subject={},
             candidates=[],
@@ -452,6 +452,155 @@ def _drc_to_exceptions(report: dict) -> list:
     return exceptions
 
 
+def _exec_skidl(code: str):
+    """Execute SKiDL Python code and return the populated default circuit."""
+    import builtins as _bi
+
+    from skidl import KICAD9, set_default_tool
+
+    _bi.default_circuit.reset()
+    set_default_tool(KICAD9)
+
+    namespace = {}
+    exec("from skidl import *\nset_default_tool(KICAD9)", namespace)
+
+    cleaned = re.sub(
+        r'(?:[\w.]*\.)?generate_(?:schematic|netlist|pcb)\s*\([^)]*\)',
+        'pass',
+        code,
+    )
+    exec(cleaned, namespace)
+    return _bi.default_circuit
+
+
+def _code_exception(message: str, hint: str = "") -> DesignException:
+    return DesignException(
+        id="e-code",
+        code=ExcCode.CODE_EXEC_ERROR,
+        severity=Severity.FATAL,
+        message=message,
+        subject={},
+        candidates=[],
+        retry_hint=hint or "Fix the error in your SKiDL code and resubmit.",
+    )
+
+
+def _run_skidl_code(envelope: dict) -> dict:
+    """Execute SKiDL Python code and run the generation pipeline."""
+    code = envelope.get("code", "")
+    board_name = _safe_name(envelope.get("board_name", "board"))
+    outline_mm = envelope.get("outline_mm")
+    run_id = str(envelope.get("run_id") or uuid.uuid4().hex[:12])
+    out_dir = Path(
+        envelope.get("out_dir") or Path("artifacts") / "runs" / run_id
+    ).resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    os.chdir(out_dir)
+
+    os.environ.setdefault("KICAD9_SYMBOL_DIR", DEFAULT_SYM_DIR)
+    os.environ.setdefault("KICAD9_FOOTPRINT_DIR", DEFAULT_FP_DIR)
+    fp_dirs = [os.environ["KICAD9_FOOTPRINT_DIR"]]
+
+    try:
+        circuit = _exec_skidl(code)
+    except SyntaxError as exc:
+        return _json_result(
+            run_id=run_id, ok=False, stage="exec",
+            exceptions=[_code_exception(f"SyntaxError: {exc}")],
+            metrics=_metrics(),
+        )
+    except Exception as exc:
+        return _json_result(
+            run_id=run_id, ok=False, stage="exec",
+            exceptions=[_code_exception(f"{type(exc).__name__}: {exc}")],
+            metrics=_metrics(),
+        )
+
+    if not circuit.parts:
+        return _json_result(
+            run_id=run_id, ok=False, stage="exec",
+            exceptions=[_code_exception(
+                "Code produced no parts. Define parts with Part() and "
+                "connect them with Net().",
+            )],
+            metrics=_metrics(),
+        )
+
+    schematic_path = out_dir / f"{board_name}.kicad_sch"
+    pcb_path = out_dir / f"{board_name}.kicad_pcb"
+
+    circuit.generate_schematic(
+        filepath=str(out_dir),
+        top_name=board_name,
+        auto_stub=True,
+        auto_stub_fanout=3,
+        erc_max_iterations=8,
+    )
+
+    from skidl.layout import LayoutConstraints, BoardOutline, plan_layout, write_kicad_pcb
+
+    outline = BoardOutline(*outline_mm) if outline_mm else None
+    constraints = LayoutConstraints(outline=outline)
+    layout_result = plan_layout(
+        circuit, fp_lib_dirs=fp_dirs, constraints=constraints,
+    )
+    write_kicad_pcb(
+        layout_result.placed_parts, circuit, fp_dirs,
+        str(pcb_path), outline=layout_result.outline,
+    )
+
+    all_exceptions = layout_exceptions(layout_result)
+
+    layout_errors = [
+        e for e in all_exceptions
+        if e.severity in (Severity.FATAL, Severity.ERROR)
+    ]
+    manufacturable = False
+    if not layout_errors:
+        route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
+        route_exceptions = _route_pcb(str(pcb_path), timeout_s=route_timeout)
+        all_exceptions.extend(route_exceptions)
+
+        route_failed = any(
+            e.code in (ExcCode.ROUTE_UNCONNECTED, ExcCode.ROUTE_TIMEOUT)
+            for e in route_exceptions
+        )
+        route_skipped = any(
+            e.code == ExcCode.ROUTE_UNAVAILABLE for e in route_exceptions
+        )
+        if not route_failed and not route_skipped:
+            drc_exceptions = _run_drc(str(pcb_path))
+            all_exceptions.extend(drc_exceptions)
+            drc_errors = [
+                e for e in drc_exceptions
+                if e.severity in (Severity.FATAL, Severity.ERROR)
+            ]
+            manufacturable = not drc_errors
+
+    outputs = {
+        "run_dir": str(out_dir),
+        "schematic": str(schematic_path),
+        "pcb": str(pcb_path),
+    }
+    layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
+    metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
+    metrics["manufacturable"] = manufacturable
+
+    return _json_result(
+        run_id=run_id,
+        ok=layout_result.ok and not any(
+            e.severity in (Severity.FATAL, Severity.ERROR)
+            for e in all_exceptions
+        ),
+        stage="complete",
+        exceptions=all_exceptions,
+        outputs=outputs,
+        layout=layout_dict,
+        metrics=metrics,
+        summary=layout_result.summary(),
+    )
+
+
 def _outline_for_spec(spec: CircuitSpec):
     from skidl.layout import BoardOutline
 
@@ -462,6 +611,9 @@ def _outline_for_spec(spec: CircuitSpec):
 
 
 def run(envelope: dict) -> dict:
+    if envelope.get("_mode") == "skidl_python":
+        return _run_skidl_code(envelope)
+
     spec_dict = envelope.get("spec", envelope)
     run_id = str(envelope.get("run_id") or uuid.uuid4().hex[:12])
     out_dir = Path(envelope.get("out_dir") or Path("artifacts") / "runs" / run_id).resolve()
