@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from llm import config
 from llm.openrouter_client import complete
 from schemas.circuit_spec import CircuitSpec
+from schemas.enrichment import enrich as enrich_spec, format_enrichment_log
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -170,17 +171,44 @@ def _strip_fences(text: str) -> str:
     return t
 
 
+def _fix_trailing_commas(text: str) -> str:
+    """Remove trailing commas before closing brackets/braces — the #1 LLM JSON error."""
+    import re
+    return re.sub(r",\s*([}\]])", r"\1", text)
+
+
 def _loads_forgiving(text: str, opener: str = "{", closer: str = "}") -> Any:
-    """json.loads with fence stripping; falls back to the outermost
-    opener...closer slice if there is surrounding commentary."""
+    """json.loads with fence stripping, trailing-comma repair, and
+    outermost-bracket extraction. Handles the most common LLM JSON errors."""
     t = _strip_fences(text)
     try:
         return json.loads(t)
     except ValueError:
-        start, end = t.find(opener), t.rfind(closer)
-        if start == -1 or end <= start:
-            raise
-        return json.loads(t[start : end + 1])
+        pass
+
+    # Try extracting the outermost JSON object/array
+    start, end = t.find(opener), t.rfind(closer)
+    if start != -1 and end > start:
+        extracted = t[start : end + 1]
+        try:
+            return json.loads(extracted)
+        except ValueError:
+            pass
+        # Try fixing trailing commas (most common Gemini error)
+        fixed = _fix_trailing_commas(extracted)
+        try:
+            return json.loads(fixed)
+        except ValueError:
+            pass
+
+    # Last resort: trailing comma fix on the whole text
+    fixed = _fix_trailing_commas(t)
+    try:
+        return json.loads(fixed)
+    except ValueError:
+        pass
+
+    raise ValueError(f"Could not parse JSON ({len(t)} chars)")
 
 
 def _stage_dict(stage: str, resp) -> dict:
@@ -191,6 +219,7 @@ def _stage_dict(stage: str, resp) -> dict:
         "tokens_out": resp.tokens_out,
         "latency_s": resp.latency_s,
         "cost_usd": resp.cost_usd,
+        "raw_text": resp.text,
     }
 
 
@@ -244,9 +273,25 @@ async def nl_to_input_spec(
         stages.append(_stage_dict("design_nl_to_input", resp))
         return resp
 
+    def _enrich_and_validate(raw_dict: dict) -> CircuitSpec:
+        spec = CircuitSpec.model_validate(raw_dict)
+        enriched_dict, actions = enrich_spec(spec.model_dump(mode="json"))
+        if actions:
+            log = format_enrichment_log(actions)
+            stages.append({
+                "stage": "enrichment",
+                "actions": len(actions),
+                "log": log,
+                "cost_usd": 0,
+                "tokens_in": 0,
+                "tokens_out": 0,
+            })
+            return CircuitSpec.model_validate(enriched_dict)
+        return spec
+
     resp = await _attempt(messages)
     try:
-        return CircuitSpec.model_validate(_loads_forgiving(resp.text)), stages
+        return _enrich_and_validate(_loads_forgiving(resp.text)), stages
     except (ValueError, ValidationError) as err:
         error_text = str(err)
 
@@ -262,7 +307,7 @@ async def nl_to_input_spec(
     ]
     resp2 = await _attempt(repair_messages)
     try:
-        return CircuitSpec.model_validate(_loads_forgiving(resp2.text)), stages
+        return _enrich_and_validate(_loads_forgiving(resp2.text)), stages
     except (ValueError, ValidationError) as err2:
         raise SpecParseError(
             f"spec generation failed for {board_id!r} after repair retry: {err2}",

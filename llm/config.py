@@ -25,6 +25,10 @@ FRONTIER_MODEL = os.environ.get("FRONTIER_MODEL", "anthropic/claude-sonnet-4.5")
 #   anthropic/claude-sonnet-4.5:       prompt 0.000003,  completion 0.000015   ($/tok)
 PRICE_TABLE: dict[str, tuple[float, float]] = {
     "meta-llama/llama-3.3-70b-instruct": (0.10, 0.32),
+    "google/gemini-2.5-flash": (0.30, 2.50),
+    "google/gemini-2.5-pro": (1.25, 10.0),
+    "qwen/qwen3-235b-a22b": (0.20, 1.20),
+    "openai/gpt-4.1-mini": (0.40, 1.60),
     "anthropic/claude-sonnet-4.5": (3.0, 15.0),
 }
 
