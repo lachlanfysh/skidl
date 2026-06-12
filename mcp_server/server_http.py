@@ -467,22 +467,34 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
 async def get_run(run_id: str) -> dict:
     """Fetch full run data: spec, exceptions, response, and KiCad artifacts.
 
-    artifacts is {filename: file_content} for every generated .kicad_sch
-    (schematic) and .kicad_pcb (board) — complete KiCad 9 files you can
-    write to disk and open directly. The spec field is the exact CircuitSpec
-    that produced this run (after any corrections), useful as the base for
-    manual edits. Note: run data expires ~48h after completion.
+    artifacts contains .kicad_sch and .kicad_pcb file contents. If the board
+    uses converted LCSC parts (from convert_lcsc()), artifacts also includes
+    _board.zip — a base64-encoded zip with the board, custom symbol/footprint
+    libraries, 3D models, and a .kicad_pro project file. Decode and extract
+    the zip for a self-contained KiCad project.
+
+    Note: run data expires ~48h after completion.
     """
     run_data = await db.load_run(run_id)
     artifacts = run_data.get("artifacts") or {}
-    file_types = [k.rsplit(".", 1)[-1] for k in artifacts if "." in k]
+    file_types = [k.rsplit(".", 1)[-1] for k in artifacts if "." in k and not k.startswith("_")]
+    has_zip = "_board.zip" in artifacts
     if artifacts:
-        run_data["hint"] = (
-            f"Run data retrieved with {len(artifacts)} artifact(s) "
-            f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
-            f"Write these files to disk — they're complete KiCad 9 files "
-            f"you can open directly."
-        )
+        if has_zip:
+            run_data["hint"] = (
+                f"Run data retrieved with {len(artifacts) - 1} artifact(s) "
+                f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
+                f"This board uses custom LCSC libraries — use the _board.zip "
+                f"artifact (base64-encoded) for a self-contained KiCad project "
+                f"with all symbols, footprints, and 3D models included."
+            )
+        else:
+            run_data["hint"] = (
+                f"Run data retrieved with {len(artifacts)} artifact(s) "
+                f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
+                f"Write these files to disk — they're complete KiCad files "
+                f"you can open directly."
+            )
     else:
         run_data["hint"] = "Run data retrieved but no artifacts were generated."
     return run_data

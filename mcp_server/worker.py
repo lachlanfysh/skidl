@@ -197,12 +197,128 @@ def _apply_choices(spec, exceptions, choices):
 
 
 def _find_artifacts(run_dir: Path) -> dict[str, str]:
-    """Collect generated file contents from tmpdir before cleanup."""
+    """Collect generated file contents from tmpdir before cleanup.
+
+    If the board uses converted LCSC parts (easyeda2kicad), bundles
+    those libraries into a self-contained zip alongside the PCB/schematic.
+    """
     artifacts = {}
     for ext in ("*.kicad_pcb", "*.kicad_sch"):
         for path in run_dir.rglob(ext):
             artifacts[path.name] = path.read_text(errors="replace")
+
+    if not artifacts:
+        return artifacts
+
+    # Check if any converted LCSC libraries are referenced
+    easyeda_cache = Path(__file__).resolve().parent.parent / "corpus" / "jlc" / "easyeda_cache"
+    used_libs: set[str] = set()
+    for content in artifacts.values():
+        for lcsc_dir in (easyeda_cache.iterdir() if easyeda_cache.is_dir() else []):
+            if lcsc_dir.name in content:
+                used_libs.add(lcsc_dir.name)
+
+    if used_libs:
+        artifacts["_board.zip"] = _build_zip(artifacts, used_libs, easyeda_cache)
+
     return artifacts
+
+
+def _build_zip(
+    artifacts: dict[str, str],
+    used_libs: set[str],
+    easyeda_cache: Path,
+) -> str:
+    """Build a self-contained zip with board files, custom libs, and kicad_pro."""
+    import base64
+    import zipfile
+    from io import BytesIO
+
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Board files
+        for name, content in artifacts.items():
+            if name.startswith("_"):
+                continue
+            zf.writestr(name, content)
+
+        # Custom libraries from easyeda2kicad
+        lib_entries = []
+        fp_entries = []
+        for lib_name in sorted(used_libs):
+            lib_dir = easyeda_cache / lib_name
+
+            # Symbol library
+            sym_file = lib_dir / f"{lib_name}.kicad_sym"
+            if sym_file.exists():
+                zf.writestr(f"libs/{sym_file.name}", sym_file.read_text(errors="replace"))
+                lib_entries.append(lib_name)
+
+            # Footprint library (.pretty dir)
+            pretty_dir = lib_dir / f"{lib_name}.pretty"
+            if pretty_dir.is_dir():
+                for mod in pretty_dir.glob("*.kicad_mod"):
+                    zf.writestr(f"libs/{lib_name}.pretty/{mod.name}", mod.read_text(errors="replace"))
+                fp_entries.append(lib_name)
+
+            # 3D models
+            shapes_dir = lib_dir / f"{lib_name}.3dshapes"
+            if shapes_dir.is_dir():
+                for model in shapes_dir.iterdir():
+                    if model.suffix in (".step", ".wrl"):
+                        zf.writestr(f"libs/{lib_name}.3dshapes/{model.name}", model.read_bytes())
+
+        # Generate project files referencing local libs
+        board_name = next(
+            (n.rsplit(".", 1)[0] for n in artifacts if n.endswith(".kicad_pcb")),
+            "board",
+        )
+        pro, sym_table, fp_table = _kicad_project_files(board_name, lib_entries, fp_entries)
+        zf.writestr(f"{board_name}.kicad_pro", pro)
+        if sym_table:
+            zf.writestr("sym-lib-table", sym_table)
+        if fp_table:
+            zf.writestr("fp-lib-table", fp_table)
+
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def _kicad_project_files(
+    board_name: str, sym_libs: list[str], fp_libs: list[str],
+) -> tuple[str, str, str]:
+    """Generate .kicad_pro, sym-lib-table, and fp-lib-table for custom libs."""
+    import json
+
+    pro = {
+        "meta": {"filename": f"{board_name}.kicad_pro", "version": 1},
+        "project": {
+            "meta": {"filename": f"{board_name}.kicad_pro", "version": 1},
+            "libraries": {
+                "pinned_symbol_libs": list(sym_libs),
+                "pinned_footprint_libs": list(fp_libs),
+            },
+        },
+    }
+
+    sym_table = "(sym_lib_table\n"
+    for lib in sym_libs:
+        sym_table += (
+            f'  (lib (name "{lib}")(type "KiCad")'
+            f'(uri "${{KIPRJMOD}}/libs/{lib}.kicad_sym")'
+            f'(options "")(descr "LCSC {lib}"))\n'
+        )
+    sym_table += ")\n"
+
+    fp_table = "(fp_lib_table\n"
+    for lib in fp_libs:
+        fp_table += (
+            f'  (lib (name "{lib}")(type "KiCad")'
+            f'(uri "${{KIPRJMOD}}/libs/{lib}.pretty")'
+            f'(options "")(descr "LCSC {lib}"))\n'
+        )
+    fp_table += ")\n"
+
+    return json.dumps(pro, indent=2), sym_table, fp_table
 
 
 def _collect_artifacts(result: dict) -> dict:
