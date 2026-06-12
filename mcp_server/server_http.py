@@ -32,10 +32,14 @@ from schemas.exceptions import ActionType, DesignException, ExcCode
 mcp = FastMCP(
     "eda-mcp",
     instructions=(
-        "PCB design generation service. Build a CircuitSpec JSON and "
-        "submit_design() to generate schematics and PCB layout. Each tool "
-        "response includes a 'hint' field telling you what to do next — "
-        "follow the hints and read any resources they mention."
+        "PCB design generation service. BEFORE writing any JSON, describe "
+        "the full circuit in plain English: list every IC, every passive "
+        "(decoupling caps, bulk caps, pull-ups, shunt resistors), every "
+        "connector with exact pin count (count the signals!), and any "
+        "address/config hardware. Then read the circuit-spec guide to learn "
+        "the JSON format and convert your description. submit_design() to "
+        "generate schematics and PCB layout. Each tool response includes a "
+        "'hint' field — follow hints and read any resources they mention."
     ),
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
