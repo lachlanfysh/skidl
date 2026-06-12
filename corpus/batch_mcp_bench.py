@@ -38,7 +38,6 @@ DEFAULT_MODELS = [
     "openai/gpt-4.1-nano",
     "openai/gpt-4.1-mini",
     "google/gemini-2.5-flash-lite",
-    "meta-llama/llama-4-scout",
 ]
 
 ALL_TIERS = ("naive", "marketing", "ee_spec")

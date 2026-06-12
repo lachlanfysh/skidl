@@ -32,14 +32,11 @@ from schemas.exceptions import ActionType, DesignException, ExcCode
 mcp = FastMCP(
     "eda-mcp",
     instructions=(
-        "PCB design generation service. Two input modes:\n"
-        "1. PREFERRED: Write SKiDL Python code (from skidl import *, Part(), "
-        "Net(), @subcircuit) and submit via submit_skidl_code(). You likely "
-        "know the SKiDL API from training data — use it directly.\n"
-        "2. Alternative: Write CircuitSpec JSON and submit via submit_design(). "
-        "Read eda://guide/circuit-spec first.\n"
-        "Both modes produce KiCad schematics, PCB layout, autorouting, and DRC. "
-        "Poll get_job() until done, then get_run() for artifacts."
+        "PCB design service. Write SKiDL Python code (from skidl import *, "
+        "Part(), Net(), @subcircuit) and submit via submit_skidl_code(). "
+        "The server handles schematic generation, PCB layout, autorouting, "
+        "and DRC. Poll get_job() until done, then get_run() for artifacts. "
+        "Read eda://guide/skidl for the API reference."
     ),
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
@@ -84,7 +81,6 @@ def _validate_spec(input_spec: dict | str) -> CircuitSpec:
 # ── Tools ──────────────────────────────────────────────────────────────
 
 
-@mcp.tool()
 async def submit_design(
     input_spec: dict,
     run_options: dict | None = None,
@@ -334,7 +330,6 @@ def _get_job_hint(job: dict) -> str:
     )
 
 
-@mcp.tool()
 async def estimate_complexity(input_spec: dict) -> dict:
     """Pre-flight estimate for a CircuitSpec — fast (<2s), free, no side effects.
 
@@ -497,22 +492,10 @@ async def get_run(run_id: str) -> dict:
 # ── Resources: deep reference an agent reads on demand ─────────────────
 
 
-@mcp.resource(
-    "eda://schema/circuit-spec",
-    name="CircuitSpec JSON Schema",
-    description="Authoritative JSON Schema for the input_spec argument of submit_design/estimate_complexity, generated from the live Pydantic model.",
-    mime_type="application/json",
-)
 def circuit_spec_schema() -> str:
     return json.dumps(CircuitSpec.model_json_schema(), indent=2)
 
 
-@mcp.resource(
-    "eda://guide/circuit-spec",
-    name="CircuitSpec authoring guide",
-    description="How to write a CircuitSpec: parts, nets, footprints, power rails, decoupling conventions, form factors, and a complete worked example.",
-    mime_type="text/markdown",
-)
 def circuit_spec_guide() -> str:
     return CIRCUIT_SPEC_GUIDE
 
