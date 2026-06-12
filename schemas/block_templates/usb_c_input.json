@@ -1,0 +1,28 @@
+{
+  "id": "usb_c_input",
+  "description": "USB-C 2.0 receptacle with CC pull-downs for UFP (device) role",
+  "detection": {
+    "keywords": ["usb-c", "usb c", "usb type-c", "usb type c"],
+    "ic_present": ["USB_C_Receptacle"],
+    "interface_nets": ["VBUS", "USB_DP", "USB_DM"]
+  },
+  "parts": [
+    {"ref": "J_USB", "lib": "Connector", "part": "USB_C_Receptacle_USB2.0_16P", "value": null,
+     "footprint": "Connector_USB:USB_C_Receptacle_XKB_U262-16XN-4BVC11"},
+    {"ref": "R_CC1", "lib": "Device", "part": "R", "value": "5.1K",
+     "footprint": "Resistor_SMD:R_0402_1005Metric"},
+    {"ref": "R_CC2", "lib": "Device", "part": "R", "value": "5.1K",
+     "footprint": "Resistor_SMD:R_0402_1005Metric"},
+    {"ref": "C_VBUS", "lib": "Device", "part": "C", "value": "100nF",
+     "footprint": "Capacitor_SMD:C_0402_1005Metric"}
+  ],
+  "nets": [
+    {"name": "VBUS", "pins": ["J_USB.A4", "J_USB.A9", "J_USB.B4", "J_USB.B9", "C_VBUS.1"]},
+    {"name": "GND",  "pins": ["J_USB.A1", "J_USB.A12", "J_USB.B1", "J_USB.B12", "J_USB.S1",
+                               "R_CC1.2", "R_CC2.2", "C_VBUS.2"]},
+    {"name": "_USB_CC1", "pins": ["J_USB.A5", "R_CC1.1"]},
+    {"name": "_USB_CC2", "pins": ["J_USB.B5", "R_CC2.1"]},
+    {"name": "USB_DP", "pins": ["J_USB.A6", "J_USB.B6"]},
+    {"name": "USB_DM", "pins": ["J_USB.A7", "J_USB.B7"]}
+  ]
+}

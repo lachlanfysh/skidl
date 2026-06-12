@@ -1,0 +1,31 @@
+{
+  "id": "lipo_charger",
+  "description": "MCP73831 LiPo single-cell charger with status LED",
+  "detection": {
+    "keywords": ["lipo", "lipoly", "battery charg", "rechargeable", "lithium polymer"],
+    "ic_present": ["MCP73831"],
+    "interface_nets": ["VBAT", "VBUS"]
+  },
+  "parts": [
+    {"ref": "U_CHG", "lib": "Battery_Management", "part": "MCP73831-2-OT", "value": "MCP73831",
+     "footprint": "Package_TO_SOT_SMD:SOT-23-5"},
+    {"ref": "R_PROG", "lib": "Device", "part": "R", "value": "2K",
+     "footprint": "Resistor_SMD:R_0402_1005Metric"},
+    {"ref": "R_CHGLED", "lib": "Device", "part": "R", "value": "1K",
+     "footprint": "Resistor_SMD:R_0402_1005Metric"},
+    {"ref": "D_CHG", "lib": "Device", "part": "LED", "value": "Orange",
+     "footprint": "LED_SMD:LED_0603_1608Metric"},
+    {"ref": "C_CHGIN", "lib": "Device", "part": "C", "value": "4.7uF",
+     "footprint": "Capacitor_SMD:C_0402_1005Metric"},
+    {"ref": "C_CHGOUT", "lib": "Device", "part": "C", "value": "4.7uF",
+     "footprint": "Capacitor_SMD:C_0402_1005Metric"}
+  ],
+  "nets": [
+    {"name": "VBUS",  "pins": ["U_CHG.V_DD", "C_CHGIN.1", "R_CHGLED.1"]},
+    {"name": "GND",   "pins": ["U_CHG.V_SS", "C_CHGIN.2", "C_CHGOUT.2", "R_PROG.2"]},
+    {"name": "VBAT",  "pins": ["U_CHG.V_BAT", "C_CHGOUT.1"]},
+    {"name": "_CHG_PROG", "pins": ["U_CHG.PROG", "R_PROG.1"]},
+    {"name": "_CHG_STAT", "pins": ["U_CHG.STAT", "D_CHG.K"]},
+    {"name": "_CHG_LED",  "pins": ["R_CHGLED.2", "D_CHG.A"]}
+  ]
+}

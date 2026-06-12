@@ -1,0 +1,21 @@
+{
+  "id": "swd_header",
+  "description": "2x5 1.27mm ARM SWD/JTAG debug header",
+  "detection": {
+    "keywords": ["swd", "jtag", "debug header", "arm debug"],
+    "ic_present": [],
+    "interface_nets": ["SWDIO", "SWCLK"]
+  },
+  "parts": [
+    {"ref": "J_SWD", "lib": "Connector_Generic", "part": "Conn_02x05_Odd_Even", "value": "SWD",
+     "footprint": "Connector_PinHeader_1.27mm:PinHeader_2x05_P1.27mm_Vertical"}
+  ],
+  "nets": [
+    {"name": "+3V3",   "pins": ["J_SWD.Pin_1"]},
+    {"name": "SWDIO",  "pins": ["J_SWD.Pin_2"]},
+    {"name": "GND",    "pins": ["J_SWD.Pin_3", "J_SWD.Pin_5", "J_SWD.Pin_9"]},
+    {"name": "SWCLK",  "pins": ["J_SWD.Pin_4"]},
+    {"name": "SWO",    "pins": ["J_SWD.Pin_6"]},
+    {"name": "nRESET", "pins": ["J_SWD.Pin_10"]}
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "stemma_qt",
+  "description": "STEMMA QT / Qwiic JST-SH I2C connector with pull-ups",
+  "detection": {
+    "keywords": ["stemma", "qwiic", "stemma qt"],
+    "ic_present": [],
+    "interface_nets": ["SDA", "SCL"]
+  },
+  "parts": [
+    {"ref": "J_QT", "lib": "Connector_Generic", "part": "Conn_01x04", "value": "STEMMA_QT",
+     "footprint": "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal"},
+    {"ref": "R_SDA", "lib": "Device", "part": "R", "value": "4.7K",
+     "footprint": "Resistor_SMD:R_0402_1005Metric"},
+    {"ref": "R_SCL", "lib": "Device", "part": "R", "value": "4.7K",
+     "footprint": "Resistor_SMD:R_0402_1005Metric"}
+  ],
+  "nets": [
+    {"name": "GND",   "pins": ["J_QT.Pin_1"]},
+    {"name": "+3V3",  "pins": ["J_QT.Pin_2", "R_SDA.1", "R_SCL.1"]},
+    {"name": "SDA",   "pins": ["J_QT.Pin_3", "R_SDA.2"]},
+    {"name": "SCL",   "pins": ["J_QT.Pin_4", "R_SCL.2"]}
+  ]
+}

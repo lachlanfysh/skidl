@@ -22,7 +22,11 @@ from llm import config
 from llm.openrouter_client import complete
 from llm.kicad_index import extract_ic_names, lookup_ic_context, validate_spec_libraries
 from schemas.circuit_spec import CircuitSpec
-from schemas.enrichment import enrich as enrich_spec, format_enrichment_log
+from schemas.enrichment import (
+    enrich as enrich_spec,
+    enrich_blocks,
+    format_enrichment_log,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -338,7 +342,24 @@ async def nl_to_input_spec(
 
     def _enrich_and_validate(raw_dict: dict) -> CircuitSpec:
         spec = CircuitSpec.model_validate(raw_dict)
-        enriched_dict, actions = enrich_spec(spec.model_dump(mode="json"))
+        working = spec.model_dump(mode="json")
+
+        # Block enrichment first (multi-part functional blocks from templates)
+        block_dict, block_actions = enrich_blocks(working, marketing_text)
+        if block_actions:
+            log = format_enrichment_log(block_actions)
+            stages.append({
+                "stage": "block_enrichment",
+                "actions": len(block_actions),
+                "log": log,
+                "cost_usd": 0,
+                "tokens_in": 0,
+                "tokens_out": 0,
+            })
+            working = block_dict
+
+        # Passive enrichment (decoupling caps, pull-ups, etc.)
+        enriched_dict, actions = enrich_spec(working)
         if actions:
             log = format_enrichment_log(actions)
             stages.append({
@@ -349,7 +370,10 @@ async def nl_to_input_spec(
                 "tokens_in": 0,
                 "tokens_out": 0,
             })
-            return CircuitSpec.model_validate(enriched_dict)
+            working = enriched_dict
+
+        if block_actions or actions:
+            return CircuitSpec.model_validate(working)
         return spec
 
     resp = await _attempt(messages)

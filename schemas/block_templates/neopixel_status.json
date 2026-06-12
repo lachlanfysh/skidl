@@ -1,0 +1,20 @@
+{
+  "id": "neopixel_status",
+  "description": "Single WS2812B NeoPixel status LED with decoupling",
+  "detection": {
+    "keywords": ["neopixel", "ws2812", "addressable led", "rgb led"],
+    "ic_present": ["WS2812", "SK6812", "NeoPixel"],
+    "interface_nets": ["NEOPIXEL"]
+  },
+  "parts": [
+    {"ref": "D_NEO", "lib": "LED", "part": "WS2812B", "value": null,
+     "footprint": "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"},
+    {"ref": "C_NEO", "lib": "Device", "part": "C", "value": "100nF",
+     "footprint": "Capacitor_SMD:C_0402_1005Metric"}
+  ],
+  "nets": [
+    {"name": "+3V3",     "pins": ["D_NEO.VDD", "C_NEO.1"]},
+    {"name": "GND",      "pins": ["D_NEO.VSS", "C_NEO.2"]},
+    {"name": "NEOPIXEL", "pins": ["D_NEO.DIN"]}
+  ]
+}

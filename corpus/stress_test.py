@@ -27,7 +27,7 @@ from llm.operations import nl_to_input_spec, SpecParseError
 from llm.spend_tracker import SpendTracker
 from corpus.circuit_judge import score_deterministic
 from corpus.quality_score import _grade
-from schemas.enrichment import enrich
+from schemas.enrichment import enrich, enrich_blocks
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -152,15 +152,17 @@ async def _run_one(
                 result.missing_parts = det.missing_parts
                 result.extra_parts = det.extra_parts
 
-                enriched_spec, enrichment_actions = enrich(spec_dict)
-                if enrichment_actions:
+                block_spec, block_actions = enrich_blocks(spec_dict, description)
+                enriched_spec, enrichment_actions = enrich(block_spec)
+                all_actions = block_actions + enrichment_actions
+                if all_actions:
                     det_e = score_deterministic(enriched_spec, ref)
                     combined_e = 0.4 * det_e.bom_score + 0.4 * det_e.netlist_score + 0.2 * det_e.structural_score
                     result.enriched_bom_score = det_e.bom_score
                     result.enriched_grade = _grade(combined_e)
-                    result.enrichment_actions = len(enrichment_actions)
+                    result.enrichment_actions = len(all_actions)
                     result.enriched_spec = enriched_spec
-                    result.enrichment_log = enrichment_actions
+                    result.enrichment_log = all_actions
 
             return result
 

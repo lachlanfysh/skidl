@@ -1,0 +1,22 @@
+{
+  "id": "ldo_3v3",
+  "description": "AP2112K-3.3 LDO regulator with input/output capacitors",
+  "detection": {
+    "keywords": ["3.3v", "3v3", "3.3 volt"],
+    "ic_present": ["AP2112"],
+    "interface_nets": ["+3V3"]
+  },
+  "parts": [
+    {"ref": "U_REG", "lib": "Regulator_Linear", "part": "AP2112K-3.3", "value": "AP2112K-3.3",
+     "footprint": "Package_TO_SOT_SMD:SOT-23-5"},
+    {"ref": "C_REGIN", "lib": "Device", "part": "C", "value": "1uF",
+     "footprint": "Capacitor_SMD:C_0402_1005Metric"},
+    {"ref": "C_REGOUT", "lib": "Device", "part": "C", "value": "1uF",
+     "footprint": "Capacitor_SMD:C_0402_1005Metric"}
+  ],
+  "nets": [
+    {"name": "VBUS",  "pins": ["U_REG.VIN", "U_REG.EN", "C_REGIN.1"]},
+    {"name": "GND",   "pins": ["U_REG.GND", "C_REGIN.2", "C_REGOUT.2"]},
+    {"name": "+3V3",  "pins": ["U_REG.VOUT", "C_REGOUT.1"]}
+  ]
+}
