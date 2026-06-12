@@ -32,11 +32,11 @@ from schemas.exceptions import ActionType, DesignException, ExcCode
 mcp = FastMCP(
     "eda-mcp",
     instructions=(
-        "PCB design service. Write SKiDL Python code (from skidl import *, "
-        "Part(), Net(), @subcircuit) and submit via submit_skidl_code(). "
-        "The server handles schematic generation, PCB layout, autorouting, "
-        "and DRC. Poll get_job() until done, then get_run() for artifacts. "
-        "Read eda://guide/skidl for the API reference."
+        "PCB design service. Use search_kicad() to find correct library names, "
+        "part names, and footprints. Write SKiDL Python code and submit via "
+        "submit_skidl_code(). The server handles schematic generation, PCB "
+        "layout, autorouting, and DRC. Poll get_job() until done, then "
+        "get_run() for artifacts. Read eda://guide/skidl for conventions."
     ),
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
@@ -167,7 +167,6 @@ async def submit_skidl_code(
 
     Example code:
         from skidl import *
-        set_default_tool(KICAD9)
 
         vcc = Net("VCC"); vcc.drive = POWER
         gnd = Net("GND"); gnd.drive = POWER
@@ -489,6 +488,70 @@ async def get_run(run_id: str) -> dict:
     return run_data
 
 
+# ── Library search ────────────────────────────────────────────────────
+
+
+@mcp.tool()
+async def search_kicad(query: str, detail: bool = False) -> dict:
+    """Search KiCad symbol libraries and footprints by name or description.
+
+    Call this BEFORE writing SKiDL code to find the correct library name,
+    part name, and footprint for any component. Saves multiple submit/fail
+    cycles from guessing library names.
+
+    Examples:
+        search_kicad("MCP9808")       -> Sensor_Temperature : MCP9808-E_MS
+        search_kicad("STM32F405")     -> MCU_ST_STM32F4 : STM32F405RGT6
+        search_kicad("USB-C connector") -> Connector_USB : USB_C_Receptacle_...
+        search_kicad("I2C level shifter") -> finds relevant ICs
+        search_kicad("MSOP-8", detail=True) -> footprint search with pin info
+
+    query: Part number, IC name, function description, or footprint name.
+    detail: If true, returns full pin list for the top symbol match.
+    """
+    from llm.kicad_index import (
+        get_symbol_detail,
+        search_footprints,
+        search_symbols,
+    )
+
+    symbols = search_symbols(query, limit=8)
+    footprints = search_footprints(query, limit=5)
+
+    result: dict = {"symbols": [], "footprints": footprints}
+    for sym in symbols:
+        entry = {
+            "library": sym.lib,
+            "part": sym.name,
+            "description": sym.description,
+            "default_footprint": sym.footprint,
+            "pin_count": sym.pin_count,
+            "usage": f'Part("{sym.lib}", "{sym.name}", footprint="{sym.footprint}")'
+            if sym.footprint
+            else f'Part("{sym.lib}", "{sym.name}", footprint="...")',
+        }
+        result["symbols"].append(entry)
+
+    if detail and symbols:
+        top = symbols[0]
+        det = get_symbol_detail(top.lib, top.name)
+        if det:
+            result["pin_detail"] = {
+                "part": f"{det.lib}:{det.name}",
+                "footprint": det.footprint,
+                "pins": [
+                    {"num": p.num, "name": p.name, "type": p.func}
+                    for p in det.pins
+                ],
+            }
+
+    result["hint"] = (
+        "Use the 'usage' field directly in your SKiDL code. "
+        "Set detail=true to see pin names for wiring."
+    )
+    return result
+
+
 # ── Resources: deep reference an agent reads on demand ─────────────────
 
 
@@ -678,7 +741,21 @@ SKIDL_GUIDE = """\
 Write standard SKiDL Python code. The server handles schematic generation,
 PCB layout, autorouting, and DRC — do NOT call generate_schematic() etc.
 
-## Template
+## Step 1: Search before you code
+
+**Always call search_kicad() first** to find correct library names, part
+names, and footprints. Don't guess — KiCad library names are not obvious.
+
+```
+search_kicad("BME280")       -> Sensor_Humidity : BME280
+search_kicad("STM32F405")    -> MCU_ST_STM32F4 : STM32F405RGT6
+search_kicad("USB-C")        -> Connector_USB : USB_C_Receptacle_...
+search_kicad("level shifter") -> finds TXS0102, TXB0104, etc.
+```
+
+Use `detail=true` to see pin names for wiring: `search_kicad("MCP9808", detail=true)`
+
+## Step 2: Write SKiDL code
 
 ```python
 from skidl import *
@@ -687,7 +764,7 @@ from skidl import *
 vcc = Net("VCC"); vcc.drive = POWER
 gnd = Net("GND"); gnd.drive = POWER
 
-# Parts — every part needs footprint="Library:Name"
+# Parts — use exact names from search_kicad results
 u1 = Part("Analog_ADC", "ADS1115IDGS",
           footprint="Package_SO:TSSOP-10_3x3mm_P0.5mm")
 c1 = Part("Device", "C", value="100nF",
@@ -698,16 +775,39 @@ vcc += u1["VDD"], c1[1]
 gnd += u1["GND"], c1[2]
 ```
 
+## KiCad library names (NOT manufacturer names)
+
+Common libraries — use search_kicad() for anything not listed here:
+
+| Category | Library name | Example parts |
+|----------|-------------|---------------|
+| Passives | `Device` | R, C, C_Polarized, L, LED, D_Schottky |
+| Sensors | `Sensor_Temperature` | BME280, TMP117, MCP9808, LM75 |
+| Sensors | `Sensor_Humidity` | BME280, SHT3x, HDC1080 |
+| ADCs | `Analog_ADC` | ADS1115, MCP3008, ADS1015 |
+| Regulators | `Regulator_Linear` | AP2112K, AMS1117, MCP1700 |
+| Regulators | `Regulator_Switching` | TPS63000, LM2596, MP2307 |
+| MCUs | `MCU_ST_STM32F4` | STM32F405RGT6 |
+| MCUs | `MCU_Microchip_ATmega` | ATmega328P-AU |
+| MCUs | `MCU_RaspberryPi` | RP2040 |
+| MCUs | `MCU_Nordic_nRF52` | nRF52840-QIAA |
+| Connectors | `Connector_Generic` | Conn_01x04, Conn_01x06, Conn_02x05 |
+| USB | `Connector_USB` | USB_C_Receptacle_USB2.0 |
+| Audio | `Connector_Audio` | AudioJack3 |
+| Transistors | `Transistor_FET` | BSS138, IRLML6244 |
+| Op-amps | `Amplifier_Operational` | LM358, MCP6001 |
+| Battery mgmt | `Battery_Management` | MCP73831-2-OT |
+| Clock/timer | `Timer` | NE555, DS3231M |
+
 ## Key rules
 
-- `lib` is a KiCad symbol library name, NOT a manufacturer:
-  Device, Sensor_Temperature, Connector_Generic, Analog_ADC,
-  Regulator_Linear, Transistor_FET, MCU_Microchip, RF_Module, etc.
-- Connectors: `Part("Connector_Generic", "Conn_01x06", ...)`
-  not "PinHeader_1x06"
-- Decoupling caps: value="100nF" wired power-to-ground = auto-placed
-  near parent IC. One per IC power pin. "104" or "bypass" won't work.
-- Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND
+- **Search first**: `search_kicad("your part")` before writing any Part() call.
+- `lib` is a KiCad symbol library, NOT a manufacturer (not "Bosch", "Microchip").
+- Every Part needs `footprint="Library:Name"` — get it from search_kicad().
+- Connectors: `Part("Connector_Generic", "Conn_01x06", ...)` not "PinHeader_1x06".
+- Decoupling caps: value="100nF" wired power-to-ground = auto-placed near parent IC.
+- Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND.
+- Pin names on ICs may differ — use `search_kicad("part", detail=true)` to check.
 - Use @subcircuit for functional blocks:
 
 ```python
@@ -735,11 +835,10 @@ def sensor_block(vcc, gnd, sda, scl):
 
 ## Tips
 
-- Pin names on ICs may differ from net names — BME280 uses SDI/SCK,
-  not SDA/SCL. Check the KiCad library if unsure.
 - For address selection: use pull-up/pull-down resistors on ADDR pins.
 - Include bulk caps (10uF) on power rails and 100nF decoupling per IC.
 - Count connector pins carefully: VCC + GND + SDA + SCL + A0 + A1 = 6 pins.
+- If a Part() fails, search_kicad() the part number to find the right library.
 """
 
 
