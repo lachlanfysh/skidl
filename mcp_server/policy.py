@@ -86,6 +86,8 @@ def _candidate_allowed(
             ExcCode.LAYOUT_MISSING_REF,
             ExcCode.ENGINE_CRASH,
         }
+    if cand.action == ActionType.ADD_PARTS and cand.confidence >= 0.8:
+        return True
     return False
 
 
@@ -140,7 +142,7 @@ def decision_kind(exceptions: list[DesignException]) -> str:
         return ""
     if any(not exc.candidates for exc in exceptions):
         return "no_candidate"
-    if actions & {ActionType.SET_FORM_FACTOR, ActionType.SET_OUTLINE, ActionType.SCALE_OUTLINE}:
+    if actions & {ActionType.SET_FORM_FACTOR, ActionType.SET_OUTLINE, ActionType.SCALE_OUTLINE, ActionType.SET_LAYERS}:
         return "mechanical_constraint"
     if actions & {ActionType.REPLACE_LIB, ActionType.REPLACE_PART, ActionType.REPLACE_FOOTPRINT}:
         return "bom_substitution"

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 
-from .circuit_spec import CircuitSpec, NetSpec
+from .circuit_spec import CircuitSpec, NetSpec, PartSpec
 from .exceptions import ActionType, Candidate, DesignException
 
 
@@ -108,6 +108,28 @@ def apply_candidate(spec: CircuitSpec, exc: DesignException, cand: Candidate) ->
             w, h = p.get("base_w_mm", 50.0), p.get("base_h_mm", 50.0)
         new.board.outline_hint_mm = (round(w * factor, 2), round(h * factor, 2))
         new.board.form_factor = None
+
+    elif cand.action == ActionType.ADD_PARTS:
+        for part_dict in p.get("parts", []):
+            ref = part_dict.get("ref")
+            if ref and new.part_by_ref(ref) is not None:
+                raise CorrectionError(f"part {ref!r} already exists")
+            new.parts.append(PartSpec.model_validate(part_dict))
+        for conn in p.get("net_connections", []):
+            net_name = conn["net"]
+            pin = conn["pin"]
+            net = next((n for n in new.nets if n.name == net_name), None)
+            if net is None:
+                is_power = any(
+                    kw in net_name.upper()
+                    for kw in ("VCC", "VDD", "GND", "VSS", "3V3", "5V", "VIN", "VBUS", "VBAT")
+                )
+                new.nets.append(NetSpec(name=net_name, power=is_power, pins=[pin]))
+            elif pin not in net.pins:
+                net.pins.append(pin)
+
+    elif cand.action == ActionType.SET_LAYERS:
+        new.board.layers = int(p["layers"])
 
     elif cand.action == ActionType.ACCEPT_ADVISORY:
         key = exc.waiver_key()

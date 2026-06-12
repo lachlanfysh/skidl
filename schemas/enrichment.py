@@ -19,8 +19,11 @@ Usage:
 from __future__ import annotations
 
 import copy
+import json
+import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
 
 # ---------------------------------------------------------------------------
@@ -722,6 +725,245 @@ def _rule_b4_boot_pulldown(parts, nets, actions):
 
 
 # ---------------------------------------------------------------------------
+# Block-level enrichment (multi-part functional blocks)
+# ---------------------------------------------------------------------------
+
+_BLOCK_TEMPLATES_DIR = Path(__file__).parent / "block_templates"
+
+_REF_PREFIX_RE = re.compile(r"^([A-Za-z]+)")
+
+
+def _load_block_templates() -> list[dict]:
+    if not _BLOCK_TEMPLATES_DIR.is_dir():
+        return []
+    templates = []
+    for fp in sorted(_BLOCK_TEMPLATES_DIR.glob("*.json")):
+        with open(fp) as f:
+            templates.append(json.load(f))
+    return templates
+
+
+def _block_already_present(template: dict, parts: list[dict]) -> bool:
+    """Check if the block's key component is already in the spec.
+
+    Checks both the detection.ic_present list AND the template's own
+    primary part (first part in the template) to avoid duplicates.
+    """
+    detection = template.get("detection", {})
+    ic_names = detection.get("ic_present", [])
+
+    # Check explicit IC names
+    for ic_name in ic_names:
+        pat = ic_name.upper()
+        for p in parts:
+            part_str = str(p.get("part", "") or "").upper()
+            val_str = str(p.get("value", "") or "").upper()
+            if pat in part_str or pat in val_str:
+                return True
+
+    # Check if the template's primary part (first) is already present
+    # Only match on value (e.g. "STEMMA_QT", "MCP73831") — part name and
+    # footprint are too generic (Conn_01x04, SOT-23-5) and cause false positives
+    tpl_parts = template.get("parts", [])
+    if tpl_parts:
+        primary = tpl_parts[0]
+        primary_val = str(primary.get("value", "") or "").upper()
+        if primary_val:
+            for p in parts:
+                p_val = str(p.get("value", "") or "").upper()
+                if not p_val:
+                    continue
+                if primary_val in p_val or p_val in primary_val:
+                    return True
+
+    return False
+
+
+def _block_keywords_match(template: dict, marketing_text: str) -> bool:
+    detection = template.get("detection", {})
+    keywords = detection.get("keywords", [])
+    if not keywords:
+        return False
+    text_lower = marketing_text.lower()
+    return any(kw.lower() in text_lower for kw in keywords)
+
+
+def _block_implied_by_spec(template: dict, parts: list[dict], nets: list[dict]) -> bool:
+    """Detect if the LLM's own output implies this block should exist.
+
+    If the LLM included a USB-C connector but forgot CC pull-downs, or put a
+    charger IC but forgot the PROG resistor, the spec itself implies the block.
+    We check for partial matches: interface nets present, or parts that
+    suggest the block's function even if the main IC name doesn't match exactly.
+    """
+    detection = template.get("detection", {})
+    interface_nets = detection.get("interface_nets", [])
+
+    # Check if the spec's parts or nets suggest this block
+    part_strings = set()
+    for p in parts:
+        for field in ("part", "value", "lib", "footprint"):
+            val = str(p.get(field, "") or "").upper()
+            if val:
+                part_strings.add(val)
+
+    net_names = {n.get("name", "").upper() for n in nets}
+
+    tid = template["id"]
+
+    if tid == "usb_c_input":
+        return any("USB_C" in s or "USB-C" in s or "TYPE-C" in s for s in part_strings)
+
+    if tid == "lipo_charger":
+        charger_hints = ("MCP7383", "BQ2407", "TP4056", "LT3652", "CHARGER", "LIPO")
+        has_charger_part = any(any(h in s for h in charger_hints) for s in part_strings)
+        has_vbat = "VBAT" in net_names
+        return has_charger_part or has_vbat
+
+    if tid == "stemma_qt":
+        return any("JST_SH" in s or "STEMMA" in s or "QWIIC" in s for s in part_strings)
+
+    if tid == "neopixel_status":
+        # Don't trigger if any addressable LED is already present
+        return False
+
+    if tid == "swd_header":
+        return "SWDIO" in net_names and "SWCLK" in net_names
+
+    if tid == "ldo_3v3":
+        return False  # handled by _block_needs_regulator
+
+    return False
+
+
+def _block_needs_regulator(template: dict, parts: list[dict], nets: list[dict]) -> bool:
+    """Special detection for LDO: only inject if +3V3 net exists but no regulator."""
+    if template.get("id") != "ldo_3v3":
+        return True
+    has_3v3 = any(
+        n.get("name", "") in ("+3V3", "3V3", "+3.3V")
+        for n in nets
+    )
+    has_regulator = any(
+        "Regulator" in str(p.get("lib", "") or "")
+        for p in parts
+    )
+    return has_3v3 and not has_regulator
+
+
+def enrich_blocks(
+    spec_dict: dict,
+    marketing_text: str,
+) -> tuple[dict, list[dict]]:
+    """Inject multi-part functional blocks based on marketing text keywords.
+
+    Only injects a block if:
+    1. Keywords from marketing text match the template's detection keywords
+    2. The block's main IC is NOT already present in the spec
+    3. Template-specific conditions are met (e.g., LDO only if no regulator exists)
+
+    Runs BEFORE passive enrichment so injected ICs get decoupling caps etc.
+
+    Returns (enriched_spec_dict, actions).
+    """
+    templates = _load_block_templates()
+    if not templates:
+        return spec_dict, []
+
+    spec = copy.deepcopy(spec_dict)
+    parts = spec.get("parts", [])
+    nets = spec.get("nets", [])
+    actions: list[EnrichmentAction] = []
+
+    # Track highest existing ref number per prefix for fresh numbering
+    ref_counters: dict[str, int] = {}
+    for p in parts:
+        m = _REF_PREFIX_RE.match(p.get("ref", ""))
+        if m:
+            prefix = m.group(1)
+            num_match = re.search(r"\d+", p["ref"][len(prefix):])
+            if num_match:
+                num = int(num_match.group())
+                ref_counters[prefix] = max(ref_counters.get(prefix, 100), num + 1)
+    # Start block refs at 100+ to avoid collisions with LLM-generated refs
+    for prefix in ref_counters:
+        ref_counters[prefix] = max(ref_counters[prefix], 100)
+
+    for template in templates:
+        from_keywords = _block_keywords_match(template, marketing_text)
+        from_spec = _block_implied_by_spec(template, parts, nets)
+        if not from_keywords and not from_spec:
+            continue
+        if _block_already_present(template, parts):
+            continue
+        if not _block_needs_regulator(template, parts, nets):
+            continue
+
+        # Map template refs to fresh real refs
+        ref_map: dict[str, str] = {}
+        added_parts: list[str] = []
+
+        for tpl_part in template["parts"]:
+            tpl_ref = tpl_part["ref"]
+            m = _REF_PREFIX_RE.match(tpl_ref)
+            prefix = m.group(1) if m else "X"
+            num = ref_counters.get(prefix, 100)
+            ref_counters[prefix] = num + 1
+            real_ref = f"{prefix}{num}"
+            ref_map[tpl_ref] = real_ref
+
+            new_part = {
+                "ref": real_ref,
+                "lib": tpl_part["lib"],
+                "part": tpl_part["part"],
+                "value": tpl_part.get("value"),
+                "footprint": tpl_part["footprint"],
+            }
+            parts.append(new_part)
+            added_parts.append(real_ref)
+
+        # Merge nets: replace template refs with real refs, merge into existing nets
+        modified_nets: list[str] = []
+        for tpl_net in template["nets"]:
+            net_name = tpl_net["name"]
+            real_pins = []
+            for pin in tpl_net["pins"]:
+                # Replace template ref prefix with real ref
+                tpl_ref, pin_name = pin.split(".", 1)
+                real_ref = ref_map.get(tpl_ref, tpl_ref)
+                real_pins.append(f"{real_ref}.{pin_name}")
+
+            # Internal nets (prefixed with _) get unique names
+            if net_name.startswith("_"):
+                net_name = f"{net_name}_{template['id']}"
+
+            existing_net = _find_net_by_name(nets, net_name)
+            if existing_net is not None:
+                for rp in real_pins:
+                    if rp not in existing_net["pins"]:
+                        existing_net["pins"].append(rp)
+            else:
+                is_power = _is_power_net({"name": net_name}) or _is_ground_net({"name": net_name})
+                nets.append({"name": net_name, "power": is_power, "pins": real_pins})
+            modified_nets.append(net_name)
+
+        trigger = "keywords" if from_keywords else "spec-implied"
+        actions.append(EnrichmentAction(
+            rule=f"BLOCK:{template['id']}",
+            category="silent",
+            description=f"Injected {template['description']} ({len(added_parts)} parts, {trigger})",
+            parts_added=added_parts,
+            nets_modified=modified_nets,
+            message=f"Block template '{template['id']}' triggered by {trigger}. "
+                    f"Parts: {', '.join(added_parts)}",
+        ))
+
+    spec["parts"] = parts
+    spec["nets"] = nets
+    return spec, [a.to_dict() for a in actions]
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
 
@@ -739,6 +981,243 @@ ALL_RULES = [
     _rule_b3_spi_cs_pullup,
     _rule_b4_boot_pulldown,
 ]
+
+
+def _design_review_bulk_caps(parts, nets, exceptions, eid_counter):
+    """Power rails with ICs but no bulk cap (10uF+) after enrichment."""
+    from schemas.exceptions import (
+        ActionType, Candidate, DesignException, ExcCode, Severity,
+    )
+
+    gnd_name = _find_ground_net_name(nets)
+    ic_power_nets: set[str] = set()
+    for p in parts:
+        ref = p.get("ref", "")
+        if _is_passive(ref):
+            continue
+        power_nets, _ = _get_power_nets_for_ref(nets, ref)
+        ic_power_nets.update(power_nets)
+
+    for pn in sorted(ic_power_nets):
+        if _has_cap_on_net_pair(parts, nets, pn, gnd_name, BULK_CAP_RE):
+            continue
+        eid_counter[0] += 1
+        eid = f"e-design-{eid_counter[0]}"
+        cap_ref = _next_ref(parts, "C")
+        exceptions.append(DesignException(
+            id=eid,
+            code=ExcCode.DESIGN_MISSING_BULK_CAP,
+            severity=Severity.ADVISORY,
+            message=f"No bulk capacitor (10uF+) on power rail {pn}",
+            subject={"net": pn},
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.ADD_PARTS,
+                    params={
+                        "parts": [{"ref": cap_ref, "lib": "Device", "part": "C",
+                                    "value": "10uF",
+                                    "footprint": "Capacitor_SMD:C_0805_2012Metric"}],
+                        "net_connections": [
+                            {"net": pn, "pin": f"{cap_ref}.1"},
+                            {"net": gnd_name, "pin": f"{cap_ref}.2"},
+                        ],
+                    },
+                    human_summary=f"Add 10uF bulk capacitor on {pn}",
+                    confidence=0.85,
+                ),
+                Candidate(
+                    id="c2",
+                    action=ActionType.ACCEPT_ADVISORY,
+                    params={},
+                    human_summary="Waive — bulk cap not needed for this design",
+                    confidence=0.3,
+                ),
+            ],
+        ))
+
+
+def _design_review_connectors(parts, exceptions, eid_counter):
+    """Board must have at least one connector."""
+    from schemas.exceptions import (
+        Candidate, DesignException, ExcCode, Severity, ActionType,
+    )
+
+    has_connector = any(
+        p.get("ref", "").startswith("J") or
+        "Connector" in str(p.get("lib", "") or "")
+        for p in parts
+    )
+    if has_connector:
+        return
+    eid_counter[0] += 1
+    exceptions.append(DesignException(
+        id=f"e-design-{eid_counter[0]}",
+        code=ExcCode.DESIGN_NO_CONNECTOR,
+        severity=Severity.ERROR,
+        message="No connectors on the board — how does the user connect to it?",
+        subject={},
+        candidates=[
+            Candidate(
+                id="c1",
+                action=ActionType.ADD_PARTS,
+                params={
+                    "parts": [{"ref": "J1", "lib": "Connector_Generic",
+                               "part": "Conn_01x04",
+                               "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"}],
+                    "net_connections": [],
+                },
+                human_summary="Add a 4-pin header for power and I/O",
+                confidence=0.5,
+            ),
+        ],
+    ))
+
+
+def _design_review_power_rails(parts, nets, exceptions, eid_counter):
+    """Check power/ground rail existence and power flag."""
+    from schemas.exceptions import (
+        Candidate, DesignException, ExcCode, Severity, ActionType,
+    )
+
+    has_power = any(_is_power_net(n) for n in nets)
+    has_ground = any(_is_ground_net(n) for n in nets)
+
+    if not has_power:
+        eid_counter[0] += 1
+        exceptions.append(DesignException(
+            id=f"e-design-{eid_counter[0]}",
+            code=ExcCode.DESIGN_NO_POWER_RAIL,
+            severity=Severity.ERROR,
+            message="No power rail defined (VCC, 3V3, 5V, etc.)",
+            subject={"missing": "power"},
+            candidates=[],
+            retry_hint="Add a power net with a standard name (VCC, 3V3, 5V) and set power=true",
+        ))
+
+    if not has_ground:
+        eid_counter[0] += 1
+        exceptions.append(DesignException(
+            id=f"e-design-{eid_counter[0]}",
+            code=ExcCode.DESIGN_NO_POWER_RAIL,
+            severity=Severity.ERROR,
+            message="No ground rail defined",
+            subject={"missing": "ground"},
+            candidates=[],
+            retry_hint="Add a GND net with power=true",
+        ))
+
+    for net in nets:
+        if (_is_power_net(net) or _is_ground_net(net)) and not net.get("power"):
+            eid_counter[0] += 1
+            exceptions.append(DesignException(
+                id=f"e-design-{eid_counter[0]}",
+                code=ExcCode.DESIGN_POWER_FLAG,
+                severity=Severity.ADVISORY,
+                message=f"Net '{net['name']}' looks like a power rail but power=true is not set",
+                subject={"net": net["name"]},
+                candidates=[
+                    Candidate(
+                        id="c1",
+                        action=ActionType.ACCEPT_ADVISORY,
+                        params={},
+                        human_summary=f"Accept — {net['name']} is not a power rail",
+                        confidence=0.3,
+                    ),
+                ],
+                retry_hint=f"Set power=true on net '{net['name']}' for proper placement",
+            ))
+
+
+def design_review_exceptions(
+    spec_dict: dict,
+    marketing_text: str = "",
+) -> list:
+    """Post-enrichment design review that produces DesignException objects.
+
+    Checks things enrichment doesn't handle: bulk caps on general power rails,
+    connector presence, power rail existence/flags, and marketing-text
+    feature cross-reference. Returns a list of DesignException objects.
+    """
+    parts = spec_dict.get("parts", [])
+    nets = spec_dict.get("nets", [])
+    exceptions: list = []
+    eid_counter = [0]
+
+    _design_review_bulk_caps(parts, nets, exceptions, eid_counter)
+    _design_review_connectors(parts, exceptions, eid_counter)
+    _design_review_power_rails(parts, nets, exceptions, eid_counter)
+
+    if marketing_text:
+        _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counter)
+
+    return exceptions
+
+
+def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counter):
+    """Cross-reference marketing text with spec components."""
+    from schemas.exceptions import (
+        Candidate, DesignException, ExcCode, Severity, ActionType,
+    )
+
+    marketing = marketing_text.lower()
+    checks = [
+        (["i2c", "i²c"], "I2C interface",
+         lambda: any(I2C_NET_RE.match(n.get("name", "")) for n in nets)),
+        (["spi"], "SPI interface",
+         lambda: any(n.get("name", "").upper() in {"MOSI", "MISO", "SCK", "SCLK", "SDI", "SDO", "COPI", "CIPO"} for n in nets)),
+        (["lipo", "lipoly", "battery charg", "rechargeable"], "Battery/LiPo charger",
+         lambda: any(
+             any(kw in str(p.get(f, "") or "").lower() for kw in ("mcp73831", "bq24", "tp4056", "battery_management"))
+             for p in parts for f in ("part", "lib", "value"))),
+        (["usb-c", "usb c", "type-c"], "USB-C connector",
+         lambda: any("USB_C" in str(p.get("part", "") or "").upper() or "USB_C" in str(p.get("footprint", "") or "").upper() for p in parts)),
+        (["neopixel", "ws2812"], "NeoPixel/addressable LED",
+         lambda: any("WS2812" in str(p.get("part", "") or "").upper() for p in parts)),
+        (["stemma", "qwiic"], "STEMMA QT/Qwiic connector",
+         lambda: any("JST_SH" in str(p.get("footprint", "") or "") or "STEMMA" in str(p.get("value", "") or "").upper() for p in parts)),
+        (["sense resistor", "shunt resistor", "current sense", "current measur"], "Current sense resistor",
+         lambda: any(p.get("ref", "").startswith("R") and _is_low_ohm(str(p.get("value", "") or "")) for p in parts)),
+        (["voltage regulator", "3.3v regulator", "ldo"], "Voltage regulator",
+         lambda: any("Regulator" in str(p.get("lib", "") or "") for p in parts)),
+    ]
+
+    for keywords, feature_name, present_fn in checks:
+        if not any(kw in marketing for kw in keywords):
+            continue
+        if present_fn():
+            continue
+        eid_counter[0] += 1
+        exceptions.append(DesignException(
+            id=f"e-design-{eid_counter[0]}",
+            code=ExcCode.DESIGN_MISSING_FEATURE,
+            severity=Severity.ADVISORY,
+            message=f"Marketing mentions {feature_name} but not found in spec",
+            subject={"feature": feature_name, "keywords_matched": [kw for kw in keywords if kw in marketing]},
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.ACCEPT_ADVISORY,
+                    params={},
+                    human_summary=f"Waive — {feature_name} not needed",
+                    confidence=0.3,
+                ),
+            ],
+        ))
+
+
+def _is_low_ohm(val: str) -> bool:
+    val = val.strip().lower()
+    m = re.match(r"^([\d.]+)\s*(m?ohm|r|ω)?$", val)
+    if m:
+        try:
+            v = float(m.group(1))
+            if "mohm" in val or "mω" in val:
+                return True
+            return v < 1.0
+        except ValueError:
+            pass
+    return bool(re.match(r"^0[rR.]", val))
 
 
 def enrich(spec_dict: dict) -> tuple[dict, list[dict]]:

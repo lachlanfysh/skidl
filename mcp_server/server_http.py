@@ -28,7 +28,6 @@ from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import CorrectionError, apply_candidate
 from schemas.estimator import estimate_complexity as _estimate_complexity
 from schemas.exceptions import ActionType, DesignException, ExcCode
-from schemas.review import review_design as _review_design
 
 mcp = FastMCP(
     "eda-mcp",
@@ -306,64 +305,11 @@ def _estimate_hint(result: dict) -> str:
 
     if not issues:
         parts.append(
-            "Spec looks valid. Run review_design(spec, marketing_text) to check "
-            "for missing components before submitting"
+            "Spec looks valid. Submit with submit_design() — the engine runs "
+            "design review, enrichment, routing, and DRC automatically"
         )
 
     return ". ".join(parts) + "."
-
-
-@mcp.tool()
-async def review_design(input_spec: dict, marketing_text: str = "") -> dict:
-    """Pre-submission design review — checks for missing components.
-
-    Analyzes your spec against PCB design best practices and the marketing
-    description to find likely missing parts BEFORE you submit. Fast, free,
-    no side effects. Fix the issues it finds, then submit_design().
-
-    Checks include:
-    - Missing decoupling caps on ICs
-    - Missing bulk capacitors on power rails
-    - I2C pull-up resistors
-    - Address pin tie-down resistors
-    - Reset/open-drain pull-ups
-    - USB-C CC pull-downs
-    - Connector presence
-    - Marketing text cross-reference: if the description mentions I2C,
-      current sensing, USB-C, NeoPixel, STEMMA QT, etc., checks that
-      the corresponding components exist in the spec
-
-    Pass marketing_text for the fullest review — without it, only
-    structural checks run. Each issue has a severity (error/warning/
-    suggestion), category, message, and fix_hint with specific parts
-    and values to add.
-
-    Returns: {"issues": [...], "issue_count": N, "hint": "..."}.
-    Zero issues = ready to submit.
-    """
-    spec = _validate_spec(input_spec)
-    issues = await asyncio.to_thread(
-        lambda: _review_design(spec.model_dump(mode="json"), marketing_text)
-    )
-    error_count = sum(1 for i in issues if i["severity"] == "error")
-    warning_count = sum(1 for i in issues if i["severity"] == "warning")
-
-    if not issues:
-        hint = "No issues found — your spec looks complete. Submit with submit_design()."
-    elif error_count:
-        hint = (
-            f"Found {error_count} error(s) and {warning_count} warning(s). "
-            f"Fix at least the errors before submitting — they indicate "
-            f"missing critical components. Read each fix_hint for specific parts to add."
-        )
-    else:
-        hint = (
-            f"Found {warning_count} warning(s) and {len(issues) - warning_count} "
-            f"suggestion(s). Consider fixing warnings before submitting. "
-            f"Suggestions are optional but improve quality."
-        )
-
-    return {"issues": issues, "issue_count": len(issues), "hint": hint}
 
 
 @mcp.tool()
@@ -661,6 +607,12 @@ get_job(job_id)  ... poll every 5-15s ...  -> result when finished
         |-- no  -> read each exception's candidates
                    apply_correction(run_id, [{exception_id, candidate_id}, ...])
                    -> new job_id -> poll again (loop)
+
+The engine pipeline runs: translate → design review → schematic + ERC →
+placement → routing (Freerouting) → DRC (kicad-cli). Problems at any stage
+come back as structured exceptions with candidates — you never need to
+inspect intermediate artifacts or call external tools. The final .kicad_pcb
+is a routed board when routing succeeds.
 ```
 
 ## Polling
@@ -741,6 +693,20 @@ def _exceptions_guide() -> str:
         "LAYOUT_MISSING_REF": "a part was never placed",
         "HIGH_CONGESTION": "advisory: routing congestion hotspot",
         "LONG_POWER_NET": "advisory: power net wirelength is excessive",
+        "DESIGN_MISSING_BULK_CAP": "advisory: power rail has no bulk capacitor (10uF+)",
+        "DESIGN_NO_CONNECTOR": "error: board has no connectors",
+        "DESIGN_NO_POWER_RAIL": "error: no power or ground rail defined",
+        "DESIGN_POWER_FLAG": "advisory: net looks like power but power=true not set",
+        "DESIGN_MISSING_FEATURE": "advisory: marketing text mentions a feature not in spec",
+        "ROUTE_UNCONNECTED": "error: nets that could not be routed",
+        "ROUTE_CONGESTION": "advisory: routing succeeded but congestion is high",
+        "ROUTE_TIMEOUT": "error: Freerouting exceeded time limit",
+        "ROUTE_UNAVAILABLE": "error: routing tools not available — board is unrouted",
+        "DRC_CLEARANCE": "error: trace/pad clearance violation",
+        "DRC_UNCONNECTED": "error: net endpoint not connected after routing",
+        "DRC_SHORT": "error: unintended connection between nets",
+        "DRC_COURTYARD": "advisory: component courtyard overlap",
+        "DRC_TOOL_FAILURE": "advisory: DRC tool failed to run",
         "ENGINE_TIMEOUT": "engine hit timeout_s — raise it or simplify",
         "ENGINE_CRASH": "engine crashed; usually retry (regenerate)",
         "BUDGET_EXHAUSTED": "correction budget used up without convergence",
@@ -756,6 +722,8 @@ def _exceptions_guide() -> str:
         "set_form_factor": "adopt a standard board outline (params: name)",
         "set_outline": "set explicit board size (params: w_mm, h_mm)",
         "scale_outline": "grow the board area (params: area_factor)",
+        "add_parts": "inject parts and net connections (params: parts[], net_connections[])",
+        "set_layers": "change copper layer count (params: layers)",
         "accept_advisory": "waive this advisory finding permanently",
         "regenerate": "rerun unchanged (placement has randomness)",
     }

@@ -35,6 +35,23 @@ class ExcCode(str, Enum):
     # Advisory quality signals
     HIGH_CONGESTION = "HIGH_CONGESTION"
     LONG_POWER_NET = "LONG_POWER_NET"
+    # Design completeness (post-enrich review)
+    DESIGN_MISSING_BULK_CAP = "DESIGN_MISSING_BULK_CAP"
+    DESIGN_NO_CONNECTOR = "DESIGN_NO_CONNECTOR"
+    DESIGN_NO_POWER_RAIL = "DESIGN_NO_POWER_RAIL"
+    DESIGN_POWER_FLAG = "DESIGN_POWER_FLAG"
+    DESIGN_MISSING_FEATURE = "DESIGN_MISSING_FEATURE"
+    # Routing (Freerouting)
+    ROUTE_UNCONNECTED = "ROUTE_UNCONNECTED"
+    ROUTE_CONGESTION = "ROUTE_CONGESTION"
+    ROUTE_TIMEOUT = "ROUTE_TIMEOUT"
+    ROUTE_UNAVAILABLE = "ROUTE_UNAVAILABLE"
+    # DRC (kicad-cli)
+    DRC_CLEARANCE = "DRC_CLEARANCE"
+    DRC_UNCONNECTED = "DRC_UNCONNECTED"
+    DRC_SHORT = "DRC_SHORT"
+    DRC_COURTYARD = "DRC_COURTYARD"
+    DRC_TOOL_FAILURE = "DRC_TOOL_FAILURE"
     # Harness-level
     ENGINE_TIMEOUT = "ENGINE_TIMEOUT"
     ENGINE_CRASH = "ENGINE_CRASH"
@@ -58,6 +75,8 @@ class ActionType(str, Enum):
     SET_FORM_FACTOR = "set_form_factor"    # params: name
     SET_OUTLINE = "set_outline"            # params: w_mm, h_mm
     SCALE_OUTLINE = "scale_outline"        # params: area_factor
+    ADD_PARTS = "add_parts"                # params: parts[], net_connections[]
+    SET_LAYERS = "set_layers"              # params: layers (int)
     ACCEPT_ADVISORY = "accept_advisory"    # params: {} — waive this exception
     REGENERATE = "regenerate"              # params: {} — rerun unchanged
 
