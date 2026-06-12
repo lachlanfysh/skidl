@@ -537,13 +537,33 @@ def _run_skidl_code(envelope: dict) -> dict:
         erc_max_iterations=8,
     )
 
-    from skidl.layout import LayoutConstraints, BoardOutline, plan_layout, write_kicad_pcb
+    from skidl.layout import (
+        LayoutConstraints, BoardOutline, plan_layout, write_kicad_pcb,
+    )
 
     outline = BoardOutline(*outline_mm) if outline_mm else None
     constraints = LayoutConstraints(outline=outline)
     layout_result = plan_layout(
         circuit, fp_lib_dirs=fp_dirs, constraints=constraints,
     )
+
+    for scale in (1.5, 2.0):
+        layout_errs = layout_exceptions(layout_result)
+        has_placement_error = any(
+            e.code in (ExcCode.LAYOUT_OVERLAP, ExcCode.LAYOUT_OUTLINE_VIOLATION)
+            for e in layout_errs
+        )
+        if not has_placement_error:
+            break
+        expanded = BoardOutline(
+            layout_result.outline.width_mm * scale,
+            layout_result.outline.height_mm * scale,
+        )
+        constraints = LayoutConstraints(outline=expanded)
+        layout_result = plan_layout(
+            circuit, fp_lib_dirs=fp_dirs, constraints=constraints,
+        )
+
     write_kicad_pcb(
         layout_result.placed_parts, circuit, fp_dirs,
         str(pcb_path), outline=layout_result.outline,
