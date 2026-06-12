@@ -51,7 +51,16 @@ MODELS = [
 SYSTEM_PROMPT = """\
 You are a hardware design agent with access to a PCB design service via tool \
 calls. The service provides documentation through readable resources — start \
-by reading them to learn the input format and workflow.
+by reading the workflow guide and circuit spec guide to learn the format.
+
+Your goal is a SUCCEEDED job. After submit_design(), poll get_job() until \
+finished. If it fails with exceptions, apply ALL suggested corrections and \
+resubmit. Keep iterating — library mismatches, pin name errors, and footprint \
+fixes are normal and each round gets closer. Do NOT stop until get_job() \
+returns status "succeeded" or you have exhausted every correction option.
+
+The server auto-adds decoupling caps, pull-ups, and standard passives — \
+focus on the main ICs, connectors, and signal nets.
 
 Service instructions: {instructions}"""
 
@@ -226,10 +235,12 @@ def run_agent_board(
                 messages.append({
                     "role": "user",
                     "content": (
-                        "You need to use tool calls to interact with the design "
-                        "service. Read the available resources first to learn the "
-                        "spec format, then build and submit a design. When done, "
-                        "reply starting with 'FINAL REPORT:'."
+                        "You must use tool calls. Your goal is a SUCCEEDED job. "
+                        "If you haven't submitted yet, read eda://guide/workflow "
+                        "and eda://guide/circuit-spec first, then submit_design(). "
+                        "If your job failed with exceptions, apply_correction() "
+                        "for each one and poll again. Keep going until succeeded. "
+                        "Only reply with 'FINAL REPORT:' after get_job() shows succeeded."
                     ),
                 })
                 nudges += 1

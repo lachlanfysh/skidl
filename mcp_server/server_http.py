@@ -647,14 +647,21 @@ exception comes back to you. To let the server iterate by itself:
   BOM substitutions, mechanical/outline changes, unknown pinouts
   (the `stop_for` decision kinds).
 
-## Iterating
+## Iterating — KEEP GOING UNTIL SUCCEEDED
 
 - Each apply_correction() produces a child job linked to its parent; the
   spec it mutates is the parent run's spec, so corrections compound across
   iterations.
-- Two or three correction rounds are typical for a first-pass spec with
-  guessed footprints. If the same exception recurs with the same candidate,
-  pick a different candidate instead of repeating.
+- **Do not stop after a fixed number of rounds.** Keep applying corrections
+  and resubmitting until get_job() returns status "succeeded". Library
+  mismatches, pin name errors, and footprint fixes are normal — each
+  correction gets you closer. The engine tells you exactly what's wrong
+  and suggests fixes; apply them all and resubmit.
+- If the same exception recurs with the same candidate, pick a different
+  candidate instead of repeating. If no candidates work, try a different
+  lib/part/footprint from the error's `suggested_fix` or `available_pins`.
+- The server auto-enriches your spec with decoupling caps, I2C pull-ups,
+  and other standard passives — you don't need to include those.
 - Run data expires ~48h after completion — fetch artifacts promptly.
 
 ## Important tips
