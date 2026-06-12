@@ -30,6 +30,16 @@ class DB:
         async with self.pool.acquire() as conn:
             await conn.execute(schema_sql)
 
+    # ── Generic helpers ────────────────────────────────────────────────
+
+    async def fetchrow(self, query: str, *args) -> Any:
+        async with self.pool.acquire() as conn:
+            return await conn.fetchrow(query, *args)
+
+    async def execute(self, query: str, *args) -> str:
+        async with self.pool.acquire() as conn:
+            return await conn.execute(query, *args)
+
     # ── Jobs ──────────────────────────────────────────────────────────
 
     async def create_job(
