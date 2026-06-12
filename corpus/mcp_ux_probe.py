@@ -166,17 +166,20 @@ def shrink_result(name: str, text: str, artifacts_dir: Path) -> str:
             container = data
             if isinstance(data.get("result"), dict):
                 container = data["result"]
-            arts = container.get("artifacts")
-            if isinstance(arts, dict) and arts:
-                artifacts_dir.mkdir(parents=True, exist_ok=True)
-                spooled = {}
-                for fname, content in arts.items():
-                    if isinstance(content, str) and len(content) > 500:
-                        (artifacts_dir / fname).write_text(content)
-                        spooled[fname] = f"<file saved to disk, {len(content)} bytes>"
-                    else:
-                        spooled[fname] = content
-                container["artifacts"] = spooled
+            # Strip file content blobs that bloat responses
+            for arts_key in ("artifacts", "_artifact_paths"):
+                arts = container.get(arts_key)
+                if isinstance(arts, dict) and arts:
+                    artifacts_dir.mkdir(parents=True, exist_ok=True)
+                    spooled = {}
+                    for fname, content in arts.items():
+                        if isinstance(content, str) and len(content) > 500:
+                            (artifacts_dir / fname).write_text(content)
+                            spooled[fname] = f"<file saved to disk, {len(content)} bytes>"
+                        else:
+                            spooled[fname] = content
+                    container[arts_key] = spooled
+            container.pop("stderr", None)
             # The job result echoes the full spec twice; drop one copy.
             if container is not data and isinstance(container.get("spec"), dict) \
                     and container.get("spec") == data.get("spec"):

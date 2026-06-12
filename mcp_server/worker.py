@@ -34,13 +34,15 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
 
         try:
             result = await asyncio.to_thread(_execute_job, job)
+            # Extract artifact file contents before storing — they bloat
+            # the jobs.result column and can cause tool response truncation.
+            artifacts = _collect_artifacts(result)
             status = "succeeded" if result["ok"] else "failed"
             if result.get("status") == "timeout":
                 status = "timeout"
             await db.complete_job(job_id, status, result=result)
 
             if result.get("run_id"):
-                artifacts = _collect_artifacts(result)
                 await db.save_run(
                     result["run_id"],
                     job_id,

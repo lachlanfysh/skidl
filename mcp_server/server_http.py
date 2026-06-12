@@ -178,8 +178,14 @@ async def get_job(job_id: str) -> dict:
     result = job.get("result")
     if isinstance(result, dict):
         result.pop("spec", None)
+        result.pop("_artifact_paths", None)
+        result.pop("stderr", None)
+        # Keep layout.score summary, drop verbose report/candidates
         layout = result.get("layout")
-        if isinstance(layout, str) and len(layout) > 2000:
+        if isinstance(layout, dict):
+            score = layout.get("score")
+            result["layout"] = {"ok": layout.get("ok"), "score": score}
+        elif isinstance(layout, str) and len(layout) > 2000:
             result["layout"] = layout[:2000] + "\n... (use get_run for full data)"
 
     job["hint"] = _get_job_hint(job)

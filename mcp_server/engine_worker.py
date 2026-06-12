@@ -159,14 +159,10 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
         return [DesignException(
             id="e-route-unavailable",
             code=ExcCode.ROUTE_UNAVAILABLE,
-            severity=Severity.ERROR,
-            message="Routing unavailable: Freerouting JAR or Java not found",
+            severity=Severity.WARNING,
+            message="Routing unavailable: Freerouting JAR or Java not found — board is unrouted but placement is valid",
             subject={},
-            candidates=[
-                Candidate(id="c1", action=ActionType.ACCEPT_ADVISORY, params={},
-                          human_summary="Accept unrouted board — route manually in KiCad",
-                          confidence=0.5),
-            ],
+            candidates=[],
         )]
 
     dsn_path = str(Path(pcb_path).with_suffix(".dsn"))
