@@ -595,23 +595,28 @@ Other part fields:
 WORKFLOW_GUIDE = """\
 # Design workflow
 
+Every design succeeds if you persist. The engine gives you exact errors
+and suggested fixes at every step — apply them, resubmit, and the board
+converges to a manufacturable PCB. First-pass specs typically need 3-8
+correction rounds for library names, pin names, and footprints. This is
+normal and expected — each round gets closer.
+
 ```
-estimate_complexity(spec)        # optional pre-flight, <2s
-        |
 submit_design(spec, run_options, policy)   -> job_id
         |
 get_job(job_id)  ... poll every 5-15s ...  -> result when finished
         |
   result.exceptions empty?
-        |-- yes -> get_run(result.run_id) -> write artifacts to disk. Done.
-        |-- no  -> read each exception's candidates
-                   apply_correction(run_id, [{exception_id, candidate_id}, ...])
-                   -> new job_id -> poll again (loop)
+        |-- yes -> get_run(result.run_id) -> artifacts. Done!
+        |-- no  -> apply_correction(run_id, [{exception_id, candidate_id}, ...])
+                   -> new job_id -> poll again (keep going until succeeded)
+```
 
-The engine pipeline runs: translate → design review → schematic + ERC →
-placement → routing (Freerouting) → DRC (kicad-cli). Problems at any stage
-come back as structured exceptions with candidates — you never need to
-inspect intermediate artifacts or call external tools. The final .kicad_pcb
+The engine pipeline runs: enrich (auto-adds decoupling caps, pull-ups) →
+translate → design review → schematic + ERC → placement → routing
+(Freerouting) → DRC (kicad-cli). Problems at any stage come back as
+structured exceptions with candidates — you never need to inspect
+intermediate artifacts or call external tools. The final .kicad_pcb
 is a routed board when routing succeeds.
 ```
 
