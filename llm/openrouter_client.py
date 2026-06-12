@@ -80,7 +80,7 @@ def _parse_response(data: dict, model: str, latency_s: float) -> LLMResponse:
 async def complete(
     messages: list[dict],
     model: str,
-    max_tokens: int = 8192,
+    max_tokens: int = 16384,
     temperature: float = 0.2,
     response_format: Optional[dict] = None,
     web_search: bool = False,

@@ -12,6 +12,7 @@ repair retry per operation.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -174,13 +175,61 @@ def _strip_fences(text: str) -> str:
 
 def _fix_trailing_commas(text: str) -> str:
     """Remove trailing commas before closing brackets/braces — the #1 LLM JSON error."""
-    import re
     return re.sub(r",\s*([}\]])", r"\1", text)
 
 
+def _fix_truncation(text: str) -> str:
+    """Try to close truncated JSON by counting open brackets and appending closers.
+    Works when output was cut off mid-array/object by token limit."""
+    t = text.rstrip()
+    # Strip incomplete trailing values (partial strings, numbers, etc.)
+    t = re.sub(r',\s*"[^"]*$', "", t)  # trailing partial string key
+    t = re.sub(r',\s*\{[^}]*$', "", t)  # trailing partial object
+    t = re.sub(r',\s*\[[^\]]*$', "", t)  # trailing partial array
+    t = re.sub(r':\s*"[^"]*$', ': ""', t)  # partial string value
+    t = re.sub(r',\s*$', "", t)  # trailing comma
+
+    # Count unclosed brackets
+    opens = 0
+    stack: list[str] = []
+    in_string = False
+    escape = False
+    for ch in t:
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch in ("{", "["):
+            stack.append("}" if ch == "{" else "]")
+        elif ch in ("}", "]"):
+            if stack:
+                stack.pop()
+
+    if stack:
+        t += "".join(reversed(stack))
+
+    return t
+
+
+def _fix_bare_net_pins(parsed: dict) -> dict:
+    """Fix bare net names used as pin references (e.g., 'GND' instead of 'U1.GND').
+    Remove them from pin lists — enrichment will re-add the connections properly."""
+    for net in parsed.get("nets", []):
+        pins = net.get("pins", [])
+        net["pins"] = [p for p in pins if "." in str(p)]
+    return parsed
+
+
 def _loads_forgiving(text: str, opener: str = "{", closer: str = "}") -> Any:
-    """json.loads with fence stripping, trailing-comma repair, and
-    outermost-bracket extraction. Handles the most common LLM JSON errors."""
+    """json.loads with fence stripping, trailing-comma repair, truncation repair,
+    and outermost-bracket extraction. Handles common LLM JSON errors."""
     t = _strip_fences(text)
     try:
         return json.loads(t)
@@ -195,17 +244,23 @@ def _loads_forgiving(text: str, opener: str = "{", closer: str = "}") -> Any:
             return json.loads(extracted)
         except ValueError:
             pass
-        # Try fixing trailing commas (most common Gemini error)
         fixed = _fix_trailing_commas(extracted)
         try:
             return json.loads(fixed)
         except ValueError:
             pass
 
-    # Last resort: trailing comma fix on the whole text
+    # Trailing comma fix on the whole text
     fixed = _fix_trailing_commas(t)
     try:
         return json.loads(fixed)
+    except ValueError:
+        pass
+
+    # Truncation repair — close unclosed brackets
+    truncated = _fix_truncation(_fix_trailing_commas(t))
+    try:
+        return json.loads(truncated)
     except ValueError:
         pass
 
@@ -299,7 +354,7 @@ async def nl_to_input_spec(
 
     resp = await _attempt(messages)
     try:
-        parsed = _loads_forgiving(resp.text)
+        parsed = _fix_bare_net_pins(_loads_forgiving(resp.text))
         lib_issues = validate_spec_libraries(parsed)
         if lib_issues:
             issue_lines = []
@@ -347,7 +402,7 @@ async def nl_to_input_spec(
     ]
     resp2 = await _attempt(repair_messages)
     try:
-        return _enrich_and_validate(_loads_forgiving(resp2.text)), stages
+        return _enrich_and_validate(_fix_bare_net_pins(_loads_forgiving(resp2.text))), stages
     except (ValueError, ValidationError) as err2:
         raise SpecParseError(
             f"spec generation failed for {board_id!r} after repair retry: {err2}",
