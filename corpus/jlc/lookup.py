@@ -24,6 +24,7 @@ from typing import Optional
 import httpx
 
 BASIC_CSV = Path(__file__).parent / "jlcpcb-basic-preferred.csv"
+SQLITE_DB = Path(__file__).parent / "jlcpcb-components.sqlite3"
 JLCSEARCH_API = "https://jlcsearch.tscircuit.com"
 CACHE_DIR = Path(__file__).parent / "cache"
 
@@ -48,13 +49,26 @@ class JLCPart:
 class JLCLookup:
     """Search JLCPCB parts database."""
 
-    def __init__(self, use_api: bool = True, cache: bool = True):
+    def __init__(self, use_api: bool = True, cache: bool = True, sqlite_path: str | Path | None = None):
         self.use_api = use_api
         self._cache_enabled = cache
         self._basic_parts: list[dict] | None = None
         self._api_cache: dict[str, list[JLCPart]] = {}
+        self._sqlite_path = Path(sqlite_path) if sqlite_path else SQLITE_DB
+        self._sqlite_conn: "sqlite3.Connection | None" = None
         if cache:
             CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    def _get_sqlite(self):
+        """Lazy-open SQLite connection (returns None if DB doesn't exist)."""
+        if self._sqlite_conn is not None:
+            return self._sqlite_conn
+        if not self._sqlite_path.exists():
+            return None
+        import sqlite3
+        self._sqlite_conn = sqlite3.connect(str(self._sqlite_path))
+        self._sqlite_conn.row_factory = sqlite3.Row
+        return self._sqlite_conn
 
     def _load_basic(self) -> list[dict]:
         if self._basic_parts is not None:
@@ -155,6 +169,55 @@ class JLCLookup:
             seen = {r.lcsc for r in results}
             results.extend(r for r in api_results if r.lcsc not in seen)
         return results[:limit]
+
+    def search_by_mfr(self, mfr_query: str, limit: int = 10) -> list[JLCPart]:
+        """Search by manufacturer part number. Returns all package variants.
+
+        Uses SQLite when available (616K parts), falls back to CSV + API.
+        Ideal for finding footprint options: e.g. MCP9808 -> MSOP-8 and DFN-8.
+        """
+        conn = self._get_sqlite()
+        if conn is not None:
+            cur = conn.execute(
+                "SELECT lcsc, mfr, package, description, stock, price, basic, preferred "
+                "FROM components WHERE mfr LIKE ? ORDER BY stock DESC LIMIT ?",
+                (f"%{mfr_query}%", limit),
+            )
+            results = []
+            for row in cur.fetchall():
+                results.append(JLCPart(
+                    lcsc=f"C{row['lcsc']}",
+                    mfr=row["mfr"],
+                    package=row["package"],
+                    description=row["description"][:200],
+                    stock=row["stock"],
+                    price=_first_price(row["price"]),
+                    basic=bool(row["basic"]),
+                    joints=0,
+                ))
+            if results:
+                return results
+
+        return self.search(mfr_query, limit)
+
+    def get_price_breaks(self, lcsc: str) -> list[dict]:
+        """Get quantity price breaks for a specific LCSC part."""
+        conn = self._get_sqlite()
+        if conn is None:
+            return []
+        lcsc_num = int(lcsc.lstrip("Cc")) if lcsc.lstrip("Cc").isdigit() else 0
+        if not lcsc_num:
+            return []
+        cur = conn.execute(
+            "SELECT price FROM components WHERE lcsc = ?", (lcsc_num,)
+        )
+        row = cur.fetchone()
+        if not row:
+            return []
+        try:
+            return json.loads(row["price"])
+        except (json.JSONDecodeError, TypeError):
+            return []
 
     def lookup_lcsc(self, lcsc: str) -> JLCPart | None:
         """Look up a specific LCSC part number."""

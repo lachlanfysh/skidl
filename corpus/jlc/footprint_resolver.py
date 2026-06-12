@@ -74,12 +74,71 @@ _PACKAGE_TO_KICAD = {
     "TQFP-48": "Package_QFP:TQFP-48_7x7mm_P0.5mm",
     "TQFP-64": "Package_QFP:TQFP-64_10x10mm_P0.5mm",
     "USB-C": "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+    # MSOP
+    "MSOP-8": "Package_SO:MSOP-8-1EP_3x3mm_P0.65mm_EP1.68x1.88mm",
+    "MSOP-10": "Package_SO:MSOP-10-1EP_3x3mm_P0.5mm_EP1.68x1.88mm",
+    # DFN
+    "DFN-8": "Package_DFN_QFN:DFN-8-1EP_3x2mm_P0.5mm_EP1.36x1.46mm",
+    "DFN-6": "Package_DFN_QFN:DFN-6-1EP_2x2mm_P0.65mm_EP1x1.6mm",
+    "DFN-10": "Package_DFN_QFN:DFN-10-1EP_3x3mm_P0.5mm_EP1.55x2.48mm",
+    # More QFN
+    "QFN-28": "Package_DFN_QFN:QFN-28-1EP_4x4mm_P0.4mm_EP2.4x2.4mm",
+    "QFN-40": "Package_DFN_QFN:QFN-40-1EP_5x5mm_P0.4mm_EP3.1x3.1mm",
+    "QFN-56": "Package_DFN_QFN:QFN-56-1EP_7x7mm_P0.4mm_EP5.6x5.6mm",
+    "QFN-64": "Package_DFN_QFN:QFN-64-1EP_9x9mm_P0.5mm_EP4.65x4.65mm",
+    # More QFP
+    "LQFP-144": "Package_QFP:LQFP-144_20x20mm_P0.5mm",
+    "TQFP-100": "Package_QFP:TQFP-100_14x14mm_P0.5mm",
+    # SSOP
+    "SSOP-16": "Package_SO:SSOP-16_5.3x6.2mm_P0.65mm",
+    "SSOP-20": "Package_SO:SSOP-20_5.3x7.2mm_P0.65mm",
+    "SSOP-24": "Package_SO:SSOP-24_5.3x8.2mm_P0.65mm",
+    "SSOP-28": "Package_SO:SSOP-28_5.3x10.2mm_P0.65mm",
+    # DIP
+    "DIP-20": "Package_DIP:DIP-20_W7.62mm",
+    "DIP-24": "Package_DIP:DIP-24_W7.62mm",
+    "DIP-28": "Package_DIP:DIP-28_W7.62mm",
+    "DIP-40": "Package_DIP:DIP-40_W15.24mm",
+    # SOT
+    "SOT-25": "Package_TO_SOT_SMD:SOT-23-5",
+    "SOT-26": "Package_TO_SOT_SMD:SOT-23-6",
+    "SOT-353": "Package_TO_SOT_SMD:SC-70-5",
+    "SOT-363": "Package_TO_SOT_SMD:SC-70-6",
+    "SOT-223": "Package_TO_SOT_SMD:SOT-223-3_TabPin2",
+    # VQFN
+    "VQFN-32": "Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.45x3.45mm",
+    "VQFN-48": "Package_DFN_QFN:QFN-48-1EP_7x7mm_P0.5mm_EP5.15x5.15mm",
+    # UFQFPN
+    "UFQFPN-48": "Package_DFN_QFN:QFN-48-1EP_7x7mm_P0.5mm_EP5.15x5.15mm",
+    # WLCSP — no standard KiCad footprint, but flag it
+    # BGA
+    "BGA-256": "Package_BGA:BGA-256_17.0x17.0mm_Layout16x16_P1.0mm",
 }
+
+import re
+
+_LCSC_SUFFIX_RE = re.compile(r"[\(\-].*$")
 
 
 def footprint_from_package(package: str) -> str | None:
-    """Direct package string -> KiCad footprint lookup (no API needed)."""
-    return _PACKAGE_TO_KICAD.get(package)
+    """Package string -> KiCad footprint lookup. Handles LCSC naming quirks."""
+    fp = _PACKAGE_TO_KICAD.get(package)
+    if fp:
+        return fp
+    # Strip LCSC suffixes: "TQFP-32(7x7)" -> "TQFP-32", "DIP-28-300mil" -> "DIP-28"
+    base = package
+    for suffix in ("-EP", "-300mil", "-208mil"):
+        base = base.replace(suffix, "")
+    base = re.sub(r"\([^)]*\)$", "", base).strip()
+    if base != package:
+        fp = _PACKAGE_TO_KICAD.get(base)
+        if fp:
+            return fp
+    # Try with pin count only: "SOT-25-5" -> "SOT-25"
+    m = re.match(r"^([A-Z]+-\d+)-\d+$", package)
+    if m:
+        return _PACKAGE_TO_KICAD.get(m.group(1))
+    return None
 
 
 _FP_QUERY_MAP = {

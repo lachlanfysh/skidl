@@ -491,6 +491,40 @@ async def get_run(run_id: str) -> dict:
 # ── Library search ────────────────────────────────────────────────────
 
 
+def _lcsc_variants(query: str, limit: int = 6) -> list[dict]:
+    """Query LCSC/JLC for package variants of a part, with pricing and stock."""
+    try:
+        from corpus.jlc.lookup import JLCLookup
+        from corpus.jlc.footprint_resolver import footprint_from_package
+    except ImportError:
+        return []
+
+    jlc = JLCLookup(use_api=False)
+    parts = jlc.search_by_mfr(query, limit=limit)
+    if not parts:
+        return []
+
+    seen_packages: set[str] = set()
+    variants: list[dict] = []
+    for p in parts:
+        if p.package in seen_packages:
+            continue
+        seen_packages.add(p.package)
+        kicad_fp = footprint_from_package(p.package)
+        entry: dict = {
+            "lcsc": p.lcsc,
+            "mfr": p.mfr,
+            "package": p.package,
+            "stock": p.stock,
+            "price_usd": round(p.price, 3),
+            "basic_part": p.basic,
+        }
+        if kicad_fp:
+            entry["suggested_footprint"] = kicad_fp
+        variants.append(entry)
+    return variants
+
+
 @mcp.tool()
 async def search_kicad(query: str, detail: bool = False) -> dict:
     """Search KiCad symbol libraries and footprints by name or description.
@@ -499,12 +533,16 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
     part name, and footprint for any component. Saves multiple submit/fail
     cycles from guessing library names.
 
+    Also returns LCSC/JLCPCB sourcing data: package variants, stock, unit
+    price, and suggested KiCad footprint for each variant. Use this to pick
+    the right footprint (cost vs size vs hand-solderability).
+
     Examples:
-        search_kicad("MCP9808")       -> Sensor_Temperature : MCP9808-E_MS
-        search_kicad("STM32F405")     -> MCU_ST_STM32F4 : STM32F405RGT6
+        search_kicad("MCP9808")       -> symbol + MSOP-8 ($1.69) / DFN-8 ($2.36)
+        search_kicad("STM32F405")     -> symbol + LQFP-64 / UFQFPN-64 variants
         search_kicad("USB-C connector") -> Connector_USB : USB_C_Receptacle_...
-        search_kicad("I2C level shifter") -> finds relevant ICs
-        search_kicad("MSOP-8", detail=True) -> footprint search with pin info
+        search_kicad("ATmega328P")    -> TQFP-32 / VQFN-32 / DIP-28 with prices
+        search_kicad("IS31FL3731", detail=True) -> pin list + QFN-28 / SSOP-28
 
     query: Part number, IC name, function description, or footprint name.
     detail: If true, returns full pin list for the top symbol match.
@@ -545,10 +583,20 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
                 ],
             }
 
-    result["hint"] = (
-        "Use the 'usage' field directly in your SKiDL code. "
-        "Set detail=true to see pin names for wiring."
-    )
+    lcsc = _lcsc_variants(query)
+    if lcsc:
+        result["lcsc_variants"] = lcsc
+        result["hint"] = (
+            "Use the 'usage' field directly in your SKiDL code. "
+            "Set detail=true for pin names. "
+            "lcsc_variants shows available packages with pricing — "
+            "pick suggested_footprint for the package you want."
+        )
+    else:
+        result["hint"] = (
+            "Use the 'usage' field directly in your SKiDL code. "
+            "Set detail=true to see pin names for wiring."
+        )
     return result
 
 
