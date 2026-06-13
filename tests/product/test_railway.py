@@ -1102,6 +1102,62 @@ class TestAgentUX:
         assert "get_run('run-post-artifact')" in hint
         assert "before changing the design" in hint
 
+    def test_get_job_compacts_finished_result_for_agent(self):
+        from mcp_server.server_http import _compact_job_result_for_agent
+
+        result = {
+            "run_id": "run-compact",
+            "status": "failed",
+            "ok": False,
+            "spec": {"large": "omitted"},
+            "_artifact_paths": {"board.kicad_pcb": "x" * 1000},
+            "stderr": "native trace" * 100,
+            "layout": {"ok": False, "score": {"score": 12.3}, "verbose": "x" * 5000},
+            "exceptions": [
+                {
+                    "id": "e-route-timeout",
+                    "code": "ROUTE_TIMEOUT",
+                    "severity": "error",
+                    "message": "routing timed out",
+                    "subject": {
+                        "stderr_tail": "x" * 5000,
+                        "available_pins": [f"P{i}" for i in range(80)],
+                    },
+                    "retry_hint": "retry with route_timeout_s=300",
+                    "candidates": [
+                        {
+                            "id": "c1",
+                            "action": "regenerate",
+                            "params": {"run_options": {"route_timeout_s": 300}},
+                            "human_summary": "retry longer",
+                            "source": "deterministic",
+                        }
+                    ],
+                },
+                *[
+                    {
+                        "id": f"e-advisory-{idx}",
+                        "code": "LONG_POWER_NET",
+                        "severity": "advisory",
+                        "message": "power net is long",
+                        "subject": {"warning": "y" * 2000},
+                        "candidates": [],
+                    }
+                    for idx in range(12)
+                ],
+            ],
+        }
+
+        _compact_job_result_for_agent(result)
+
+        assert "spec" not in result
+        assert "stderr" not in result
+        assert "_artifact_paths" not in result
+        assert result["top_exception"]["code"] == "ROUTE_TIMEOUT"
+        assert result["exception_codes"][0] == "ROUTE_TIMEOUT"
+        assert result["exceptions_truncated"] == 8
+        assert len(json.dumps(result)) < 8000
+
     @pytest.mark.asyncio
     async def test_apply_correction_rejects_skidl_python_runs(self, monkeypatch):
         from mcp_server import server_http

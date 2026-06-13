@@ -288,19 +288,101 @@ async def get_job(job_id: str) -> dict:
     # Trim response size — full spec and verbose layout are available via get_run.
     result = job.get("result")
     if isinstance(result, dict):
-        result.pop("spec", None)
-        result.pop("_artifact_paths", None)
-        result.pop("stderr", None)
-        # Keep layout.score summary, drop verbose report/candidates
-        layout = result.get("layout")
-        if isinstance(layout, dict):
-            score = layout.get("score")
-            result["layout"] = {"ok": layout.get("ok"), "score": score}
-        elif isinstance(layout, str) and len(layout) > 2000:
-            result["layout"] = layout[:2000] + "\n... (use get_run for full data)"
+        _compact_job_result_for_agent(result)
 
     job["hint"] = _get_job_hint(job)
     return job
+
+
+def _trim_agent_value(value, *, max_str: int = 800, max_items: int = 24, depth: int = 0):
+    """Trim nested values so get_job remains a control response."""
+
+    if isinstance(value, str):
+        if len(value) <= max_str:
+            return value
+        return value[:max_str] + f"\n... ({len(value) - max_str} chars omitted)"
+    if depth >= 4:
+        return str(value)[:max_str]
+    if isinstance(value, list):
+        items = [
+            _trim_agent_value(item, max_str=max_str, max_items=max_items, depth=depth + 1)
+            for item in value[:max_items]
+        ]
+        if len(value) > max_items:
+            items.append(f"... ({len(value) - max_items} more items)")
+        return items
+    if isinstance(value, dict):
+        out = {}
+        for idx, (key, item) in enumerate(value.items()):
+            if idx >= max_items:
+                out["_truncated_keys"] = len(value) - max_items
+                break
+            out[key] = _trim_agent_value(
+                item,
+                max_str=max_str,
+                max_items=max_items,
+                depth=depth + 1,
+            )
+        return out
+    return value
+
+
+def _compact_candidate_for_agent(candidate: dict) -> dict:
+    return {
+        key: _trim_agent_value(candidate.get(key), max_str=500, max_items=12)
+        for key in ("id", "action", "params", "human_summary", "confidence")
+        if key in candidate
+    }
+
+
+def _compact_exception_for_agent(exc: dict) -> dict:
+    compact = {
+        key: _trim_agent_value(exc.get(key), max_str=500, max_items=12)
+        for key in ("id", "code", "severity", "message", "subject", "retry_hint")
+        if key in exc
+    }
+    candidates = exc.get("candidates")
+    if isinstance(candidates, list):
+        compact["candidates"] = [
+            _compact_candidate_for_agent(c)
+            for c in candidates[:4]
+            if isinstance(c, dict)
+        ]
+        if len(candidates) > 4:
+            compact["candidates_truncated"] = len(candidates) - 4
+    return compact
+
+
+def _compact_job_result_for_agent(result: dict) -> None:
+    """Mutate a finished job result into a compact agent-control packet."""
+
+    result.pop("spec", None)
+    result.pop("_artifact_paths", None)
+    result.pop("stderr", None)
+
+    layout = result.get("layout")
+    if isinstance(layout, dict):
+        score = layout.get("score")
+        result["layout"] = {"ok": layout.get("ok"), "score": score}
+    elif isinstance(layout, str) and len(layout) > 2000:
+        result["layout"] = layout[:2000] + "\n... (use get_run for full data)"
+
+    exceptions = result.get("exceptions")
+    if isinstance(exceptions, list):
+        compact_exceptions = [
+            _compact_exception_for_agent(exc)
+            for exc in exceptions[:5]
+            if isinstance(exc, dict)
+        ]
+        result["exception_codes"] = [
+            exc.get("code")
+            for exc in exceptions
+            if isinstance(exc, dict) and exc.get("code")
+        ]
+        result["top_exception"] = compact_exceptions[0] if compact_exceptions else None
+        result["exceptions"] = compact_exceptions
+        if len(exceptions) > len(compact_exceptions):
+            result["exceptions_truncated"] = len(exceptions) - len(compact_exceptions)
 
 
 def _get_job_hint(job: dict) -> str:
