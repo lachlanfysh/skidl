@@ -76,7 +76,7 @@ class MCPClient:
         self._id = 0
         self.http = httpx.Client(timeout=120)
 
-    def _rpc(self, method: str, params: dict | None = None) -> dict:
+    def _rpc_once(self, method: str, params: dict | None = None) -> dict:
         self._id += 1
         payload = {"jsonrpc": "2.0", "id": self._id, "method": method}
         if params is not None:
@@ -91,7 +91,28 @@ class MCPClient:
                 return msg.get("result", {})
         raise RuntimeError(f"no data frame in response: {r.text[:200]}")
 
+    @staticmethod
+    def _looks_like_lost_session(exc: Exception) -> bool:
+        text = str(exc).lower()
+        return (
+            "mcp-session-id" in text
+            or "session not found" in text
+            or "session id" in text
+            or "404 not found" in text
+        )
+
+    def _rpc(self, method: str, params: dict | None = None) -> dict:
+        try:
+            return self._rpc_once(method, params)
+        except Exception as exc:
+            if not self._looks_like_lost_session(exc):
+                raise
+            self.headers.pop("Mcp-Session-Id", None)
+            self.connect()
+            return self._rpc_once(method, params)
+
     def connect(self) -> dict:
+        self.headers.pop("Mcp-Session-Id", None)
         self._id += 1
         r = self.http.post(self.url, headers=self.headers, json={
             "jsonrpc": "2.0", "id": self._id, "method": "initialize",

@@ -7,12 +7,42 @@ from io import StringIO
 
 from corpus import mcp_ux_probe
 from corpus.mcp_ux_probe import (
+    MCPClient,
     _extract_mcp_result,
     _final_report_block_reason,
     _harvest_outstanding_jobs,
     _is_final_report_text,
     _result_summary,
 )
+
+
+def test_mcp_client_reconnects_once_after_lost_session():
+    class FakeClient(MCPClient):
+        def __init__(self):
+            self.headers = {"Mcp-Session-Id": "stale"}
+            self.rpc_calls = []
+            self.connect_calls = 0
+
+        def _rpc_once(self, method, params=None):
+            self.rpc_calls.append((method, params, self.headers.get("Mcp-Session-Id")))
+            if len(self.rpc_calls) == 1:
+                raise RuntimeError("404 Not Found: session not found")
+            return {"ok": True, "session": self.headers.get("Mcp-Session-Id")}
+
+        def connect(self):
+            self.connect_calls += 1
+            assert "Mcp-Session-Id" not in self.headers
+            self.headers["Mcp-Session-Id"] = "fresh"
+            return {"instructions": "ok"}
+
+    client = FakeClient()
+
+    assert client._rpc("tools/list", {"x": 1}) == {"ok": True, "session": "fresh"}
+    assert client.connect_calls == 1
+    assert client.rpc_calls == [
+        ("tools/list", {"x": 1}, "stale"),
+        ("tools/list", {"x": 1}, "fresh"),
+    ]
 
 
 def test_extract_mcp_result_from_get_job_payload():
