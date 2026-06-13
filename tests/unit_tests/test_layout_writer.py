@@ -295,9 +295,19 @@ def test_write_filters_unsupported_internal_footprint_layers(tmp_path):
         '    (net 0)\n'
         '    (net_name "")\n'
         '    (layers F.Cu B.Cu In1.Cu In2.Cu)\n'
+        '    (uuid "11111111-1111-1111-1111-111111111111")\n'
         '    (hatch edge 0.5)\n'
         '    (connect_pads (clearance 0.2))\n'
         '    (polygon (pts (xy -1 -1) (xy 1 -1) (xy 1 1) (xy -1 1)))\n'
+        '  )\n'
+        '  (zone\n'
+        '    (net 0)\n'
+        '    (net_name "")\n'
+        '    (layers F.Cu B.Cu)\n'
+        '    (uuid "11111111-1111-1111-1111-111111111111")\n'
+        '    (hatch edge 0.5)\n'
+        '    (connect_pads (clearance 0.2))\n'
+        '    (polygon (pts (xy -2 -2) (xy 2 -2) (xy 2 2) (xy -2 2)))\n'
         '  )\n'
         ')\n'
     )
@@ -322,3 +332,10 @@ def test_write_filters_unsupported_internal_footprint_layers(tmp_path):
     zone = list(board.search("zone"))[0]
     layers = next(child for child in zone if isinstance(child, list) and child[0] == "layers")
     assert layers == ["layers", "F.Cu", "B.Cu"]
+    uuids = [
+        str(node[1]).strip('"')
+        for node in board.search("uuid")
+        if len(node) > 1
+    ]
+    assert len(uuids) == len(set(uuids))
+    assert "11111111-1111-1111-1111-111111111111" not in uuids

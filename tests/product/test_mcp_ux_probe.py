@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import time
 from io import StringIO
+
+import pytest
 
 from corpus import mcp_ux_probe
 from corpus.mcp_ux_probe import (
@@ -12,7 +15,9 @@ from corpus.mcp_ux_probe import (
     _final_report_block_reason,
     _harvest_outstanding_jobs,
     _is_final_report_text,
+    _request_alarm,
     _result_summary,
+    ProbeWallClockExceeded,
     shrink_result,
 )
 
@@ -207,6 +212,15 @@ def test_harvest_outstanding_jobs_polls_terminal_and_fetches_artifacts(tmp_path)
 
 def test_default_llm_timeout_keeps_stress_probe_bounded():
     assert mcp_ux_probe.DEFAULT_LLM_TIMEOUT_S <= 90.0
+
+
+def test_request_alarm_interrupts_blocking_work():
+    if not hasattr(mcp_ux_probe.signal, "SIGALRM"):
+        pytest.skip("SIGALRM unavailable on this platform")
+
+    with pytest.raises(ProbeWallClockExceeded):
+        with _request_alarm(0.01):
+            time.sleep(1)
 
 
 def test_main_summarizes_openrouter_malformed_json(tmp_path, monkeypatch):

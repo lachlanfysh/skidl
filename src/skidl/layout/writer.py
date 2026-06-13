@@ -305,6 +305,18 @@ def _ensure_uuid(node, seed: str):
         node.append(Sexp(["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, seed))]))
 
 
+def _refresh_uuids(sexp: Sexp, seed: str):
+    """Make footprint-local UUIDs unique after copying a library footprint."""
+    for idx, node in enumerate(_walk_nodes(sexp)):
+        if not node or node[0] != "uuid":
+            continue
+        new_uuid = _q(uuid.uuid5(_NAMESPACE_UUID, f"{seed}:uuid:{idx}"))
+        if len(node) > 1:
+            node[1] = new_uuid
+        else:
+            node.append(new_uuid)
+
+
 _ALWAYS_QUOTE_FIELDS = frozenset({
     "uuid", "generator", "generator_version", "descr", "tags", "model",
 })
@@ -337,6 +349,8 @@ def _prepare_footprint_for_board(fp: Sexp, fp_uuid: str):
         if len(pad) > 1:
             pad[1] = _q(pad[1])
         _ensure_uuid(pad, f"{fp_uuid}:pad:{pad[1] if len(pad) > 1 else ''}")
+
+    _refresh_uuids(fp, fp_uuid)
 
 
 def _place_footprint(

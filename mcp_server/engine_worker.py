@@ -270,9 +270,7 @@ def _run_pcbnew_child(script: str, *, timeout_s: float = 30.0):
     )
 
 
-def _export_dsn_with_pcbnew(pcb_path: str, dsn_path: str) -> DesignException | None:
-    import subprocess as sp
-
+def _export_dsn_child(pcb_path: str, dsn_path: str):
     script = f"""
 import pcbnew
 pcb_path = {json.dumps(pcb_path)}
@@ -281,8 +279,33 @@ board = pcbnew.LoadBoard(pcb_path)
 if not pcbnew.ExportSpecctraDSN(board, dsn_path):
     raise SystemExit(2)
 """
+    return _run_pcbnew_child(script)
+
+
+def _write_pcb_without_footprint_zones(pcb_path: str, output_path: str) -> int:
+    """Write a copy of a KiCad PCB with footprint-local zones removed."""
+    from simp_sexp import Sexp
+
+    board = Sexp(Path(pcb_path).read_text())
+    removed = 0
+    for footprint in list(board.search("footprint")):
+        kept = []
+        for child in footprint:
+            if isinstance(child, list) and child and child[0] == "zone":
+                removed += 1
+                continue
+            kept.append(child)
+        footprint[:] = kept
+    if removed:
+        Path(output_path).write_text(board.to_str() + "\n")
+    return removed
+
+
+def _export_dsn_with_pcbnew(pcb_path: str, dsn_path: str) -> DesignException | None:
+    import subprocess as sp
+
     try:
-        result = _run_pcbnew_child(script)
+        result = _export_dsn_child(pcb_path, dsn_path)
     except sp.TimeoutExpired:
         return _route_tool_exception(
             id="e-route-dsn-timeout",
@@ -299,6 +322,33 @@ if not pcbnew.ExportSpecctraDSN(board, dsn_path):
         )
 
     if result.returncode != 0:
+        sanitized_subject = {}
+        if result.returncode < 0:
+            sanitized_path = str(
+                Path(pcb_path).with_name(
+                    Path(pcb_path).stem + ".dsn_export_sanitized.kicad_pcb"
+                )
+            )
+            try:
+                removed = _write_pcb_without_footprint_zones(
+                    pcb_path, sanitized_path,
+                )
+            except Exception as exc:
+                sanitized_subject["sanitized_retry_error"] = str(exc)
+                removed = 0
+            if removed:
+                sanitized_subject["sanitized_footprint_zones_removed"] = removed
+                try:
+                    retry = _export_dsn_child(sanitized_path, dsn_path)
+                except Exception as exc:
+                    sanitized_subject["sanitized_retry_error"] = str(exc)
+                else:
+                    if retry.returncode == 0 and Path(dsn_path).exists():
+                        return None
+                    sanitized_subject.update({
+                        "sanitized_returncode": retry.returncode,
+                        "sanitized_stderr_tail": retry.stderr[-1000:],
+                    })
         return _route_tool_exception(
             id="e-route-dsn-fail",
             message=(
@@ -309,6 +359,7 @@ if not pcbnew.ExportSpecctraDSN(board, dsn_path):
             subject={
                 "returncode": result.returncode,
                 "stderr_tail": result.stderr[-2000:],
+                **sanitized_subject,
             },
         )
     if not Path(dsn_path).exists():
@@ -596,6 +647,30 @@ def _drc_to_exceptions(report: dict) -> list:
                 refs.update(re.findall(r"\b[A-Z]{1,4}\d+\b", desc))
         return sorted(refs)
 
+    def nets_from_examples(examples: list[dict]) -> dict[str, int]:
+        nets = Counter()
+        for example in examples:
+            for desc in example.get("descriptions", []):
+                for net in re.findall(r"\[([^\]]+)\]", desc):
+                    if net and net != "<no net>":
+                        nets[net] += 1
+        return dict(nets)
+
+    def hotspot_hint(refs: list[str], count: int) -> str:
+        if len(refs) == 1 and count >= 3:
+            return (
+                f" Most examples are on {refs[0]}, so suspect a mismatched "
+                "symbol/footprint package, too-tight package for the current "
+                "rules, or incorrect pin usage on that part before changing "
+                "unrelated circuitry."
+            )
+        if refs:
+            return (
+                " Focus the next edit on the listed subject.refs rather than "
+                "rewriting unrelated blocks."
+            )
+        return ""
+
     if unconnected:
         nets = Counter()
         for item in unconnected:
@@ -655,6 +730,7 @@ def _drc_to_exceptions(report: dict) -> list:
 
     if clearance_count:
         examples = drc_examples(clearance_items)
+        refs = refs_from_examples(examples)
         exceptions.append(DesignException(
             id="e-drc-clearance",
             code=ExcCode.DRC_CLEARANCE,
@@ -663,12 +739,14 @@ def _drc_to_exceptions(report: dict) -> list:
             subject={
                 "count": clearance_count,
                 "examples": examples,
-                "refs": refs_from_examples(examples),
+                "refs": refs,
+                "nets": nets_from_examples(examples),
             },
             retry_hint=(
                 "Clearance DRC failed, so the board is not manufacturable. "
                 "Inspect subject.examples, then reduce density around those "
                 "items or choose footprints/placement with more clearance."
+                + hotspot_hint(refs, clearance_count)
             ),
             candidates=[
                 Candidate(id="c1", action=ActionType.SCALE_OUTLINE,
@@ -698,6 +776,7 @@ def _drc_to_exceptions(report: dict) -> list:
 
     if short_count:
         examples = drc_examples(short_items)
+        refs = refs_from_examples(examples)
         exceptions.append(DesignException(
             id="e-drc-short",
             code=ExcCode.DRC_SHORT,
@@ -706,13 +785,15 @@ def _drc_to_exceptions(report: dict) -> list:
             subject={
                 "count": short_count,
                 "examples": examples,
-                "refs": refs_from_examples(examples),
+                "refs": refs,
+                "nets": nets_from_examples(examples),
             },
             retry_hint=(
                 "Short-circuit DRC failed, so the board is not manufacturable. "
                 "Inspect subject.examples to identify the conflicting items; "
                 "fix placement/routing or the schematic connection before "
                 "resubmitting."
+                + hotspot_hint(refs, short_count)
             ),
             candidates=[
                 Candidate(id="c1", action=ActionType.REGENERATE, params={},

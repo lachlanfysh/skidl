@@ -20,9 +20,11 @@ artifacts/ (any fetched board files), summary.json (machine-readable outcome).
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import json
 import os
 import re
+import signal
 import sys
 import time
 from pathlib import Path
@@ -65,6 +67,30 @@ DEFAULT_MAX_WALL_S = 900.0
 DEFAULT_MAX_SUBMISSIONS = 5
 POLL_SPACING_S = 5.0
 FINAL_REPORT_RE = re.compile(r"^[\s#>*_`-]*FINAL\s+REPORT\b", re.IGNORECASE)
+
+
+class ProbeWallClockExceeded(TimeoutError):
+    """Raised when a model request exceeds the remaining probe wall clock."""
+
+
+def _raise_wall_clock_exceeded(signum, frame):  # pragma: no cover - signal glue.
+    raise ProbeWallClockExceeded()
+
+
+@contextmanager
+def _request_alarm(timeout_s: float):
+    """Interrupt blocking OpenRouter calls even if the HTTP client stalls."""
+    if timeout_s <= 0 or not hasattr(signal, "SIGALRM"):
+        yield
+        return
+    old_handler = signal.getsignal(signal.SIGALRM)
+    signal.signal(signal.SIGALRM, _raise_wall_clock_exceeded)
+    signal.setitimer(signal.ITIMER_REAL, float(timeout_s))
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 
 class MCPClient:
@@ -547,19 +573,28 @@ def main() -> int:
                         )
                         break
                     request_timeout = max(1.0, min(request_timeout, remaining))
-                resp = or_http.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    json={
-                        "model": args.model,
-                        "messages": messages,
-                        "tools": tools,
-                        "temperature": 0.2,
-                    },
-                    timeout=httpx.Timeout(request_timeout, connect=min(30.0, request_timeout)),
-                )
+                with _request_alarm(request_timeout + 1.0):
+                    resp = or_http.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        json={
+                            "model": args.model,
+                            "messages": messages,
+                            "tools": tools,
+                            "temperature": 0.2,
+                        },
+                        timeout=httpx.Timeout(request_timeout, connect=min(30.0, request_timeout)),
+                    )
                 resp.raise_for_status()
                 body = resp.json()
+                break
+            except ProbeWallClockExceeded:
+                final_report = (
+                    f"(probe wall-clock limit reached after "
+                    f"{args.max_wall_s:.0f}s)"
+                    if args.max_wall_s > 0
+                    else f"(OpenRouter request exceeded {request_timeout:.0f}s)"
+                )
                 break
             except httpx.HTTPStatusError as exc:
                 code = exc.response.status_code

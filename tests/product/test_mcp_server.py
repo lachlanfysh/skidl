@@ -687,6 +687,75 @@ class TestRoutingExceptions:
         assert "not manufacturable" in exc.retry_hint
         assert "subject.examples" in exc.retry_hint
 
+    def test_drc_short_hotspot_points_to_package_or_footprint(self):
+        report = {
+            "unconnected_items": [],
+            "violations": [
+                {
+                    "type": "short",
+                    "items": [
+                        {"description": "Pad 8 [GND] of U2 on F.Cu"},
+                        {"description": "Pad 9 [VCC] of U2 on F.Cu"},
+                    ],
+                },
+                {
+                    "type": "short",
+                    "items": [
+                        {"description": "Pad 8 [GND] of U2 on F.Cu"},
+                        {"description": "Pad 10 [CLOCK] of U2 on F.Cu"},
+                    ],
+                },
+                {
+                    "type": "short",
+                    "items": [
+                        {"description": "Pad 8 [GND] of U2 on F.Cu"},
+                        {"description": "Pad 11 [RESET] of U2 on F.Cu"},
+                    ],
+                },
+            ],
+        }
+
+        exc = next(e for e in _drc_to_exceptions(report) if e.code == ExcCode.DRC_SHORT)
+
+        assert exc.subject["refs"] == ["U2"]
+        assert exc.subject["nets"]["GND"] == 3
+        assert "mismatched symbol/footprint package" in exc.retry_hint
+        assert "unrelated circuitry" in exc.retry_hint
+
+    def test_drc_clearance_hotspot_points_to_package_or_footprint(self):
+        report = {
+            "unconnected_items": [],
+            "violations": [
+                {
+                    "type": "clearance",
+                    "items": [
+                        {"description": "Pad 1 [VCC] of U2 on F.Cu"},
+                        {"description": "Pad 2 [<no net>] of U2 on F.Cu"},
+                    ],
+                },
+                {
+                    "type": "clearance",
+                    "items": [
+                        {"description": "Pad 1 [VCC] of U2 on F.Cu"},
+                        {"description": "Pad 3 [GND] of U2 on F.Cu"},
+                    ],
+                },
+                {
+                    "type": "clearance",
+                    "items": [
+                        {"description": "Pad 1 [VCC] of U2 on F.Cu"},
+                        {"description": "Pad 4 [GPIO] of U2 on F.Cu"},
+                    ],
+                },
+            ],
+        }
+
+        exc = next(e for e in _drc_to_exceptions(report) if e.code == ExcCode.DRC_CLEARANCE)
+
+        assert exc.subject["refs"] == ["U2"]
+        assert exc.subject["nets"] == {"VCC": 3, "GND": 1, "GPIO": 1}
+        assert "too-tight package" in exc.retry_hint
+
     def test_route_timeout_suggests_router_budget_retry(self, monkeypatch, tmp_path):
         original_exists = Path.exists
 
@@ -734,6 +803,42 @@ class TestRoutingExceptions:
         assert exc.subject["returncode"] == -11
         assert "signal 11" in exc.message
         assert "routing/export tool failure" in exc.retry_hint
+
+    def test_dsn_export_signal_retries_without_footprint_zones(self, monkeypatch, tmp_path):
+        pcb_path = tmp_path / "zone-crash.kicad_pcb"
+        dsn_path = tmp_path / "zone-crash.dsn"
+        pcb_path.write_text(
+            '(kicad_pcb\n'
+            '  (version 20241229)\n'
+            '  (footprint "USB_Test"\n'
+            '    (uuid "11111111-1111-1111-1111-111111111111")\n'
+            '    (zone\n'
+            '      (net 0)\n'
+            '      (net_name "")\n'
+            '      (layer "F.Cu")\n'
+            '      (uuid "22222222-2222-2222-2222-222222222222")\n'
+            '      (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))\n'
+            '    (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu"))))\n'
+        )
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            if len(calls) == 1:
+                return subprocess.CompletedProcess(cmd, -11, "", "segmentation fault")
+            assert ".dsn_export_sanitized.kicad_pcb" in cmd[2]
+            dsn_path.write_text("(dsn)")
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        exc = _export_dsn_with_pcbnew(str(pcb_path), str(dsn_path))
+
+        assert exc is None
+        assert len(calls) == 2
+        sanitized = tmp_path / "zone-crash.dsn_export_sanitized.kicad_pcb"
+        assert sanitized.exists()
+        assert "(zone" not in sanitized.read_text()
 
     def test_ses_import_segfault_is_route_unavailable(self, monkeypatch, tmp_path):
         def fake_run(cmd, **kwargs):
