@@ -6,7 +6,6 @@ import json
 import os
 import subprocess
 import sys
-import types
 from pathlib import Path
 
 import pytest
@@ -21,6 +20,8 @@ from mcp_server.engine_worker import (
     _code_exception_from_exec,
     _circuit_to_spec_dict,
     _exec_skidl,
+    _export_dsn_with_pcbnew,
+    _import_ses_with_pcbnew,
     _manufacturing_output_exception,
     _missing_manufacturing_outputs,
     _route_pcb,
@@ -321,18 +322,15 @@ class TestRoutingExceptions:
                 return True
             return original_exists(path)
 
-        fake_pcbnew = types.SimpleNamespace(
-            LoadBoard=lambda path: object(),
-            ExportSpecctraDSN=lambda board, path: True,
-        )
-
-        def fake_run(*args, **kwargs):
+        def fake_run(cmd, **kwargs):
+            if cmd[0] == sys.executable:
+                (tmp_path / "timeout.dsn").write_text("(dsn)")
+                return subprocess.CompletedProcess(cmd, 0, "", "")
             assert kwargs["timeout"] == 120
-            raise subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+            raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
 
         monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/java")
         monkeypatch.setattr(Path, "exists", fake_exists)
-        monkeypatch.setitem(sys.modules, "pcbnew", fake_pcbnew)
         monkeypatch.setattr("subprocess.run", fake_run)
 
         exceptions = _route_pcb(str(tmp_path / "timeout.kicad_pcb"), timeout_s=120)
@@ -345,6 +343,74 @@ class TestRoutingExceptions:
             "run_options": {"route_timeout_s": 240.0},
         }
         assert "route_timeout_s=240" in exc.retry_hint
+
+    def test_dsn_export_segfault_is_route_unavailable(self, monkeypatch, tmp_path):
+        def fake_run(cmd, **kwargs):
+            return subprocess.CompletedProcess(cmd, -11, "", "segmentation fault")
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        exc = _export_dsn_with_pcbnew(
+            str(tmp_path / "segfault.kicad_pcb"),
+            str(tmp_path / "segfault.dsn"),
+        )
+
+        assert exc is not None
+        assert exc.code == ExcCode.ROUTE_UNAVAILABLE
+        assert exc.subject["stage"] == "dsn_export"
+        assert exc.subject["returncode"] == -11
+        assert "signal 11" in exc.message
+
+    def test_ses_import_segfault_is_route_unavailable(self, monkeypatch, tmp_path):
+        def fake_run(cmd, **kwargs):
+            return subprocess.CompletedProcess(cmd, -11, "", "segmentation fault")
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        exc = _import_ses_with_pcbnew(
+            str(tmp_path / "routed.kicad_pcb"),
+            str(tmp_path / "routed.ses"),
+        )
+
+        assert exc is not None
+        assert exc.code == ExcCode.ROUTE_UNAVAILABLE
+        assert exc.subject["stage"] == "ses_import"
+        assert exc.subject["returncode"] == -11
+        assert "signal 11" in exc.message
+
+    def test_route_import_segfault_does_not_crash_worker(self, monkeypatch, tmp_path):
+        original_exists = Path.exists
+        pcb_path = tmp_path / "import-crash.kicad_pcb"
+        dsn_path = tmp_path / "import-crash.dsn"
+        ses_path = tmp_path / "import-crash.ses"
+
+        def fake_exists(path: Path) -> bool:
+            if str(path) == "/opt/freerouting/freerouting-2.0.1.jar":
+                return True
+            return original_exists(path)
+
+        def fake_run(cmd, **kwargs):
+            if cmd[0] == sys.executable and "ExportSpecctraDSN" in cmd[2]:
+                dsn_path.write_text("(dsn)")
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            if cmd[0] == "/usr/bin/java":
+                ses_path.write_text("(ses)")
+                return subprocess.CompletedProcess(cmd, 0, "0 unrouted", "")
+            if cmd[0] == sys.executable and "ImportSpecctraSES" in cmd[2]:
+                return subprocess.CompletedProcess(cmd, -11, "", "segmentation fault")
+            raise AssertionError(cmd)
+
+        monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/java")
+        monkeypatch.setattr(Path, "exists", fake_exists)
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        exceptions = _route_pcb(str(pcb_path), timeout_s=120)
+
+        assert len(exceptions) == 1
+        exc = exceptions[0]
+        assert exc.code == ExcCode.ROUTE_UNAVAILABLE
+        assert exc.subject["stage"] == "ses_import"
+        assert exc.subject["returncode"] == -11
 
 
 @needs_kicad

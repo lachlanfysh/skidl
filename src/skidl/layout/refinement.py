@@ -485,10 +485,10 @@ def refine_placement(
     fp_geometries: dict[str, FootprintGeometry] | None = None,
     clearance_mm: float = 0.5,
     board_layers: int = 2,
-    max_passes: int = 1,
+    max_passes: int = 2,
     max_movable_refs: int = 32,
     max_pair_swaps: int = 16,
-    max_legalization_moves: int = 16,
+    max_legalization_moves: int = 64,
 ) -> RefinementResult:
     """Apply deterministic score-gated local placement adjustments."""
     current_parts = _clone_placed(placed_parts)

@@ -221,6 +221,145 @@ def _json_result(
     }
 
 
+def _route_tool_exception(
+    *,
+    id: str,
+    message: str,
+    stage: str,
+    subject: dict | None = None,
+) -> DesignException:
+    from schemas.exceptions import DesignException, ExcCode, Severity
+
+    detail = dict(subject or {})
+    detail.setdefault("stage", stage)
+    return DesignException(
+        id=id,
+        code=ExcCode.ROUTE_UNAVAILABLE,
+        severity=Severity.ERROR,
+        message=message,
+        subject=detail,
+        candidates=[],
+        retry_hint=(
+            "Do not assume the circuit is wrong. Inspect the generated PCB "
+            "artifact and report this as routing tool feedback unless another "
+            "exception points to a design error."
+        ),
+    )
+
+
+def _subprocess_signal_message(returncode: int) -> str:
+    if returncode < 0:
+        return f"signal {-returncode}"
+    return f"exit {returncode}"
+
+
+def _run_pcbnew_child(script: str, *, timeout_s: float = 30.0):
+    """Run native pcbnew work in a child so segfaults stay structured."""
+
+    import subprocess as sp
+
+    return sp.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=timeout_s,
+    )
+
+
+def _export_dsn_with_pcbnew(pcb_path: str, dsn_path: str) -> DesignException | None:
+    import subprocess as sp
+
+    script = f"""
+import pcbnew
+pcb_path = {json.dumps(pcb_path)}
+dsn_path = {json.dumps(dsn_path)}
+board = pcbnew.LoadBoard(pcb_path)
+if not pcbnew.ExportSpecctraDSN(board, dsn_path):
+    raise SystemExit(2)
+"""
+    try:
+        result = _run_pcbnew_child(script)
+    except sp.TimeoutExpired:
+        return _route_tool_exception(
+            id="e-route-dsn-timeout",
+            message="DSN export timed out",
+            stage="dsn_export",
+            subject={"timeout_s": 30},
+        )
+    except OSError as exc:
+        return _route_tool_exception(
+            id="e-route-dsn-fail",
+            message=f"DSN export could not start: {exc}",
+            stage="dsn_export",
+            subject={"error": str(exc)},
+        )
+
+    if result.returncode != 0:
+        return _route_tool_exception(
+            id="e-route-dsn-fail",
+            message=(
+                "DSN export failed in isolated pcbnew worker "
+                f"({_subprocess_signal_message(result.returncode)})"
+            ),
+            stage="dsn_export",
+            subject={
+                "returncode": result.returncode,
+                "stderr_tail": result.stderr[-2000:],
+            },
+        )
+    if not Path(dsn_path).exists():
+        return _route_tool_exception(
+            id="e-route-dsn-fail",
+            message="DSN export completed but produced no DSN file",
+            stage="dsn_export",
+        )
+    return None
+
+
+def _import_ses_with_pcbnew(pcb_path: str, ses_path: str) -> DesignException | None:
+    import subprocess as sp
+
+    script = f"""
+import pcbnew
+pcb_path = {json.dumps(pcb_path)}
+ses_path = {json.dumps(ses_path)}
+board = pcbnew.LoadBoard(pcb_path)
+pcbnew.ImportSpecctraSES(board, ses_path)
+pcbnew.SaveBoard(pcb_path, board)
+"""
+    try:
+        result = _run_pcbnew_child(script)
+    except sp.TimeoutExpired:
+        return _route_tool_exception(
+            id="e-route-import-timeout",
+            message="SES import timed out",
+            stage="ses_import",
+            subject={"timeout_s": 30},
+        )
+    except OSError as exc:
+        return _route_tool_exception(
+            id="e-route-import-fail",
+            message=f"SES import could not start: {exc}",
+            stage="ses_import",
+            subject={"error": str(exc)},
+        )
+
+    if result.returncode != 0:
+        return _route_tool_exception(
+            id="e-route-import-fail",
+            message=(
+                "SES import failed in isolated pcbnew worker "
+                f"({_subprocess_signal_message(result.returncode)})"
+            ),
+            stage="ses_import",
+            subject={
+                "returncode": result.returncode,
+                "stderr_tail": result.stderr[-2000:],
+            },
+        )
+    return None
+
+
 def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
     """Attempt PCB routing via Freerouting. Returns list of DesignException."""
     import shutil
@@ -245,35 +384,9 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
     dsn_path = str(Path(pcb_path).with_suffix(".dsn"))
     ses_path = str(Path(pcb_path).with_suffix(".ses"))
 
-    try:
-        import pcbnew
-        board = pcbnew.LoadBoard(pcb_path)
-        if not pcbnew.ExportSpecctraDSN(board, dsn_path):
-            return [DesignException(
-                id="e-route-dsn-fail",
-                code=ExcCode.ROUTE_UNAVAILABLE,
-                severity=Severity.ERROR,
-                message="DSN export failed — board outline may be malformed",
-                subject={"stage": "dsn_export"},
-                candidates=[],
-                retry_hint=(
-                    "Inspect the PCB/outline artifact. If outline geometry is "
-                    "valid, report this as a routing tool failure."
-                ),
-            )]
-    except Exception as exc:
-        return [DesignException(
-            id="e-route-dsn-fail",
-            code=ExcCode.ROUTE_UNAVAILABLE,
-            severity=Severity.ERROR,
-            message=f"DSN export error: {exc}",
-            subject={"stage": "dsn_export", "error": str(exc)},
-            candidates=[],
-            retry_hint=(
-                "Inspect the PCB/outline artifact. If outline geometry is "
-                "valid, report this as a routing tool failure."
-            ),
-        )]
+    dsn_exception = _export_dsn_with_pcbnew(pcb_path, dsn_path)
+    if dsn_exception:
+        return [dsn_exception]
 
     # Inject semantic net classes before routing
     try:
@@ -342,20 +455,9 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
             ],
         )]
 
-    try:
-        board = pcbnew.LoadBoard(pcb_path)
-        pcbnew.ImportSpecctraSES(board, ses_path)
-        pcbnew.SaveBoard(pcb_path, board)
-    except Exception as exc:
-        return [DesignException(
-            id="e-route-import-fail",
-            code=ExcCode.ROUTE_UNAVAILABLE,
-            severity=Severity.ERROR,
-            message=f"SES import error: {exc}",
-            subject={"stage": "ses_import", "error": str(exc)},
-            candidates=[],
-            retry_hint="Do not assume the circuit is wrong. The router produced output but KiCad could not import it.",
-        )]
+    import_exception = _import_ses_with_pcbnew(pcb_path, ses_path)
+    if import_exception:
+        return [import_exception]
 
     exceptions = []
     if unrouted > 0:

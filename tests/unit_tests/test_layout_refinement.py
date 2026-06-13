@@ -208,6 +208,44 @@ def test_refinement_legalizes_multiple_independent_overlaps():
     assert score.overlap_count == 0
 
 
+def test_refinement_legalizes_more_than_sixteen_overlaps_by_default():
+    pair_count = 18
+    parts = []
+    placed = []
+    fixed = []
+    for idx in range(pair_count):
+        x = 15.0 + (idx % 6) * 25.0
+        y = 15.0 + (idx // 6) * 25.0
+        fixed_ref = f"U{idx}"
+        movable_ref = f"C{idx}"
+        parts.extend([
+            _Part(fixed_ref, "Package_QFP:MCU", pins=8),
+            _Part(movable_ref, "Package_QFP:MCU", pins=8),
+        ])
+        placed.extend([
+            PlacedPart(fixed_ref, x, y, 0.0, "Package_QFP:MCU"),
+            PlacedPart(movable_ref, x, y, 0.0, "Package_QFP:MCU"),
+        ])
+        fixed.append(FixedPosition(fixed_ref, x, y))
+
+    circuit = _Circuit(parts, [])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(180.0, 100.0),
+        fixed=fixed,
+    )
+
+    result = refine_placement(placed, circuit, BBOXES, constraints=constraints)
+    score = score_placement(
+        result.placed_parts,
+        circuit,
+        BBOXES,
+        outline=constraints.outline,
+    )
+
+    assert result.accepted_moves >= pair_count
+    assert score.overlap_count == 0
+
+
 def test_refinement_can_rotate_geometry_into_outline():
     circuit = _Circuit([_Part("U1", "Package:Long", pins=8)], [])
     constraints = LayoutConstraints(outline=BoardOutline(20.0, 20.0))
