@@ -648,6 +648,13 @@ def _get_job_hint(job: dict) -> str:
         or ("ENGINE_TIMEOUT" in exc_codes and not worker_timeout)
     )
 
+    enrichment = result.get("enrichment")
+    enrich_note = ""
+    if enrichment and enrichment.get("count"):
+        enrich_note = (
+            f"\n\n[Pipeline value-add] {enrichment.get('summary', '')}"
+        )
+
     if not exceptions:
         mfg = (result.get("outputs") or {}).get("manufacturing")
         mfg_note = ""
@@ -658,7 +665,7 @@ def _get_job_hint(job: dict) -> str:
             )
         return (
             f"Clean run — no issues. Fetch your KiCad files "
-            f"with get_run('{run_id}').{mfg_note}"
+            f"with get_run('{run_id}').{mfg_note}{enrich_note}"
         )
 
     if reviewable_failure:
@@ -840,6 +847,7 @@ def _get_job_hint(job: dict) -> str:
         f"Inspect the candidates and fix this legacy internal CircuitSpec run, or "
         f"get_run('{run_id}') if the results are acceptable. "
         f"Read resource eda://guide/exceptions for correction guidance."
+        f"{enrich_note}"
     )
 
 

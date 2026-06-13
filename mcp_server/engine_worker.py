@@ -636,6 +636,7 @@ def _json_result(
     layout=None,
     metrics=None,
     summary: str = "",
+    enrichment_actions=None,
 ) -> dict:
     exceptions = list(exceptions or [])
     if spec is not None:
@@ -652,7 +653,14 @@ def _json_result(
     elif ok and exceptions:
         status = "succeeded_with_warnings"
     outputs = dict(outputs or {})
-    return {
+
+    enrich_list = []
+    if enrichment_actions:
+        for a in enrichment_actions:
+            d = a.to_dict() if hasattr(a, "to_dict") else dict(a)
+            enrich_list.append(d)
+
+    result = {
         "run_id": run_id,
         "status": status,
         "ok": bool(ok and not fatal_or_error),
@@ -664,6 +672,53 @@ def _json_result(
         "layout": dict(layout or {}),
         "metrics": dict(metrics or _metrics()),
     }
+
+    if enrich_list:
+        result["enrichment"] = {
+            "count": len(enrich_list),
+            "parts_added": sum(len(a.get("parts_added", [])) for a in enrich_list),
+            "summary": _enrichment_summary(enrich_list),
+            "actions": enrich_list,
+        }
+
+    return result
+
+
+def _enrichment_summary(actions: list[dict]) -> str:
+    """Human-readable summary of what the pipeline added to the design."""
+    silent = [a for a in actions if a.get("category") == "silent"]
+    loud = [a for a in actions if a.get("category") == "loud"]
+
+    lines = []
+    if silent:
+        parts = []
+        for a in silent:
+            parts.extend(a.get("parts_added", []))
+        if parts:
+            lines.append(
+                f"Auto-added {len(parts)} passive(s) your design was missing: "
+                + ", ".join(parts)
+                + ". These are standard best-practice components (decoupling caps, "
+                "pull-up/pull-down resistors) that prevent noise, signal integrity, "
+                "and reliability issues."
+            )
+    if loud:
+        for a in loud:
+            added = a.get("parts_added", [])
+            desc = a.get("description", a.get("rule", ""))
+            if added:
+                lines.append(
+                    f"Added functional block: {desc} "
+                    f"({', '.join(added)}). "
+                    "Flagged for review — verify this matches your intent."
+                )
+            else:
+                lines.append(f"Applied: {desc}")
+
+    if not lines:
+        return "No enrichment needed — your design included all required support components."
+
+    return " ".join(lines)
 
 
 def _route_tool_exception(
@@ -3204,6 +3259,31 @@ def _circuit_to_spec_dict(circuit) -> dict:
     return {"board": {"name": "from_code"}, "parts": parts, "nets": nets}
 
 
+def _normalize_pin_name(name: str) -> str:
+    """Strip KiCad pin name decorations for fuzzy matching."""
+    return re.sub(r"[{}_~]", "", name).strip()
+
+
+def _find_pin(part, pin_name):
+    """Find a pin by name with fuzzy matching for KiCad decorated names."""
+    # Exact match first
+    try:
+        return part[pin_name]
+    except Exception:
+        pass
+    # Integer pin number
+    try:
+        return part[int(pin_name)]
+    except Exception:
+        pass
+    # Fuzzy: strip decorations from both sides and compare
+    normalized = _normalize_pin_name(pin_name).upper()
+    for pin in part.pins:
+        if _normalize_pin_name(pin.name).upper() == normalized:
+            return pin
+    return None
+
+
 def _inject_enrichment(circuit, original_spec: dict, enriched_spec: dict,
                        actions: list[dict]) -> list[dict]:
     """Add parts/nets from enrichment back into a live SKiDL circuit.
@@ -3262,18 +3342,9 @@ def _inject_enrichment(circuit, original_spec: dict, enriched_spec: dict,
                 continue
             for p in circuit.parts:
                 if str(p.ref) == ref:
-                    try:
-                        pin = p[pin_name]
-                        if pin not in net.pins:
-                            pin += net
-                    except Exception:
-                        try:
-                            pin_num = int(pin_name)
-                            pin = p[pin_num]
-                            if pin not in net.pins:
-                                pin += net
-                        except Exception:
-                            pass
+                    pin = _find_pin(p, pin_name)
+                    if pin is not None and pin not in net.pins:
+                        pin += net
                     break
 
     return actions
@@ -4696,6 +4767,7 @@ def _run_skidl_code(envelope: dict) -> dict:
         layout=layout_dict,
         metrics=metrics,
         summary=layout_result.summary(),
+        enrichment_actions=all_enrich,
     )
 
 
@@ -4759,7 +4831,8 @@ def run(envelope: dict) -> dict:
     marketing = envelope.get("marketing_text", "")
     working, _block_actions = enrich_blocks(working, marketing)
     working, _passive_actions = enrich_spec(working)
-    if _block_actions or _passive_actions:
+    all_enrich_json = _block_actions + _passive_actions
+    if all_enrich_json:
         spec = CircuitSpec.model_validate(working)
 
     # Design review: structural checks (runs before translate so agents
@@ -5020,6 +5093,7 @@ def run(envelope: dict) -> dict:
         layout=layout_dict,
         metrics=metrics,
         summary=layout_result.summary(),
+        enrichment_actions=all_enrich_json,
     )
 
 
