@@ -171,6 +171,7 @@ async def submit_skidl_code(
     board_name: str = "board",
     outline_mm: list[float] | None = None,
     kicad_version: str = "9",
+    design_intent: str = "",
     run_options: dict | None = None,
 ) -> dict:
     """Submit SKiDL Python code to generate a PCB design.
@@ -226,6 +227,9 @@ async def submit_skidl_code(
     board_name: name for output files (default "board").
     outline_mm: [width, height] in mm. Omit to auto-size from parts.
     kicad_version: target KiCad version for output format ("9" or "10").
+    design_intent: optional original user/design request. Include it so the
+      server can warn when the code appears to omit requested features such as
+      USB-C, STEMMA/Qwiic, I2C/SPI, LiPo charging, regulators, or shunts.
     run_options: {"timeout_s": 300} — raise for complex boards.
 
     Returns: {"job_id": "...", "status": "queued"}. Poll get_job(job_id).
@@ -238,6 +242,7 @@ async def submit_skidl_code(
         "code": code,
         "board_name": board_name or "board",
         "outline_mm": outline_mm,
+        "design_intent": design_intent or "",
         "kicad_version": kicad_version or "9",
     }
     opts = dict(run_options or {})

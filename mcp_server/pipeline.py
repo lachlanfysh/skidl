@@ -286,6 +286,7 @@ def run_pipeline_code(
     *,
     run_id: str | None = None,
     board_id: str | None = None,
+    design_intent: str | None = None,
 ) -> DesignResponse:
     """Run SKiDL Python code through the engine pipeline in an isolated worker."""
 
@@ -301,6 +302,7 @@ def run_pipeline_code(
         "code": code,
         "board_name": board_name,
         "outline_mm": outline_mm,
+        "marketing_text": design_intent or "",
     }
     proc = subprocess.Popen(
         [sys.executable, "-m", "mcp_server.engine_worker"],
@@ -329,7 +331,12 @@ def run_pipeline_code(
         )
         store.save(
             run_id,
-            {"_mode": "skidl_python", "code": code, "board_name": board_name},
+            {
+                "_mode": "skidl_python",
+                "code": code,
+                "board_name": board_name,
+                "design_intent": design_intent or "",
+            },
             response.exceptions, response,
         )
         return response
@@ -381,7 +388,12 @@ def run_pipeline_code(
 
     store.save(
         run_id,
-        {"_mode": "skidl_python", "code": code, "board_name": board_name},
+        {
+            "_mode": "skidl_python",
+            "code": code,
+            "board_name": board_name,
+            "design_intent": design_intent or "",
+        },
         response.exceptions, response,
     )
     return response

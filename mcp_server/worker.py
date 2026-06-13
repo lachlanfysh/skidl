@@ -152,6 +152,7 @@ def _execute_skidl_job(job: dict) -> dict:
             out_dir=tmpdir,
             timeout_s=timeout_s,
             board_id=opts.get("board_id"),
+            design_intent=raw.get("design_intent") or raw.get("marketing_text"),
         )
 
         result = response.model_dump(mode="json")

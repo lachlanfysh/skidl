@@ -799,6 +799,25 @@ def _run_skidl_code(envelope: dict) -> dict:
     except Exception:
         all_enrich = []
 
+    review_spec = _circuit_to_spec_dict(circuit)
+    review_exceptions = design_review_exceptions(
+        review_spec,
+        marketing_text=envelope.get("marketing_text", ""),
+    )
+    review_errors = [
+        exc for exc in review_exceptions
+        if exc.severity in (Severity.FATAL, Severity.ERROR)
+    ]
+    if review_errors:
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="design_review",
+            exceptions=review_exceptions,
+            metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
+            summary=f"design review: {len(review_errors)} error(s)",
+        )
+
     schematic_path = out_dir / f"{board_name}.kicad_sch"
     pcb_path = out_dir / f"{board_name}.kicad_pcb"
 
@@ -842,7 +861,7 @@ def _run_skidl_code(envelope: dict) -> dict:
         str(pcb_path), outline=layout_result.outline,
     )
 
-    all_exceptions = layout_exceptions(layout_result)
+    all_exceptions = layout_exceptions(layout_result) + review_exceptions
 
     layout_errors = [
         e for e in all_exceptions

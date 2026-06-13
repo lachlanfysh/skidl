@@ -10,7 +10,7 @@ import sys
 import pytest
 
 from mcp_server.exception_mapper import layout_exceptions, suppress_waived
-from mcp_server.pipeline import run_pipeline
+from mcp_server.pipeline import run_pipeline, run_pipeline_code
 from mcp_server.runs import RunStore
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
@@ -168,3 +168,54 @@ class TestWorkerAndPipeline:
         if response.ok:
             assert os.path.exists(response.outputs["pcb"])
             assert os.path.exists(response.artifacts["pcb"])
+
+
+@needs_kicad
+class TestSkidlPythonDesignReview:
+    def test_python_mode_blocks_missing_connector(self, tmp_path):
+        code = """
+from skidl import *
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
+r1 = Part("Device", "R", value="10K", footprint="Resistor_SMD:R_0603_1608Metric")
+vcc += r1[1]
+gnd += r1[2]
+"""
+
+        response = run_pipeline_code(
+            code,
+            board_name="missing-connector",
+            outline_mm=[25.0, 20.0],
+            out_dir=tmp_path,
+            timeout_s=120,
+        )
+
+        assert response.stage == "design_review"
+        assert not response.ok
+        assert any(exc.code == ExcCode.DESIGN_NO_CONNECTOR for exc in response.exceptions)
+
+    def test_python_mode_uses_design_intent_for_missing_feature(self, tmp_path):
+        code = """
+from skidl import *
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
+j1 = Part("Connector_Generic", "Conn_01x02",
+          footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+vcc += j1[1]
+gnd += j1[2]
+"""
+
+        response = run_pipeline_code(
+            code,
+            board_name="missing-spi",
+            outline_mm=[25.0, 20.0],
+            out_dir=tmp_path,
+            timeout_s=120,
+            design_intent="SPI sensor breakout",
+        )
+
+        assert any(
+            exc.code == ExcCode.DESIGN_MISSING_FEATURE
+            and exc.subject.get("feature") == "SPI interface"
+            for exc in response.exceptions
+        )
