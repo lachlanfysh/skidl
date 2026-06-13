@@ -809,6 +809,22 @@ def _search_design_notes(query: str, symbols: list, lcsc: list[dict]) -> list[st
             'Part("Connector_Generic", "Conn_01x08", ...) row/column connector.'
         )
 
+    if "testpoint" in query_lower or "test point" in query_lower or "test pad" in query_lower:
+        notes.append(
+            "Electrical test pads use the Connector:TestPoint symbol with a "
+            "TestPoint:* footprint. Do not use Part(\"TestPoint\", ...); "
+            'use Part("Connector", "TestPoint", '
+            'footprint="TestPoint:TestPoint_Pad_D1.5mm").'
+        )
+
+    if re.search(r"\b(bme280|bmp280|bme680|bosch|lga[-_\s]*8)\b", query_lower):
+        notes.append(
+            "Bosch environmental sensors such as BME280/BMP280 use Bosch LGA "
+            "packages. Search footprints for \"BME280 Bosch LGA-8\" or use the "
+            "exact footprint returned by search_kicad/convert_lcsc rather than "
+            "guessing a generic Package_LGA name."
+        )
+
     if re.search(r"\bstm32|atmega|rp2040|nrf52|samd\b", query_lower):
         has_module = any(getattr(sym, "lib", "") == "MCU_Module" for sym in symbols)
         if has_module or lcsc:
@@ -818,6 +834,13 @@ def _search_design_notes(query: str, symbols: list, lcsc: list[dict]) -> list[st
                 "symbols represent whole development boards with board-header "
                 "pins, not necessarily the MCU's raw package pins. Use module "
                 "symbols only when you intend to mount that module/dev board."
+            )
+        if "stm32" in query_lower:
+            notes.append(
+                "STM32 manufacturer order codes may map to KiCad package-family "
+                "symbols, for example an exact ...T6 stocked part can use a "
+                "matching ...Tx KiCad symbol while the exact order code is kept "
+                "through convert_lcsc()/BOM metadata."
             )
 
     return notes

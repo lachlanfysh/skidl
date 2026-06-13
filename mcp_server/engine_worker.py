@@ -980,11 +980,26 @@ def _footprint_search_queries(footprint: str) -> list[str]:
     raw = footprint.split(":", 1)[-1]
     readable = re.sub(r"[_-]+", " ", raw).strip()
     queries = [footprint, raw, readable]
-    lower = raw.lower()
+    lower = f"{footprint} {raw} {readable}".lower()
     if "usb" in lower and "micro" in lower:
         queries.append("USB Micro-B connector")
     if "usb" in lower and ("usb_c" in lower or "type_c" in lower or "receptacle" in lower):
         queries.append("USB_C_Receptacle USB2.0 16P")
+    if ("din" in lower and "5" in lower) or "midi" in lower:
+        queries.extend([
+            "5-pin DIN MIDI jack footprint",
+            "DIN-5 180 degree connector",
+        ])
+    if "bme280" in lower or "bmp280" in lower or "bme680" in lower or "lga 8" in lower or "lga-8" in lower:
+        queries.extend([
+            "BME280 Bosch LGA-8 footprint",
+            "Bosch LGA-8 sensor footprint",
+        ])
+    if "testpoint" in lower or "test point" in lower or "test_point" in lower:
+        queries.extend([
+            "test point pad footprint",
+            "TestPoint_Pad_D1.5mm footprint",
+        ])
     return [q for i, q in enumerate(queries) if q and q not in queries[:i]]
 
 
@@ -1405,6 +1420,26 @@ def _code_exception(
     )
 
 
+def _missing_symbol_library_hint(lib: str, subject: dict) -> str:
+    if lib.lower() == "testpoint":
+        subject["suggested_usage"] = (
+            'Part("Connector", "TestPoint", '
+            'footprint="TestPoint:TestPoint_Pad_D1.5mm")'
+        )
+        return (
+            "TestPoint is a KiCad footprint library, not the SKiDL symbol "
+            "library. Use Connector:TestPoint for electrical probe pads, for "
+            "example subject.suggested_usage, then wire its single pin to the "
+            "net being probed."
+        )
+
+    return (
+        "Use search_kicad(query, detail=true) for the intended part "
+        "and copy a returned Part(...) usage. Do not use KiCad footprint "
+        "library names or guessed symbol library names in Part(lib, name)."
+    )
+
+
 def _code_exception_from_syntax(error: SyntaxError) -> DesignException:
     subject = {}
     if error.lineno is not None:
@@ -1448,11 +1483,7 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
         subject["missing_library"] = lib
         return _code_exception(
             f"symbol library {lib!r} is not available to SKiDL",
-            (
-                "Use search_kicad(query, detail=true) for the intended part "
-                "and copy a returned Part(...) usage. Do not use KiCad footprint "
-                "library names or guessed symbol library names in Part(lib, name)."
-            ),
+            _missing_symbol_library_hint(lib, subject),
             subject=subject,
         )
 
@@ -1482,6 +1513,16 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
                 "Call search_kicad(part_name, detail=true) or search by function, "
                 "then update the SKiDL code to use the exact returned library and "
                 "part names before resubmitting."
+            )
+        if lib.startswith("MCU_ST_STM32") and part_name.upper().startswith("STM32"):
+            subject["part_number_style"] = (
+                "STM32 order codes often differ from KiCad package-family symbols"
+            )
+            hint += (
+                " For STM32 order-code misses, search the exact part number with "
+                "search_kicad(..., detail=true); KiCad may return a package-family "
+                "symbol such as an ...Tx variant, while convert_lcsc() can preserve "
+                "the exact stocked manufacturer order code."
             )
         return _code_exception(
             f"part {part_name!r} was not found in symbol library {lib!r}",

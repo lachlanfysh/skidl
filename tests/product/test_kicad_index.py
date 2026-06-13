@@ -92,6 +92,22 @@ def _fake_symbols(monkeypatch):
                     pin_count=2,
                 ),
             ],
+            "MCU_ST_STM32F1": [
+                SymbolEntry(
+                    lib="MCU_ST_STM32F1",
+                    name="STM32F103C8Tx",
+                    description="ARM Cortex-M3 MCU, 64KB flash, LQFP-48",
+                    keywords="STM32F103 microcontroller",
+                    pin_count=48,
+                ),
+                SymbolEntry(
+                    lib="MCU_ST_STM32F1",
+                    name="STM32F100C_4-6_Tx",
+                    description="ARM Cortex-M3 MCU, LQFP-48",
+                    keywords="STM32F100 microcontroller",
+                    pin_count=48,
+                ),
+            ],
         },
     )
 
@@ -112,6 +128,10 @@ def _fake_footprints(monkeypatch):
             "Connector_DIN:DIN41612_R_2x32_Male_Vertical_THT",
             "Connector_DIN:DIN-5_180degree_Male_Horizontal_THT",
             "Resistor_SMD:R_0603_1608Metric",
+            "Package_LGA:Bosch_LGA-8_2x2.5mm_P0.5mm",
+            "Package_LGA:LGA-8_2x2mm_P0.5mm",
+            "TestPoint:TestPoint_Pad_D1.5mm",
+            "TestPoint:TestPoint_Pad_1.0x1.0mm",
         },
     )
 
@@ -176,6 +196,15 @@ def test_search_symbols_prefers_din_symbol_for_midi_din(monkeypatch):
     assert matches[0].name == "DIN-5"
 
 
+def test_search_symbols_matches_stm32_order_code_to_package_family(monkeypatch):
+    _fake_symbols(monkeypatch)
+
+    matches = kicad_index.search_symbols("STM32F103C8T6", limit=3)
+
+    assert matches[0].lib == "MCU_ST_STM32F1"
+    assert matches[0].name == "STM32F103C8Tx"
+
+
 def test_search_symbols_prefers_switch_library_for_keyboard_switch(monkeypatch):
     _fake_symbols(monkeypatch)
 
@@ -205,3 +234,19 @@ def test_search_footprints_filters_din41612_for_midi_din(monkeypatch):
     assert matches[0] == "Connector_DIN:DIN-5_180degree_Male_Horizontal_THT"
     assert all("DIN41612" not in match for match in matches)
     assert all("Connector_Audio" not in match for match in matches)
+
+
+def test_search_footprints_prefers_bosch_lga_for_bme280(monkeypatch):
+    _fake_footprints(monkeypatch)
+
+    matches = kicad_index.search_footprints("BME280 Bosch LGA-8 footprint", limit=3)
+
+    assert matches[0] == "Package_LGA:Bosch_LGA-8_2x2.5mm_P0.5mm"
+
+
+def test_search_footprints_prefers_testpoint_pads(monkeypatch):
+    _fake_footprints(monkeypatch)
+
+    matches = kicad_index.search_footprints("test point pad footprint", limit=3)
+
+    assert matches[0].startswith("TestPoint:TestPoint_Pad")

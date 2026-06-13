@@ -357,6 +357,31 @@ def _symbol_switch_boost(query_lower: str, entry: SymbolEntry) -> float:
     return 0.0
 
 
+def _symbol_mcu_variant_boost(query_lower: str, entry: SymbolEntry) -> float:
+    """Match exact MCU order codes to KiCad's package-family symbol names."""
+    match = re.search(r"\b(stm32[a-z0-9]+)\b", query_lower)
+    if not match:
+        return 0.0
+
+    requested = match.group(1)
+    score = 0.0
+    for token in _search_tokens(entry.name):
+        if not token.startswith("stm32"):
+            continue
+        if token == requested:
+            score = max(score, 20.0)
+            continue
+        family_prefix = token.rstrip("x")
+        if len(family_prefix) >= 10 and requested.startswith(family_prefix):
+            score = max(score, 14.0)
+        elif len(requested) >= 10 and token.startswith(requested[:-1]):
+            score = max(score, 12.0)
+
+    if score and entry.lib.startswith("MCU_ST_STM32"):
+        score += 4.0
+    return score
+
+
 def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
     """Fuzzy search across all symbol libraries."""
     index = get_index()
@@ -385,6 +410,7 @@ def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
             score += _symbol_din_connector_boost(query_lower, entry)
             score += _symbol_audio_connector_boost(query_lower, entry)
             score += _symbol_switch_boost(query_lower, entry)
+            score += _symbol_mcu_variant_boost(query_lower, entry)
             if score > 0:
                 scored.append((score, entry))
 
@@ -425,6 +451,21 @@ def _is_round_din_footprint(fp_lower: str) -> bool:
 
 def _mechanical_family_score(query_lower: str, fp_lower: str) -> float:
     score = 0.0
+    if any(term in query_lower for term in ("testpoint", "test point", "probe pad", "test pad")):
+        if fp_lower.startswith("testpoint:"):
+            score += 12.0
+        if "pad" in fp_lower:
+            score += 4.0
+        if any(term in fp_lower for term in ("1.5mm", "d1.5")):
+            score += 1.5
+    if any(term in query_lower for term in ("bme280", "bmp280", "bme680", "bosch")):
+        if fp_lower.startswith("package_lga:") and "bosch_lga" in fp_lower:
+            score += 14.0
+        if "lga-8" in fp_lower or "lga_8" in fp_lower:
+            score += 4.0
+    if "lga-8" in query_lower or "lga 8" in query_lower:
+        if "lga-8" in fp_lower or "lga_8" in fp_lower:
+            score += 5.0
     if _is_round_din_query(query_lower):
         if _is_round_din_footprint(fp_lower):
             score += 10.0

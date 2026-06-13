@@ -371,6 +371,21 @@ class TestHelpfulFailures:
         assert "search_kicad" in exc.retry_hint
         assert "guessed symbol library names" in exc.retry_hint
 
+    def test_missing_testpoint_library_suggests_connector_symbol(self):
+        class FakeExecError:
+            original = FileNotFoundError("Can't open file: TestPoint.\n")
+            line = 12
+            line_text = 'tp = Part("TestPoint", "TestPoint_Pad_D1.5mm")'
+            namespace = {}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.message == "symbol library 'TestPoint' is not available to SKiDL"
+        assert exc.subject["missing_library"] == "TestPoint"
+        assert exc.subject["suggested_usage"].startswith('Part("Connector", "TestPoint"')
+        assert "TestPoint is a KiCad footprint library" in exc.retry_hint
+        assert "Connector:TestPoint" in exc.retry_hint
+
     def test_missing_symbol_part_error_is_specific(self):
         class FakeExecError:
             original = ValueError("Unable to find part LCD_16x2 in library Display_Character.")
@@ -418,6 +433,21 @@ class TestHelpfulFailures:
         assert exc.subject["suggested_parts"][0]["part"] == "R_Potentiometer"
         assert 'Part("Device", "R_Potentiometer"' in exc.subject["suggested_parts"][0]["usage"]
         assert "subject.suggested_parts" in exc.retry_hint
+
+    def test_missing_stm32_order_code_mentions_package_family_symbols(self):
+        class FakeExecError:
+            original = ValueError(
+                "Unable to find part STM32F103C8T6 in library MCU_ST_STM32F1."
+            )
+            line = 4
+            line_text = 'u1 = Part("MCU_ST_STM32F1", "STM32F103C8T6")'
+            namespace = {}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.subject["part_number_style"].startswith("STM32 order codes")
+        assert "package-family" in exc.retry_hint
+        assert "convert_lcsc" in exc.retry_hint
 
     def test_switched_audio_jack_pin_error_explains_pin_family(self):
         jack = SimpleNamespace(
