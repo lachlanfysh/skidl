@@ -1159,6 +1159,50 @@ class TestAgentUX:
         assert len(json.dumps(result)) < 8000
 
     @pytest.mark.asyncio
+    async def test_get_job_omits_top_level_spec_without_mutating_store(self, monkeypatch):
+        from mcp_server import server_http
+
+        stored_job = {
+            "id": "job-compact",
+            "status": "failed",
+            "spec": {
+                "_mode": "skidl_python",
+                "code": "from skidl import *\n" + ("# big source\n" * 1000),
+            },
+            "options": {},
+            "policy": {},
+            "result": {
+                "run_id": "run-compact",
+                "status": "failed",
+                "ok": False,
+                "spec": {"also": "large"},
+                "exceptions": [{
+                    "code": "CODE_EXEC_ERROR",
+                    "severity": "fatal",
+                    "message": "code did not run",
+                    "candidates": [],
+                }],
+            },
+        }
+
+        class FakeDB:
+            async def get_job(self, job_id):
+                assert job_id == "job-compact"
+                return stored_job
+
+        monkeypatch.setattr(server_http, "db", FakeDB())
+
+        response = await server_http.get_job("job-compact")
+
+        assert "spec" not in response
+        assert "spec" not in response["result"]
+        assert response["result"]["top_exception"]["code"] == "CODE_EXEC_ERROR"
+        assert "submit_skidl_code()" in response["hint"]
+        assert stored_job["spec"]["code"].startswith("from skidl import *")
+        assert stored_job["result"]["spec"] == {"also": "large"}
+        assert len(json.dumps(response)) < 5000
+
+    @pytest.mark.asyncio
     async def test_apply_correction_rejects_skidl_python_runs(self, monkeypatch):
         from mcp_server import server_http
 

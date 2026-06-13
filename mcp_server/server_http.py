@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import os
+from copy import deepcopy
 
 from pydantic import ValidationError
 
@@ -265,7 +266,7 @@ async def submit_skidl_code(
 
 @mcp.tool()
 async def get_job(job_id: str) -> dict:
-    """Poll a submitted job. Returns status and, when finished, the full result.
+    """Poll a submitted job. Returns status and a compact finished result.
 
     status values: "queued" (waiting for a worker), "running",
     "succeeded", "failed", "timeout". Poll every 5-15s while queued/running.
@@ -283,7 +284,7 @@ async def get_job(job_id: str) -> dict:
     be null. A failed/timeout status with exceptions is normal — that is
     the correction loop, not a malfunction; inspect the candidates.
     """
-    job = await db.get_job(job_id)
+    job = deepcopy(await db.get_job(job_id))
 
     # Trim response size — full spec and verbose layout are available via get_run.
     result = job.get("result")
@@ -291,6 +292,7 @@ async def get_job(job_id: str) -> dict:
         _compact_job_result_for_agent(result)
 
     job["hint"] = _get_job_hint(job)
+    job.pop("spec", None)
     return job
 
 
