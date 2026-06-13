@@ -36,6 +36,25 @@ def _fake_symbols(monkeypatch):
                     pin_count=15,
                 ),
             ],
+            "Connector_Audio": [
+                SymbolEntry(
+                    lib="Connector_Audio",
+                    name="AudioPlug3",
+                    description="Audio Jack, 3 Poles (Stereo / TRS)",
+                    keywords="audio jack trs stereo",
+                    pin_count=3,
+                ),
+                SymbolEntry(
+                    lib="Connector_Audio",
+                    name="AudioJack3_Dual_Ground_Switch",
+                    description=(
+                        "Audio Jack, Dual, 3 Poles (Stereo / TRS), "
+                        "Grounded Sleeve, Switched Poles (Normalling)"
+                    ),
+                    keywords="audio jack trs stereo switched normalling",
+                    pin_count=13,
+                ),
+            ],
         },
     )
 
@@ -53,6 +72,8 @@ def _fake_footprints(monkeypatch):
             "Potentiometer_THT:Potentiometer_Alps_RK09K_Single_Horizontal",
             "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
             "Connector_USB:USB_Micro-B_Molex-105017-0001",
+            "Connector_DIN:DIN41612_R_2x32_Male_Vertical_THT",
+            "Connector_DIN:DIN-5_180degree_Male_Horizontal_THT",
             "Resistor_SMD:R_0603_1608Metric",
         },
     )
@@ -98,3 +119,22 @@ def test_search_symbols_finds_usb_receptacles_despite_alias_punctuation(monkeypa
     assert usb_c[0].name == "USB_C_Receptacle_USB2.0_16P"
     assert micro_b[0].lib == "Connector"
     assert micro_b[0].name == "USB_B_Micro"
+
+
+def test_search_symbols_prefers_switched_audio_jack_when_requested(monkeypatch):
+    _fake_symbols(monkeypatch)
+
+    matches = kicad_index.search_symbols("switched 3.5mm TRS jack symbol", limit=3)
+
+    assert matches[0].lib == "Connector_Audio"
+    assert matches[0].name == "AudioJack3_Dual_Ground_Switch"
+
+
+def test_search_footprints_filters_din41612_for_midi_din(monkeypatch):
+    _fake_footprints(monkeypatch)
+
+    matches = kicad_index.search_footprints("5-pin DIN MIDI jack footprint", limit=5)
+
+    assert matches[0] == "Connector_DIN:DIN-5_180degree_Male_Horizontal_THT"
+    assert all("DIN41612" not in match for match in matches)
+    assert all("Connector_Audio" not in match for match in matches)

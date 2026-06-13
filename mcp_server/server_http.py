@@ -1150,6 +1150,13 @@ Common KiCad symbol patterns:
 - `Connector_Audio:AudioJack3`: TRS stereo or TRS MIDI.
 - Symbols with switch pins expose extra contacts. Inspect with
   `detail=true` and wire only the required contacts.
+- Simple unswitched plug/jack symbols usually expose `T`, `R`, and `S`.
+  Switched or dual jack symbols may expose `T1`, `T2`, `TN`, `TN1`, `R1`,
+  `RN1`, `S1`, `SN1`, etc. `N` pins are normalled/switched contacts, not
+  the main plug contact. If you do not need normalling/detect, choose the
+  simpler unswitched symbol to reduce routing and pin-name ambiguity.
+- MIDI DIN is a circular DIN connector. Do not substitute DIN41612 footprints;
+  those are backplane/card connectors, not 5-pin MIDI panel connectors.
 
 If the request does not specify jack style, make the choice visible in your
 final report. For product/panel boards, prefer edge-facing through-hole jacks

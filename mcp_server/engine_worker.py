@@ -1182,7 +1182,7 @@ def _infer_pin_lookup(error: SkidlCodeExecutionError) -> dict:
         available = _available_part_pins(obj)
         ref = str(getattr(obj, "ref", var_name))
         part_name = str(getattr(obj, "name", "") or getattr(obj, "value", "") or "")
-        return {
+        subject = {
             "ref": ref,
             "part": part_name,
             "variable": var_name,
@@ -1190,6 +1190,10 @@ def _infer_pin_lookup(error: SkidlCodeExecutionError) -> dict:
             "available_pins": available[:80],
             "suggested_pins": _close(pin_name, available, 8),
         }
+        family_hint = _connector_pin_family_hint(part_name, pin_name, available)
+        if family_hint:
+            subject["pin_family_hint"] = family_hint
+        return subject
     return {}
 
 
@@ -1197,6 +1201,37 @@ def _close(token: str, pool: list[str], n: int = 6) -> list[str]:
     import difflib
 
     return difflib.get_close_matches(str(token), pool, n=n, cutoff=0.35)
+
+
+def _connector_pin_family_hint(part_name: str, pin_name: str, available: list[str]) -> str:
+    """Explain common mechanical-connector pin families when aliases mislead."""
+    part_lower = part_name.lower()
+    if "audiojack" not in part_lower and "audioplug" not in part_lower:
+        return ""
+
+    pin = str(pin_name).upper()
+    pins_upper = {str(p).upper() for p in available}
+    if pin in {"T", "R", "S"} and pin not in pins_upper:
+        numbered = sorted(p for p in pins_upper if re.fullmatch(rf"{pin}\d+", p))
+        normalled = sorted(
+            p for p in pins_upper
+            if re.fullmatch(rf"{pin}N\d*|{pin}\d*N", p)
+        )
+        if numbered or normalled:
+            pieces = []
+            if numbered:
+                pieces.append(f"use {'/'.join(numbered[:4])} for actual {pin} contacts")
+            if normalled:
+                pieces.append(
+                    f"{'/'.join(normalled[:4])} are switched/normalling contacts"
+                )
+            return (
+                "This is a switched or dual audio jack symbol, so plain "
+                f"{pin!r} is not a valid pin. " + "; ".join(pieces) + ". "
+                "If the design does not need switching/normalling, choose a "
+                "simpler AudioPlug/AudioJack symbol with T/R/S pins."
+            )
+    return ""
 
 
 def _code_exception(
@@ -1331,14 +1366,18 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
             )
         suggestions = pin_subject.get("suggested_pins") or []
         suffix = f"; close pins: {', '.join(suggestions[:5])}" if suggestions else ""
+        family_hint = pin_subject.get("pin_family_hint")
+        hint = (
+            "Replace the pin name in the SKiDL code with one from "
+            "subject.available_pins, or call search_kicad(part_name, "
+            "detail=true) to inspect the symbol, then resubmit with "
+            "submit_skidl_code()."
+        )
+        if family_hint:
+            hint += f" {family_hint}"
         return _code_exception(
             f"pin {pin!r} not found on {ref} ({part}) while executing SKiDL code{suffix}",
-            (
-                "Replace the pin name in the SKiDL code with one from "
-                "subject.available_pins, or call search_kicad(part_name, "
-                "detail=true) to inspect the symbol, then resubmit with "
-                "submit_skidl_code()."
-            ),
+            hint,
             subject=subject,
         )
 

@@ -360,6 +360,37 @@ class TestHelpfulFailures:
         assert exc.subject["library"] == "Display_Character"
         assert "exact returned library and part names" in exc.retry_hint
 
+    def test_switched_audio_jack_pin_error_explains_pin_family(self):
+        jack = SimpleNamespace(
+            ref="J1",
+            name="AudioJack3_Dual_Ground_Switch",
+            pins=[
+                SimpleNamespace(name="~", num="G"),
+                SimpleNamespace(name="~", num="S1"),
+                SimpleNamespace(name="~", num="SN1"),
+                SimpleNamespace(name="~", num="R1"),
+                SimpleNamespace(name="~", num="RN1"),
+                SimpleNamespace(name="~", num="T1"),
+                SimpleNamespace(name="~", num="TN1"),
+                SimpleNamespace(name="~", num="T2"),
+            ],
+        )
+
+        class FakeExecError:
+            original = ValueError("No pins found using J1['T']")
+            line = 12
+            line_text = "focus += jack['T']"
+            namespace = {"jack": jack}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.code == ExcCode.CODE_EXEC_ERROR
+        assert exc.subject["pin"] == "T"
+        assert "pin_family_hint" in exc.subject
+        assert "plain 'T' is not a valid pin" in exc.subject["pin_family_hint"]
+        assert "T1/T2" in exc.retry_hint
+        assert "simpler AudioPlug/AudioJack" in exc.retry_hint
+
     def test_missing_footprint_error_suggests_replacements(self, monkeypatch):
         from llm import kicad_index
 

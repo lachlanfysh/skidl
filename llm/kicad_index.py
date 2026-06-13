@@ -204,6 +204,65 @@ def _symbol_connector_boost(query_lower: str, query_tokens: set[str], entry: Sym
     return score
 
 
+def _symbol_audio_connector_boost(query_lower: str, entry: SymbolEntry) -> float:
+    """Bias audio/control jack symbol search toward the requested contact style."""
+    if entry.lib != "Connector_Audio":
+        return 0.0
+
+    name_lower = entry.name.lower()
+    combined = f"{entry.name} {entry.description}".lower()
+    if not any(
+        term in query_lower
+        for term in (
+            "audio",
+            "jack",
+            "trs",
+            "trrs",
+            "mono",
+            "stereo",
+            "midi",
+            "shutter",
+            "camera",
+            "3.5",
+            "6.35",
+        )
+    ):
+        return 0.0
+
+    score = 2.0
+    switch_requested = (
+        re.search(r"\b(switched|switching|normalled|normalling|detect)\b", query_lower)
+        is not None
+        and re.search(r"\bunswitched\b", query_lower) is None
+    )
+    unswitched_requested = re.search(r"\bunswitched\b", query_lower) is not None
+
+    if any(term in name_lower for term in ("audiojack", "audioplug")):
+        score += 2.0
+    if switch_requested:
+        if "switch" in combined or "normalling" in combined:
+            score += 8.0
+        else:
+            score -= 5.0
+        if "plug" in name_lower and "switch" not in combined:
+            score -= 4.0
+    elif unswitched_requested and ("switch" in combined or "normalling" in combined):
+        score -= 5.0
+
+    if any(term in query_lower for term in ("trs", "stereo")):
+        if "audiojack3" in name_lower or "audioplug3" in name_lower or "3 poles" in combined:
+            score += 4.0
+    if any(term in query_lower for term in ("trrs", "4 pole", "4-pole")):
+        if "audiojack4" in name_lower or "audioplug4" in name_lower or "4 poles" in combined:
+            score += 4.0
+    if any(term in query_lower for term in ("mono", "ts ")):
+        if "audiojack2" in name_lower or "audioplug2" in name_lower or "2 poles" in combined:
+            score += 4.0
+    if "dual" in query_lower and "dual" in combined:
+        score += 3.0
+    return score
+
+
 def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
     """Fuzzy search across all symbol libraries."""
     index = get_index()
@@ -229,6 +288,7 @@ def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
                 elif part in lib_tokens:
                     score += 0.5
             score += _symbol_connector_boost(query_lower, query_token_set, entry)
+            score += _symbol_audio_connector_boost(query_lower, entry)
             if score > 0:
                 scored.append((score, entry))
 
@@ -256,8 +316,39 @@ def _fp_tokens(text: str) -> list[str]:
     return [token for token in expanded if len(token) > 1]
 
 
+def _is_round_din_query(query_lower: str) -> bool:
+    """True for circular DIN/MIDI connector queries, not DIN41612 backplanes."""
+    if "din41612" in query_lower:
+        return False
+    if "midi" in query_lower:
+        return True
+    if re.search(r"\bdin[-_\s]*(?:[3-8]|[3-8][-_ ]?pin|pin)\b", query_lower):
+        return True
+    return "din" in query_lower and any(
+        term in query_lower for term in ("connector", "jack", "socket", "5-pin", "5 pin")
+    )
+
+
+def _is_round_din_footprint(fp_lower: str) -> bool:
+    """True for circular DIN footprints; false for DIN41612 card-edge families."""
+    if "connector_din:" not in fp_lower or "din41612" in fp_lower:
+        return False
+    return "din" in fp_lower
+
+
 def _mechanical_family_score(query_lower: str, fp_lower: str) -> float:
     score = 0.0
+    if _is_round_din_query(query_lower):
+        if _is_round_din_footprint(fp_lower):
+            score += 10.0
+            if re.search(r"\bdin[-_\s]*5\b|\b5[-_\s]*pin\b", query_lower):
+                if re.search(r"din[-_]?5|din_5", fp_lower):
+                    score += 6.0
+            if "horizontal" in query_lower and "horizontal" in fp_lower:
+                score += 2.0
+            if "vertical" in query_lower and "vertical" in fp_lower:
+                score += 2.0
+        return score
     if any(term in query_lower for term in ("jack", "audio", "trs", "mono", "3.5", "pj-3", "pj3")):
         if "connector_audio:" in fp_lower:
             score += 6.0
@@ -315,6 +406,8 @@ def _mechanical_family_score(query_lower: str, fp_lower: str) -> float:
 def _score_footprint(query: str, fp: str) -> float:
     query_lower = query.lower()
     fp_lower = fp.lower()
+    if _is_round_din_query(query_lower) and not _is_round_din_footprint(fp_lower):
+        return 0.0
     if query_lower in fp_lower:
         return 1000.0 - len(fp) * 0.001
     score = _mechanical_family_score(query_lower, fp_lower)
