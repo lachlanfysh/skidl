@@ -276,13 +276,19 @@ class TestDB:
 class TestWorkerExecution:
     """Test _execute_job against the real engine."""
 
-    def test_simple_spec_succeeds(self):
-        """A tiny connector/resistor board should generate schematic + layout."""
+    def test_simple_spec_generates_layout_but_requires_router_for_success(self):
+        """A tiny board generates artifacts, but success requires full fab gates."""
         job = {"spec": SIMPLE_SPEC, "options": {"timeout_s": 120}, "policy": {}}
         result = _execute_job(job)
         assert result["run_id"]
-        assert result["status"] in ("succeeded", "succeeded_with_warnings")
-        assert result["ok"] or result["status"] == "succeeded_with_warnings"
+        assert result["status"] != "crashed"
+        artifacts = result.get("_artifact_paths", {})
+        assert any(k.endswith(".kicad_pcb") for k in artifacts)
+        assert any(k.endswith(".kicad_sch") for k in artifacts)
+        if result["ok"]:
+            assert result["metrics"]["manufacturable"] is True
+        else:
+            assert result["metrics"].get("manufacturable") is not True
 
     def test_multi_part_spec(self):
         """ADC + decap with nets — exercises pin resolution + layout."""
@@ -365,6 +371,24 @@ class TestFindArtifacts:
         with tempfile.TemporaryDirectory() as td:
             arts = _find_artifacts(Path(td))
             assert arts == {}
+
+    def test_manufacturing_artifacts_build_order_zip(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td)
+            (p / "board.kicad_pcb").write_text("(kicad_pcb content)")
+            (p / "board.kicad_sch").write_text("(kicad_sch content)")
+            (p / "bom.csv").write_text("Comment,Designator,Footprint,LCSC\nR,R1,0603,C1\n")
+            (p / "cpl.csv").write_text("Designator,Mid X,Mid Y,Layer,Rotation\nR1,1,1,Top,0\n")
+            gerbers = p / "gerbers"
+            gerbers.mkdir()
+            (gerbers / "board-F_Cu.gbr").write_text("G04 gerber*")
+            (gerbers / "board.drl").write_text("M48 drill")
+
+            arts = _find_artifacts(p)
+
+            assert "bom.csv" in arts
+            assert "cpl.csv" in arts
+            assert "_board.zip" in arts
 
 
 # ── Worker loop integration ───────────────────────────────────────────

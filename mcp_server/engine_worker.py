@@ -29,6 +29,7 @@ from schemas.enrichment import (
     design_review_exceptions,
     enrich as enrich_spec,
     enrich_blocks,
+    is_power_net_name,
 )
 from schemas.exceptions import DesignException, ExcCode, Severity
 from schemas.translator import DEFAULT_FP_DIR, DEFAULT_SYM_DIR, translate
@@ -232,7 +233,7 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
         return [DesignException(
             id="e-route-unavailable",
             code=ExcCode.ROUTE_UNAVAILABLE,
-            severity=Severity.ADVISORY,
+            severity=Severity.ERROR,
             message="Routing unavailable: Freerouting JAR or Java not found — board is unrouted but placement is valid",
             subject={"missing": "java_or_freerouting"},
             candidates=[],
@@ -383,7 +384,7 @@ def _run_drc(pcb_path: str) -> list:
         return [DesignException(
             id="e-drc-unavailable",
             code=ExcCode.DRC_TOOL_FAILURE,
-            severity=Severity.ADVISORY,
+            severity=Severity.ERROR,
             message="kicad-cli not found — DRC skipped",
             subject={"missing": "kicad-cli"},
             candidates=[],
@@ -404,7 +405,7 @@ def _run_drc(pcb_path: str) -> list:
         return [DesignException(
             id="e-drc-timeout",
             code=ExcCode.DRC_TOOL_FAILURE,
-            severity=Severity.ADVISORY,
+            severity=Severity.ERROR,
             message="kicad-cli DRC timed out",
             subject={"stage": "drc", "timeout_s": 30},
             candidates=[],
@@ -415,7 +416,7 @@ def _run_drc(pcb_path: str) -> list:
         return [DesignException(
             id="e-drc-no-report",
             code=ExcCode.DRC_TOOL_FAILURE,
-            severity=Severity.ADVISORY,
+            severity=Severity.ERROR,
             message=f"DRC produced no report (exit {result.returncode})",
             subject={"stderr_tail": result.stderr[-1000:]},
             candidates=[],
@@ -429,7 +430,7 @@ def _run_drc(pcb_path: str) -> list:
         return [DesignException(
             id="e-drc-parse-fail",
             code=ExcCode.DRC_TOOL_FAILURE,
-            severity=Severity.ADVISORY,
+            severity=Severity.ERROR,
             message=f"Failed to parse DRC report: {exc}",
             subject={"stage": "drc_parse", "error": str(exc)},
             candidates=[],
@@ -539,33 +540,62 @@ def _drc_to_exceptions(report: dict) -> list:
     return exceptions
 
 
-def _export_gerbers(pcb_path: str, out_dir: Path) -> bool:
-    """Export Gerber + drill files via kicad-cli. Returns True on success."""
+def _export_gerbers(pcb_path: str, out_dir: Path) -> dict:
+    """Export Gerber + drill files via kicad-cli."""
     import shutil
     import subprocess as sp
 
     kicad_cli = shutil.which("kicad-cli")
-    if not kicad_cli:
-        return False
-
     gerber_dir = out_dir / "gerbers"
+    result = {
+        "ok": False,
+        "dir": str(gerber_dir),
+        "files": [],
+        "errors": [],
+    }
+    if not kicad_cli:
+        result["errors"].append("kicad-cli not found")
+        return result
+
     gerber_dir.mkdir(exist_ok=True)
 
     try:
-        sp.run(
+        gerber_proc = sp.run(
             [kicad_cli, "pcb", "export", "gerbers",
              "-o", str(gerber_dir) + "/", pcb_path],
             capture_output=True, timeout=30, text=True,
         )
-        sp.run(
+        drill_proc = sp.run(
             [kicad_cli, "pcb", "export", "drill",
              "-o", str(gerber_dir) + "/", pcb_path],
             capture_output=True, timeout=30, text=True,
         )
-    except (sp.TimeoutExpired, OSError):
-        return False
+    except sp.TimeoutExpired:
+        result["errors"].append("kicad-cli export timed out")
+        return result
+    except OSError as exc:
+        result["errors"].append(str(exc))
+        return result
 
-    return any(gerber_dir.iterdir())
+    if gerber_proc.returncode != 0:
+        result["errors"].append(
+            f"gerber export exited {gerber_proc.returncode}: {gerber_proc.stderr[-500:]}"
+        )
+    if drill_proc.returncode != 0:
+        result["errors"].append(
+            f"drill export exited {drill_proc.returncode}: {drill_proc.stderr[-500:]}"
+        )
+
+    files = sorted(path.name for path in gerber_dir.iterdir() if path.is_file())
+    result["files"] = files
+    has_gerber = any(name.endswith(".gbr") for name in files)
+    has_drill = any(name.endswith(".drl") for name in files)
+    if not has_gerber:
+        result["errors"].append("no .gbr files generated")
+    if not has_drill:
+        result["errors"].append("no .drl drill file generated")
+    result["ok"] = has_gerber and has_drill and not result["errors"]
+    return result
 
 
 def _generate_bom(circuit, spec=None, out_dir: Path = None) -> Path | None:
@@ -630,18 +660,55 @@ def _generate_manufacturing_files(
     """Generate Gerbers, BOM, and CPL for manufacturable boards."""
     mfg = {}
 
-    if _export_gerbers(pcb_path, out_dir):
-        mfg["gerbers"] = True
+    gerber_result = _export_gerbers(pcb_path, out_dir)
+    mfg["gerbers"] = bool(gerber_result.get("ok"))
+    mfg["gerber_files"] = list(gerber_result.get("files") or [])
+    if gerber_result.get("errors"):
+        mfg["gerber_errors"] = list(gerber_result.get("errors") or [])
 
     bom_path = _generate_bom(circuit, spec=spec, out_dir=out_dir)
-    if bom_path:
+    if bom_path and bom_path.exists() and bom_path.stat().st_size > 0:
         mfg["bom"] = str(bom_path)
 
     cpl_path = _generate_cpl(layout_result.placed_parts, out_dir)
-    if cpl_path:
+    if cpl_path and cpl_path.exists() and cpl_path.stat().st_size > 0:
         mfg["cpl"] = str(cpl_path)
 
     return mfg
+
+
+def _missing_manufacturing_outputs(mfg: dict) -> list[str]:
+    missing = []
+    if not mfg.get("gerbers"):
+        missing.append("gerbers_and_drills")
+    if not mfg.get("bom"):
+        missing.append("bom.csv")
+    if not mfg.get("cpl"):
+        missing.append("cpl.csv")
+    return missing
+
+
+def _manufacturing_output_exception(mfg: dict) -> DesignException:
+    missing = _missing_manufacturing_outputs(mfg)
+    return DesignException(
+        id="e-manufacturing-output",
+        code=ExcCode.MANUFACTURING_OUTPUT_FAILURE,
+        severity=Severity.ERROR,
+        message=(
+            "Manufacturing export incomplete: missing "
+            f"{', '.join(missing)}"
+        ),
+        subject={
+            "missing_outputs": missing,
+            "gerber_files": list(mfg.get("gerber_files") or []),
+            "gerber_errors": list(mfg.get("gerber_errors") or []),
+        },
+        candidates=[],
+        retry_hint=(
+            "Do not call the board manufacturable. Inspect export errors and "
+            "the KiCad PCB artifact; this is a manufacturing output gate."
+        ),
+    )
 
 
 def _exec_skidl(code: str):
@@ -711,7 +778,7 @@ def _circuit_to_spec_dict(circuit) -> dict:
         for pin in n.pins:
             part_ref = str(pin.part.ref) if pin.part else "?"
             pin_strs.append(f"{part_ref}.{pin.name}")
-        is_power = n.drive is not None and n.drive >= 1
+        is_power = is_power_net_name(str(n.name))
         nets.append({"name": n.name, "pins": pin_strs, "power": is_power})
 
     return {"board": {"name": "from_code"}, "parts": parts, "nets": nets}
@@ -1000,23 +1067,6 @@ def _run_skidl_code(envelope: dict) -> dict:
         circuit, fp_lib_dirs=fp_dirs, constraints=constraints,
     )
 
-    for scale in (1.5, 2.0):
-        layout_errs = layout_exceptions(layout_result)
-        has_placement_error = any(
-            e.code in (ExcCode.LAYOUT_OVERLAP, ExcCode.LAYOUT_OUTLINE_VIOLATION)
-            for e in layout_errs
-        )
-        if not has_placement_error:
-            break
-        expanded = BoardOutline(
-            layout_result.outline.width_mm * scale,
-            layout_result.outline.height_mm * scale,
-        )
-        constraints = LayoutConstraints(outline=expanded)
-        layout_result = plan_layout(
-            circuit, fp_lib_dirs=fp_dirs, constraints=constraints,
-        )
-
     write_kicad_pcb(
         layout_result.placed_parts, circuit, fp_dirs,
         str(pcb_path), outline=layout_result.outline,
@@ -1029,6 +1079,7 @@ def _run_skidl_code(envelope: dict) -> dict:
         if e.severity in (Severity.FATAL, Severity.ERROR)
     ]
     manufacturable = False
+    mfg = {}
     if not layout_errors:
         route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
         route_exceptions = _route_pcb(str(pcb_path), timeout_s=route_timeout)
@@ -1048,7 +1099,14 @@ def _run_skidl_code(envelope: dict) -> dict:
                 e for e in drc_exceptions
                 if e.severity in (Severity.FATAL, Severity.ERROR)
             ]
-            manufacturable = not drc_errors
+            if not drc_errors:
+                mfg = _generate_manufacturing_files(
+                    str(pcb_path), circuit, layout_result, out_dir,
+                )
+                if _missing_manufacturing_outputs(mfg):
+                    all_exceptions.append(_manufacturing_output_exception(mfg))
+                else:
+                    manufacturable = True
 
     outputs = {
         "run_dir": str(out_dir),
@@ -1056,19 +1114,17 @@ def _run_skidl_code(envelope: dict) -> dict:
         "pcb": str(pcb_path),
     }
 
-    if manufacturable:
-        mfg = _generate_manufacturing_files(
-            str(pcb_path), circuit, layout_result, out_dir,
-        )
+    if mfg:
         outputs["manufacturing"] = mfg
 
     layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
     metrics["manufacturable"] = manufacturable
+    metrics["manufacturing_complete"] = manufacturable
 
     return _json_result(
         run_id=run_id,
-        ok=layout_result.ok and not any(
+        ok=layout_result.ok and manufacturable and not any(
             e.severity in (Severity.FATAL, Severity.ERROR)
             for e in all_exceptions
         ),
@@ -1190,6 +1246,7 @@ def run(envelope: dict) -> dict:
     # Routing stage: attempt Freerouting if available
     layout_errors = [e for e in all_exceptions if e.severity in (Severity.FATAL, Severity.ERROR)]
     manufacturable = False
+    mfg = {}
     if not layout_errors:
         route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
         route_exceptions = _route_pcb(str(pcb_path), timeout_s=route_timeout)
@@ -1207,7 +1264,14 @@ def run(envelope: dict) -> dict:
             all_exceptions.extend(drc_exceptions)
             drc_errors = [e for e in drc_exceptions
                           if e.severity in (Severity.FATAL, Severity.ERROR)]
-            manufacturable = not drc_errors
+            if not drc_errors:
+                mfg = _generate_manufacturing_files(
+                    str(pcb_path), circuit, layout_result, out_dir, spec=spec,
+                )
+                if _missing_manufacturing_outputs(mfg):
+                    all_exceptions.append(_manufacturing_output_exception(mfg))
+                else:
+                    manufacturable = True
 
     outputs = {
         "run_dir": str(out_dir),
@@ -1215,19 +1279,17 @@ def run(envelope: dict) -> dict:
         "pcb": str(pcb_path),
     }
 
-    if manufacturable:
-        mfg = _generate_manufacturing_files(
-            str(pcb_path), circuit, layout_result, out_dir, spec=spec,
-        )
+    if mfg:
         outputs["manufacturing"] = mfg
 
     layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
     metrics["manufacturable"] = manufacturable
+    metrics["manufacturing_complete"] = manufacturable
 
     return _json_result(
         run_id=run_id,
-        ok=layout_result.ok and not any(
+        ok=layout_result.ok and manufacturable and not any(
             e.severity in (Severity.FATAL, Severity.ERROR) for e in all_exceptions
         ),
         stage="complete",

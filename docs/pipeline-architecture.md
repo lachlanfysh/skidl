@@ -71,8 +71,16 @@ The engine calls `java -jar /opt/freerouting/freerouting-2.0.1.jar` directly.
 `kicad-cli pcb drc --exit-code-violations` returns nonzero for both
 "report with violations" and "tool failure". The engine distinguishes:
 - **JSON file exists + nonzero exit** → parse violations from report
-- **No JSON file + nonzero exit** → `DRC_TOOL_FAILURE` exception (advisory)
-- **JSON parse failure** → `DRC_TOOL_FAILURE` exception (advisory)
+- **No JSON file + nonzero exit** → `DRC_TOOL_FAILURE` exception (error)
+- **JSON parse failure** → `DRC_TOOL_FAILURE` exception (error)
+
+### Manufacturing output is part of success
+
+`manufacturable=true` means routing completed, DRC completed cleanly, and
+fabrication artifacts were generated: Gerbers, drill files, BOM CSV, and CPL
+CSV. If any output is missing, the engine returns
+`MANUFACTURING_OUTPUT_FAILURE` and the run fails rather than leaving the agent
+to infer whether the board is orderable.
 
 ### Timeout budget
 
@@ -111,7 +119,8 @@ by the pipeline runner.
 | `DRC_UNCONNECTED` | error | Net endpoint not connected after routing |
 | `DRC_SHORT` | error | Unintended connection between nets |
 | `DRC_COURTYARD` | advisory | Component courtyard overlap |
-| `DRC_TOOL_FAILURE` | advisory | kicad-cli DRC failed to run |
+| `DRC_TOOL_FAILURE` | error | kicad-cli DRC failed to run |
+| `MANUFACTURING_OUTPUT_FAILURE` | error | Gerbers, drill, BOM, or CPL export did not complete |
 
 ## Candidate Actions
 

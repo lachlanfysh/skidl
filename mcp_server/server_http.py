@@ -180,8 +180,8 @@ async def submit_skidl_code(
     handles the full pipeline (schematic, PCB layout, routing, DRC) — do NOT
     call generate_schematic() or generate_netlist() in your code.
 
-    When the board passes routing + DRC, manufacturing files are generated
-    automatically: Gerbers, drill files, BOM CSV, and CPL (pick-and-place)
+    A run is only clean when routing, DRC, and manufacturing export all pass.
+    Clean runs include Gerbers, drill files, BOM CSV, and CPL (pick-and-place)
     CSV — everything needed for JLCPCB ordering. These are bundled in the
     output zip alongside the KiCad source files.
 
@@ -254,8 +254,9 @@ async def submit_skidl_code(
             "Job queued. Poll with get_job(job_id) every 10s until "
             "status is 'succeeded' or 'failed'. If your code has errors "
             "(wrong lib/part/pin names), you'll get a clear message — "
-            "fix and resubmit. When the board passes DRC, manufacturing "
-            "files (Gerbers, BOM, CPL) are included in the output zip."
+            "fix and resubmit. When the board passes routing, DRC, and "
+            "manufacturing export, Gerbers, BOM, and CPL are included in "
+            "the output zip."
         ),
     }
 
@@ -346,7 +347,14 @@ def _get_job_hint(job: dict) -> str:
     has_lib_errors = any("LIB" in c or "PART" in c for c in exc_codes)
     has_code_errors = "CODE_EXEC_ERROR" in exc_codes
     has_engine_failure = any(c in {"ENGINE_CRASH", "ENGINE_TIMEOUT"} for c in exc_codes)
-    has_tool_failure = any(c in {"ROUTE_UNAVAILABLE", "DRC_TOOL_FAILURE"} for c in exc_codes)
+    has_tool_failure = any(
+        c in {
+            "ROUTE_UNAVAILABLE",
+            "DRC_TOOL_FAILURE",
+            "MANUFACTURING_OUTPUT_FAILURE",
+        }
+        for c in exc_codes
+    )
     has_no_candidates = any(
         isinstance(e, dict) and not e.get("candidates")
         for e in exceptions
@@ -605,7 +613,7 @@ async def get_run(run_id: str) -> dict:
     """Fetch full run data: spec, exceptions, response, and KiCad artifacts.
 
     artifacts contains .kicad_sch and .kicad_pcb file contents. When the
-    board passes routing + DRC, manufacturing files are also included:
+    board passes routing, DRC, and manufacturing export, files also include:
     bom.csv (JLCPCB BOM with LCSC part numbers), cpl.csv (pick-and-place),
     and Gerber/drill files in the zip.
 
@@ -1344,12 +1352,13 @@ def _exceptions_guide() -> str:
         "ROUTE_UNCONNECTED": "error: nets that could not be routed",
         "ROUTE_CONGESTION": "advisory: routing succeeded but congestion is high",
         "ROUTE_TIMEOUT": "error: Freerouting exceeded time limit",
-        "ROUTE_UNAVAILABLE": "tooling advisory/error: routing tools not available or DSN/SES conversion failed",
+        "ROUTE_UNAVAILABLE": "tooling error: routing tools not available or DSN/SES conversion failed",
         "DRC_CLEARANCE": "error: trace/pad clearance violation",
         "DRC_UNCONNECTED": "error: net endpoint not connected after routing",
         "DRC_SHORT": "error: unintended connection between nets",
         "DRC_COURTYARD": "advisory: component courtyard overlap",
-        "DRC_TOOL_FAILURE": "tooling advisory: DRC tool failed to run",
+        "DRC_TOOL_FAILURE": "tooling error: DRC tool failed to run",
+        "MANUFACTURING_OUTPUT_FAILURE": "error: Gerbers, drill, BOM, or CPL export did not complete",
         "ENGINE_TIMEOUT": "engine hit timeout_s — raise it or simplify",
         "ENGINE_CRASH": "backend worker crashed; retry once, then treat as service failure",
         "CODE_EXEC_ERROR": "SKiDL Python code raised an error; inspect subject.line, line_text, available_pins",

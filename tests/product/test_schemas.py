@@ -97,6 +97,89 @@ class TestEnrichmentIntent:
         assert any(p.get("value") == "MCP73831" for p in enriched["parts"])
         assert any(a["rule"] == "BLOCK:lipo_charger" for a in actions)
 
+    def test_negated_lipo_marketing_does_not_inject_charger(self):
+        enriched, actions = enrich_blocks(
+            vbat_spec_dict(),
+            marketing_text="VBAT battery input with no battery charger on this board",
+        )
+
+        assert not any(p.get("value") == "MCP73831" for p in enriched["parts"])
+        assert not any(a["rule"] == "BLOCK:lipo_charger" for a in actions)
+
+    def test_external_3v3_header_does_not_inject_regulator(self):
+        spec = {
+            "board": {"name": "external-3v3"},
+            "parts": [
+                {
+                    "ref": "J1",
+                    "lib": "Connector_Generic",
+                    "part": "Conn_01x04",
+                    "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+                },
+                {
+                    "ref": "U1",
+                    "lib": None,
+                    "part": "CUSTOM_SENSOR",
+                    "footprint": "Package_TO_SOT_SMD:SOT-23",
+                    "pins": [
+                        {"num": "1", "name": "VDD"},
+                        {"num": "2", "name": "GND"},
+                        {"num": "3", "name": "SDA"},
+                    ],
+                },
+            ],
+            "nets": [
+                {"name": "3V3", "power": True, "pins": ["J1.1", "U1.VDD"]},
+                {"name": "GND", "power": True, "pins": ["J1.2", "U1.GND"]},
+                {"name": "SDA", "pins": ["J1.3", "U1.SDA"]},
+            ],
+        }
+
+        enriched, actions = enrich_blocks(
+            spec,
+            marketing_text="BME280-style sensor breakout powered from external 3.3V header, no regulator",
+        )
+
+        assert not any(p.get("value") == "AP2112K-3.3" for p in enriched["parts"])
+        assert not any(a["rule"] == "BLOCK:ldo_3v3" for a in actions)
+
+    def test_vbus_to_3v3_marketing_can_inject_regulator(self):
+        spec = {
+            "board": {"name": "regulated-3v3"},
+            "parts": [
+                {
+                    "ref": "J1",
+                    "lib": "Connector_Generic",
+                    "part": "Conn_01x03",
+                    "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+                }
+            ],
+            "nets": [
+                {"name": "VBUS", "power": True, "pins": ["J1.1"]},
+                {"name": "GND", "power": True, "pins": ["J1.2"]},
+                {"name": "+3V3", "power": True, "pins": ["J1.3"]},
+            ],
+        }
+
+        enriched, actions = enrich_blocks(
+            spec,
+            marketing_text="Add a 3.3V regulator from USB VBUS",
+        )
+
+        assert any(p.get("value") == "AP2112K-3.3" for p in enriched["parts"])
+        assert any(a["rule"] == "BLOCK:ldo_3v3" for a in actions)
+
+    def test_pulldown_does_not_match_ldo_keyword(self):
+        exceptions = design_review_exceptions(
+            vbat_spec_dict(),
+            marketing_text="USB-C CC pulldown resistors only",
+        )
+
+        assert not [
+            e for e in exceptions
+            if e.subject.get("feature") == "Voltage regulator"
+        ]
+
     def test_ambiguous_vbat_becomes_advisory(self):
         exceptions = design_review_exceptions(vbat_spec_dict())
 

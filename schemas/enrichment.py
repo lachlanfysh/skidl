@@ -44,7 +44,7 @@ GROUND_PIN_RE = re.compile(
 POWER_NET_RE = re.compile(
     r"^(V(CC|DD|DDA|DDIO|SS|IN|OUT|BAT|REF|BUS)|"
     r"A?V(CC|DD)|D?V(CC|DD)|IOV(DD)|"
-    r"\+\d+(\.\d+)?V(\d+)?|"
+    r"\+?\d+(\.\d+)?V(\d+)?|\+?\d+V\d+|"
     r"\+3\.?3V?|\+5V?)$",
     re.IGNORECASE,
 )
@@ -68,6 +68,10 @@ DECAP_VALUE_RE = re.compile(r"^(100n|0\.1u)", re.IGNORECASE)
 BULK_CAP_RE = re.compile(r"^(1[0-9]u|2[2-9]u|[3-9]\du|[1-9]\d\du|10u|22u|47u|100u)", re.IGNORECASE)
 
 _PASSIVE_PREFIXES = {"R", "C", "L", "D", "J", "SW", "F", "FB"}
+_NEGATED_MARKETING_RE = re.compile(
+    r"\b(no|not|without|exclude|excluding|omit|omitting|skip|skipping|external|off[-\s]?board)\b",
+    re.IGNORECASE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +249,40 @@ def _find_ground_net_name(nets: list[dict]) -> str:
         if _is_ground_net(n):
             return n["name"]
     return "GND"
+
+
+def is_power_net_name(name: str) -> bool:
+    """Return True when a net name is conventionally power or ground."""
+    return bool(POWER_NET_RE.match(name or "") or GROUND_NET_RE.match(name or ""))
+
+
+def _keyword_re(keyword: str) -> re.Pattern:
+    kw = keyword.strip().lower()
+    if kw == "battery charg":
+        pattern = r"(?<![a-z0-9])battery\s+charg\w*(?![a-z0-9])"
+    else:
+        pattern = re.escape(kw).replace(r"\ ", r"\s+")
+        pattern = rf"(?<![a-z0-9]){pattern}(?![a-z0-9])"
+    return re.compile(pattern, re.IGNORECASE)
+
+
+def _is_negated_marketing_match(text: str, start: int) -> bool:
+    """Detect local negation like 'no charger' without reading the whole prompt."""
+    window = text[max(0, start - 56):start]
+    window = re.split(r"[.;:\n]", window)[-1]
+    return bool(_NEGATED_MARKETING_RE.search(window))
+
+
+def _matched_marketing_keywords(marketing_text: str, keywords: list[str]) -> list[str]:
+    text = marketing_text.lower()
+    matched: list[str] = []
+    for keyword in keywords:
+        for match in _keyword_re(keyword).finditer(text):
+            if _is_negated_marketing_match(text, match.start()):
+                continue
+            matched.append(keyword)
+            break
+    return matched
 
 
 # ---------------------------------------------------------------------------
@@ -784,8 +822,7 @@ def _block_keywords_match(template: dict, marketing_text: str) -> bool:
     keywords = detection.get("keywords", [])
     if not keywords:
         return False
-    text_lower = marketing_text.lower()
-    return any(kw.lower() in text_lower for kw in keywords)
+    return bool(_matched_marketing_keywords(marketing_text, keywords))
 
 
 def _block_implied_by_spec(template: dict, parts: list[dict], nets: list[dict]) -> bool:
@@ -838,18 +875,17 @@ def _block_implied_by_spec(template: dict, parts: list[dict], nets: list[dict]) 
 
 
 def _block_needs_regulator(template: dict, parts: list[dict], nets: list[dict]) -> bool:
-    """Special detection for LDO: only inject if +3V3 net exists but no regulator."""
+    """Special detection for LDO: require an input rail and a 3V3 output rail."""
     if template.get("id") != "ldo_3v3":
         return True
-    has_3v3 = any(
-        n.get("name", "") in ("+3V3", "3V3", "+3.3V")
-        for n in nets
-    )
+    net_names = {str(n.get("name", "") or "").upper() for n in nets}
+    has_3v3 = any(name in {"+3V3", "3V3", "+3.3V", "3.3V"} for name in net_names)
+    has_input_rail = any(name in {"VIN", "VBUS", "VUSB", "+5V", "5V"} for name in net_names)
     has_regulator = any(
         "Regulator" in str(p.get("lib", "") or "")
         for p in parts
     )
-    return has_3v3 and not has_regulator
+    return has_3v3 and has_input_rail and not has_regulator
 
 
 def enrich_blocks(
@@ -1213,7 +1249,6 @@ def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counte
         Candidate, DesignException, ExcCode, Severity, ActionType,
     )
 
-    marketing = marketing_text.lower()
     checks = [
         (["i2c", "i²c"], "I2C interface",
          lambda: any(I2C_NET_RE.match(n.get("name", "")) for n in nets)),
@@ -1236,7 +1271,8 @@ def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counte
     ]
 
     for keywords, feature_name, present_fn in checks:
-        if not any(kw in marketing for kw in keywords):
+        matched_keywords = _matched_marketing_keywords(marketing_text, keywords)
+        if not matched_keywords:
             continue
         if present_fn():
             continue
@@ -1246,7 +1282,7 @@ def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counte
             code=ExcCode.DESIGN_MISSING_FEATURE,
             severity=Severity.ADVISORY,
             message=f"Marketing mentions {feature_name} but not found in spec",
-            subject={"feature": feature_name, "keywords_matched": [kw for kw in keywords if kw in marketing]},
+            subject={"feature": feature_name, "keywords_matched": matched_keywords},
             candidates=[
                 Candidate(
                     id="c1",

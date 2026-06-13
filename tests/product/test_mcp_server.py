@@ -10,6 +10,12 @@ import sys
 import pytest
 
 from mcp_server.exception_mapper import layout_exceptions, suppress_waived
+from mcp_server.engine_worker import (
+    _circuit_to_spec_dict,
+    _exec_skidl,
+    _manufacturing_output_exception,
+    _missing_manufacturing_outputs,
+)
 from mcp_server.pipeline import (
     _enrich_code_exceptions,
     _infer_crash_stage,
@@ -170,6 +176,17 @@ class TestHelpfulFailures:
 
         assert _infer_crash_stage({}, tmp_path) == "after_pcb_write"
 
+    def test_manufacturing_gate_requires_all_fab_outputs(self):
+        mfg = {"gerbers": True, "gerber_files": ["board-F_Cu.gbr", "board.drl"]}
+
+        missing = _missing_manufacturing_outputs(mfg)
+        exc = _manufacturing_output_exception(mfg)
+
+        assert missing == ["bom.csv", "cpl.csv"]
+        assert exc.code == ExcCode.MANUFACTURING_OUTPUT_FAILURE
+        assert exc.severity == Severity.ERROR
+        assert exc.subject["missing_outputs"] == missing
+
 
 @needs_kicad
 class TestWorkerAndPipeline:
@@ -258,3 +275,24 @@ gnd += j1[2]
             and exc.subject.get("feature") == "SPI interface"
             for exc in response.exceptions
         )
+
+    def test_python_extraction_does_not_mark_signal_nets_as_power(self):
+        code = """
+from skidl import *
+vcc = Net("3V3"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
+sda = Net("SDA")
+r1 = Part("Device", "R", value="10K", footprint="Resistor_SMD:R_0603_1608Metric")
+j1 = Part("Connector_Generic", "Conn_01x03",
+          footprint="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+vcc += r1[1], j1[1]
+sda += r1[2], j1[2]
+gnd += j1[3]
+"""
+
+        spec = _circuit_to_spec_dict(_exec_skidl(code))
+        power_by_name = {net["name"]: net["power"] for net in spec["nets"]}
+
+        assert power_by_name["3V3"] is True
+        assert power_by_name["GND"] is True
+        assert power_by_name["SDA"] is False
