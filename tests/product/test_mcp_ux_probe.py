@@ -13,6 +13,7 @@ from corpus.mcp_ux_probe import (
     _harvest_outstanding_jobs,
     _is_final_report_text,
     _result_summary,
+    shrink_result,
 )
 
 
@@ -92,6 +93,45 @@ def test_result_summary_keeps_manufacturing_and_exception_signal():
         "manufacturing_complete": False,
         "exception_codes": ["LAYOUT_OVERLAP", "DRC_CLEARANCE"],
     }
+
+
+def test_shrink_result_keeps_large_get_run_valid_json(tmp_path):
+    payload = {
+        "run_id": "run-1",
+        "job_id": "job-1",
+        "spec": {
+            "code": "from skidl import *\n" + ("u1 = Part('Device', 'R')\n" * 1200),
+            "board_name": "large-board",
+            "design_intent": "large test",
+        },
+        "response": {
+            "run_id": "run-1",
+            "status": "failed",
+            "exceptions": [
+                {
+                    "code": "DRC_CLEARANCE",
+                    "message": "clearance",
+                    "candidates": [
+                        {
+                            "id": "c1",
+                            "action": "scale_outline",
+                            "human_summary": "increase board area",
+                        }
+                    ],
+                }
+            ],
+        },
+        "artifacts": {"board.kicad_pcb": "x" * 2000},
+    }
+
+    text = shrink_result("get_run", json.dumps(payload), tmp_path)
+    compact = json.loads(text)
+
+    assert len(text) <= mcp_ux_probe.MAX_TOOL_RESULT_CHARS
+    assert compact["spec"]["code"].startswith("<omitted")
+    assert "code_excerpt" in compact["spec"]
+    assert compact["artifacts"]["board.kicad_pcb"].startswith("<file saved")
+    assert (tmp_path / "board.kicad_pcb").exists()
 
 
 def test_harvest_outstanding_jobs_polls_terminal_and_fetches_artifacts(tmp_path):

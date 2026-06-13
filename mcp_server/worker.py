@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -21,6 +22,8 @@ from schemas.corrections import apply_candidate
 
 
 STALE_REAP_INTERVAL_S = 60.0
+EASYEDA_CACHE = Path(__file__).resolve().parent.parent / "corpus" / "jlc" / "easyeda_cache"
+LCSC_RE = re.compile(r"\bC\d{2,}\b", re.IGNORECASE)
 
 
 async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
@@ -44,6 +47,12 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
         print(f"{label}: claimed job {job_id}", flush=True)
 
         try:
+            restored = await _restore_lcsc_assets_for_job(db, job["spec"], label)
+            if restored:
+                print(
+                    f"{label}: restored {restored} converted LCSC asset(s) for job {job_id}",
+                    flush=True,
+                )
             result = await asyncio.to_thread(_execute_job, job)
             # Extract artifact file contents before storing — they bloat
             # the jobs.result column and can cause tool response truncation.
@@ -88,6 +97,92 @@ async def _reap_stale_jobs(db: DB, label: str) -> int:
     if stale:
         print(f"{label}: marked {stale} stale running job(s) failed", flush=True)
     return stale
+
+
+def _lcsc_refs_in_spec(spec: Any) -> set[str]:
+    """Return LCSC IDs mentioned anywhere in a job spec."""
+
+    try:
+        text = json.dumps(spec)
+    except TypeError:
+        text = str(spec)
+    return {match.group(0).upper() for match in LCSC_RE.finditer(text)}
+
+
+async def _restore_lcsc_assets_for_job(db: DB, spec: Any, label: str = "worker") -> int:
+    """Restore EasyEDA-converted assets needed by this job from Postgres.
+
+    convert_lcsc() can run in the HTTP process while the job runs in a worker
+    process with a different local filesystem. The converted_parts table is the
+    shared cache; this function makes the disk cache true again before SKiDL
+    tries to load Part("C12345", ...).
+    """
+
+    restored = 0
+    for lcsc in sorted(_lcsc_refs_in_spec(spec)):
+        try:
+            row = await db.fetchrow(
+                "SELECT meta, sym_data, fp_data, step_data FROM converted_parts WHERE lcsc = $1",
+                lcsc,
+            )
+        except Exception as exc:
+            print(f"{label}: converted LCSC lookup failed for {lcsc}: {exc}", flush=True)
+            continue
+        if row is None:
+            continue
+        try:
+            if _restore_lcsc_asset(lcsc, row):
+                restored += 1
+        except Exception as exc:
+            print(f"{label}: converted LCSC restore failed for {lcsc}: {exc}", flush=True)
+    return restored
+
+
+def _row_get(row: Any, key: str) -> Any:
+    if isinstance(row, dict):
+        return row.get(key)
+    return row[key]
+
+
+def _restore_lcsc_asset(lcsc: str, row: Any) -> bool:
+    """Write one converted LCSC part from a DB row into easyeda_cache."""
+
+    raw_meta = _row_get(row, "meta")
+    if isinstance(raw_meta, str):
+        meta = json.loads(raw_meta)
+    else:
+        meta = dict(raw_meta or {})
+    if not meta:
+        return False
+
+    cache_dir = EASYEDA_CACHE / lcsc
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "meta.json").write_text(json.dumps(meta, indent=2))
+
+    sym_data = _row_get(row, "sym_data")
+    if sym_data:
+        sym_file = Path(meta.get("sym_file") or cache_dir / f"{lcsc}.kicad_sym")
+        if not sym_file.is_absolute():
+            sym_file = cache_dir / sym_file.name
+        sym_file.parent.mkdir(parents=True, exist_ok=True)
+        sym_file.write_bytes(bytes(sym_data))
+
+    fp_data = _row_get(row, "fp_data")
+    if fp_data:
+        fp_dir = Path(meta.get("fp_dir") or cache_dir / f"{lcsc}.pretty")
+        if not fp_dir.is_absolute():
+            fp_dir = cache_dir / fp_dir.name
+        fp_dir.mkdir(parents=True, exist_ok=True)
+        fp_name = str(meta.get("footprint") or "").split(":")[-1] or lcsc
+        (fp_dir / f"{fp_name}.kicad_mod").write_bytes(bytes(fp_data))
+
+    step_data = _row_get(row, "step_data")
+    if step_data:
+        shapes_dir = cache_dir / f"{lcsc}.3dshapes"
+        shapes_dir.mkdir(parents=True, exist_ok=True)
+        (shapes_dir / f"{lcsc}.step").write_bytes(bytes(step_data))
+
+    return True
 
 
 def _job_log_summary(

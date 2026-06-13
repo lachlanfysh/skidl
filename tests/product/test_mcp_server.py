@@ -34,6 +34,8 @@ from mcp_server.pipeline import (
     run_pipeline_code,
 )
 from mcp_server.runs import RunStore
+from mcp_server import worker as worker_mod
+from mcp_server.worker import _lcsc_refs_in_spec, _restore_lcsc_asset
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
 
@@ -192,6 +194,39 @@ class TestExceptionMapper:
 
 
 class TestHelpfulFailures:
+    def test_lcsc_refs_are_detected_in_python_specs(self):
+        spec = {
+            "_mode": "skidl_python",
+            "code": 'u1 = Part("C8734", "STM32F103C8T6"); u1.lcsc = "C8734"',
+        }
+
+        assert _lcsc_refs_in_spec(spec) == {"C8734"}
+
+    def test_restore_lcsc_asset_writes_easyeda_cache(self, monkeypatch, tmp_path):
+        cache = tmp_path / "easyeda_cache"
+        monkeypatch.setattr(worker_mod, "EASYEDA_CACHE", cache)
+        row = {
+            "meta": {
+                "lcsc": "C8734",
+                "library": "C8734",
+                "symbol": "STM32F103C8T6",
+                "footprint": "C8734:LQFP-48_L7.0-W7.0-P0.50",
+                "sym_file": str(cache / "C8734" / "C8734.kicad_sym"),
+                "fp_dir": str(cache / "C8734" / "C8734.pretty"),
+            },
+            "sym_data": b"(kicad_symbol_lib)",
+            "fp_data": b"(footprint)",
+            "step_data": b"STEP",
+        }
+
+        assert _restore_lcsc_asset("C8734", row) is True
+        assert (cache / "C8734" / "meta.json").exists()
+        assert (cache / "C8734" / "C8734.kicad_sym").read_bytes() == b"(kicad_symbol_lib)"
+        assert (
+            cache / "C8734" / "C8734.pretty" / "LQFP-48_L7.0-W7.0-P0.50.kicad_mod"
+        ).read_bytes() == b"(footprint)"
+        assert (cache / "C8734" / "C8734.3dshapes" / "C8734.step").read_bytes() == b"STEP"
+
     def test_code_exec_error_gets_pin_and_line_context(self):
         exc = DesignException(
             id="e-code",

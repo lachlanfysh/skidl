@@ -59,6 +59,8 @@ USER_ONLY_SUFFIX = ""
 
 MAX_MODEL_TURNS = 60
 MAX_TOOL_RESULT_CHARS = 15000
+DEFAULT_LLM_TIMEOUT_S = 240.0
+DEFAULT_MAX_WALL_S = 900.0
 POLL_SPACING_S = 5.0
 FINAL_REPORT_RE = re.compile(r"^[\s#>*_`-]*FINAL\s+REPORT\b", re.IGNORECASE)
 
@@ -180,6 +182,90 @@ def openai_tools(mcp_tools: list[dict], resources: list[dict]) -> list[dict]:
     return tools
 
 
+def _trim_json_value(value, *, max_str: int, max_items: int, depth: int = 0):
+    if isinstance(value, str):
+        if len(value) <= max_str:
+            return value
+        return value[:max_str] + f"\n... ({len(value) - max_str} chars omitted)"
+    if depth >= 5:
+        return str(value)[:max_str]
+    if isinstance(value, list):
+        out = [
+            _trim_json_value(item, max_str=max_str, max_items=max_items, depth=depth + 1)
+            for item in value[:max_items]
+        ]
+        if len(value) > max_items:
+            out.append(f"... ({len(value) - max_items} more items)")
+        return out
+    if isinstance(value, dict):
+        out = {}
+        for idx, (key, item) in enumerate(value.items()):
+            if idx >= max_items:
+                out["_truncated_keys"] = len(value) - max_items
+                break
+            out[key] = _trim_json_value(
+                item,
+                max_str=max_str,
+                max_items=max_items,
+                depth=depth + 1,
+            )
+        return out
+    return value
+
+
+def _compact_run_spec_for_probe(data: dict) -> None:
+    """Drop echoed source/spec bulk from get_run/get_job while preserving signal."""
+
+    specs: list[dict] = []
+    if isinstance(data.get("spec"), dict):
+        specs.append(data["spec"])
+    result = data.get("result")
+    if isinstance(result, dict) and isinstance(result.get("spec"), dict):
+        specs.append(result["spec"])
+    response = data.get("response")
+    if isinstance(response, dict) and isinstance(response.get("spec"), dict):
+        specs.append(response["spec"])
+
+    for spec in specs:
+        code = spec.get("code")
+        if isinstance(code, str) and len(code) > 900:
+            spec["code_excerpt"] = code[:900] + f"\n... ({len(code) - 900} chars omitted)"
+            spec["code"] = "<omitted from probe transcript; see prior submit_skidl_code call>"
+
+
+def _json_dump_for_model(data: dict, *, original_text_len: int) -> str:
+    """Return valid JSON no larger than MAX_TOOL_RESULT_CHARS where possible."""
+
+    text = json.dumps(data, indent=1)
+    if len(text) <= MAX_TOOL_RESULT_CHARS:
+        return text
+    trimmed = _trim_json_value(data, max_str=700, max_items=14)
+    if isinstance(trimmed, dict):
+        trimmed["_probe_compacted_from_chars"] = original_text_len
+    text = json.dumps(trimmed, indent=1)
+    if len(text) <= MAX_TOOL_RESULT_CHARS:
+        return text
+    trimmed = _trim_json_value(data, max_str=260, max_items=8)
+    if isinstance(trimmed, dict):
+        trimmed["_probe_compacted_from_chars"] = original_text_len
+        trimmed["_probe_compaction_note"] = (
+            "Large get_run/get_job response compacted by the probe; artifacts were "
+            "spooled to disk when present."
+        )
+    text = json.dumps(trimmed, indent=1)
+    if len(text) <= MAX_TOOL_RESULT_CHARS:
+        return text
+    summary = {
+        "_probe_compacted_from_chars": original_text_len,
+        "_probe_compaction_note": "Response too large after recursive trimming.",
+        "keys": sorted(data.keys()),
+    }
+    for key in ("run_id", "job_id", "id", "status", "hint"):
+        if key in data:
+            summary[key] = data[key]
+    return json.dumps(summary, indent=1)
+
+
 def shrink_result(name: str, text: str, artifacts_dir: Path) -> str:
     """Keep tool results model-sized; spool artifact file bodies to disk."""
     if name in ("get_run", "get_job"):
@@ -209,8 +295,9 @@ def shrink_result(name: str, text: str, artifacts_dir: Path) -> str:
             if container is not data and isinstance(container.get("spec"), dict) \
                     and container.get("spec") == data.get("spec"):
                 container["spec"] = "<same as top-level spec, omitted>"
-            text = json.dumps(data, indent=1)
-    if len(text) > MAX_TOOL_RESULT_CHARS:
+            _compact_run_spec_for_probe(data)
+            text = _json_dump_for_model(data, original_text_len=len(text))
+    if len(text) > MAX_TOOL_RESULT_CHARS and name not in ("get_run", "get_job"):
         half = MAX_TOOL_RESULT_CHARS // 2
         text = text[:half] + f"\n...[{len(text)-MAX_TOOL_RESULT_CHARS} chars truncated]...\n" + text[-half:]
     return text
@@ -338,6 +425,10 @@ def main() -> int:
     ap.add_argument("--request", default=USER_REQUEST)
     ap.add_argument("--no-system-prompt", action="store_true",
                     help="User prompt only — no system message. Tests raw MCP discoverability.")
+    ap.add_argument("--llm-timeout-s", type=float, default=DEFAULT_LLM_TIMEOUT_S,
+                    help="Per OpenRouter request timeout in seconds.")
+    ap.add_argument("--max-wall-s", type=float, default=DEFAULT_MAX_WALL_S,
+                    help="Hard wall-clock budget for one probe; <=0 disables.")
     args = ap.parse_args()
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -382,7 +473,9 @@ def main() -> int:
     )
     messages.append({"role": "user", "content": initial_tool_prompt})
 
-    or_http = httpx.Client(timeout=300)
+    or_http = httpx.Client(
+        timeout=httpx.Timeout(float(args.llm_timeout_s), connect=30.0)
+    )
     usage_totals = {"prompt_tokens": 0, "completion_tokens": 0}
     last_poll_at = 0.0
     started = time.time()
@@ -394,8 +487,21 @@ def main() -> int:
     nudges = 0
 
     for turn in range(MAX_MODEL_TURNS):
+        if args.max_wall_s > 0 and time.time() - started >= args.max_wall_s:
+            final_report = f"(probe wall-clock limit reached after {args.max_wall_s:.0f}s)"
+            break
         for attempt in range(3):
             try:
+                request_timeout = float(args.llm_timeout_s)
+                if args.max_wall_s > 0:
+                    remaining = args.max_wall_s - (time.time() - started)
+                    if remaining <= 0:
+                        final_report = (
+                            f"(probe wall-clock limit reached after "
+                            f"{args.max_wall_s:.0f}s)"
+                        )
+                        break
+                    request_timeout = max(1.0, min(request_timeout, remaining))
                 resp = or_http.post(
                     "https://openrouter.ai/api/v1/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}"},
@@ -405,6 +511,7 @@ def main() -> int:
                         "tools": tools,
                         "temperature": 0.2,
                     },
+                    timeout=httpx.Timeout(request_timeout, connect=min(30.0, request_timeout)),
                 )
                 resp.raise_for_status()
                 body = resp.json()
