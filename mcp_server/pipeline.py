@@ -83,6 +83,25 @@ def _status(ok: bool, exceptions: list[DesignException], timed_out: bool = False
     return "succeeded" if ok else "failed"
 
 
+def _manufacturing_metrics(
+    metrics: dict | None,
+    exceptions: list[DesignException],
+    ok: bool,
+) -> dict:
+    """Ensure manufacturing status is explicit on every response."""
+    normalized = dict(metrics or {})
+    has_error = any(
+        exc.severity in (Severity.FATAL, Severity.ERROR)
+        for exc in exceptions
+    )
+    normalized.setdefault("manufacturable", bool(ok and not has_error))
+    normalized.setdefault(
+        "manufacturing_complete",
+        bool(normalized["manufacturable"] and not has_error),
+    )
+    return normalized
+
+
 def _kill_process_group(proc: subprocess.Popen) -> None:
     try:
         os.killpg(proc.pid, signal.SIGKILL)
@@ -301,6 +320,7 @@ def run_pipeline(
                 status="timeout",
                 stage="timeout",
                 exceptions=exceptions,
+                metrics=_manufacturing_metrics({}, exceptions, False),
                 stderr=stderr[-4000:],
             )
         else:
@@ -343,7 +363,7 @@ def run_pipeline(
                 outputs=dict(payload.get("outputs", payload.get("artifacts", {}))),
                 artifacts=dict(payload.get("artifacts", {})),
                 layout=dict(payload.get("layout", {})),
-                metrics=dict(payload.get("metrics", {})),
+                metrics=_manufacturing_metrics(payload.get("metrics", {}), exceptions, ok),
                 summary=str(payload.get("summary", "")),
                 stderr=stderr[-4000:],
             )
@@ -419,9 +439,11 @@ def run_pipeline_code(
         timed_out = True
         _kill_process_group(proc)
         stdout, stderr = proc.communicate()
+        exceptions = [timeout_exception(timeout_s)]
         response = DesignResponse(
             run_id=run_id, ok=False, status="timeout", stage="timeout",
-            exceptions=[timeout_exception(timeout_s)],
+            exceptions=exceptions,
+            metrics=_manufacturing_metrics({}, exceptions, False),
             stderr=stderr[-4000:],
         )
         store.save(
@@ -487,7 +509,7 @@ def run_pipeline_code(
         outputs=dict(payload.get("outputs", payload.get("artifacts", {}))),
         artifacts=dict(payload.get("artifacts", {})),
         layout=dict(payload.get("layout", {})),
-        metrics=dict(payload.get("metrics", {})),
+        metrics=_manufacturing_metrics(payload.get("metrics", {}), exceptions, ok),
         summary=str(payload.get("summary", "")),
         stderr=stderr[-4000:],
     )

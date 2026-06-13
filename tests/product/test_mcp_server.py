@@ -20,6 +20,7 @@ from mcp_server.engine_worker import (
 from mcp_server.pipeline import (
     _enrich_code_exceptions,
     _infer_crash_stage,
+    _manufacturing_metrics,
     run_pipeline,
     run_pipeline_code,
 )
@@ -222,6 +223,19 @@ class TestHelpfulFailures:
         ]
         assert exc.candidates[0].action == ActionType.REGENERATE
         assert "Fetch the run artifacts" in exc.retry_hint
+
+    def test_post_artifact_failure_metrics_are_definitive(self):
+        exc = DesignException(
+            id="e-post",
+            code=ExcCode.POST_ARTIFACT_FAILURE,
+            severity=Severity.ERROR,
+            message="post artifact failure",
+        )
+
+        metrics = _manufacturing_metrics({}, [exc], ok=False)
+
+        assert metrics["manufacturable"] is False
+        assert metrics["manufacturing_complete"] is False
 
     def test_valid_pin_in_bad_net_expression_is_not_reported_missing(self):
         class FakePin:
