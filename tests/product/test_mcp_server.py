@@ -257,6 +257,31 @@ class TestHelpfulFailures:
         assert "ads1115_part['A0']" in exc.subject["line_text"]
         assert "search_kicad" in exc.retry_hint
 
+    def test_stderr_pin_context_adds_rgb_led_family_hint(self):
+        exc = DesignException(
+            id="e-code",
+            code=ExcCode.CODE_EXEC_ERROR,
+            severity=Severity.FATAL,
+            message="ValueError: No pins found using LED_ARGB:D1[('R',)]",
+        )
+        code = "\n".join([
+            "from skidl import *",
+            "led = Part('Device', 'LED_ARGB')",
+            "red = Net('RED'); red += led['R']",
+        ])
+        stderr = (
+            "ERROR: No pins found using LED_ARGB:D1[('R',)] "
+            "@ [/app/mcp_server/engine_worker.py:627=>/tmp/run/<string>:3]"
+        )
+
+        _enrich_code_exceptions([exc], stderr=stderr, code=code)
+
+        assert exc.subject["part"] == "LED_ARGB"
+        assert exc.subject["pin"] == "R"
+        assert exc.subject["pin_family_hint"]
+        assert "RA/RK" in exc.retry_hint
+        assert "RK/GK/BK" in exc.retry_hint
+
     def test_stderr_pin_context_overrides_wrong_line_inference(self):
         exc = DesignException(
             id="e-code",

@@ -151,6 +151,46 @@ def _code_line(code: str, line: int | None) -> str:
     return ""
 
 
+def _stderr_pin_family_hint(part: str, pin: str) -> str:
+    """Explain common symbol pin-name families from stderr-only context."""
+    part_lower = str(part).lower()
+    pin_upper = str(pin).upper()
+
+    if "led_argb" in part_lower or "led_rgb" in part_lower:
+        if pin_upper in {"R", "G", "B"}:
+            return (
+                f"This RGB LED symbol does not expose plain {pin_upper!r}. "
+                f"Use {pin_upper}A/{pin_upper}K for the {pin_upper} channel "
+                "(A=anode, K=cathode), or for common-anode symbols such as "
+                "LED_ARGB use the common A pin plus RK/GK/BK cathode pins."
+            )
+
+    if "raspberrypi_pico" in part_lower and (
+        "USB" in pin_upper or pin_upper in {"D+", "D-", "TP2", "TP3"}
+    ):
+        return (
+            "The Raspberry Pi Pico module symbol normally represents the "
+            "complete module with onboard USB, and may not expose USB D+/D- "
+            "test pads as SKiDL pins. For an external USB-C connector, use a "
+            "raw RP2040 symbol/design; for a Pico-module board, omit external "
+            "USB data wiring or use only the module's exposed power/GPIO pins."
+        )
+
+    if ("audiojack" in part_lower or "audioplug" in part_lower) and pin_upper in {
+        "T",
+        "R",
+        "S",
+    }:
+        return (
+            f"Plain {pin_upper!r} is often not a valid pin on switched audio "
+            "jack symbols. Inspect subject.available_pins or "
+            "search_kicad(detail=true); switched jacks commonly expose pins "
+            "like T1/R1/S1 and normalled contacts like TN/RN/SN."
+        )
+
+    return ""
+
+
 def _enrich_code_exceptions(
     exceptions: list[DesignException],
     *,
@@ -203,6 +243,12 @@ def _enrich_code_exceptions(
                 "search_kicad(part_name, detail=true) if you need the pin list, "
                 "then resubmit with submit_skidl_code()."
             )
+            family_hint = subject.get("pin_family_hint") or _stderr_pin_family_hint(
+                part, pin
+            )
+            if family_hint:
+                subject["pin_family_hint"] = family_hint
+                exc.retry_hint += f" {family_hint}"
         exc.subject = subject
     return exceptions
 

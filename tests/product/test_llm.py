@@ -9,6 +9,7 @@ import json
 import httpx
 import pytest
 
+import llm.operations as ops
 import llm.openrouter_client as orc
 from llm.config import price_for
 from llm.openrouter_client import BudgetExhausted, LLMUnavailable, complete
@@ -241,7 +242,8 @@ async def test_spend_tracker_commits_and_logs(tmp_path):
 # --------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_nl_to_spec_valid_first_try():
+async def test_nl_to_spec_valid_first_try(monkeypatch):
+    monkeypatch.setattr(ops, "validate_spec_libraries", lambda _spec: [])
     # Fenced output exercises the defensive fence stripping.
     text = "```json\n" + json.dumps(VALID_SPEC) + "\n```"
     async with make_client([or_response(text)]) as client:
