@@ -628,6 +628,110 @@ def _exec_skidl(code: str):
     return _bi.default_circuit
 
 
+def _circuit_to_spec_dict(circuit) -> dict:
+    """Extract a minimal spec dict from a live SKiDL circuit for enrichment."""
+    parts = []
+    for p in circuit.parts:
+        lib_name = ""
+        if hasattr(p, "lib") and hasattr(p.lib, "filename"):
+            lib_name = Path(p.lib.filename).stem
+        parts.append({
+            "ref": str(p.ref),
+            "lib": lib_name,
+            "part": str(p.name),
+            "value": str(p.value) if p.value else "",
+            "footprint": str(p.footprint) if p.footprint else "",
+        })
+
+    nets = []
+    for n in circuit.nets:
+        if n.name in ("NC",) or not n.name:
+            continue
+        pin_strs = []
+        for pin in n.pins:
+            part_ref = str(pin.part.ref) if pin.part else "?"
+            pin_strs.append(f"{part_ref}.{pin.name}")
+        is_power = n.drive is not None and n.drive >= 1
+        nets.append({"name": n.name, "pins": pin_strs, "power": is_power})
+
+    return {"board": {"name": "from_code"}, "parts": parts, "nets": nets}
+
+
+def _inject_enrichment(circuit, original_spec: dict, enriched_spec: dict,
+                       actions: list[dict]) -> list[dict]:
+    """Add parts/nets from enrichment back into a live SKiDL circuit.
+
+    Compares original vs enriched spec dicts. Any new parts get created as
+    real SKiDL Part() objects and wired into the circuit's nets.
+    Returns the actions list for logging.
+    """
+    if not actions:
+        return actions
+
+    from skidl import Part, Net, POWER
+
+    orig_refs = {p["ref"] for p in original_spec.get("parts", [])}
+    orig_nets = {n["name"] for n in original_spec.get("nets", [])}
+
+    net_cache: dict[str, Net] = {}
+    for n in circuit.nets:
+        if n.name and n.name != "NC":
+            net_cache[n.name] = n
+
+    for part_dict in enriched_spec.get("parts", []):
+        if part_dict["ref"] in orig_refs:
+            continue
+
+        lib = part_dict.get("lib", "Device")
+        name = part_dict.get("part", "R")
+        value = part_dict.get("value", "")
+        fp = part_dict.get("footprint", "")
+
+        try:
+            kwargs = {}
+            if value:
+                kwargs["value"] = value
+            if fp:
+                kwargs["footprint"] = fp
+            p = Part(lib, name, **kwargs)
+            p.ref = part_dict["ref"]
+        except Exception:
+            continue
+
+    for net_dict in enriched_spec.get("nets", []):
+        net_name = net_dict["name"]
+        if net_name not in net_cache:
+            n = Net(net_name)
+            if net_dict.get("power"):
+                n.drive = POWER
+            net_cache[net_name] = n
+
+        net = net_cache[net_name]
+        for pin_str in net_dict.get("pins", []):
+            if "." not in pin_str:
+                continue
+            ref, pin_name = pin_str.rsplit(".", 1)
+            if ref in orig_refs:
+                continue
+            for p in circuit.parts:
+                if str(p.ref) == ref:
+                    try:
+                        pin = p[pin_name]
+                        if pin not in net.pins:
+                            pin += net
+                    except Exception:
+                        try:
+                            pin_num = int(pin_name)
+                            pin = p[pin_num]
+                            if pin not in net.pins:
+                                pin += net
+                        except Exception:
+                            pass
+                    break
+
+    return actions
+
+
 def _code_exception(message: str, hint: str = "") -> DesignException:
     return DesignException(
         id="e-code",
@@ -682,6 +786,18 @@ def _run_skidl_code(envelope: dict) -> dict:
             )],
             metrics=_metrics(),
         )
+
+    # Server-side enrichment: add missing passives and functional blocks
+    try:
+        orig_spec = _circuit_to_spec_dict(circuit)
+        marketing = envelope.get("marketing_text", "")
+        working, block_actions = enrich_blocks(orig_spec, marketing)
+        working, passive_actions = enrich_spec(working)
+        all_enrich = block_actions + passive_actions
+        if all_enrich:
+            _inject_enrichment(circuit, orig_spec, working, all_enrich)
+    except Exception:
+        all_enrich = []
 
     schematic_path = out_dir / f"{board_name}.kicad_sch"
     pcb_path = out_dir / f"{board_name}.kicad_pcb"

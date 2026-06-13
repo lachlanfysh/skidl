@@ -49,7 +49,22 @@ MODELS = [
 ]
 
 SYSTEM_PROMPT = """\
-You have access to a PCB design service. {instructions}"""
+You are an autonomous hardware design agent connected to a PCB design service \
+via tool calls. {instructions}
+
+MANDATORY FIRST STEPS — do these before writing ANY code:
+1. Call read_resource("eda://guide/skidl") to learn the SKiDL Python API and conventions.
+2. Call read_resource("eda://guide/workflow") to learn the full design workflow.
+3. Call search_kicad() for EVERY IC and connector in your design to get correct \
+library names and footprints. Never guess library names or footprints.
+
+Only after completing steps 1-3 should you write and submit SKiDL code.
+
+If your submission fails, call read_resource("eda://guide/exceptions") to learn \
+how to interpret and fix errors via apply_correction().
+
+General electronics and KiCad knowledge is fine, but the service has specific \
+format requirements documented in its resources — read them."""
 
 MAX_TURNS = 60
 POLL_SPACING_S = 5.0
@@ -100,7 +115,21 @@ class BenchMetrics:
         return self.end_time - self.start_time
 
 
-def _load_manifest():
+def _load_manifest(nl_source: str = "naive"):
+    if nl_source in ("naive", "ee_spec"):
+        tiers_path = REPO_ROOT / "corpus" / "nl_tiers.jsonl"
+        if tiers_path.exists():
+            boards = []
+            with open(tiers_path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    d = json.loads(line)
+                    if d.get("nl_source") == nl_source and d.get("description"):
+                        boards.append(d)
+            if boards:
+                return boards
+
     manifest = REPO_ROOT / "corpus" / "manifest.jsonl"
     boards = []
     with open(manifest) as f:
@@ -137,15 +166,16 @@ def _code_to_spec(code: str) -> dict | None:
     ref_counter = {"U": 0, "R": 0, "C": 0, "J": 0, "D": 0, "L": 0, "Q": 0, "X": 0}
 
     for m in re.finditer(
-        r'Part\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"'
-        r'(?:.*?value\s*=\s*"([^"]*)")?'
-        r'(?:.*?footprint\s*=\s*"([^"]*)")?',
+        r"""Part\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]([^)]*)\)""",
         code,
         re.DOTALL,
     ):
         lib, part_name = m.group(1), m.group(2)
-        value = m.group(3) or ""
-        footprint = m.group(4) or ""
+        rest = m.group(3)
+        val_m = re.search(r"""value\s*=\s*['"]([^'"]*)['"]""", rest)
+        fp_m = re.search(r"""footprint\s*=\s*['"]([^'"]*)['"]""", rest)
+        value = val_m.group(1) if val_m else ""
+        footprint = fp_m.group(1) if fp_m else ""
         prefix = "U"
         if lib == "Device":
             if part_name.startswith("R"):
@@ -228,7 +258,8 @@ def run_agent_board(
     user_msg = (
         f"I'd like to design a PCB. Here's what I want:\n\n"
         f"{description}\n\n"
-        f"Use the available tools to research the design format and submit the circuit."
+        f"Start by reading the design guides (eda://guide/skidl and eda://guide/workflow), "
+        f"then search_kicad() for all parts, then write and submit SKiDL Python code."
     )
 
     messages: list[dict] = [
@@ -413,7 +444,7 @@ def _openrouter_call(
     return None
 
 
-def score_result(result: AgentRunResult, ref_specs: dict) -> None:
+def score_result(result: AgentRunResult, ref_specs: dict, description: str = "") -> None:
     """Score a result's captured spec against the reference, mutating in place."""
     if result.final_spec is None:
         return
@@ -434,7 +465,7 @@ def score_result(result: AgentRunResult, ref_specs: dict) -> None:
     result.extra_parts = det.extra_parts
 
     try:
-        block_spec, block_actions = enrich_blocks(result.final_spec, "")
+        block_spec, block_actions = enrich_blocks(result.final_spec, description)
         enriched_spec, enrichment_actions = enrich(block_spec)
         all_actions = block_actions + enrichment_actions
         if all_actions:
@@ -477,8 +508,9 @@ def run_benchmark(
     limit: int | None = None,
     spend_cap: float = 10.0,
     max_turns: int = MAX_TURNS,
+    nl_source: str = "naive",
 ) -> BenchMetrics:
-    boards = _load_manifest()
+    boards = _load_manifest(nl_source=nl_source)
     if board_filter == "probe9":
         probe_ids = {
             "bme280", "mcp9808", "ina219", "ads1115-adc", "max98357-i2s-amp",
@@ -545,7 +577,7 @@ def run_benchmark(
             artifacts_dir=artifacts_dir,
             max_turns=max_turns,
         )
-        score_result(result, ref_specs)
+        score_result(result, ref_specs, description=board.get("description", ""))
         metrics.results.append(result)
 
         completed += 1
@@ -711,6 +743,9 @@ def main():
                         help="Stop after this much estimated spend (USD)")
     parser.add_argument("--max-turns", type=int, default=MAX_TURNS,
                         help="Max agent turns per board")
+    parser.add_argument("--nl-source", type=str, default="naive",
+                        choices=["naive", "ee_spec", "marketing"],
+                        help="Input description tier (default: naive)")
     args = parser.parse_args()
 
     if not os.environ.get("OPENROUTER_API_KEY"):
@@ -726,6 +761,7 @@ def main():
         limit=args.limit,
         spend_cap=args.spend_cap,
         max_turns=args.max_turns,
+        nl_source=args.nl_source,
     )
     print_report(metrics)
     save_results(metrics)
