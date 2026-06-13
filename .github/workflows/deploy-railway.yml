@@ -1,0 +1,55 @@
+name: Deploy Railway
+
+on:
+  push:
+    branches:
+      - feat/overnight-product-layer
+    paths:
+      - ".github/workflows/deploy-railway.yml"
+      - "railway.json"
+      - "deploy/**"
+      - "mcp_server/**"
+      - "schemas/**"
+      - "telemetry/**"
+      - "corpus/jlc/**"
+      - "src/skidl/**"
+      - "setup.py"
+  workflow_dispatch:
+
+concurrency:
+  group: railway-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+      RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID }}
+      RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT || 'production' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate Railway configuration
+        run: |
+          test -n "$RAILWAY_TOKEN" || (echo "Missing GitHub secret RAILWAY_TOKEN" >&2; exit 1)
+          test -n "$RAILWAY_PROJECT_ID" || (echo "Missing GitHub variable RAILWAY_PROJECT_ID" >&2; exit 1)
+          test -n "$RAILWAY_SERVICE_ID" || (echo "Missing GitHub variable RAILWAY_SERVICE_ID" >&2; exit 1)
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@5.12.1
+
+      - name: Deploy
+        run: |
+          railway up \
+            --ci \
+            --project "$RAILWAY_PROJECT_ID" \
+            --service "$RAILWAY_SERVICE_ID" \
+            --environment "$RAILWAY_ENVIRONMENT" \
+            --message "GitHub ${GITHUB_SHA}"
