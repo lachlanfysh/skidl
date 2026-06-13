@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import traceback
 import uuid
 from pathlib import Path
@@ -19,12 +20,21 @@ from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import apply_candidate
 
 
+STALE_REAP_INTERVAL_S = 60.0
+
+
 async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
     """Single worker slot: claim jobs, run engine, store results."""
     label = f"worker-{worker_id}[{slot}]"
     print(f"{label}: ready", flush=True)
+    last_stale_reap = 0.0
 
     while True:
+        now = time.monotonic()
+        if now - last_stale_reap >= STALE_REAP_INTERVAL_S:
+            last_stale_reap = now
+            await _reap_stale_jobs(db, label)
+
         job = await db.claim_job(f"{worker_id}-{slot}")
         if job is None:
             await asyncio.sleep(2)
@@ -65,6 +75,19 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
             tb = traceback.format_exc()
             print(f"{label}: job {job_id} crashed: {exc}\n{tb}", flush=True)
             await db.complete_job(job_id, "failed", error=str(exc))
+
+
+async def _reap_stale_jobs(db: DB, label: str) -> int:
+    """Fail orphaned running jobs so queues recover without a deploy restart."""
+
+    try:
+        stale = await db.fail_stale_running_jobs()
+    except Exception as exc:
+        print(f"{label}: stale job reap failed: {exc}", flush=True)
+        return 0
+    if stale:
+        print(f"{label}: marked {stale} stale running job(s) failed", flush=True)
+    return stale
 
 
 def _job_log_summary(

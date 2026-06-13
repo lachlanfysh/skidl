@@ -833,6 +833,28 @@ class TestWorkerHealth:
             await database.close()
 
 
+class TestWorkerStaleRecovery:
+    @pytest.mark.asyncio
+    async def test_reap_stale_jobs_returns_marked_count(self):
+        from mcp_server.worker import _reap_stale_jobs
+
+        class FakeDB:
+            async def fail_stale_running_jobs(self):
+                return 2
+
+        assert await _reap_stale_jobs(FakeDB(), "worker-test") == 2
+
+    @pytest.mark.asyncio
+    async def test_reap_stale_jobs_does_not_crash_worker_loop(self):
+        from mcp_server.worker import _reap_stale_jobs
+
+        class FakeDB:
+            async def fail_stale_running_jobs(self):
+                raise RuntimeError("database unavailable")
+
+        assert await _reap_stale_jobs(FakeDB(), "worker-test") == 0
+
+
 class TestWorkerLogging:
     def test_job_log_summary_is_actionable_without_source_code(self):
         from mcp_server.worker import _job_log_summary
