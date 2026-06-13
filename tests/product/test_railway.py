@@ -772,7 +772,7 @@ class TestAgentUX:
         tools = await mcp.list_tools()
         names = {t.name for t in tools}
         assert names == {
-            "submit_skidl_code", "get_job", "apply_correction", "get_run",
+            "submit_skidl_code", "get_job", "get_run",
             "search_kicad", "convert_lcsc",
         }
         for tool in tools:
@@ -801,17 +801,15 @@ class TestAgentUX:
         for status in ("queued", "running", "succeeded", "failed", "timeout"):
             assert status in desc
         assert "run_id" in desc and "exceptions" in desc
-        assert "submit_skidl_code" in desc and "legacy CircuitSpec" in desc
+        assert "edit the SKiDL code" in desc
+        assert "apply_correction" not in desc
+        assert "CircuitSpec" not in desc
 
     @pytest.mark.asyncio
-    async def test_apply_correction_documents_selection(self):
+    async def test_apply_correction_is_hidden_from_public_mcp_surface(self):
         from mcp_server.server_http import mcp
         tools = {t.name: t for t in await mcp.list_tools()}
-        desc = tools["apply_correction"].description
-        assert "exception_id" in desc and "candidate_id" in desc
-        assert "confidence" in desc
-        assert "Legacy CircuitSpec-only" in desc
-        assert "submit_skidl_code" in desc
+        assert "apply_correction" not in tools
 
     @pytest.mark.asyncio
     async def test_resources_listed(self):
@@ -837,6 +835,28 @@ class TestAgentUX:
         assert "from skidl import *" in doc
         assert "Part(" in doc and "Net(" in doc
         assert "CircuitSpec" not in doc
+
+    @pytest.mark.asyncio
+    async def test_public_guides_do_not_offer_legacy_json_workflow(self):
+        from mcp_server.server_http import EXCEPTIONS_GUIDE, WORKFLOW_GUIDE, mcp
+
+        public_text = "\n".join([
+            mcp.instructions or "",
+            WORKFLOW_GUIDE,
+            EXCEPTIONS_GUIDE,
+            *[
+                t.description or ""
+                for t in await mcp.list_tools()
+            ],
+        ])
+        for forbidden in (
+            "apply_correction",
+            "submit_design",
+            "CircuitSpec",
+            "auto_apply",
+            "legacy",
+        ):
+            assert forbidden not in public_text
 
     @needs_kicad
     def test_skidl_guide_example_parts_exist_in_kicad_libs(self):
@@ -874,7 +894,7 @@ class TestAgentUX:
         })
         assert "edit the SKiDL code" in hint
         assert "submit_skidl_code()" in hint
-        assert "apply_correction() only supports legacy" in hint
+        assert "apply_correction" not in hint
 
     def test_get_job_hint_for_code_error_includes_line_context(self):
         from mcp_server.server_http import _get_job_hint
@@ -949,5 +969,6 @@ class TestAgentUX:
         instructions = mcp.instructions
         assert instructions
         assert "submit_skidl_code" in instructions
-        assert "CircuitSpec JSON is a legacy/internal surface" in instructions
+        assert "CircuitSpec" not in instructions
+        assert "JSON" not in instructions
         assert "eda://" in instructions

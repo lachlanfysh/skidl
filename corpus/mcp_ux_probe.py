@@ -47,8 +47,8 @@ Service instructions: {instructions}
 Practical notes:
 - Poll asynchronous jobs with the polling tool until they reach a terminal \
 status; the harness inserts real delays between polls for you.
-- If a run returns exceptions, resolve them through the service's correction \
-mechanism. Stop after at most 5 correction rounds.
+- If a run returns exceptions, edit the SKiDL source using the service's \
+structured feedback and resubmit. Stop after at most 5 correction rounds.
 - When you finish (or are stuck), reply with plain text starting with \
 "FINAL REPORT:" summarizing the outcome, every point of confusion you hit, \
 anything you had to guess, and what the service could explain better.

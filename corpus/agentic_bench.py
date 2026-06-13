@@ -61,7 +61,7 @@ library names and footprints. Never guess library names or footprints.
 Only after completing steps 1-3 should you write and submit SKiDL code.
 
 If your submission fails, call read_resource("eda://guide/exceptions") to learn \
-how to interpret and fix errors via apply_correction().
+how to interpret exceptions, edit your SKiDL code, and resubmit.
 
 General electronics and KiCad knowledge is fine, but the service has specific \
 format requirements documented in its resources — read them."""
@@ -315,11 +315,10 @@ def run_agent_board(
                     "role": "user",
                     "content": (
                         "You must use tool calls. Your goal is a SUCCEEDED job. "
-                        "Submit via submit_skidl_code() (preferred — write Python) "
-                        "or submit_design() (JSON). If you haven't submitted yet, "
-                        "read eda://guide/workflow first. "
-                        "If your job failed with exceptions, fix the code/spec "
-                        "and resubmit, or use apply_correction(). "
+                        "Submit by writing SKiDL Python and calling "
+                        "submit_skidl_code(). If you haven't submitted yet, read "
+                        "eda://guide/workflow first. If your job failed with "
+                        "exceptions, edit the SKiDL code and resubmit. "
                         "Keep going until succeeded. "
                         "Only reply with 'FINAL REPORT:' after get_job() shows succeeded."
                     ),
