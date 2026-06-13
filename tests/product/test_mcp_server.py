@@ -195,6 +195,8 @@ class TestExceptionMapper:
 
         assert exceptions[0].code == ExcCode.LAYOUT_OVERLAP
         assert exceptions[0].candidates[0].action == ActionType.SCALE_OUTLINE
+        assert "@subcircuit" in exceptions[0].retry_hint
+        assert "larger outline_mm" in exceptions[0].retry_hint
 
 
 class TestHelpfulFailures:
@@ -444,6 +446,7 @@ class TestHelpfulFailures:
         assert exc.code == ExcCode.CODE_EXEC_ERROR
         assert exc.subject["pin"] == "T"
         assert "pin_family_hint" in exc.subject
+        assert "Close valid pin names" in exc.retry_hint
         assert "plain 'T' is not a valid pin" in exc.subject["pin_family_hint"]
         assert "T1/T2" in exc.retry_hint
         assert "simpler AudioPlug/AudioJack" in exc.retry_hint
@@ -730,6 +733,7 @@ class TestRoutingExceptions:
         assert exc.subject["stage"] == "dsn_export"
         assert exc.subject["returncode"] == -11
         assert "signal 11" in exc.message
+        assert "routing/export tool failure" in exc.retry_hint
 
     def test_ses_import_segfault_is_route_unavailable(self, monkeypatch, tmp_path):
         def fake_run(cmd, **kwargs):

@@ -205,6 +205,10 @@ def test_harvest_outstanding_jobs_polls_terminal_and_fetches_artifacts(tmp_path)
     assert "post_cap get_job" in call_log.getvalue()
 
 
+def test_default_llm_timeout_keeps_stress_probe_bounded():
+    assert mcp_ux_probe.DEFAULT_LLM_TIMEOUT_S <= 90.0
+
+
 def test_main_summarizes_openrouter_malformed_json(tmp_path, monkeypatch):
     class FakeMCP:
         def __init__(self, url, token):

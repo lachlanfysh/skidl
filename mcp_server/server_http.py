@@ -239,6 +239,8 @@ async def submit_skidl_code(
       USB-C, STEMMA/Qwiic, I2C/SPI, LiPo charging, regulators, or shunts.
     run_options: {"timeout_s": 300, "route_timeout_s": 120} — raise
       timeout_s for complex boards, route_timeout_s after ROUTE_TIMEOUT.
+      For layout overlap/outline/congestion feedback, prefer improving
+      grouping, connector choices, and outline_mm before resubmitting.
 
     Returns: {"job_id": "...", "status": "queued"}. Poll get_job(job_id).
     """
@@ -1694,6 +1696,16 @@ is a routed board when routing succeeds.
 | timeout_s | 300 | raise to 600-1500 for dense boards or slow autorouting |
 | route_timeout_s | 120 | raise to 300-900 after ROUTE_TIMEOUT; must stay below timeout_s |
 | board_id | none | telemetry label for tracking related runs |
+
+## Layout feedback
+
+- LAYOUT_OVERLAP, LAYOUT_OUTLINE_VIOLATION, and HIGH_CONGESTION are usually
+  placement/constraint feedback, not schematic failures.
+- Before blindly enlarging the board, edit the SKiDL source so related parts
+  are in the same `@subcircuit`, decoupling caps sit with their IC, connector
+  footprint style matches the product, and panel/edge parts are deliberate.
+- If the physical request is simply too dense, resubmit with a larger
+  `outline_mm=[width, height]`.
 
 ## Iterating - KEEP GOING UNTIL SUCCEEDED
 

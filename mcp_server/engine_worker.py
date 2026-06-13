@@ -241,11 +241,12 @@ def _route_tool_exception(
         candidates=[],
         retry_hint=(
             "Manufacturing is incomplete: do not call the board manufacturable "
-            "or complete. Fetch the run artifacts for inspection. If the run "
-            "also reports congestion, long power nets, outline issues, or DRC "
-            "errors, revise board size, layer count, edge placement, or part "
-            "choices before retrying; otherwise report this as a routing/export "
-            "tool failure."
+            "or complete. This is a routing/export tool failure, not proof the "
+            "schematic is wrong. Fetch the run artifacts for inspection and "
+            "preserve the latest SKiDL source. If the run also reports "
+            "congestion, long power nets, outline issues, or DRC errors, revise "
+            "board size, edge placement, grouping, or part choices before "
+            "retrying; otherwise report the pcbnew/Freerouting failure."
         ),
     )
 
@@ -1258,6 +1259,16 @@ def _connector_pin_family_hint(part_name: str, pin_name: str, available: list[st
     return ""
 
 
+def _pin_suggestions_hint(subject: dict) -> str:
+    suggestions = subject.get("suggested_pins") or []
+    if suggestions:
+        return " Close valid pin names: " + ", ".join(map(str, suggestions[:8])) + "."
+    available = subject.get("available_pins") or []
+    if available:
+        return " Available pin names include: " + ", ".join(map(str, available[:12])) + "."
+    return ""
+
+
 def _symbol_part_suggestions(part_name: str, library: str = "", limit: int = 5) -> list[dict]:
     """Return exact Part() usages for a missing symbol part name."""
     try:
@@ -1449,6 +1460,7 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
             "detail=true) to inspect the symbol, then resubmit with "
             "submit_skidl_code()."
         )
+        hint += _pin_suggestions_hint(subject)
         if family_hint:
             hint += f" {family_hint}"
         return _code_exception(

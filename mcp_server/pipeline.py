@@ -191,6 +191,16 @@ def _stderr_pin_family_hint(part: str, pin: str) -> str:
     return ""
 
 
+def _pin_suggestions_hint(subject: dict) -> str:
+    suggestions = subject.get("suggested_pins") or []
+    if suggestions:
+        return " Close valid pin names: " + ", ".join(map(str, suggestions[:8])) + "."
+    available = subject.get("available_pins") or []
+    if available:
+        return " Available pin names include: " + ", ".join(map(str, available[:12])) + "."
+    return ""
+
+
 def _enrich_code_exceptions(
     exceptions: list[DesignException],
     *,
@@ -243,6 +253,7 @@ def _enrich_code_exceptions(
                 "search_kicad(part_name, detail=true) if you need the pin list, "
                 "then resubmit with submit_skidl_code()."
             )
+            exc.retry_hint += _pin_suggestions_hint(subject)
             family_hint = subject.get("pin_family_hint") or _stderr_pin_family_hint(
                 part, pin
             )

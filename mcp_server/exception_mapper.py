@@ -239,6 +239,16 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                             "free",
                         ),
                     ],
+                    retry_hint=(
+                        "This is a mechanical placement failure. For a "
+                        "submit_skidl_code() run, first improve the SKiDL "
+                        "source for placement: group related parts with "
+                        "@subcircuit, keep decoupling caps in the same block "
+                        "as their IC, choose smaller/appropriate connector "
+                        "footprints, and put user-facing connectors on "
+                        "sensible board edges. If the board is genuinely too "
+                        "dense, resubmit with a larger outline_mm."
+                    ),
                 )
             )
 
@@ -278,6 +288,16 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                             "free",
                         ),
                     ],
+                    retry_hint=(
+                        "A footprint is outside the board. For a "
+                        "submit_skidl_code() run, preserve real mechanical "
+                        "constraints, then improve placement intent before "
+                        "blindly growing the outline: group circuitry with "
+                        "@subcircuit, use appropriate vertical/right-angle "
+                        "connector footprints, and place panel/edge parts "
+                        "deliberately. If the requested form factor is too "
+                        "small, resubmit with a larger outline_mm."
+                    ),
                 )
             )
 
@@ -327,6 +347,15 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                             "expensive",
                         ),
                     ],
+                    retry_hint=(
+                        "High congestion is a placement/routing-quality "
+                        "warning. Before only increasing outline_mm, revise "
+                        "the SKiDL source to group functional blocks with "
+                        "@subcircuit, reduce unnecessary long cross-board "
+                        "nets, use edge connectors deliberately, and keep "
+                        "decoupling caps in the same block as their IC. If the "
+                        "design is still dense, resubmit with more area."
+                    ),
                 )
             )
 
