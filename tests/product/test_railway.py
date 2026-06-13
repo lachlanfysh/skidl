@@ -1109,6 +1109,7 @@ class TestAgentUX:
             "run_id": "run-compact",
             "status": "failed",
             "ok": False,
+            "summary": "dense final report\n" + ("details\n" * 1000),
             "spec": {"large": "omitted"},
             "_artifact_paths": {"board.kicad_pcb": "x" * 1000},
             "stderr": "native trace" * 100,
@@ -1156,6 +1157,7 @@ class TestAgentUX:
         assert result["top_exception"]["code"] == "ROUTE_TIMEOUT"
         assert result["exception_codes"][0] == "ROUTE_TIMEOUT"
         assert result["exceptions_truncated"] == 8
+        assert len(result["summary"]) < 1400
         assert len(json.dumps(result)) < 8000
 
     @pytest.mark.asyncio

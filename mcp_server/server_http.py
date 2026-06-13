@@ -361,6 +361,8 @@ def _compact_job_result_for_agent(result: dict) -> None:
     result.pop("spec", None)
     result.pop("_artifact_paths", None)
     result.pop("stderr", None)
+    if "summary" in result:
+        result["summary"] = _trim_agent_value(result["summary"], max_str=1200)
 
     layout = result.get("layout")
     if isinstance(layout, dict):
