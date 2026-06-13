@@ -944,6 +944,54 @@ class TestAgentUX:
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
 
     @pytest.mark.asyncio
+    async def test_search_kicad_detail_returns_pin_details_for_multiple_symbols(
+        self,
+        monkeypatch,
+    ):
+        from llm.kicad_index import PinInfo, SymbolDetail, SymbolEntry
+        import llm.kicad_index as kicad_index
+        import mcp_server.server_http as server_http
+
+        monkeypatch.setattr(server_http, "_lcsc_variants", lambda query: [])
+        monkeypatch.setattr(kicad_index, "search_footprints", lambda query, limit=5: [])
+        monkeypatch.setattr(
+            kicad_index,
+            "search_symbols",
+            lambda query, limit=8: [
+                SymbolEntry(lib="MCU_Module", name="Arduino_Nano_RP2040_Connect"),
+                SymbolEntry(lib="MCU_Module", name="RaspberryPi_Pico"),
+            ],
+        )
+
+        def fake_detail(lib, name):
+            pins = {
+                "Arduino_Nano_RP2040_Connect": [PinInfo("17", "3V3", "power_out")],
+                "RaspberryPi_Pico": [PinInfo("1", "GPIO0", "bidirectional")],
+            }[name]
+            return SymbolDetail(
+                lib=lib,
+                name=name,
+                description="",
+                keywords="",
+                footprint="Module:Fake",
+                pins=pins,
+            )
+
+        monkeypatch.setattr(kicad_index, "get_symbol_detail", fake_detail)
+
+        result = await server_http.search_kicad("RP2040", detail=True)
+
+        assert result["pin_detail"]["part"] == "MCU_Module:Arduino_Nano_RP2040_Connect"
+        pico = next(
+            detail
+            for detail in result["pin_details"]
+            if detail["part"] == "MCU_Module:RaspberryPi_Pico"
+        )
+        assert pico["pins"] == [
+            {"num": "1", "name": "GPIO0", "type": "bidirectional"}
+        ]
+
+    @pytest.mark.asyncio
     async def test_get_job_documents_statuses(self):
         from mcp_server.server_http import mcp
         tools = {t.name: t for t in await mcp.list_tools()}

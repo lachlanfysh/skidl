@@ -815,7 +815,9 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
       For electromechanical parts, include the decision terms you need:
       "3.5mm mono switched right angle through hole jack", "TRS vertical
       SMD jack", "edge-facing USB-C receptacle", "2-pin 5.08mm screw terminal".
-    detail: If true, returns full pin list for the top symbol match.
+    detail: If true, returns pin lists for the top symbol matches. The
+      pin_detail field is the top match; pin_details contains several
+      part-specific pin lists so you can inspect the exact symbol you choose.
     """
     from llm.kicad_index import (
         get_symbol_detail,
@@ -841,17 +843,22 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
         result["symbols"].append(entry)
 
     if detail and symbols:
-        top = symbols[0]
-        det = get_symbol_detail(top.lib, top.name)
-        if det:
-            result["pin_detail"] = {
+        pin_details = []
+        for sym in symbols[:5]:
+            det = get_symbol_detail(sym.lib, sym.name)
+            if not det:
+                continue
+            pin_details.append({
                 "part": f"{det.lib}:{det.name}",
                 "footprint": det.footprint,
                 "pins": [
                     {"num": p.num, "name": p.name, "type": p.func}
                     for p in det.pins
                 ],
-            }
+            })
+        if pin_details:
+            result["pin_detail"] = pin_details[0]
+            result["pin_details"] = pin_details
 
     lcsc = _lcsc_variants(query)
     if lcsc:
