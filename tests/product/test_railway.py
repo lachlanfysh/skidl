@@ -844,9 +844,25 @@ class TestAgentUX:
             "eda://guide/skidl",
             "eda://guide/workflow",
             "eda://guide/exceptions",
+            "eda://guide/parts",
         }
         for r in resources:
             assert r.description, f"{r.uri} has no description"
+
+    def test_parts_guide_teaches_ambiguous_connector_choices(self):
+        from mcp_server.server_http import PARTS_GUIDE, SKIDL_GUIDE
+
+        for needle in (
+            "TRS",
+            "switched",
+            "right-angle",
+            "through-hole",
+            "panel",
+            "USB-C",
+            "screw terminals",
+        ):
+            assert needle in PARTS_GUIDE
+        assert "eda://guide/parts" in SKIDL_GUIDE
 
     def test_circuit_spec_reference_is_legacy_not_public_resource(self):
         from mcp_server.server_http import CIRCUIT_SPEC_GUIDE

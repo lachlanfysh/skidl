@@ -193,6 +193,57 @@ def shrink_result(name: str, text: str, artifacts_dir: Path) -> str:
     return text
 
 
+def _extract_mcp_result(tool_name: str, text: str) -> dict | None:
+    if tool_name not in ("get_job", "get_run"):
+        return None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if tool_name == "get_job" and isinstance(data.get("result"), dict):
+        return data["result"]
+    if tool_name == "get_run" and isinstance(data.get("response"), dict):
+        return data["response"]
+    if any(key in data for key in ("status", "ok", "exceptions", "metrics")):
+        return data
+    return None
+
+
+def _result_summary(result: dict | None) -> dict:
+    if not isinstance(result, dict):
+        return {}
+    exceptions = result.get("exceptions") or []
+    metrics = result.get("metrics") or {}
+    return {
+        "run_id": result.get("run_id"),
+        "status": result.get("status"),
+        "ok": result.get("ok"),
+        "manufacturable": metrics.get("manufacturable"),
+        "manufacturing_complete": metrics.get("manufacturing_complete"),
+        "exception_codes": [
+            exc.get("code")
+            for exc in exceptions
+            if isinstance(exc, dict) and exc.get("code")
+        ],
+    }
+
+
+def _terminal_status(status: str | None) -> bool:
+    return status in {"succeeded", "succeeded_with_warnings", "failed", "timeout", "crashed"}
+
+
+def _final_report_block_reason(job_results: dict[str, dict], last_result: dict | None) -> str:
+    for job_id, result in sorted(job_results.items()):
+        status = result.get("status")
+        if status in {"queued", "running"}:
+            return f"job {job_id} is still {status}; poll get_job() until terminal"
+    if isinstance(last_result, dict):
+        status = last_result.get("status")
+        if status and not _terminal_status(status):
+            return f"last job status is {status}; poll get_job() until terminal"
+    return ""
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="meta-llama/llama-4-maverick")
@@ -239,12 +290,22 @@ def main() -> int:
             {"role": "system", "content": SYSTEM_PROMPT.format(instructions=instructions)},
             {"role": "user", "content": args.request},
         ]
+    initial_tool_prompt = (
+        "Before coding, read eda://guide/skidl. If the board uses mechanical "
+        "connectors, jacks, switches, pots, USB, or panel-facing parts, also "
+        "read eda://guide/parts so you choose footprint style deliberately."
+    )
+    messages.append({"role": "user", "content": initial_tool_prompt})
 
     or_http = httpx.Client(timeout=300)
     usage_totals = {"prompt_tokens": 0, "completion_tokens": 0}
     last_poll_at = 0.0
     started = time.time()
     final_report = None
+    final_report_valid = False
+    premature_final_reason = ""
+    job_results: dict[str, dict] = {}
+    last_mcp_result: dict | None = None
     nudges = 0
 
     for turn in range(MAX_MODEL_TURNS):
@@ -302,7 +363,25 @@ def main() -> int:
 
         if not tool_calls:
             if content.startswith("FINAL REPORT"):
+                premature_final_reason = _final_report_block_reason(
+                    job_results,
+                    last_mcp_result,
+                )
+                if premature_final_reason:
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "You cannot give the final report yet: "
+                            f"{premature_final_reason}. Continue with tool "
+                            "calls. If a terminal result failed, say so in a "
+                            "FINAL REPORT only after fetching the final run "
+                            "data or deciding you are stuck."
+                        ),
+                    })
+                    nudges += 1
+                    continue
                 final_report = content
+                final_report_valid = True
                 break
             if nudges >= 3:
                 final_report = content or "(model stopped without a report)"
@@ -340,6 +419,15 @@ def main() -> int:
                         result = mcp.call_tool(name, arguments)
                 except Exception as exc:
                     result = f"TOOL ERROR: {exc}"
+            parsed_result = _extract_mcp_result(name, result)
+            if parsed_result is not None:
+                last_mcp_result = parsed_result
+                job_id = None
+                if isinstance(arguments, dict):
+                    job_id = arguments.get("job_id")
+                job_id = job_id or parsed_result.get("job_id") or parsed_result.get("id")
+                if job_id:
+                    job_results[str(job_id)] = parsed_result
             result = shrink_result(name, result, artifacts_dir)
             arg_short = json.dumps(arguments)[:160] if arguments is not None else "<bad json>"
             outcome = "error" if result.startswith("TOOL ERROR") else "ok"
@@ -361,6 +449,9 @@ def main() -> int:
         "wall_time_s": round(wall, 1),
         "usage": usage_totals,
         "finished_with_report": final_report is not None and final_report.startswith("FINAL REPORT"),
+        "final_report_valid": final_report_valid,
+        "premature_final_reason": premature_final_reason,
+        "last_mcp_result": _result_summary(last_mcp_result),
         "artifacts_fetched": sorted(p.name for p in artifacts_dir.glob("*")) if artifacts_dir.exists() else [],
         "final_report": final_report,
     }

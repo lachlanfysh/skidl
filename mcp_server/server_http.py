@@ -716,6 +716,9 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
         search_kicad("IS31FL3731", detail=True) -> pin list + QFN-28 / SSOP-28
 
     query: Part number, IC name, function description, or footprint name.
+      For electromechanical parts, include the decision terms you need:
+      "3.5mm mono switched right angle through hole jack", "TRS vertical
+      SMD jack", "edge-facing USB-C receptacle", "2-pin 5.08mm screw terminal".
     detail: If true, returns full pin list for the top symbol match.
     """
     from llm.kicad_index import (
@@ -775,7 +778,10 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
     else:
         result["hint"] = (
             "Use the 'usage' field directly in your SKiDL code. "
-            "Set detail=true to see pin names for wiring."
+            "Set detail=true to see pin names for wiring. "
+            "For jacks/connectors, decide orientation, mounting, switching, "
+            "and mono/stereo/TRS before cycling through footprints; read "
+            "eda://guide/parts for the checklist."
         )
     return result
 
@@ -985,6 +991,98 @@ def workflow_guide() -> str:
 )
 def exceptions_guide() -> str:
     return EXCEPTIONS_GUIDE
+
+
+@mcp.resource(
+    "eda://guide/parts",
+    name="Part choice guide",
+    description="How to choose ambiguous electromechanical parts such as audio jacks, USB connectors, screw terminals, switches, and headers.",
+    mime_type="text/markdown",
+)
+def parts_guide() -> str:
+    return PARTS_GUIDE
+
+
+PARTS_GUIDE = """\
+# Part choice guide
+
+Some parts are not just electrical symbols. Their footprint is a product
+decision. Before cycling through footprints, decide the mechanical variant and
+then search with those words.
+
+## 3.5mm audio and synth jacks
+
+Ask or decide these points before choosing a jack:
+
+- **Mono/TS vs stereo/TRS**: mono CV/gate usually needs TS; MIDI TRS and
+  stereo audio need TRS.
+- **Switched vs unswitched**: switched jacks add normalling pins. Use them
+  only when the design needs detect/normalling; otherwise they add routing
+  and pin-name confusion.
+- **Mounting**: through-hole is stronger and easier to hand solder; SMD is
+  lower profile but mechanically weaker unless the footprint has support tabs.
+- **Orientation**: horizontal/right-angle is edge-facing for panels and
+  enclosures; vertical points out of the board face and usually should not be
+  used for a panel edge.
+- **Panel/edge constraint**: jacks, USB-C, switches, pots, and screw terminals
+  normally belong on a board edge. Keep mating parts on the same edge when
+  the product has a panel.
+- **Sleeve/ground**: connect sleeve to circuit GND unless the request calls
+  for isolated/chassis grounding. Shield/chassis pins may be separate.
+
+Search examples:
+
+```
+search_kicad("3.5mm TRS unswitched right angle through hole jack", detail=true)
+search_kicad("3.5mm mono switched right angle jack footprint")
+search_kicad("AudioJack3 right angle through hole")
+search_kicad("PJ-320A 3.5mm TRS jack")
+```
+
+Common KiCad symbol patterns:
+
+- `Connector_Audio:AudioJack2` or similar: mono/TS.
+- `Connector_Audio:AudioJack3`: TRS stereo or TRS MIDI.
+- Symbols with switch pins expose extra contacts. Inspect with
+  `detail=true` and wire only the required contacts.
+
+If the request does not specify jack style, make the choice visible in your
+final report. For product/panel boards, prefer edge-facing through-hole jacks
+unless there is a reason to choose SMD or vertical.
+
+## USB-C receptacles
+
+Decide whether the board needs:
+
+- power-only sink, USB 2.0 data, or USB-PD/CC controller support
+- through-hole shell tabs versus pure SMD
+- edge-facing horizontal connector versus vertical connector
+- 6-pin/power-only, 16-pin USB2, or 24-pin full-featured connector
+
+For a 5V sink board, include 5.1K pull-downs on CC1 and CC2, VBUS bulk
+capacitance, and ESD/TVS protection when requested. Search with terms like
+`USB_C_Receptacle USB2.0 16P` or use `convert_lcsc()` for a specific stocked
+connector.
+
+## Screw terminals and headers
+
+- Screw terminals are usually edge-facing and through-hole.
+- Pitch matters: 3.5mm, 3.81mm, and 5.08mm are not interchangeable.
+- A pin header footprint is not a symbol. Use
+  `Part("Connector_Generic", "Conn_01xNN", footprint="Connector_PinHeader_...")`.
+
+## When to ask the human
+
+Ask before committing when the mechanical choice affects the product:
+
+- panel-facing versus board-facing controls/connectors
+- vertical versus right-angle jacks
+- switched/normalling audio jacks
+- unusual pitches or enclosure-driven connector locations
+- isolated/chassis ground requirements
+
+If you cannot ask, choose a conservative default and state it explicitly.
+"""
 
 
 CIRCUIT_SPEC_GUIDE = """\
@@ -1201,6 +1299,8 @@ Common libraries — use search_kicad() for anything not listed here:
 ## Key rules
 
 - **Search first**: `search_kicad("your part")` before writing any Part() call.
+- Ambiguous mechanical parts: read `eda://guide/parts` before choosing
+  jacks, USB connectors, screw terminals, switches, pots, or panel parts.
 - `lib` is a KiCad symbol library, NOT a manufacturer (not "Bosch", "Microchip").
 - Every Part needs `footprint="Library:Name"` — get it from search_kicad().
 - Connectors: `Part("Connector_Generic", "Conn_01x06", ...)` not "PinHeader_1x06".
