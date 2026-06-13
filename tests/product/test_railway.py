@@ -484,6 +484,28 @@ class TestAuthMiddleware:
         assert data["db"] is False
         assert data["status"] == "degraded"
 
+    def test_health_includes_build_metadata(self, client, monkeypatch):
+        monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", "abc123")
+        monkeypatch.setenv("RAILWAY_GIT_BRANCH", "feat/test")
+        monkeypatch.setenv("RAILWAY_GIT_REPO_NAME", "eda-mcp")
+        monkeypatch.setenv("RAILWAY_GIT_REPO_OWNER", "lachlanfysh")
+        monkeypatch.setenv("RAILWAY_DEPLOYMENT_ID", "dep_123")
+        monkeypatch.setenv("RAILWAY_SERVICE_ID", "svc_123")
+        monkeypatch.setenv("RAILWAY_SERVICE_NAME", "mcp-server")
+        monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
+
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        build = resp.json()["build"]
+        assert build["commit_sha"] == "abc123"
+        assert build["branch"] == "feat/test"
+        assert build["repo"] == "eda-mcp"
+        assert build["repo_owner"] == "lachlanfysh"
+        assert build["deployment_id"] == "dep_123"
+        assert build["service_id"] == "svc_123"
+        assert build["service_name"] == "mcp-server"
+        assert build["environment_name"] == "production"
+
     def test_401_without_token(self, client):
         resp = client.get("/mcp")
         assert resp.status_code == 401
@@ -683,6 +705,45 @@ class TestWorkerHealth:
             await database.close()
 
 
+class TestWorkerLogging:
+    def test_job_log_summary_is_actionable_without_source_code(self):
+        from mcp_server.worker import _job_log_summary
+
+        result = {
+            "run_id": "run-1",
+            "status": "failed",
+            "ok": False,
+            "stage": "exec",
+            "decision_kind": "code_authoring_error",
+            "spec": {
+                "_mode": "skidl_python",
+                "code": "SECRETISH_CODE_SHOULD_NOT_APPEAR",
+            },
+            "exceptions": [{
+                "code": "CODE_EXEC_ERROR",
+                "severity": "fatal",
+                "message": "pin 'A0' not found on U1",
+                "candidates": [],
+            }],
+        }
+
+        summary = _job_log_summary(
+            "job-1",
+            "failed",
+            result,
+            {"board.kicad_sch": "(sch)", "board.kicad_pcb": "(pcb)"},
+        )
+
+        assert summary["job_id"] == "job-1"
+        assert summary["run_id"] == "run-1"
+        assert summary["stage"] == "exec"
+        assert summary["decision_kind"] == "code_authoring_error"
+        assert summary["exceptions"][0]["code"] == "CODE_EXEC_ERROR"
+        assert summary["artifact_keys"] == ["board.kicad_pcb", "board.kicad_sch"]
+        assert "spec" not in summary
+        assert "SECRETISH_CODE_SHOULD_NOT_APPEAR" not in json.dumps(summary)
+
+
 # ── Agent UX: tool descriptions and resources ─────────────────────────
 
 
@@ -814,6 +875,47 @@ class TestAgentUX:
         assert "edit the SKiDL code" in hint
         assert "submit_skidl_code()" in hint
         assert "apply_correction() only supports legacy" in hint
+
+    def test_get_job_hint_for_code_error_includes_line_context(self):
+        from mcp_server.server_http import _get_job_hint
+        hint = _get_job_hint({
+            "status": "failed",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "result": {
+                "run_id": "run-code",
+                "decision_required": True,
+                "exceptions": [{
+                    "code": "CODE_EXEC_ERROR",
+                    "subject": {
+                        "line": 3,
+                        "line_text": "ain0 += ads1115_part['A0']",
+                        "suggested_pins": ["AIN0", "ADDR"],
+                    },
+                }],
+            },
+        })
+        assert "line 3" in hint
+        assert "ain0 += ads1115_part" in hint
+        assert "suggested pins: AIN0, ADDR" in hint
+        assert "submit_skidl_code()" in hint
+
+    def test_get_job_hint_for_engine_crash_says_backend_failure(self):
+        from mcp_server.server_http import _get_job_hint
+        hint = _get_job_hint({
+            "status": "failed",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "result": {
+                "run_id": "run-crash",
+                "decision_required": True,
+                "exceptions": [{
+                    "code": "ENGINE_CRASH",
+                    "subject": {"partial_artifacts": ["board.kicad_pcb"]},
+                }],
+            },
+        })
+        assert "Backend engine failure" in hint
+        assert "not circuit feedback" in hint
+        assert "get_run('run-crash')" in hint
 
     @pytest.mark.asyncio
     async def test_apply_correction_rejects_skidl_python_runs(self, monkeypatch):

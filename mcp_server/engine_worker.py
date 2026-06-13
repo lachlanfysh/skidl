@@ -39,6 +39,46 @@ EASYEDA_CACHE_DIR = os.path.join(
 )
 
 
+class SkidlCodeExecutionError(Exception):
+    """Execution failure with the partially populated SKiDL namespace attached."""
+
+    def __init__(self, original: Exception, code: str, namespace: dict):
+        super().__init__(f"{type(original).__name__}: {original}")
+        self.original = original
+        self.code = code
+        self.namespace = namespace
+        self.line = _traceback_string_line(original.__traceback__)
+        self.line_text = _source_line(code, self.line)
+
+
+def _traceback_string_line(tb) -> int | None:
+    line = None
+    for frame in traceback.extract_tb(tb):
+        if frame.filename == "<string>":
+            line = frame.lineno
+    return line
+
+
+def _source_line(code: str, line: int | None) -> str:
+    if not line:
+        return ""
+    lines = code.splitlines()
+    if 1 <= line <= len(lines):
+        return lines[line - 1].strip()
+    return ""
+
+
+def _configure_kicad_env() -> None:
+    """Set KiCad paths broadly so SKiDL stderr keeps the useful signal."""
+    symbol_dir = os.environ.get("KICAD9_SYMBOL_DIR", DEFAULT_SYM_DIR)
+    footprint_dir = os.environ.get("KICAD9_FOOTPRINT_DIR", DEFAULT_FP_DIR)
+    for version in ("9", "8", "7", "6"):
+        os.environ.setdefault(f"KICAD{version}_SYMBOL_DIR", symbol_dir)
+        os.environ.setdefault(f"KICAD{version}_FOOTPRINT_DIR", footprint_dir)
+    os.environ.setdefault("KICAD_SYMBOL_DIR", symbol_dir)
+    os.environ.setdefault("KICAD_FOOTPRINT_DIR", footprint_dir)
+
+
 def _easyeda_fp_dirs() -> list[str]:
     """Collect .pretty dirs from easyeda2kicad cache for footprint resolution."""
     dirs: list[str] = []
@@ -194,8 +234,9 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
             code=ExcCode.ROUTE_UNAVAILABLE,
             severity=Severity.ADVISORY,
             message="Routing unavailable: Freerouting JAR or Java not found — board is unrouted but placement is valid",
-            subject={},
+            subject={"missing": "java_or_freerouting"},
             candidates=[],
+            retry_hint="Do not rewrite the circuit for this. Install/configure Freerouting or inspect the unrouted PCB artifact.",
         )]
 
     dsn_path = str(Path(pcb_path).with_suffix(".dsn"))
@@ -210,8 +251,12 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
                 code=ExcCode.ROUTE_UNAVAILABLE,
                 severity=Severity.ERROR,
                 message="DSN export failed — board outline may be malformed",
-                subject={},
+                subject={"stage": "dsn_export"},
                 candidates=[],
+                retry_hint=(
+                    "Inspect the PCB/outline artifact. If outline geometry is "
+                    "valid, report this as a routing tool failure."
+                ),
             )]
     except Exception as exc:
         return [DesignException(
@@ -219,8 +264,12 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
             code=ExcCode.ROUTE_UNAVAILABLE,
             severity=Severity.ERROR,
             message=f"DSN export error: {exc}",
-            subject={},
+            subject={"stage": "dsn_export", "error": str(exc)},
             candidates=[],
+            retry_hint=(
+                "Inspect the PCB/outline artifact. If outline geometry is "
+                "valid, report this as a routing tool failure."
+            ),
         )]
 
     # Inject semantic net classes before routing
@@ -290,8 +339,9 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
             code=ExcCode.ROUTE_UNAVAILABLE,
             severity=Severity.ERROR,
             message=f"SES import error: {exc}",
-            subject={},
+            subject={"stage": "ses_import", "error": str(exc)},
             candidates=[],
+            retry_hint="Do not assume the circuit is wrong. The router produced output but KiCad could not import it.",
         )]
 
     exceptions = []
@@ -335,8 +385,9 @@ def _run_drc(pcb_path: str) -> list:
             code=ExcCode.DRC_TOOL_FAILURE,
             severity=Severity.ADVISORY,
             message="kicad-cli not found — DRC skipped",
-            subject={},
+            subject={"missing": "kicad-cli"},
             candidates=[],
+            retry_hint="Do not rewrite the circuit for this. Install/configure kicad-cli or inspect the generated PCB manually.",
         )]
 
     drc_json = str(Path(pcb_path).with_name(
@@ -355,8 +406,9 @@ def _run_drc(pcb_path: str) -> list:
             code=ExcCode.DRC_TOOL_FAILURE,
             severity=Severity.ADVISORY,
             message="kicad-cli DRC timed out",
-            subject={},
+            subject={"stage": "drc", "timeout_s": 30},
             candidates=[],
+            retry_hint="Retry with a larger timeout or inspect the PCB manually; this is DRC tooling feedback.",
         )]
 
     if not Path(drc_json).exists():
@@ -367,6 +419,7 @@ def _run_drc(pcb_path: str) -> list:
             message=f"DRC produced no report (exit {result.returncode})",
             subject={"stderr_tail": result.stderr[-1000:]},
             candidates=[],
+            retry_hint="Inspect stderr_tail. This is a DRC tool failure unless another exception points to a design error.",
         )]
 
     try:
@@ -378,8 +431,9 @@ def _run_drc(pcb_path: str) -> list:
             code=ExcCode.DRC_TOOL_FAILURE,
             severity=Severity.ADVISORY,
             message=f"Failed to parse DRC report: {exc}",
-            subject={},
+            subject={"stage": "drc_parse", "error": str(exc)},
             candidates=[],
+            retry_hint="Inspect the raw DRC report or rerun DRC. This is tool-output parsing feedback.",
         )]
 
     return _drc_to_exceptions(report)
@@ -596,6 +650,7 @@ def _exec_skidl(code: str):
 
     from skidl import KICAD9, set_default_tool
 
+    _configure_kicad_env()
     _bi.default_circuit.reset()
     set_default_tool(KICAD9)
 
@@ -620,11 +675,16 @@ def _exec_skidl(code: str):
     )
     cleaned = re.sub(
         r'^from\s+skidl\s+import\s+\*\s*$',
-        '',
+        '# from skidl import * stripped by worker',
         cleaned,
         flags=re.MULTILINE,
     )
-    exec(cleaned, namespace)
+    try:
+        exec(cleaned, namespace)
+    except SyntaxError:
+        raise
+    except Exception as exc:
+        raise SkidlCodeExecutionError(exc, cleaned, namespace) from exc
     return _bi.default_circuit
 
 
@@ -732,15 +792,111 @@ def _inject_enrichment(circuit, original_spec: dict, enriched_spec: dict,
     return actions
 
 
-def _code_exception(message: str, hint: str = "") -> DesignException:
+def _available_part_pins(part) -> list[str]:
+    pins: set[str] = set()
+
+    def add(value) -> None:
+        if value in (None, ""):
+            return
+        label = str(value)
+        if label == "~" or re.fullmatch(r"p\d+", label):
+            return
+        pins.add(label)
+
+    for pin in getattr(part, "pins", []) or []:
+        for attr in ("name", "num"):
+            add(getattr(pin, attr, None))
+        aliases = getattr(pin, "aliases", None) or []
+        for alias in aliases:
+            add(alias)
+    return sorted(pins)
+
+
+def _infer_pin_lookup(error: SkidlCodeExecutionError) -> dict:
+    """Infer a useful pin lookup diagnostic from the failed source line."""
+    if not error.line_text:
+        return {}
+    lookups = re.findall(
+        r"([A-Za-z_]\w*)\s*\[\s*(['\"])([^'\"]+)\2\s*\]",
+        error.line_text,
+    )
+    for var_name, _quote, pin_name in lookups:
+        obj = error.namespace.get(var_name)
+        if obj is None or not hasattr(obj, "pins"):
+            continue
+        available = _available_part_pins(obj)
+        ref = str(getattr(obj, "ref", var_name))
+        part_name = str(getattr(obj, "name", "") or getattr(obj, "value", "") or "")
+        return {
+            "ref": ref,
+            "part": part_name,
+            "variable": var_name,
+            "pin": pin_name,
+            "available_pins": available[:80],
+            "suggested_pins": _close(pin_name, available, 8),
+        }
+    return {}
+
+
+def _close(token: str, pool: list[str], n: int = 6) -> list[str]:
+    import difflib
+
+    return difflib.get_close_matches(str(token), pool, n=n, cutoff=0.35)
+
+
+def _code_exception(
+    message: str,
+    hint: str = "",
+    *,
+    subject: dict | None = None,
+) -> DesignException:
     return DesignException(
         id="e-code",
         code=ExcCode.CODE_EXEC_ERROR,
         severity=Severity.FATAL,
         message=message,
-        subject={},
+        subject=dict(subject or {}),
         candidates=[],
         retry_hint=hint or "Fix the error in your SKiDL code and resubmit.",
+    )
+
+
+def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException:
+    original = error.original
+    subject = {
+        "python_error": f"{type(original).__name__}: {original}",
+        "traceback_tail": "".join(
+            traceback.format_exception(type(original), original, original.__traceback__)
+        )[-4000:],
+    }
+    if error.line is not None:
+        subject["line"] = error.line
+    if error.line_text:
+        subject["line_text"] = error.line_text
+
+    pin_subject = _infer_pin_lookup(error)
+    if pin_subject:
+        subject.update(pin_subject)
+        pin = pin_subject["pin"]
+        ref = pin_subject["ref"]
+        part = pin_subject.get("part") or "part"
+        suggestions = pin_subject.get("suggested_pins") or []
+        suffix = f"; close pins: {', '.join(suggestions[:5])}" if suggestions else ""
+        return _code_exception(
+            f"pin {pin!r} not found on {ref} ({part}) while executing SKiDL code{suffix}",
+            (
+                "Replace the pin name in the SKiDL code with one from "
+                "subject.available_pins, or call search_kicad(part_name, "
+                "detail=true) to inspect the symbol, then resubmit with "
+                "submit_skidl_code()."
+            ),
+            subject=subject,
+        )
+
+    return _code_exception(
+        f"{type(original).__name__}: {original}",
+        "Inspect subject.line and subject.line_text, edit the SKiDL code, then resubmit.",
+        subject=subject,
     )
 
 
@@ -756,8 +912,7 @@ def _run_skidl_code(envelope: dict) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(out_dir)
 
-    os.environ.setdefault("KICAD9_SYMBOL_DIR", DEFAULT_SYM_DIR)
-    os.environ.setdefault("KICAD9_FOOTPRINT_DIR", DEFAULT_FP_DIR)
+    _configure_kicad_env()
     fp_dirs = [os.environ["KICAD9_FOOTPRINT_DIR"]]
 
     fp_dirs.extend(_easyeda_fp_dirs())
@@ -768,6 +923,12 @@ def _run_skidl_code(envelope: dict) -> dict:
         return _json_result(
             run_id=run_id, ok=False, stage="exec",
             exceptions=[_code_exception(f"SyntaxError: {exc}")],
+            metrics=_metrics(),
+        )
+    except SkidlCodeExecutionError as exc:
+        return _json_result(
+            run_id=run_id, ok=False, stage="exec",
+            exceptions=[_code_exception_from_exec(exc)],
             metrics=_metrics(),
         )
     except Exception as exc:
@@ -939,8 +1100,7 @@ def run(envelope: dict) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(out_dir)
 
-    os.environ.setdefault("KICAD9_SYMBOL_DIR", DEFAULT_SYM_DIR)
-    os.environ.setdefault("KICAD9_FOOTPRINT_DIR", DEFAULT_FP_DIR)
+    _configure_kicad_env()
     fp_dirs = [os.environ["KICAD9_FOOTPRINT_DIR"]]
 
     fp_dirs.extend(_easyeda_fp_dirs())
@@ -1094,6 +1254,7 @@ def main() -> int:
                 crash_exception(
                     f"{type(exc).__name__}: {exc}",
                     stderr=traceback.format_exc(),
+                    stage="engine_worker",
                 )
             ],
             metrics=_metrics(),

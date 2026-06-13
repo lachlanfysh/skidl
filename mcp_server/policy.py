@@ -140,16 +140,20 @@ def decision_kind(exceptions: list[DesignException]) -> str:
     codes = {exc.code for exc in exceptions}
     if not exceptions:
         return ""
-    if any(not exc.candidates for exc in exceptions):
-        return "no_candidate"
+    if codes & {ExcCode.ENGINE_CRASH, ExcCode.ENGINE_TIMEOUT}:
+        return "engine_failure"
+    if codes & {ExcCode.CODE_EXEC_ERROR}:
+        return "code_authoring_error"
+    if codes & {ExcCode.ROUTE_UNAVAILABLE, ExcCode.DRC_TOOL_FAILURE}:
+        return "tool_unavailable"
+    if all(exc.severity == Severity.ADVISORY for exc in exceptions):
+        return "quality_advisory"
     if actions & {ActionType.SET_FORM_FACTOR, ActionType.SET_OUTLINE, ActionType.SCALE_OUTLINE, ActionType.SET_LAYERS}:
         return "mechanical_constraint"
     if actions & {ActionType.REPLACE_LIB, ActionType.REPLACE_PART, ActionType.REPLACE_FOOTPRINT}:
         return "bom_substitution"
     if actions & {ActionType.REPLACE_PIN, ActionType.REMOVE_NET_PIN, ActionType.STUB_NET}:
         return "unknown_pinout"
-    if codes & {ExcCode.ENGINE_CRASH, ExcCode.ENGINE_TIMEOUT}:
-        return "engine_failure"
-    if all(exc.severity == Severity.ADVISORY for exc in exceptions):
-        return "quality_advisory"
+    if any(not exc.candidates for exc in exceptions):
+        return "no_candidate"
     return "correction_choice"

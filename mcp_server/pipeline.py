@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -19,7 +20,7 @@ from mcp_server.exception_mapper import (
 )
 from mcp_server.runs import RunStore
 from schemas.circuit_spec import CircuitSpec
-from schemas.exceptions import DesignException, Severity
+from schemas.exceptions import DesignException, ExcCode, Severity
 from telemetry.features import extract_geometry
 from telemetry.models import LLMStage
 from telemetry.store import session
@@ -58,6 +59,11 @@ def _env() -> dict:
     )
     env.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
     env.setdefault("KICAD9_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
+    for version in ("8", "7", "6"):
+        env.setdefault(f"KICAD{version}_SYMBOL_DIR", env["KICAD9_SYMBOL_DIR"])
+        env.setdefault(f"KICAD{version}_FOOTPRINT_DIR", env["KICAD9_FOOTPRINT_DIR"])
+    env.setdefault("KICAD_SYMBOL_DIR", env["KICAD9_SYMBOL_DIR"])
+    env.setdefault("KICAD_FOOTPRINT_DIR", env["KICAD9_FOOTPRINT_DIR"])
     return env
 
 
@@ -82,6 +88,89 @@ def _kill_process_group(proc: subprocess.Popen) -> None:
         os.killpg(proc.pid, signal.SIGKILL)
     except ProcessLookupError:
         pass
+
+
+def _partial_artifact_names(run_dir: Path) -> list[str]:
+    """Return artifact names that already exist after a worker crash."""
+    names: list[str] = []
+    for pattern in ("*.kicad_sch", "*.kicad_pcb", "bom.csv", "cpl.csv"):
+        names.extend(path.name for path in run_dir.rglob(pattern))
+    gerbers = run_dir / "gerbers"
+    if gerbers.is_dir():
+        names.extend(f"gerbers/{path.name}" for path in gerbers.iterdir() if path.is_file())
+    return sorted(set(names))
+
+
+def _infer_crash_stage(payload: dict, run_dir: Path) -> str:
+    """Best-effort stage for crashes that happen before a JSON result is emitted."""
+    stage = str(payload.get("stage") or "")
+    if stage:
+        return stage
+    artifacts = set(_partial_artifact_names(run_dir))
+    if any(name.endswith(".kicad_pcb") for name in artifacts):
+        return "after_pcb_write"
+    if any(name.endswith(".kicad_sch") for name in artifacts):
+        return "after_schematic"
+    return "worker_crash"
+
+
+_STRING_LINE_RE = re.compile(r"<string>:(?P<line>\d+)")
+_PIN_ERROR_RE = re.compile(
+    r"No pins found using\s+(?P<part>[^:\s]+):(?P<ref>[A-Za-z_]\w*)"
+    r"\[\('(?P<pin>[^']+)'(?:,)?\)\]"
+)
+
+
+def _code_line(code: str, line: int | None) -> str:
+    if not line:
+        return ""
+    lines = code.splitlines()
+    if 1 <= line <= len(lines):
+        return lines[line - 1].strip()
+    return ""
+
+
+def _enrich_code_exceptions(
+    exceptions: list[DesignException],
+    *,
+    stderr: str,
+    code: str,
+) -> list[DesignException]:
+    """Attach actionable context to SKiDL Python execution exceptions."""
+    if not exceptions:
+        return exceptions
+    stderr_tail = stderr[-4000:] if stderr else ""
+    pin_match = _PIN_ERROR_RE.search(stderr_tail)
+    line_match = _STRING_LINE_RE.search(stderr_tail)
+    line = int(line_match.group("line")) if line_match else None
+
+    for exc in exceptions:
+        if exc.code != ExcCode.CODE_EXEC_ERROR:
+            continue
+        subject = dict(exc.subject or {})
+        if stderr_tail:
+            subject.setdefault("stderr_tail", stderr_tail)
+        if line is not None:
+            subject.setdefault("line", line)
+            subject.setdefault("line_text", _code_line(code, line))
+        if pin_match:
+            pin = pin_match.group("pin")
+            ref = pin_match.group("ref")
+            part = pin_match.group("part")
+            subject.setdefault("ref", ref)
+            subject.setdefault("pin", pin)
+            subject.setdefault("part", part)
+            exc.message = (
+                f"pin {pin!r} not found on {ref} ({part}) while executing "
+                "SKiDL code"
+            )
+            exc.retry_hint = (
+                "Edit the SKiDL code to use a valid symbol pin name. Call "
+                "search_kicad(part_name, detail=true) if you need the pin list, "
+                "then resubmit with submit_skidl_code()."
+            )
+        exc.subject = subject
+    return exceptions
 
 
 def _validation_mode(value: object) -> str:
@@ -220,19 +309,25 @@ def run_pipeline(
                 payload = json.loads(lines[-1]) if lines else {}
             except (json.JSONDecodeError, IndexError) as exc:
                 payload = {}
+                artifact_keys = _partial_artifact_names(run_dir)
                 exceptions = [
                     crash_exception(
                         f"worker returned invalid JSON: {type(exc).__name__}: {exc}",
                         stderr=stderr,
+                        stage=_infer_crash_stage(payload, run_dir),
+                        artifact_keys=artifact_keys,
                     )
                 ]
             else:
                 exceptions = payload_exceptions(payload, circuit_spec)
                 if proc.returncode not in (0, None) and not exceptions:
+                    artifact_keys = _partial_artifact_names(run_dir)
                     exceptions = [
                         crash_exception(
                             f"worker exited with status {proc.returncode}",
                             stderr=stderr,
+                            stage=_infer_crash_stage(payload, run_dir),
+                            artifact_keys=artifact_keys,
                         )
                     ]
             ok = bool(payload.get("ok", False)) and not any(
@@ -346,10 +441,13 @@ def run_pipeline_code(
         payload = json.loads(lines[-1]) if lines else {}
     except (json.JSONDecodeError, IndexError) as exc:
         payload = {}
+        artifact_keys = _partial_artifact_names(run_dir)
         exceptions = [
             crash_exception(
                 f"worker returned invalid JSON: {type(exc).__name__}: {exc}",
                 stderr=stderr,
+                stage=_infer_crash_stage(payload, run_dir),
+                artifact_keys=artifact_keys,
             )
         ]
     else:
@@ -358,11 +456,19 @@ def run_pipeline_code(
             else DesignException.model_validate(exc)
             for exc in payload.get("exceptions", [])
         ]
+        exceptions = _enrich_code_exceptions(
+            exceptions,
+            stderr=stderr,
+            code=code,
+        )
         if proc.returncode not in (0, None) and not exceptions:
+            artifact_keys = _partial_artifact_names(run_dir)
             exceptions = [
                 crash_exception(
                     f"worker exited with status {proc.returncode}",
                     stderr=stderr,
+                    stage=_infer_crash_stage(payload, run_dir),
+                    artifact_keys=artifact_keys,
                 )
             ]
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from mcp_server import server
+from mcp_server.policy import decision_kind
 from mcp_server.pipeline import DesignResponse
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
@@ -76,6 +77,42 @@ def overlap_exception() -> DesignException:
             )
         ],
     )
+
+
+def test_decision_kind_classifies_code_errors_before_no_candidate():
+    exc = DesignException(
+        id="e-code",
+        code=ExcCode.CODE_EXEC_ERROR,
+        severity=Severity.FATAL,
+        message="pin not found",
+        candidates=[],
+    )
+
+    assert decision_kind([exc]) == "code_authoring_error"
+
+
+def test_decision_kind_classifies_engine_failures_before_no_candidate():
+    exc = DesignException(
+        id="e-crash",
+        code=ExcCode.ENGINE_CRASH,
+        severity=Severity.FATAL,
+        message="worker exited with status -11",
+        candidates=[],
+    )
+
+    assert decision_kind([exc]) == "engine_failure"
+
+
+def test_decision_kind_classifies_tool_failures_before_no_candidate():
+    exc = DesignException(
+        id="e-route-unavailable",
+        code=ExcCode.ROUTE_UNAVAILABLE,
+        severity=Severity.ADVISORY,
+        message="router unavailable",
+        candidates=[],
+    )
+
+    assert decision_kind([exc]) == "tool_unavailable"
 
 
 def test_generate_policy_auto_applies_advisory(tmp_path, monkeypatch):

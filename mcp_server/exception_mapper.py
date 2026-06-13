@@ -57,10 +57,20 @@ def timeout_exception(timeout_s: float) -> DesignException:
     )
 
 
-def crash_exception(message: str, stderr: str = "") -> DesignException:
+def crash_exception(
+    message: str,
+    stderr: str = "",
+    *,
+    stage: str = "",
+    artifact_keys: list[str] | None = None,
+) -> DesignException:
     subject = {"message": message}
     if stderr:
         subject["stderr_tail"] = stderr[-4000:]
+    if stage:
+        subject["stage"] = stage
+    if artifact_keys:
+        subject["partial_artifacts"] = sorted(artifact_keys)
     return DesignException(
         id="e-crash",
         code=ExcCode.ENGINE_CRASH,
@@ -72,10 +82,15 @@ def crash_exception(message: str, stderr: str = "") -> DesignException:
                 "c1",
                 ActionType.REGENERATE,
                 {},
-                "retry unchanged; if it repeats, inspect the worker stderr",
+                "retry unchanged; this is a service/backend failure, not circuit feedback",
                 "cheap",
             )
         ],
+        retry_hint=(
+            "Retry once unchanged. If it repeats, treat it as a backend issue; "
+            "inspect stderr_tail and any partial_artifacts rather than rewriting "
+            "the circuit."
+        ),
     )
 
 

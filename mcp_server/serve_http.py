@@ -26,6 +26,30 @@ from mcp_server.server_http import db, mcp
 EDA_AUTH_TOKEN = os.environ.get("EDA_AUTH_TOKEN", "")
 
 
+def _env_first(*names: str) -> str:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return ""
+
+
+def build_info() -> dict[str, str]:
+    """Return non-secret deploy metadata for health checks."""
+    return {
+        "commit_sha": _env_first("RAILWAY_GIT_COMMIT_SHA", "GITHUB_SHA", "SOURCE_VERSION"),
+        "branch": _env_first("RAILWAY_GIT_BRANCH", "GITHUB_REF_NAME"),
+        "repo": _env_first("RAILWAY_GIT_REPO_NAME", "GITHUB_REPOSITORY"),
+        "repo_owner": _env_first("RAILWAY_GIT_REPO_OWNER"),
+        "deployment_id": _env_first("RAILWAY_DEPLOYMENT_ID"),
+        "service_id": _env_first("RAILWAY_SERVICE_ID"),
+        "service_name": _env_first("RAILWAY_SERVICE_NAME"),
+        "environment_id": _env_first("RAILWAY_ENVIRONMENT_ID"),
+        "environment_name": _env_first("RAILWAY_ENVIRONMENT_NAME"),
+        "project_id": _env_first("RAILWAY_PROJECT_ID"),
+    }
+
+
 class BearerTokenMiddleware(BaseHTTPMiddleware):
     """Simple static bearer token check. No OAuth, no WWW-Authenticate header."""
 
@@ -59,6 +83,7 @@ async def health(request: Request) -> JSONResponse:
         "db": db_ok,
         "pending_jobs": pending,
         "auth_configured": bool(EDA_AUTH_TOKEN),
+        "build": build_info(),
     })
 
 

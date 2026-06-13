@@ -10,7 +10,12 @@ import sys
 import pytest
 
 from mcp_server.exception_mapper import layout_exceptions, suppress_waived
-from mcp_server.pipeline import run_pipeline, run_pipeline_code
+from mcp_server.pipeline import (
+    _enrich_code_exceptions,
+    _infer_crash_stage,
+    run_pipeline,
+    run_pipeline_code,
+)
 from mcp_server.runs import RunStore
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
@@ -130,6 +135,40 @@ class TestExceptionMapper:
 
         assert exceptions[0].code == ExcCode.LAYOUT_OVERLAP
         assert exceptions[0].candidates[0].action == ActionType.SCALE_OUTLINE
+
+
+class TestHelpfulFailures:
+    def test_code_exec_error_gets_pin_and_line_context(self):
+        exc = DesignException(
+            id="e-code",
+            code=ExcCode.CODE_EXEC_ERROR,
+            severity=Severity.FATAL,
+            message="TypeError: 'NoneType' object is not iterable",
+        )
+        code = "\n".join([
+            "from skidl import *",
+            "ads1115_part = Part('Analog_ADC', 'ADS1115IDGS')",
+            "ain0 = Net('AIN0'); ain0 += ads1115_part['A0']",
+        ])
+        stderr = (
+            "ERROR: No pins found using ADS1115IDGS:U1[('A0',)] "
+            "@ [/app/mcp_server/engine_worker.py:627=>/tmp/run/<string>:3]"
+        )
+
+        _enrich_code_exceptions([exc], stderr=stderr, code=code)
+
+        assert "pin 'A0' not found on U1" in exc.message
+        assert exc.subject["ref"] == "U1"
+        assert exc.subject["pin"] == "A0"
+        assert exc.subject["line"] == 3
+        assert "ads1115_part['A0']" in exc.subject["line_text"]
+        assert "search_kicad" in exc.retry_hint
+
+    def test_crash_stage_infers_partial_artifacts(self, tmp_path):
+        (tmp_path / "amp.kicad_sch").write_text("(schematic)")
+        (tmp_path / "amp.kicad_pcb").write_text("(pcb)")
+
+        assert _infer_crash_stage({}, tmp_path) == "after_pcb_write"
 
 
 @needs_kicad

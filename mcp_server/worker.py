@@ -10,6 +10,7 @@ import tempfile
 import traceback
 import uuid
 from pathlib import Path
+from typing import Any
 
 from mcp_server.db import DB
 from mcp_server.pipeline import DesignResponse, run_pipeline, run_pipeline_code
@@ -55,11 +56,48 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
             if result.get("telemetry_record"):
                 await db.append_telemetry(result["telemetry_record"])
 
-            print(f"{label}: job {job_id} → {status}", flush=True)
+            print(
+                f"{label}: job_result "
+                f"{json.dumps(_job_log_summary(job_id, status, result, artifacts), sort_keys=True)}",
+                flush=True,
+            )
         except Exception as exc:
             tb = traceback.format_exc()
             print(f"{label}: job {job_id} crashed: {exc}\n{tb}", flush=True)
             await db.complete_job(job_id, "failed", error=str(exc))
+
+
+def _job_log_summary(
+    job_id: str,
+    status: str,
+    result: dict[str, Any],
+    artifacts: dict[str, str],
+) -> dict[str, Any]:
+    """Small, non-secret summary for Railway logs."""
+    exceptions = result.get("exceptions") or []
+    exc_summaries: list[dict[str, Any]] = []
+    for exc in exceptions[:5]:
+        if not isinstance(exc, dict):
+            continue
+        exc_summaries.append({
+            "code": exc.get("code"),
+            "severity": exc.get("severity"),
+            "message": str(exc.get("message") or "")[:240],
+            "candidate_count": len(exc.get("candidates") or []),
+        })
+    return {
+        "job_id": job_id,
+        "run_id": result.get("run_id"),
+        "status": status,
+        "pipeline_status": result.get("status"),
+        "ok": bool(result.get("ok")),
+        "stage": result.get("stage"),
+        "decision_kind": result.get("decision_kind"),
+        "exception_count": len(exceptions),
+        "exceptions": exc_summaries,
+        "artifact_count": len(artifacts),
+        "artifact_keys": sorted(artifacts)[:20],
+    }
 
 
 def _execute_job(job: dict) -> dict:

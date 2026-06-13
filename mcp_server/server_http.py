@@ -345,8 +345,56 @@ def _get_job_hint(job: dict) -> str:
     has_pin_errors = any("PIN" in c for c in exc_codes)
     has_footprint_errors = any("FOOTPRINT" in c or "BAD_FOOTPRINT" in c for c in exc_codes)
     has_lib_errors = any("LIB" in c or "PART" in c for c in exc_codes)
+    has_code_errors = "CODE_EXEC_ERROR" in exc_codes
+    has_engine_failure = any(c in {"ENGINE_CRASH", "ENGINE_TIMEOUT"} for c in exc_codes)
+    has_tool_failure = any(c in {"ROUTE_UNAVAILABLE", "DRC_TOOL_FAILURE"} for c in exc_codes)
+    has_no_candidates = any(
+        isinstance(e, dict) and not e.get("candidates")
+        for e in exceptions
+    )
 
     if decision_required:
+        if has_engine_failure:
+            return (
+                "Backend engine failure, not circuit feedback. Retry once unchanged; "
+                f"if it repeats, fetch get_run('{run_id}') to inspect stderr_tail "
+                "and any partial_artifacts, then report the service failure."
+            )
+        if has_code_errors and is_skidl_python:
+            first = next(
+                (e for e in exceptions if isinstance(e, dict)
+                 and e.get("code") == "CODE_EXEC_ERROR"),
+                {},
+            )
+            subject = first.get("subject") if isinstance(first, dict) else {}
+            if not isinstance(subject, dict):
+                subject = {}
+            line = subject.get("line")
+            line_text = subject.get("line_text")
+            available = subject.get("available_pins") or []
+            suggestions = subject.get("suggested_pins") or []
+            details = []
+            if line:
+                details.append(f"line {line}")
+            if line_text:
+                details.append(f"`{line_text}`")
+            if suggestions:
+                details.append(f"suggested pins: {', '.join(map(str, suggestions[:8]))}")
+            elif available:
+                details.append(f"available pins: {', '.join(map(str, available[:12]))}")
+            suffix = f" ({'; '.join(details)})" if details else ""
+            return (
+                f"SKiDL code execution error{suffix}. Edit the SKiDL source "
+                "and resubmit with submit_skidl_code(). apply_correction() only "
+                "supports legacy CircuitSpec JSON runs."
+            )
+        if has_tool_failure:
+            return (
+                "A verification/routing tool was unavailable or failed. This is "
+                "tooling feedback, not necessarily a circuit problem. Inspect "
+                f"the exception subjects and fetch get_run('{run_id}') for the "
+                "generated artifacts before changing the design."
+            )
         parts = []
         if has_pin_errors:
             parts.append(
@@ -363,18 +411,33 @@ def _get_job_hint(job: dict) -> str:
                 "(e.g. 'Sensor_Temperature'), not a manufacturer"
             )
         if is_skidl_python:
-            parts.append(
-                "Use the candidates as repair guidance, edit the SKiDL code, "
-                "and resubmit with submit_skidl_code(). apply_correction() only "
-                "supports legacy CircuitSpec JSON runs"
-            )
+            if has_no_candidates:
+                parts.append(
+                    "No machine-applicable code patch is available; use the "
+                    "exception message, subject, and retry_hint to edit the "
+                    "SKiDL code, then resubmit with submit_skidl_code(). "
+                    "apply_correction() only supports legacy CircuitSpec JSON runs"
+                )
+            else:
+                parts.append(
+                    "Use the candidates as repair guidance, edit the SKiDL code, "
+                    "and resubmit with submit_skidl_code(). apply_correction() only "
+                    "supports legacy CircuitSpec JSON runs"
+                )
         else:
-            parts.append(
-                "Pick candidate fixes and call apply_correction(run_id, corrections). "
-                "This path is legacy CircuitSpec JSON; new clients should prefer "
-                "submit_skidl_code(). Read resource eda://guide/exceptions for "
-                "the full correction model"
-            )
+            if has_no_candidates:
+                parts.append(
+                    "At least one exception has no machine candidate. Edit the "
+                    "legacy CircuitSpec manually using the exception retry_hint, "
+                    "or switch to submit_skidl_code() for the Python-first flow"
+                )
+            else:
+                parts.append(
+                    "Pick candidate fixes and call apply_correction(run_id, corrections). "
+                    "This path is legacy CircuitSpec JSON; new clients should prefer "
+                    "submit_skidl_code(). Read resource eda://guide/exceptions for "
+                    "the full correction model"
+                )
         return ". ".join(parts) + "."
 
     if is_skidl_python:
@@ -1317,15 +1380,15 @@ def _exceptions_guide() -> str:
         "ROUTE_UNCONNECTED": "error: nets that could not be routed",
         "ROUTE_CONGESTION": "advisory: routing succeeded but congestion is high",
         "ROUTE_TIMEOUT": "error: Freerouting exceeded time limit",
-        "ROUTE_UNAVAILABLE": "error: routing tools not available — board is unrouted",
+        "ROUTE_UNAVAILABLE": "tooling advisory/error: routing tools not available or DSN/SES conversion failed",
         "DRC_CLEARANCE": "error: trace/pad clearance violation",
         "DRC_UNCONNECTED": "error: net endpoint not connected after routing",
         "DRC_SHORT": "error: unintended connection between nets",
         "DRC_COURTYARD": "advisory: component courtyard overlap",
-        "DRC_TOOL_FAILURE": "advisory: DRC tool failed to run",
+        "DRC_TOOL_FAILURE": "tooling advisory: DRC tool failed to run",
         "ENGINE_TIMEOUT": "engine hit timeout_s — raise it or simplify",
-        "ENGINE_CRASH": "engine crashed; usually retry (regenerate)",
-        "CODE_EXEC_ERROR": "SKiDL Python code raised an error during execution",
+        "ENGINE_CRASH": "backend worker crashed; retry once, then treat as service failure",
+        "CODE_EXEC_ERROR": "SKiDL Python code raised an error; inspect subject.line, line_text, available_pins",
         "BUDGET_EXHAUSTED": "correction budget used up without convergence",
     }
     action_docs = {
@@ -1387,6 +1450,8 @@ def _exceptions_guide() -> str:
         "- bom_substitution — a part/footprint swap needs approval",
         "- unknown_pinout — pin mapping is uncertain",
         "- engine_failure — crash or timeout",
+        "- code_authoring_error — submitted SKiDL Python failed during execution",
+        "- tool_unavailable — router/DRC tooling was missing or failed",
         "- quality_advisory — only advisories remain; waive or fix",
         "- correction_choice — general fix selection",
         "- no_candidate — at least one exception has no machine fix;",
