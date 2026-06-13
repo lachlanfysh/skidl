@@ -824,6 +824,26 @@ def _search_design_notes(query: str, symbols: list, lcsc: list[dict]) -> list[st
             "exact footprint returned by search_kicad/convert_lcsc rather than "
             "guessing a generic Package_LGA name."
         )
+        notes.append(
+            "BME280/BMP280 symbols commonly use SPI-style pin names in both SPI "
+            "and I2C designs: SDI is I2C SDA, SCK is I2C SCL, SDO selects the "
+            "I2C address, and CSB should be tied high for I2C mode."
+        )
+
+    if re.search(r"\b(opto|optocoupler|opto[-_\s]*isolator|6n13[78])\b", query_lower):
+        notes.append(
+            "KiCad optocoupler/opto-isolator symbols are usually in the "
+            "Isolator library. For MIDI input stages, search specific parts "
+            "such as search_kicad(\"6N138\", detail=true) and copy the returned "
+            "Part(...) usage."
+        )
+
+    if re.search(r"\b(relay|ec2-|g5v|g6k|tx2)\b", query_lower):
+        notes.append(
+            "Relay symbols often expose numeric package pins only. Use "
+            "search_kicad(relay_part, detail=true) before wiring and connect "
+            "the exact numeric coil/contact pins returned by the symbol."
+        )
 
     if re.search(r"\bstm32|atmega|rp2040|nrf52|samd\b", query_lower):
         has_module = any(getattr(sym, "lib", "") == "MCU_Module" for sym in symbols)

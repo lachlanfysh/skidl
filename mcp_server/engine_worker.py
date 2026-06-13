@@ -1306,6 +1306,15 @@ def _connector_pin_family_hint(part_name: str, pin_name: str, available: list[st
     pin = str(pin_name).upper()
     pins_upper = {str(p).upper() for p in available}
 
+    if part_lower in {"bme280", "bmp280", "bme680"}:
+        if pin in {"SDA", "SCL"} and pin not in pins_upper:
+            alias = "SDI" if pin == "SDA" else "SCK"
+            return (
+                f"{part_name} uses Bosch SPI-style pin names even in I2C mode: "
+                f"use {alias} for I2C {pin}. For I2C, tie CSB high; SDO is "
+                "the address-select pin, not SDA."
+            )
+
     if "led_argb" in part_lower or "led_rgb" in part_lower:
         if pin in {"R", "G", "B"} and pin not in pins_upper:
             channel_pins = sorted(
@@ -1328,6 +1337,15 @@ def _connector_pin_family_hint(part_name: str, pin_name: str, available: list[st
             "raw RP2040 symbol/design; for a Pico-module board, omit external "
             "USB data wiring or use only the module's exposed power/GPIO pins."
         )
+
+    if any(term in part_lower for term in ("relay", "ec2-", "g5v", "g6k", "tx2")):
+        if pin not in pins_upper and available and all(re.fullmatch(r"\d+", str(p)) for p in available):
+            return (
+                "This relay symbol exposes numeric package pins only, not semantic "
+                f"names like {pin!r}. Call search_kicad(part_name, detail=true) "
+                "and wire the numeric coil/contact pins exactly; do not invent "
+                "Coil+/Coil-/COM/NO/NC aliases unless the symbol lists them."
+            )
 
     if "audiojack" not in part_lower and "audioplug" not in part_lower:
         return ""
@@ -1431,6 +1449,15 @@ def _missing_symbol_library_hint(lib: str, subject: dict) -> str:
             "library. Use Connector:TestPoint for electrical probe pads, for "
             "example subject.suggested_usage, then wire its single pin to the "
             "net being probed."
+        )
+
+    if lib.lower() == "optodevice":
+        subject["suggested_search"] = "search_kicad(\"6N138 optocoupler\", detail=true)"
+        return (
+            "KiCad optocoupler/opto-isolator symbols are usually in the "
+            "Isolator symbol library, not OptoDevice. Call "
+            "subject.suggested_search and copy the returned Part(...) usage "
+            "before resubmitting."
         )
 
     return (

@@ -386,6 +386,19 @@ class TestHelpfulFailures:
         assert "TestPoint is a KiCad footprint library" in exc.retry_hint
         assert "Connector:TestPoint" in exc.retry_hint
 
+    def test_missing_optodevice_library_suggests_isolator_search(self):
+        class FakeExecError:
+            original = FileNotFoundError("Can't open file: OptoDevice.\n")
+            line = 10
+            line_text = 'opto = Part("OptoDevice", "6N138")'
+            namespace = {}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.message == "symbol library 'OptoDevice' is not available to SKiDL"
+        assert exc.subject["suggested_search"] == 'search_kicad("6N138 optocoupler", detail=true)'
+        assert "Isolator" in exc.retry_hint
+
     def test_missing_symbol_part_error_is_specific(self):
         class FakeExecError:
             original = ValueError("Unable to find part LCD_16x2 in library Display_Character.")
@@ -529,6 +542,62 @@ class TestHelpfulFailures:
         assert "pin_family_hint" in exc.subject
         assert "complete module with onboard USB" in exc.retry_hint
         assert "raw RP2040" in exc.retry_hint
+
+    def test_bme280_i2c_pin_error_explains_spi_aliases(self):
+        bme = SimpleNamespace(
+            ref="U1",
+            name="BME280",
+            pins=[
+                SimpleNamespace(name="SDI", num="6"),
+                SimpleNamespace(name="SCK", num="4"),
+                SimpleNamespace(name="SDO", num="5"),
+                SimpleNamespace(name="CSB", num="2"),
+                SimpleNamespace(name="GND", num="1"),
+                SimpleNamespace(name="VDD", num="8"),
+            ],
+        )
+
+        class FakeExecError:
+            original = ValueError("No pins found using U1['SDA']")
+            line = 31
+            line_text = 'sda += bme["SDA"]'
+            namespace = {"bme": bme}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.subject["pin"] == "SDA"
+        assert "pin_family_hint" in exc.subject
+        assert "SDI for I2C SDA" in exc.retry_hint
+        assert "CSB high" in exc.retry_hint
+
+    def test_numeric_relay_pin_error_warns_against_semantic_aliases(self):
+        relay = SimpleNamespace(
+            ref="K1",
+            name="EC2-3NU",
+            pins=[
+                SimpleNamespace(name="~", num="1"),
+                SimpleNamespace(name="~", num="3"),
+                SimpleNamespace(name="~", num="4"),
+                SimpleNamespace(name="~", num="5"),
+                SimpleNamespace(name="~", num="8"),
+                SimpleNamespace(name="~", num="9"),
+                SimpleNamespace(name="~", num="10"),
+                SimpleNamespace(name="~", num="12"),
+            ],
+        )
+
+        class FakeExecError:
+            original = ValueError("No pins found using K1['Coil+']")
+            line = 47
+            line_text = 'jack_signal += relay["Coil+"]'
+            namespace = {"relay": relay}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.subject["pin"] == "Coil+"
+        assert "pin_family_hint" in exc.subject
+        assert "numeric package pins only" in exc.retry_hint
+        assert "Coil+/Coil-/COM/NO/NC" in exc.retry_hint
 
     def test_missing_footprint_error_suggests_replacements(self, monkeypatch):
         from llm import kicad_index

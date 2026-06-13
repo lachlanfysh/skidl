@@ -357,6 +357,20 @@ def _symbol_switch_boost(query_lower: str, entry: SymbolEntry) -> float:
     return 0.0
 
 
+def _symbol_isolator_boost(query_lower: str, entry: SymbolEntry) -> float:
+    if not any(term in query_lower for term in ("opto", "isolator", "optocoupler", "6n137", "6n138")):
+        return 0.0
+    combined = f"{entry.lib} {entry.name} {entry.description} {entry.keywords}".lower()
+    score = 0.0
+    if entry.lib == "Isolator":
+        score += 8.0
+    if any(term in combined for term in ("opto", "isolator", "optocoupler", "6n137", "6n138")):
+        score += 6.0
+    if "midi" in query_lower and entry.name.lower() in {"6n137", "6n138"}:
+        score += 4.0
+    return score
+
+
 def _symbol_mcu_variant_boost(query_lower: str, entry: SymbolEntry) -> float:
     """Match exact MCU order codes to KiCad's package-family symbol names."""
     match = re.search(r"\b(stm32[a-z0-9]+)\b", query_lower)
@@ -410,6 +424,7 @@ def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
             score += _symbol_din_connector_boost(query_lower, entry)
             score += _symbol_audio_connector_boost(query_lower, entry)
             score += _symbol_switch_boost(query_lower, entry)
+            score += _symbol_isolator_boost(query_lower, entry)
             score += _symbol_mcu_variant_boost(query_lower, entry)
             if score > 0:
                 scored.append((score, entry))

@@ -108,6 +108,15 @@ def _fake_symbols(monkeypatch):
                     pin_count=48,
                 ),
             ],
+            "Isolator": [
+                SymbolEntry(
+                    lib="Isolator",
+                    name="6N138",
+                    description="High speed optocoupler, open collector output",
+                    keywords="opto optocoupler isolator midi",
+                    pin_count=8,
+                ),
+            ],
         },
     )
 
@@ -203,6 +212,15 @@ def test_search_symbols_matches_stm32_order_code_to_package_family(monkeypatch):
 
     assert matches[0].lib == "MCU_ST_STM32F1"
     assert matches[0].name == "STM32F103C8Tx"
+
+
+def test_search_symbols_prefers_isolator_for_midi_opto(monkeypatch):
+    _fake_symbols(monkeypatch)
+
+    matches = kicad_index.search_symbols("MIDI opto-isolator", limit=3)
+
+    assert matches[0].lib == "Isolator"
+    assert matches[0].name == "6N138"
 
 
 def test_search_symbols_prefers_switch_library_for_keyboard_switch(monkeypatch):
