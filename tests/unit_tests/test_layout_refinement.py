@@ -139,6 +139,36 @@ def test_refinement_preserves_edge_anchor_positions():
     assert by_ref["J1"].rot_deg == pytest.approx(180.0)
 
 
+def test_refinement_legalizes_overlap_without_net_centroid():
+    u1 = _Part("U1", "Package_QFP:MCU", pins=8)
+    u2 = _Part("U2", "Package_QFP:MCU", pins=8)
+    circuit = _Circuit([u1, u2], [])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(60.0, 40.0),
+        fixed=[FixedPosition("U1", 20.0, 20.0)],
+    )
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("U2", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+    ]
+
+    result = refine_placement(placed, circuit, BBOXES, constraints=constraints)
+    by_ref = {part.ref: part for part in result.placed_parts}
+    score = score_placement(
+        result.placed_parts,
+        circuit,
+        BBOXES,
+        outline=constraints.outline,
+    )
+
+    assert result.accepted_moves >= 1
+    assert score.overlap_count == 0
+    assert by_ref["U1"].x_mm == pytest.approx(20.0)
+    assert by_ref["U1"].y_mm == pytest.approx(20.0)
+    assert by_ref["U2"].x_mm != pytest.approx(20.0) or by_ref["U2"].y_mm != pytest.approx(20.0)
+    assert "legalized overlap" in "; ".join(result.ref_reasons["U2"])
+
+
 def test_refinement_can_rotate_geometry_into_outline():
     circuit = _Circuit([_Part("U1", "Package:Long", pins=8)], [])
     constraints = LayoutConstraints(outline=BoardOutline(20.0, 20.0))

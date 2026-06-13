@@ -6,8 +6,10 @@ from dataclasses import dataclass, field
 from .candidates import PlacementCandidate
 from .constraints import LayoutConstraints
 from .geometry import FootprintGeometry
+from .placer import _find_clear_position
 from .roles import GND_NET_RE, POWER_NET_RE, classify_parts
 from .scoring import LayoutScore, score_placement
+from .validator import validate
 from .writer import PlacedPart
 
 
@@ -336,6 +338,133 @@ def _best_single_ref_trial(
     return best_parts, best_score, best_trial
 
 
+def _occupied_without_ref(
+    placed_parts: list[PlacedPart],
+    ref: str,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    constraints: LayoutConstraints | None,
+) -> list[tuple[float, float, float, float]]:
+    occupied: list[tuple[float, float, float, float]] = []
+    if constraints is not None:
+        for keepout in constraints.keepouts or []:
+            occupied.append(
+                (
+                    (keepout.x_min + keepout.x_max) / 2,
+                    (keepout.y_min + keepout.y_max) / 2,
+                    keepout.x_max - keepout.x_min,
+                    keepout.y_max - keepout.y_min,
+                )
+            )
+    for part in placed_parts:
+        if part.ref == ref:
+            continue
+        width_mm, height_mm = _part_dimensions(part, fp_bboxes, fp_geometries)
+        occupied.append((part.x_mm, part.y_mm, width_mm, height_mm))
+    return occupied
+
+
+def _clearance_search_radius(bounds) -> float:
+    if bounds is None:
+        return 160.0
+    return max(80.0, bounds.x_max - bounds.x_min, bounds.y_max - bounds.y_min)
+
+
+def _legalize_one_overlap(
+    placed_parts: list[PlacedPart],
+    current_score: LayoutScore,
+    circuit,
+    fp_bboxes: dict[str, tuple[float, float]],
+    constraints: LayoutConstraints | None,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    clearance_mm: float,
+    board_layers: int,
+    position_locked: set[str],
+    degrees: dict[str, int],
+) -> tuple[list[PlacedPart], LayoutScore, str, str] | None:
+    validation = validate(
+        placed_parts,
+        circuit,
+        fp_bboxes,
+        clearance_mm=clearance_mm,
+        outline=constraints.outline if constraints is not None else None,
+        keepouts=constraints.keepouts if constraints is not None else None,
+        fp_geometries=fp_geometries,
+    )
+    if not validation.overlaps:
+        return None
+
+    placed_by_ref = {part.ref: part for part in placed_parts}
+    for ref_a, ref_b in validation.overlaps:
+        candidates = [
+            ref
+            for ref in (ref_a, ref_b)
+            if ref in placed_by_ref and ref not in position_locked
+        ]
+        candidates.sort(key=lambda ref: (degrees.get(ref, 0), ref))
+        for ref in candidates:
+            placed = placed_by_ref[ref]
+            width_mm, height_mm = _part_dimensions(
+                placed,
+                fp_bboxes,
+                fp_geometries,
+            )
+            bounds = _bounds_for_ref(ref, constraints)
+            x_mm, y_mm = _find_clear_position(
+                placed.x_mm,
+                placed.y_mm,
+                width_mm,
+                height_mm,
+                _occupied_without_ref(
+                    placed_parts,
+                    ref,
+                    fp_bboxes,
+                    fp_geometries,
+                    constraints,
+                ),
+                bounds=bounds,
+                step=1.0,
+                max_radius=_clearance_search_radius(bounds),
+            )
+            x_mm, y_mm = _clamp_to_bounds(
+                x_mm,
+                y_mm,
+                width_mm,
+                height_mm,
+                bounds,
+            )
+            if (
+                abs(x_mm - placed.x_mm) <= 1e-6
+                and abs(y_mm - placed.y_mm) <= 1e-6
+            ):
+                continue
+            trial = PlacedPart(
+                ref=placed.ref,
+                x_mm=x_mm,
+                y_mm=y_mm,
+                rot_deg=placed.rot_deg,
+                footprint=placed.footprint,
+            )
+            trial_parts = _replace_ref(placed_parts, ref, trial)
+            trial_score = _score(
+                trial_parts,
+                circuit,
+                fp_bboxes,
+                constraints,
+                fp_geometries,
+                clearance_mm,
+                board_layers,
+            )
+            if _is_better(current_score, trial_score):
+                other = ref_b if ref == ref_a else ref_a
+                reason = (
+                    f"legalized overlap with {other} by moving to "
+                    f"({x_mm:.1f},{y_mm:.1f})"
+                )
+                return trial_parts, trial_score, ref, reason
+    return None
+
+
 def _same_swap_class(
     a: PlacedPart,
     b: PlacedPart,
@@ -501,6 +630,26 @@ def refine_placement(
                     f"locally swapped position with {a.ref}"
                 )
                 break
+
+        placed_by_ref = {part.ref: part for part in current_parts}
+        neighbors, degrees = _ref_neighbors(circuit, placed_by_ref)
+        legalized = _legalize_one_overlap(
+            current_parts,
+            current_score,
+            circuit,
+            fp_bboxes,
+            constraints,
+            fp_geometries,
+            clearance_mm,
+            board_layers,
+            position_locked,
+            degrees,
+        )
+        if legalized is not None:
+            current_parts, current_score, moved_ref, reason = legalized
+            accepted_moves += 1
+            changed = True
+            ref_reasons.setdefault(moved_ref, []).append(reason)
 
         if not changed:
             break
