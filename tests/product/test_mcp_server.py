@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-from mcp_server.exception_mapper import layout_exceptions, suppress_waived
+from mcp_server.exception_mapper import crash_exception, layout_exceptions, suppress_waived
 from mcp_server.engine_worker import (
     _circuit_to_spec_dict,
     _exec_skidl,
@@ -186,6 +186,23 @@ class TestHelpfulFailures:
         assert exc.code == ExcCode.MANUFACTURING_OUTPUT_FAILURE
         assert exc.severity == Severity.ERROR
         assert exc.subject["missing_outputs"] == missing
+
+    def test_terminal_clash_crash_maps_to_schematic_routing_failure(self):
+        stderr = "\n".join([
+            "Traceback (most recent call last):",
+            "  File \"/app/src/skidl/schematics/route.py\", line 495, in add_terminal",
+            "    raise TerminalClashException",
+            "skidl.schematics.route.TerminalClashException",
+        ])
+
+        exc = crash_exception("TerminalClashException: ", stderr, stage="engine_worker")
+
+        assert exc.code == ExcCode.SCH_ROUTING_FAILURE
+        assert exc.severity == Severity.FATAL
+        assert exc.subject["stage"] == "schematic_routing"
+        assert exc.subject["exception"] == "TerminalClashException"
+        assert exc.candidates[0].action == ActionType.REGENERATE
+        assert "schematic renderer limitation" in exc.retry_hint
 
 
 @needs_kicad

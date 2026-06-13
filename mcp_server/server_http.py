@@ -1434,7 +1434,7 @@ def _exceptions_guide() -> str:
         "SPEC_BAD_FOOTPRINT": "footprint id malformed or unknown",
         "FOOTPRINT_MISSING": "footprint not found in KiCad libraries at layout time",
         "SCH_PLACEMENT_FAILURE": "schematic placer could not place cleanly",
-        "SCH_ROUTING_FAILURE": "schematic wiring failed",
+        "SCH_ROUTING_FAILURE": "schematic wiring/rendering failed; retry once, then treat repeated failures as a renderer limitation",
         "ERC_PIN_NOT_CONNECTED": "ERC: pin left floating",
         "ERC_PIN_NOT_DRIVEN": "ERC: input pin has no driver",
         "ERC_REAL_ERROR": "ERC: electrical conflict (e.g. two outputs tied)",

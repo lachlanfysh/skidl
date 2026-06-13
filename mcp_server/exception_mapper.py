@@ -64,6 +64,42 @@ def crash_exception(
     stage: str = "",
     artifact_keys: list[str] | None = None,
 ) -> DesignException:
+    text = f"{message}\n{stderr}"
+    if "TerminalClashException" in text:
+        subject = {
+            "message": message,
+            "stage": "schematic_routing",
+            "exception": "TerminalClashException",
+        }
+        if stderr:
+            subject["stderr_tail"] = stderr[-4000:]
+        if artifact_keys:
+            subject["partial_artifacts"] = sorted(artifact_keys)
+        return DesignException(
+            id="e-sch-route",
+            code=ExcCode.SCH_ROUTING_FAILURE,
+            severity=Severity.FATAL,
+            message=(
+                "schematic auto-router failed while rendering the circuit "
+                "(TerminalClashException)"
+            ),
+            subject=subject,
+            candidates=[
+                _candidate(
+                    "c1",
+                    ActionType.REGENERATE,
+                    {},
+                    "retry unchanged; this is a schematic rendering failure, not PCB layout feedback",
+                    "cheap",
+                )
+            ],
+            retry_hint=(
+                "Retry once unchanged. If it repeats, treat it as a schematic "
+                "renderer limitation; preserve the circuit and report the "
+                "stderr_tail rather than rewriting unrelated circuitry."
+            ),
+        )
+
     subject = {"message": message}
     if stderr:
         subject["stderr_tail"] = stderr[-4000:]
