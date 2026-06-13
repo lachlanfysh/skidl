@@ -1,17 +1,21 @@
 """
-Si5351A Clock Generator Breakout Board
-- Si5351A I2C clock generator with 25MHz crystal reference
-- Three independent clock outputs (CLK0, CLK1, CLK2)
-- 3.3V LDO regulator for 3-5V input power
-- I2C level shifting for 3V/5V logic compatibility
-- Optional SMA connector for RF output on CLK0
-- Breakout header for all signals
+Si5351A I2C Clock Generator Breakout Board (MCP-generated)
+===========================================================
+Si5351A-B-GT (MSOP-10) with 25MHz crystal reference.
+Three independent outputs (CLK0, CLK1, CLK2) programmable 8KHz-150MHz.
+3.3V LDO regulator for 3-5VDC input power.
+Bidirectional I2C level shifter (BSS138) for 5V/3.3V compatibility.
+
+Generated via MCP server using exact KiCad library parts from search_kicad().
+Run: cf4d6d1b8d15 | Layout score: 53.1/100 | Pads: 78 | Board: 75x60mm
 """
 import os
 os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
 
 from skidl import *
 set_default_tool(KICAD9)
+
+# ===== MCP-generated circuit =====
 
 
 def _init_skidl_pins(part):
