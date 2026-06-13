@@ -860,6 +860,9 @@ class TestAgentUX:
             "panel",
             "USB-C",
             "screw terminals",
+            "Mechanical:MountingHole",
+            "Connector:TestPoint",
+            "Device:TestPoint",
         ):
             assert needle in PARTS_GUIDE
         assert "eda://guide/parts" in SKIDL_GUIDE

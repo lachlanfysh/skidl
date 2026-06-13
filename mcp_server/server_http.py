@@ -1072,6 +1072,27 @@ connector.
 - A pin header footprint is not a symbol. Use
   `Part("Connector_Generic", "Conn_01xNN", footprint="Connector_PinHeader_...")`.
 
+## Mounting holes and test points
+
+- Mounting holes are mechanical parts. Use `Mechanical:MountingHole` or
+  `Mechanical:MountingHole_Pad`, not `Device:TestPoint`.
+- Plain screw holes usually have no electrical net:
+  `Part("Mechanical", "MountingHole", footprint="MountingHole:MountingHole_3.2mm_M3")`.
+- Use plated/padded mounting holes only when the hole should connect to a
+  net such as chassis, shield, or GND:
+  `Part("Mechanical", "MountingHole_Pad", footprint="MountingHole:MountingHole_3.2mm_M3_Pad_TopBottom")`.
+- Electrical probe pads are `Connector:TestPoint` with a `TestPoint:*`
+  footprint, then connect pin 1 to the measured net:
+  `tp = Part("Connector", "TestPoint", footprint="TestPoint:TestPoint_Pad_D1.5mm")`.
+
+Search examples:
+
+```
+search_kicad("Mechanical MountingHole M3", detail=true)
+search_kicad("Connector TestPoint pad", detail=true)
+search_kicad("TestPoint_Pad_D1.5mm footprint")
+```
+
 ## When to ask the human
 
 Ask before committing when the mechanical choice affects the product:
