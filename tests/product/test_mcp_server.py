@@ -289,6 +289,45 @@ class TestHelpfulFailures:
         assert "suggested_pins" not in exc.subject
         assert "variable" not in exc.subject
 
+    def test_stderr_numeric_pin_context_overrides_wrong_line_inference(self):
+        exc = DesignException(
+            id="e-code",
+            code=ExcCode.CODE_EXEC_ERROR,
+            severity=Severity.FATAL,
+            message="pin 'VCC' not found on DS1 (OLED-128O064D)",
+            subject={
+                "ref": "DS1",
+                "pin": "VCC",
+                "part": "OLED-128O064D",
+                "variable": "display",
+                "available_pins": ["GND", "VCC", "SCL", "SDA"],
+                "suggested_pins": ["VCC"],
+            },
+        )
+        code = "\n".join([
+            "from skidl import *",
+            "vcc += encoder[1], button[1], display['VCC'], buzzer[1], c1[1]",
+        ])
+        stderr = (
+            "ERROR: No pins found using RotaryEncoder_Switch:SW1[(1,)] "
+            "@ [/app/mcp_server/engine_worker.py:972=>/tmp/run/<string>:2]"
+        )
+
+        _enrich_code_exceptions([exc], stderr=stderr, code=code)
+
+        assert (
+            exc.message
+            == "pin '1' not found on SW1 (RotaryEncoder_Switch) while executing SKiDL code"
+        )
+        assert exc.subject["ref"] == "SW1"
+        assert exc.subject["pin"] == "1"
+        assert exc.subject["part"] == "RotaryEncoder_Switch"
+        assert exc.subject["line"] == 2
+        assert "encoder[1]" in exc.subject["line_text"]
+        assert "available_pins" not in exc.subject
+        assert "suggested_pins" not in exc.subject
+        assert "variable" not in exc.subject
+
     def test_missing_symbol_library_error_is_specific(self):
         class FakeExecError:
             original = FileNotFoundError("Can't open file: Connector_USB.\n")

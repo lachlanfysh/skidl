@@ -137,7 +137,8 @@ def _infer_crash_stage(payload: dict, run_dir: Path) -> str:
 _STRING_LINE_RE = re.compile(r"<string>:(?P<line>\d+)")
 _PIN_ERROR_RE = re.compile(
     r"No pins found using\s+(?P<part>[^:\s]+):(?P<ref>[A-Za-z_]\w*)"
-    r"\[\('(?P<pin>[^']+)'(?:,)?\)\]"
+    r"\[\((?:'(?P<pin_quoted>[^']+)'|\"(?P<pin_dquoted>[^\"]+)\"|"
+    r"(?P<pin_raw>[^,\)\]]+))(?:,)?\)\]"
 )
 
 
@@ -174,7 +175,12 @@ def _enrich_code_exceptions(
             subject.setdefault("line", line)
             subject.setdefault("line_text", _code_line(code, line))
         if pin_match:
-            pin = pin_match.group("pin")
+            pin = (
+                pin_match.group("pin_quoted")
+                or pin_match.group("pin_dquoted")
+                or pin_match.group("pin_raw")
+                or ""
+            ).strip()
             ref = pin_match.group("ref")
             part = pin_match.group("part")
             mismatch = any(
