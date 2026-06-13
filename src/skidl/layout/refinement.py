@@ -72,13 +72,13 @@ def _hard_count(score: LayoutScore) -> int:
 
 
 def _is_better(current: LayoutScore, trial: LayoutScore) -> bool:
-    if trial.score <= current.score + 1e-6:
-        return False
     current_hard = _hard_count(current)
     trial_hard = _hard_count(trial)
-    if current_hard == 0 and trial_hard > 0:
+    if trial_hard < current_hard:
+        return True
+    if trial_hard > current_hard:
         return False
-    return trial_hard <= current_hard
+    return trial.score > current.score + 1e-6
 
 
 def _replace_ref(
@@ -488,6 +488,7 @@ def refine_placement(
     max_passes: int = 1,
     max_movable_refs: int = 32,
     max_pair_swaps: int = 16,
+    max_legalization_moves: int = 16,
 ) -> RefinementResult:
     """Apply deterministic score-gated local placement adjustments."""
     current_parts = _clone_placed(placed_parts)
@@ -631,23 +632,27 @@ def refine_placement(
                 )
                 break
 
-        placed_by_ref = {part.ref: part for part in current_parts}
-        neighbors, degrees = _ref_neighbors(circuit, placed_by_ref)
-        legalized = _legalize_one_overlap(
-            current_parts,
-            current_score,
-            circuit,
-            fp_bboxes,
-            constraints,
-            fp_geometries,
-            clearance_mm,
-            board_layers,
-            position_locked,
-            degrees,
-        )
-        if legalized is not None:
+        legalizations = 0
+        while legalizations < max_legalization_moves:
+            placed_by_ref = {part.ref: part for part in current_parts}
+            neighbors, degrees = _ref_neighbors(circuit, placed_by_ref)
+            legalized = _legalize_one_overlap(
+                current_parts,
+                current_score,
+                circuit,
+                fp_bboxes,
+                constraints,
+                fp_geometries,
+                clearance_mm,
+                board_layers,
+                position_locked,
+                degrees,
+            )
+            if legalized is None:
+                break
             current_parts, current_score, moved_ref, reason = legalized
             accepted_moves += 1
+            legalizations += 1
             changed = True
             ref_reasons.setdefault(moved_ref, []).append(reason)
 

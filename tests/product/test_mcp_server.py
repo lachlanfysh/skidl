@@ -366,6 +366,37 @@ gnd += j1[2], r1[2]
         assert any(exc.code == ExcCode.FOOTPRINT_MISSING for exc in response.exceptions)
         assert not any(exc.code == ExcCode.ENGINE_CRASH for exc in response.exceptions)
 
+    def test_python_mode_handles_mounting_holes_and_test_points(self, tmp_path):
+        code = """
+from skidl import *
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
+j1 = Part("Connector_Generic", "Conn_01x02",
+          footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+r1 = Part("Device", "R", value="1K", footprint="Resistor_SMD:R_0603_1608Metric")
+tp_vcc = Part("Connector", "TestPoint",
+              footprint="TestPoint:TestPoint_Pad_D1.5mm")
+tp_gnd = Part("Connector", "TestPoint",
+              footprint="TestPoint:TestPoint_Pad_D1.5mm")
+mh1 = Part("Mechanical", "MountingHole",
+           footprint="MountingHole:MountingHole_3.2mm_M3")
+mh2 = Part("Mechanical", "MountingHole",
+           footprint="MountingHole:MountingHole_3.2mm_M3")
+vcc += j1[1], r1[1], tp_vcc[1]
+gnd += j1[2], r1[2], tp_gnd[1]
+"""
+
+        response = run_pipeline_code(
+            code,
+            board_name="mechanical-parts",
+            outline_mm=[40.0, 25.0],
+            out_dir=tmp_path,
+            timeout_s=120,
+        )
+
+        assert response.stage != "engine_worker"
+        assert not any(exc.code == ExcCode.ENGINE_CRASH for exc in response.exceptions)
+
     def test_python_extraction_does_not_mark_signal_nets_as_power(self):
         code = """
 from skidl import *

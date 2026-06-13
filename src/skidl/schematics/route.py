@@ -1341,7 +1341,11 @@ class SwitchBox:
                     break
                 # Get the box which will be added if expansion occurs.
                 # Every face borders two switchboxes, so the adjacent box is the other one.
-                adj_box = (box_face.switchboxes - {box}).pop()
+                adjacent_boxes = box_face.switchboxes - {box}
+                if not adjacent_boxes:
+                    active_directions.remove(direction)
+                    break
+                adj_box = next(iter(adjacent_boxes))
                 if adj_box not in switchboxes:
                     # This box cannot be added, so expansion in this direction is blocked.
                     active_directions.remove(direction)
@@ -1352,7 +1356,10 @@ class SwitchBox:
                 for i, box in enumerate(box_list[:]):
                     # Get the adjacent box for the current box on the growth side.
                     box_face = box.face_list[direction]
-                    adj_box = (box_face.switchboxes - {box}).pop()
+                    adjacent_boxes = box_face.switchboxes - {box}
+                    if not adjacent_boxes:
+                        continue
+                    adj_box = next(iter(adjacent_boxes))
                     # Replace the current box with the new box from the expansion.
                     box_list[i] = adj_box
                     # Remove the newly added box from the list of available boxes for growth.
@@ -2623,7 +2630,10 @@ class Router:
                     if adj_pt in visited_pts + frontier_pts:
                         # This point was already reached by another path so there is a cycle.
                         # Break it by removing segment between frontier_pt and adj_pt.
-                        loop_seg = (adj_segs[frontier_pt] & adj_segs[adj_pt]).pop()
+                        loop_segs = adj_segs[frontier_pt] & adj_segs[adj_pt]
+                        if not loop_segs:
+                            continue
+                        loop_seg = next(iter(loop_segs))
                         segments.remove(loop_seg)
                         adj_segs[frontier_pt].remove(loop_seg)
                         adj_segs[adj_pt].remove(loop_seg)

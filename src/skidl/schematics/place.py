@@ -91,12 +91,24 @@ def get_snap_pt(part_or_blk):
         Point: Point for snapping to grid or None if no point found.
     """
     try:
-        return part_or_blk.pins[0].pt
+        pins = part_or_blk.pins
     except AttributeError:
-        try:
-            return part_or_blk.snap_pt
-        except AttributeError:
-            return None
+        pass
+    else:
+        if pins:
+            return pins[0].pt
+
+    try:
+        snap_pt = part_or_blk.snap_pt
+    except AttributeError:
+        snap_pt = None
+    if snap_pt is not None:
+        return snap_pt
+
+    try:
+        return part_or_blk.place_bbox.ctr
+    except AttributeError:
+        return None
 
 
 def snap_to_grid(part_or_blk):
@@ -107,13 +119,16 @@ def snap_to_grid(part_or_blk):
     """
 
     # Get the position of the current snap point.
-    pt = get_snap_pt(part_or_blk) * part_or_blk.tx
+    snap_pt = get_snap_pt(part_or_blk)
+    if snap_pt is None:
+        return
+    pt = snap_pt * part_or_blk.tx
 
     # This is where the snap point should be on the grid.
-    snap_pt = pt.snap(GRID)
+    grid_pt = pt.snap(GRID)
 
     # This is the required movement to get on-grid.
-    mv = snap_pt - pt
+    mv = grid_pt - pt
 
     # Update the object's transformation matrix.
     snap_tx = Tx(dx=mv.x, dy=mv.y)
@@ -242,6 +257,7 @@ def add_anchor_pull_pins(parts, nets, **options):
             except ValueError:
                 # Set anchor for part with no pins at all.
                 anchor_pull_pin = Pin()
+                anchor_pull_pin.part = part
                 anchor_pull_pin.place_pt = part.place_bbox.max
             part.anchor_pins["similarity"] = [anchor_pull_pin]
             part.pull_pins["similarity"] = all_pull_pins

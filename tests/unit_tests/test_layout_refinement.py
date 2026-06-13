@@ -5,8 +5,8 @@ import pytest
 from skidl.layout.candidates import PlacementCandidate
 from skidl.layout.constraints import BoardOutline, EdgeAnchor, FixedPosition, LayoutConstraints
 from skidl.layout.geometry import FootprintGeometry
-from skidl.layout.refinement import refine_candidate_placement, refine_placement
-from skidl.layout.scoring import score_placement
+from skidl.layout.refinement import _is_better, refine_candidate_placement, refine_placement
+from skidl.layout.scoring import LayoutScore, score_placement
 from skidl.layout.writer import PlacedPart
 
 
@@ -139,6 +139,21 @@ def test_refinement_preserves_edge_anchor_positions():
     assert by_ref["J1"].rot_deg == pytest.approx(180.0)
 
 
+def test_refinement_better_gate_prioritizes_hard_violations():
+    assert _is_better(
+        LayoutScore(score=60.0, overlap_count=2),
+        LayoutScore(score=55.0, overlap_count=1),
+    )
+    assert not _is_better(
+        LayoutScore(score=60.0, overlap_count=1),
+        LayoutScore(score=90.0, overlap_count=2),
+    )
+    assert _is_better(
+        LayoutScore(score=60.0, overlap_count=1),
+        LayoutScore(score=65.0, overlap_count=1),
+    )
+
+
 def test_refinement_legalizes_overlap_without_net_centroid():
     u1 = _Part("U1", "Package_QFP:MCU", pins=8)
     u2 = _Part("U2", "Package_QFP:MCU", pins=8)
@@ -167,6 +182,30 @@ def test_refinement_legalizes_overlap_without_net_centroid():
     assert by_ref["U1"].y_mm == pytest.approx(20.0)
     assert by_ref["U2"].x_mm != pytest.approx(20.0) or by_ref["U2"].y_mm != pytest.approx(20.0)
     assert "legalized overlap" in "; ".join(result.ref_reasons["U2"])
+
+
+def test_refinement_legalizes_multiple_independent_overlaps():
+    parts = [_Part(ref, "Package_QFP:MCU", pins=8) for ref in ("U1", "U2", "U3", "U4")]
+    circuit = _Circuit(parts, [])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(80.0, 50.0),
+        fixed=[FixedPosition("U1", 20.0, 20.0)],
+    )
+    placed = [
+        PlacedPart(part.ref, 20.0, 20.0, 0.0, "Package_QFP:MCU")
+        for part in parts
+    ]
+
+    result = refine_placement(placed, circuit, BBOXES, constraints=constraints)
+    score = score_placement(
+        result.placed_parts,
+        circuit,
+        BBOXES,
+        outline=constraints.outline,
+    )
+
+    assert result.accepted_moves >= 3
+    assert score.overlap_count == 0
 
 
 def test_refinement_can_rotate_geometry_into_outline():
