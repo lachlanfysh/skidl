@@ -71,17 +71,27 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
 
 
 async def health(request: Request) -> JSONResponse:
-    pending = 0
+    counts = {
+        "pending": 0,
+        "queued": 0,
+        "running": 0,
+        "stale_running": 0,
+        "active": 0,
+    }
     db_ok = db.pool is not None
     if db_ok:
         try:
-            pending = await db.count_pending()
+            counts = await db.job_status_counts()
         except Exception:
             db_ok = False
     return JSONResponse({
         "status": "ok" if db_ok else "degraded",
         "db": db_ok,
-        "pending_jobs": pending,
+        "pending_jobs": counts["pending"],
+        "queued_jobs": counts["queued"],
+        "running_jobs": counts["running"],
+        "stale_running_jobs": counts["stale_running"],
+        "active_jobs": counts["active"],
         "auth_configured": bool(EDA_AUTH_TOKEN),
         "build": build_info(),
     })
@@ -117,7 +127,10 @@ def create_app() -> Starlette:
         database_url = os.environ.get("DATABASE_URL")
         if database_url:
             await db.connect(database_url)
+            stale = await db.fail_stale_running_jobs()
             print("Postgres connected", flush=True)
+            if stale:
+                print(f"Marked {stale} stale running job(s) failed", flush=True)
         else:
             print("WARNING: No DATABASE_URL — job features disabled", flush=True)
         try:

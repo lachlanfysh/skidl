@@ -117,6 +117,80 @@ class DB:
                 "SELECT COUNT(*) FROM jobs WHERE status IN ('queued', 'running')"
             )
 
+    async def job_status_counts(
+        self,
+        *,
+        stale_grace_seconds: float = 120.0,
+        min_stale_seconds: float = 1800.0,
+    ) -> dict[str, int]:
+        """Return queue counters, including orphaned running jobs."""
+
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT
+                    COUNT(*) FILTER (WHERE status = 'queued') AS queued,
+                    COUNT(*) FILTER (WHERE status = 'running') AS running,
+                    COUNT(*) FILTER (
+                        WHERE status = 'running'
+                        AND started_at IS NOT NULL
+                        AND started_at < NOW() - make_interval(
+                            secs => GREATEST(
+                                COALESCE((options->>'timeout_s')::double precision, 300.0)
+                                    + $1::double precision,
+                                $2::double precision
+                            )
+                        )
+                    ) AS stale_running
+                FROM jobs
+                """,
+                float(stale_grace_seconds),
+                float(min_stale_seconds),
+            )
+        queued = int(row["queued"] or 0)
+        running = int(row["running"] or 0)
+        stale = int(row["stale_running"] or 0)
+        return {
+            "queued": queued,
+            "running": running,
+            "stale_running": stale,
+            "pending": queued + running,
+            "active": queued + max(running - stale, 0),
+        }
+
+    async def fail_stale_running_jobs(
+        self,
+        *,
+        stale_grace_seconds: float = 120.0,
+        min_stale_seconds: float = 1800.0,
+    ) -> int:
+        """Mark orphaned running jobs failed after deploys/worker loss."""
+
+        async with self.pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE jobs
+                SET status = 'failed',
+                    error = COALESCE(
+                        error,
+                        'worker lost while job was running; resubmit the design'
+                    ),
+                    finished_at = NOW()
+                WHERE status = 'running'
+                  AND started_at IS NOT NULL
+                  AND started_at < NOW() - make_interval(
+                      secs => GREATEST(
+                          COALESCE((options->>'timeout_s')::double precision, 300.0)
+                              + $1::double precision,
+                          $2::double precision
+                      )
+                  )
+                """,
+                float(stale_grace_seconds),
+                float(min_stale_seconds),
+            )
+        return int(result.split()[-1])
+
     # ── Runs ──────────────────────────────────────────────────────────
 
     async def save_run(

@@ -254,6 +254,32 @@ class TestDB:
         assert await db.count_pending() == before  # completed doesn't
 
     @pytest.mark.asyncio
+    async def test_fail_stale_running_jobs(self, db):
+        job_id = await db.create_job(SIMPLE_SPEC, {"timeout_s": 1})
+        await db.claim_job("dead-worker")
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE jobs SET started_at = NOW() - INTERVAL '10 minutes' WHERE id = $1",
+                job_id,
+            )
+
+        counts = await db.job_status_counts(
+            stale_grace_seconds=0,
+            min_stale_seconds=30,
+        )
+        assert counts["stale_running"] >= 1
+
+        failed = await db.fail_stale_running_jobs(
+            stale_grace_seconds=0,
+            min_stale_seconds=30,
+        )
+
+        assert failed == 1
+        job = await db.get_job(job_id)
+        assert job["status"] == "failed"
+        assert "worker lost" in job["error"]
+
+    @pytest.mark.asyncio
     async def test_expire_old_jobs(self, db):
         job_id = await db.create_job(SIMPLE_SPEC)
         await db.claim_job("w")
@@ -780,6 +806,8 @@ class TestWorkerHealth:
             assert data["concurrency"] == 2
             assert data["db"] is False
             assert data["status"] == "degraded"
+            assert data["pending_jobs"] == 0
+            assert data["active_jobs"] == 0
 
     @needs_postgres
     @pytest.mark.asyncio
@@ -797,6 +825,10 @@ class TestWorkerHealth:
             assert data["status"] == "ok"
             assert data["db"] is True
             assert isinstance(data["pending_jobs"], int)
+            assert isinstance(data["queued_jobs"], int)
+            assert isinstance(data["running_jobs"], int)
+            assert isinstance(data["stale_running_jobs"], int)
+            assert isinstance(data["active_jobs"], int)
         finally:
             await database.close()
 

@@ -403,10 +403,16 @@ def health_app(db: DB, worker_id: str, concurrency: int):
 
     async def health(request):
         db_ok = db.pool is not None
-        pending = 0
+        counts = {
+            "pending": 0,
+            "queued": 0,
+            "running": 0,
+            "stale_running": 0,
+            "active": 0,
+        }
         if db_ok:
             try:
-                pending = await db.count_pending()
+                counts = await db.job_status_counts()
             except Exception:
                 db_ok = False
         return JSONResponse({
@@ -414,7 +420,11 @@ def health_app(db: DB, worker_id: str, concurrency: int):
             "worker_id": worker_id,
             "concurrency": concurrency,
             "db": db_ok,
-            "pending_jobs": pending,
+            "pending_jobs": counts["pending"],
+            "queued_jobs": counts["queued"],
+            "running_jobs": counts["running"],
+            "stale_running_jobs": counts["stale_running"],
+            "active_jobs": counts["active"],
         })
 
     return Starlette(routes=[Route("/health", health)])
@@ -431,7 +441,10 @@ async def main() -> None:
 
     db = DB()
     await db.connect(database_url)
+    stale = await db.fail_stale_running_jobs()
     print(f"Worker {worker_id} started, concurrency={concurrency}", flush=True)
+    if stale:
+        print(f"Marked {stale} stale running job(s) failed", flush=True)
 
     import uvicorn
     port = int(os.environ.get("PORT", 8001))
