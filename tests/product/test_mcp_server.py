@@ -276,6 +276,31 @@ gnd += j1[2]
             for exc in response.exceptions
         )
 
+    def test_python_mode_missing_pcb_footprint_is_structured_error(self, tmp_path):
+        code = """
+from skidl import *
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
+j1 = Part("Connector_Generic", "Conn_01x02",
+          footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+r1 = Part("Device", "R", value="10K", footprint="NoSuchLib:NoSuchFootprint")
+vcc += j1[1], r1[1]
+gnd += j1[2], r1[2]
+"""
+
+        response = run_pipeline_code(
+            code,
+            board_name="missing-footprint",
+            outline_mm=[25.0, 20.0],
+            out_dir=tmp_path,
+            timeout_s=120,
+        )
+
+        assert response.stage == "layout_write"
+        assert not response.ok
+        assert any(exc.code == ExcCode.FOOTPRINT_MISSING for exc in response.exceptions)
+        assert not any(exc.code == ExcCode.ENGINE_CRASH for exc in response.exceptions)
+
     def test_python_extraction_does_not_mark_signal_nets_as_power(self):
         code = """
 from skidl import *

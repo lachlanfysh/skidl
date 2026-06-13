@@ -711,13 +711,55 @@ def _manufacturing_output_exception(mfg: dict) -> DesignException:
     )
 
 
+def _footprint_missing_exception(exc: FileNotFoundError, circuit=None) -> DesignException:
+    message = str(exc)
+    refs: list[str] = []
+    match = re.search(r"missing footprints:\s*(?P<refs>.+)$", message)
+    if match:
+        refs = [
+            ref.strip()
+            for ref in match.group("refs").split(",")
+            if ref.strip()
+        ]
+
+    footprints = {}
+    if circuit is not None:
+        for part in getattr(circuit, "parts", []) or []:
+            ref = str(getattr(part, "ref", "") or "")
+            if refs and ref not in refs:
+                continue
+            footprint = str(getattr(part, "footprint", "") or "")
+            if footprint:
+                footprints[ref] = footprint
+
+    subject = {
+        "refs": refs,
+        "footprints": footprints,
+        "message": message,
+    }
+    return DesignException(
+        id="e-footprint-missing",
+        code=ExcCode.FOOTPRINT_MISSING,
+        severity=Severity.ERROR,
+        message=message,
+        subject=subject,
+        candidates=[],
+        retry_hint=(
+            "One or more Part(..., footprint=...) values are not available in "
+            "the configured KiCad footprint libraries. Call search_kicad() for "
+            "the affected part or footprint, update the SKiDL code, and "
+            "resubmit with submit_skidl_code()."
+        ),
+    )
+
+
 def _exec_skidl(code: str):
     """Execute SKiDL Python code and return the populated default circuit."""
     import builtins as _bi
 
+    _configure_kicad_env()
     from skidl import KICAD9, set_default_tool
 
-    _configure_kicad_env()
     _bi.default_circuit.reset()
     set_default_tool(KICAD9)
 
@@ -1067,10 +1109,26 @@ def _run_skidl_code(envelope: dict) -> dict:
         circuit, fp_lib_dirs=fp_dirs, constraints=constraints,
     )
 
-    write_kicad_pcb(
-        layout_result.placed_parts, circuit, fp_dirs,
-        str(pcb_path), outline=layout_result.outline,
-    )
+    try:
+        write_kicad_pcb(
+            layout_result.placed_parts, circuit, fp_dirs,
+            str(pcb_path), outline=layout_result.outline,
+        )
+    except FileNotFoundError as exc:
+        layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
+        outputs = {"run_dir": str(out_dir), "schematic": str(schematic_path)}
+        if pcb_path.exists():
+            outputs["pcb"] = str(pcb_path)
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="layout_write",
+            exceptions=[_footprint_missing_exception(exc, circuit)] + review_exceptions,
+            outputs=outputs,
+            layout=layout_dict,
+            metrics=_metrics(layout_result, circuit, fp_dirs=fp_dirs),
+            summary=layout_result.summary(),
+        )
 
     all_exceptions = layout_exceptions(layout_result) + review_exceptions
 
@@ -1233,13 +1291,30 @@ def run(envelope: dict) -> dict:
         constraints=constraints,
         board_layers=spec.board.layers,
     )
-    write_kicad_pcb(
-        layout_result.placed_parts,
-        circuit,
-        fp_dirs,
-        str(pcb_path),
-        outline=layout_result.outline,
-    )
+    try:
+        write_kicad_pcb(
+            layout_result.placed_parts,
+            circuit,
+            fp_dirs,
+            str(pcb_path),
+            outline=layout_result.outline,
+        )
+    except FileNotFoundError as exc:
+        layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
+        outputs = {"run_dir": str(out_dir), "schematic": str(schematic_path)}
+        if pcb_path.exists():
+            outputs["pcb"] = str(pcb_path)
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="layout_write",
+            spec=spec,
+            exceptions=[_footprint_missing_exception(exc, circuit)] + review_exceptions,
+            outputs=outputs,
+            layout=layout_dict,
+            metrics=_metrics(layout_result, circuit, fp_dirs=fp_dirs),
+            summary=layout_result.summary(),
+        )
 
     all_exceptions = layout_exceptions(layout_result) + review_exceptions
 
