@@ -244,6 +244,64 @@ def _final_report_block_reason(job_results: dict[str, dict], last_result: dict |
     return ""
 
 
+def _harvest_outstanding_jobs(
+    mcp: MCPClient,
+    job_results: dict[str, dict],
+    artifacts_dir: Path,
+    call_log,
+    *,
+    max_wait_s: float = 180.0,
+) -> tuple[dict | None, dict[str, dict]]:
+    """Poll queued/running jobs after the model stops so summaries are truthful."""
+
+    pending = {
+        job_id
+        for job_id, result in job_results.items()
+        if result.get("status") in {"queued", "running"}
+    }
+    if not pending:
+        return None, {}
+
+    harvested: dict[str, dict] = {}
+    last_result: dict | None = None
+    deadline = time.time() + max_wait_s
+    while pending and time.time() <= deadline:
+        for job_id in list(sorted(pending)):
+            try:
+                text = mcp.call_tool("get_job", {"job_id": job_id})
+            except Exception as exc:
+                harvested[job_id] = {"error": str(exc)}
+                pending.remove(job_id)
+                continue
+            result = _extract_mcp_result("get_job", text)
+            if isinstance(result, dict):
+                job_results[job_id] = result
+                last_result = result
+                harvested[job_id] = _result_summary(result)
+                if _terminal_status(result.get("status")):
+                    pending.remove(job_id)
+                    run_id = result.get("run_id")
+                    if run_id:
+                        try:
+                            run_text = mcp.call_tool("get_run", {"run_id": run_id})
+                            shrink_result("get_run", run_text, artifacts_dir)
+                        except Exception as exc:
+                            harvested[job_id]["get_run_error"] = str(exc)
+            else:
+                harvested[job_id] = {"status": "unparseable"}
+            call_log.write(
+                "post_cap get_job "
+                f"args={{\"job_id\": \"{job_id}\"}} -> ok ({len(text)} chars)\n"
+            )
+            call_log.flush()
+        if pending:
+            time.sleep(min(POLL_SPACING_S, max(0.0, deadline - time.time())))
+
+    for job_id in pending:
+        harvested.setdefault(job_id, {"status": "still_running_after_harvest"})
+    return last_result, harvested
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="meta-llama/llama-4-maverick")
@@ -440,6 +498,15 @@ def main() -> int:
                 "content": result,
             })
 
+    harvest_last_result, post_cap_results = _harvest_outstanding_jobs(
+        mcp,
+        job_results,
+        artifacts_dir,
+        call_log,
+    )
+    if harvest_last_result is not None:
+        last_mcp_result = harvest_last_result
+
     wall = time.time() - started
     call_log.close()
     (out / "transcript.json").write_text(json.dumps(messages, indent=1))
@@ -452,6 +519,7 @@ def main() -> int:
         "final_report_valid": final_report_valid,
         "premature_final_reason": premature_final_reason,
         "last_mcp_result": _result_summary(last_mcp_result),
+        "post_cap_results": post_cap_results,
         "artifacts_fetched": sorted(p.name for p in artifacts_dir.glob("*")) if artifacts_dir.exists() else [],
         "final_report": final_report,
     }
