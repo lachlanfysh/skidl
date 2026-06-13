@@ -1,178 +1,159 @@
 """
-PAM8302 Mono Audio Amplifier
-Class-D mono amplifier delivering 2.5W into 4-8 ohm speakers.
-2.0-5.5V supply range with 90% efficiency.
-Volume adjustable via trimmer pot.
+PAM8302 Class-D Mono Audio Amplifier Breakout
+2.5W into 4-8 ohm speakers, 2.0-5.5V supply, 90% efficiency.
+Volume adjustable via SMD trimmer pot.
 Built-in thermal and over-current protection.
-Fully differential inputs for clean audio.
+Fully differential inputs for clean audio without ground issues.
 """
-
-import os
-os.environ.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
 
 from skidl import *
 set_default_tool(KICAD9)
 
-# ── Power Nets ──────────────────────────────────────────
+# Power rails
 vdd = Net("VDD"); vdd.drive = POWER
 gnd = Net("GND"); gnd.drive = POWER
 
+# Internal signal nets
+in_p = Net("IN_P")    # Differential input +
+in_n = Net("IN_N")    # Differential input -
+out_p = Net("OUT_P")  # Speaker output +
+out_n = Net("OUT_N")  # Speaker output -
+vol_wiper = Net("VOL_WIPER")  # Trimmer wiper to IN+
+
 
 @subcircuit
-def power_input(vdd, gnd):
-    """Power input connector with bulk and bypass capacitors."""
-    # 2-pin JST PH for power input (2.0-5.5V)
+def power_block(vdd, gnd):
+    """Power input header with decoupling caps."""
+    # 2-pin 2.54mm power header (VDD + GND)
     j_pwr = Part("Connector_Generic", "Conn_01x02",
-                  value="PWR_IN",
-                  footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal")
+                 value="PWR_IN",
+                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
     j_pwr[1] += vdd
     j_pwr[2] += gnd
 
-    # Bulk capacitor - 100uF electrolytic for supply rail stability
+    # 10uF bulk cap on supply rail
     c_bulk = Part("Device", "C_Polarized",
-                  value="100uF",
+                  value="10uF",
                   footprint="Capacitor_SMD:C_0805_2012Metric")
     c_bulk[1] += vdd
     c_bulk[2] += gnd
 
-    # Bypass capacitor - 100nF ceramic close to supply
-    c_bypass = Part("Device", "C",
-                    value="100nF",
-                    footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_bypass[1] += vdd
-    c_bypass[2] += gnd
-
-
-@subcircuit
-def audio_input(inp_net, inn_net, gnd):
-    """Differential audio input with volume control trimmer pot and DC blocking."""
-    # 3.5mm audio jack - mono input (tip=signal, sleeve=ground)
-    j_audio = Part("Connector_Audio", "AudioJack2_Ground",
-                   value="3.5mm_IN",
-                   footprint="Connector_Audio:Jack_3.5mm_CUI_SJ1-3513N_Horizontal")
-    # T = tip (signal), S = sleeve (signal return), G = ground
-    j_audio["G"] += gnd
-
-    # DC blocking cap on input signal path
-    c_dc_block = Part("Device", "C",
-                      value="1uF",
-                      footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_dc_block[1] += j_audio["T"]
-
-    # Volume control trimmer pot (10K)
-    # Pin 1 = one end, Pin 2 = wiper, Pin 3 = other end
-    r_vol = Part("Device", "R_Potentiometer_Trim",
-                 value="10K",
-                 footprint="Potentiometer_SMD:Potentiometer_Bourns_3214W_Vertical")
-    r_vol[1] += c_dc_block[2]   # Input side after DC blocking
-    r_vol[3] += gnd             # Other end to ground
-    # Wiper goes to IN+ via coupling resistor
-
-    # Input coupling resistor to IN+ (recommended 1K for PAM8302)
-    r_in = Part("Device", "R",
-                value="1K",
-                footprint="Resistor_SMD:R_0603_1608Metric")
-    r_in[1] += r_vol[2]    # From wiper
-    r_in[2] += inp_net      # To amplifier IN+
-
-    # IN- tied to ground via resistor for fully differential
-    # (single-ended to differential conversion)
-    r_inn = Part("Device", "R",
-                 value="1K",
-                 footprint="Resistor_SMD:R_0603_1608Metric")
-    r_inn[1] += inn_net     # To amplifier IN-
-    r_inn[2] += gnd
-
-    # Sleeve to ground via coupling network (use jack switch pin S)
-    j_audio["S"] += gnd
-
-
-@subcircuit
-def amplifier(vdd, gnd, inp_net, inn_net, outp_net, outn_net):
-    """PAM8302A Class-D amplifier with decoupling."""
-    # PAM8302AAD in SOIC-8
-    u1 = Part("Amplifier_Audio", "PAM8302AAD",
-              value="PAM8302AAD",
-              footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
-
-    # Power connections
-    u1["VDD"] += vdd
-    u1["GND"] += gnd
-
-    # Shutdown pin - pull high to enable (active low shutdown)
-    r_sd = Part("Device", "R",
-                value="100K",
-                footprint="Resistor_SMD:R_0603_1608Metric")
-    r_sd[1] += vdd
-    r_sd[2] += u1["~{SD}"]
-
-    # Audio input connections
-    u1["IN+"] += inp_net
-    u1["IN-"] += inn_net
-
-    # Output connections (differential to speaker)
-    u1["OUT+"] += outp_net
-    u1["OUT-"] += outn_net
-
-    # Supply decoupling - 100nF ceramic right at VDD pin
+    # 100nF decoupling cap
     c_dec = Part("Device", "C",
                  value="100nF",
                  footprint="Capacitor_SMD:C_0603_1608Metric")
     c_dec[1] += vdd
     c_dec[2] += gnd
 
-    # Additional 10uF supply capacitor
-    c_sup = Part("Device", "C_Polarized",
-                 value="10uF",
-                 footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_sup[1] += vdd
-    c_sup[2] += gnd
+
+@subcircuit
+def audio_input_block(vdd, gnd, in_p, in_n, vol_wiper):
+    """
+    Audio input section:
+    - 3-pin header (AUDIO_IN, AUDIO_GND, NC) for audio input
+    - DC-blocking cap on signal path
+    - 10K trimmer pot for volume control (wiper -> IN+)
+    - 1K input resistors on IN+ and IN- (differential input matching)
+    - IN- tied to GND for single-ended to differential conversion
+    """
+    audio_sig = Net("AUDIO_SIG")
+
+    # 2-pin header for audio input (pin1=signal, pin2=GND)
+    j_audio = Part("Connector_Generic", "Conn_01x02",
+                   value="AUDIO_IN",
+                   footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+    j_audio[1] += audio_sig
+    j_audio[2] += gnd
+
+    # DC-blocking capacitor on audio input (blocks DC bias from source)
+    c_in = Part("Device", "C",
+                value="1uF",
+                footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_in[1] += audio_sig
+
+    # 10K trimmer potentiometer for volume control
+    # Pin 1 = top resistive end (from input signal after DC block)
+    # Pin 2 = wiper (goes to IN+ via series resistor)
+    # Pin 3 = bottom end (to GND - attenuation reference)
+    rv1 = Part("Device", "R_Potentiometer_Trim",
+               value="10K",
+               footprint="Potentiometer_THT:Potentiometer_Bourns_3296W_Vertical")
+    rv1[1] += c_in[2]      # Audio signal after DC block
+    rv1[3] += gnd           # Bottom to GND for voltage divider
+    rv1[2] += vol_wiper     # Wiper output is volume-controlled signal
+
+    # 1K series resistor on IN+ (input matching + protection)
+    r_inp = Part("Device", "R",
+                 value="1K",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
+    r_inp[1] += vol_wiper
+    r_inp[2] += in_p
+
+    # IN- resistor - tie to GND for single-ended input
+    # (PAM8302 datasheet: connect IN- to GND via same value resistor as IN+)
+    r_inn = Part("Device", "R",
+                 value="1K",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
+    r_inn[1] += in_n
+    r_inn[2] += gnd
 
 
 @subcircuit
-def speaker_output(outp_net, outn_net, gnd):
-    """Speaker output connector with snubber networks."""
-    # 2-pin JST PH for speaker connection (4-8 ohm)
+def amplifier_block(vdd, gnd, in_p, in_n, out_p, out_n):
+    """
+    PAM8302AAD Class-D amplifier core.
+    Pins: ~{SD}=1, NC=2, IN+=3, IN-=4, OUT+=5, VDD=6, GND=7, OUT-=8
+    """
+    u1 = Part("Amplifier_Audio", "PAM8302AAD",
+              value="PAM8302AAD",
+              footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+
+    # Power
+    u1["VDD"] += vdd
+    u1["GND"] += gnd
+
+    # Enable: SD pin active-low shutdown - pull high via 100K to enable
+    r_sd = Part("Device", "R",
+                value="100K",
+                footprint="Resistor_SMD:R_0603_1608Metric")
+    r_sd[1] += vdd
+    r_sd[2] += u1["~{SD}"]
+
+    # Audio differential inputs
+    u1["IN+"] += in_p
+    u1["IN-"] += in_n
+
+    # Differential speaker outputs
+    u1["OUT+"] += out_p
+    u1["OUT-"] += out_n
+
+    # NC pin - leave unconnected (PAM8302 pin 2 is NC)
+    # u1["NC"] is left floating intentionally
+
+    # Supply decoupling - 100nF right at VDD (auto-placed near U1 by engine)
+    c_vdd = Part("Device", "C",
+                 value="100nF",
+                 footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_vdd[1] += vdd
+    c_vdd[2] += gnd
+
+
+@subcircuit
+def speaker_output_block(gnd, out_p, out_n):
+    """
+    Speaker output connector - differential (BTL) output to 4-8 ohm speaker.
+    2-pin 2.54mm header for speaker wires.
+    """
+    # 2-pin header for speaker
     j_spk = Part("Connector_Generic", "Conn_01x02",
                  value="SPEAKER",
-                 footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal")
-    j_spk[1] += outp_net
-    j_spk[2] += outn_net
-
-    # Output filter / snubber on OUT+ (Zobel network)
-    r_snub_p = Part("Device", "R",
-                    value="10R",
-                    footprint="Resistor_SMD:R_0603_1608Metric")
-    c_snub_p = Part("Device", "C",
-                    value="100nF",
-                    footprint="Capacitor_SMD:C_0603_1608Metric")
-    r_snub_p[1] += outp_net
-    r_snub_p[2] += c_snub_p[1]
-    c_snub_p[2] += gnd
-
-    # Output filter / snubber on OUT- (Zobel network)
-    r_snub_n = Part("Device", "R",
-                    value="10R",
-                    footprint="Resistor_SMD:R_0603_1608Metric")
-    c_snub_n = Part("Device", "C",
-                    value="100nF",
-                    footprint="Capacitor_SMD:C_0603_1608Metric")
-    r_snub_n[1] += outn_net
-    r_snub_n[2] += c_snub_n[1]
-    c_snub_n[2] += gnd
+                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+    j_spk[1] += out_p
+    j_spk[2] += out_n
 
 
-# ── Internal signal nets ────────────────────────────────
-inp = Net("IN_P")      # Differential input +
-inn = Net("IN_N")      # Differential input -
-outp = Net("OUT_P")    # Differential output +
-outn = Net("OUT_N")    # Differential output -
-
-# ── Instantiate subcircuits ─────────────────────────────
-power_input(vdd, gnd)
-audio_input(inp, inn, gnd)
-amplifier(vdd, gnd, inp, inn, outp, outn)
-speaker_output(outp, outn, gnd)
-
-# ── Generate schematic ──────────────────────────────────
-generate_schematic(auto_stub=True, auto_stub_fanout=3)
+# Instantiate all blocks
+power_block(vdd, gnd)
+audio_input_block(vdd, gnd, in_p, in_n, vol_wiper)
+amplifier_block(vdd, gnd, in_p, in_n, out_p, out_n)
+speaker_output_block(gnd, out_p, out_n)
