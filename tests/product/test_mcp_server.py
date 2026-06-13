@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -21,6 +22,7 @@ from mcp_server.engine_worker import (
     _circuit_to_spec_dict,
     _exec_skidl,
     _export_dsn_with_pcbnew,
+    _footprint_missing_exception,
     _import_ses_with_pcbnew,
     _manufacturing_output_exception,
     _missing_manufacturing_outputs,
@@ -316,6 +318,41 @@ class TestHelpfulFailures:
         assert exc.subject["missing_part"] == "LCD_16x2"
         assert exc.subject["library"] == "Display_Character"
         assert "exact returned library and part names" in exc.retry_hint
+
+    def test_missing_footprint_error_suggests_replacements(self, monkeypatch):
+        from llm import kicad_index
+
+        monkeypatch.setattr(
+            kicad_index,
+            "search_footprints",
+            lambda query, limit=5: [
+                "Connector_USB:USB_Micro-B_Molex-105017-0001",
+                "Connector_USB:USB_Micro-B_Amphenol_10118193-0001LF_Horizontal",
+            ]
+            if "Micro" in query or "USB_B" in query or "USB" in query
+            else [],
+        )
+        circuit = SimpleNamespace(
+            parts=[
+                SimpleNamespace(ref="J5", footprint="Connector_USB:USB_B_Micro"),
+            ]
+        )
+
+        exc = _footprint_missing_exception(
+            FileNotFoundError("INCOMPLETE PCB: 1/12 parts missing footprints: J5"),
+            circuit,
+        )
+
+        assert exc.code == ExcCode.FOOTPRINT_MISSING
+        assert exc.subject["suggested_footprints"]["J5"][0].startswith(
+            "Connector_USB:USB_Micro-B"
+        )
+        assert exc.candidates[0].action == ActionType.REPLACE_FOOTPRINT
+        assert exc.candidates[0].params == {
+            "old": "Connector_USB:USB_B_Micro",
+            "new": "Connector_USB:USB_Micro-B_Molex-105017-0001",
+        }
+        assert "subject.suggested_footprints" in exc.retry_hint
 
     def test_crash_stage_infers_partial_artifacts(self, tmp_path):
         (tmp_path / "amp.kicad_sch").write_text("(schematic)")

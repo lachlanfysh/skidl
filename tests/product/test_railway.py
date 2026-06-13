@@ -1120,9 +1120,29 @@ class TestAgentUX:
                 }],
             },
         })
-        assert "tooling feedback" in hint
+        assert "Manufacturing is incomplete" in hint
+        assert "not call this board manufacturable or complete" in hint
         assert "get_run('run-post-artifact')" in hint
-        assert "before changing the design" in hint
+        assert "routing/export tool failure" in hint
+
+    def test_get_job_hint_for_route_unavailable_is_hard_manufacturing_gate(self):
+        from mcp_server.server_http import _get_job_hint
+        hint = _get_job_hint({
+            "status": "failed",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "result": {
+                "run_id": "run-route",
+                "decision_required": True,
+                "exceptions": [{
+                    "code": "ROUTE_UNAVAILABLE",
+                    "subject": {"stage": "dsn_export", "returncode": -11},
+                }],
+            },
+        })
+        assert "Manufacturing is incomplete" in hint
+        assert "not call this board manufacturable or complete" in hint
+        assert "board size" in hint
+        assert "routing/export tool failure" in hint
 
     def test_get_job_compacts_finished_result_for_agent(self):
         from mcp_server.server_http import _compact_job_result_for_agent

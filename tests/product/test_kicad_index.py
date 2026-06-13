@@ -3,6 +3,41 @@
 from __future__ import annotations
 
 from llm import kicad_index
+from llm.kicad_index import SymbolEntry
+
+
+def _fake_symbols(monkeypatch):
+    monkeypatch.setattr(
+        kicad_index,
+        "_index",
+        {
+            "Connector": [
+                SymbolEntry(
+                    lib="Connector",
+                    name="USB_C_Receptacle_USB2.0_16P",
+                    description="USB Type-C receptacle USB2.0",
+                    keywords="usb universal serial bus type-C USB2.0",
+                    pin_count=16,
+                ),
+                SymbolEntry(
+                    lib="Connector",
+                    name="USB_B_Micro",
+                    description="USB Micro-B connector",
+                    keywords="usb universal serial bus micro b",
+                    pin_count=5,
+                ),
+            ],
+            "Interface_USB": [
+                SymbolEntry(
+                    lib="Interface_USB",
+                    name="FUSB302BMPX",
+                    description="Programmable USB Type-C Controller",
+                    keywords="usb type-c controller",
+                    pin_count=15,
+                ),
+            ],
+        },
+    )
 
 
 def _fake_footprints(monkeypatch):
@@ -51,3 +86,15 @@ def test_search_footprints_finds_dual_pot_and_usb_c(monkeypatch):
 
     assert pot_matches[0] == "Potentiometer_THT:Potentiometer_Alps_RK09L_Double_Horizontal"
     assert usb_matches[0] == "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal"
+
+
+def test_search_symbols_finds_usb_receptacles_despite_alias_punctuation(monkeypatch):
+    _fake_symbols(monkeypatch)
+
+    usb_c = kicad_index.search_symbols("USB-C connector", limit=3)
+    micro_b = kicad_index.search_symbols("USB Micro-B connector", limit=3)
+
+    assert usb_c[0].lib == "Connector"
+    assert usb_c[0].name == "USB_C_Receptacle_USB2.0_16P"
+    assert micro_b[0].lib == "Connector"
+    assert micro_b[0].name == "USB_B_Micro"

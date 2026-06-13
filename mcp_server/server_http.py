@@ -485,10 +485,13 @@ def _get_job_hint(job: dict) -> str:
             )
         if has_tool_failure:
             return (
-                "A verification/routing/artifact tool was unavailable or failed. "
-                "This is tooling feedback, not necessarily a circuit problem. "
-                f"Inspect the exception subjects and fetch get_run('{run_id}') "
-                "for the generated artifacts before changing the design."
+                "Manufacturing is incomplete: do not call this board "
+                "manufacturable or complete. Inspect the exception subjects "
+                f"and fetch get_run('{run_id}') for generated artifacts. If "
+                "congestion, long power nets, outline issues, or DRC errors "
+                "are present, revise the board size, layer count, edge "
+                "placement, or part choices before retrying; otherwise report "
+                "the routing/export tool failure."
             )
         parts = []
         if has_pin_errors:
@@ -800,7 +803,7 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
     Examples:
         search_kicad("MCP9808")       -> symbol + MSOP-8 ($1.69) / DFN-8 ($2.36)
         search_kicad("STM32F405")     -> symbol + LQFP-64 / UFQFPN-64 variants
-        search_kicad("USB-C connector") -> Connector_USB : USB_C_Receptacle_...
+        search_kicad("USB-C receptacle") -> Connector : USB_C_Receptacle_... with Connector_USB footprints
         search_kicad("ATmega328P")    -> TQFP-32 / VQFN-32 / DIP-28 with prices
         search_kicad("IS31FL3731", detail=True) -> pin list + QFN-28 / SSOP-28
 
@@ -868,6 +871,8 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
         result["hint"] = (
             "Use the 'usage' field directly in your SKiDL code. "
             "Set detail=true to see pin names for wiring. "
+            "USB symbols are usually in the Connector symbol library; "
+            "Connector_USB is a footprint library. "
             "For jacks/connectors, decide orientation, mounting, switching, "
             "and mono/stereo/TRS before cycling through footprints; read "
             "eda://guide/parts for the checklist."
@@ -1151,7 +1156,9 @@ Decide whether the board needs:
 For a 5V sink board, include 5.1K pull-downs on CC1 and CC2, VBUS bulk
 capacitance, and ESD/TVS protection when requested. Search with terms like
 `USB_C_Receptacle USB2.0 16P` or use `convert_lcsc()` for a specific stocked
-connector.
+connector. KiCad USB connector symbols normally use symbol library `Connector`
+with `USB_C_Receptacle_*` / `USB_B_*` part names; `Connector_USB` is a
+footprint library, not the symbol library passed as the first Part() argument.
 
 ## Screw terminals and headers
 
@@ -1261,7 +1268,7 @@ tristate, passive, unspecified, no_connect.
 - ICs: `Analog_ADC`, `Analog_DAC`, `Interface_I2C`, `Interface_SPI`
 - MCUs: `MCU_Microchip`, `MCU_Nordic`, `MCU_RaspberryPi`, `MCU_ST`
 - Connectors: `Connector_Generic` (Conn_01x04, Conn_01x06, Conn_02x05...),
-  `Connector_USB`, `Connector_JST` (for Qwiic/STEMMA QT)
+  `Connector` (USB_C_Receptacle_..., TestPoint), `Connector_JST` (for Qwiic/STEMMA QT)
 - FETs/transistors: `Transistor_FET`, `Transistor_BJT`
 - Power: `Regulator_Linear`, `Regulator_Switching`
 - RF: `RF_Module`
@@ -1270,8 +1277,9 @@ Wrong: `"lib": "Bosch"`, `"lib": "MOSFET"`, `"lib": "TI"`.
 Right: `"lib": "Sensor_Pressure"`, `"lib": "Transistor_FET"`, `"lib": "Analog_ADC"`.
 
 **Connectors (common mistake):** For pin headers use `lib: "Connector_Generic"`,
-`part: "Conn_01x06"` (not "PinHeader_1x06"). For screw terminals use
-`part: "Screw_Terminal_01x02"` etc.
+`part: "Conn_01x06"` (not "PinHeader_1x06"). USB-C/Micro-B connector symbols
+usually use `lib: "Connector"` with a `Connector_USB:*` footprint. For screw
+terminals use `part: "Screw_Terminal_01x02"` etc.
 
 Other part fields:
 - `value` — "10K", "100nF" etc. Matters for passives.
@@ -1356,7 +1364,7 @@ names, and footprints. Don't guess — KiCad library names are not obvious.
 ```
 search_kicad("BME280")       -> Sensor_Humidity : BME280
 search_kicad("STM32F405")    -> MCU_ST_STM32F4 : STM32F405RGT6
-search_kicad("USB-C")        -> Connector_USB : USB_C_Receptacle_...
+search_kicad("USB-C")        -> Connector : USB_C_Receptacle_... + Connector_USB footprints
 search_kicad("level shifter") -> finds TXS0102, TXB0104, etc.
 ```
 
@@ -1399,7 +1407,7 @@ Common libraries — use search_kicad() for anything not listed here:
 | MCUs | `MCU_RaspberryPi` | RP2040 |
 | MCUs | `MCU_Nordic_nRF52` | nRF52840-QIAA |
 | Connectors | `Connector_Generic` | Conn_01x04, Conn_01x06, Conn_02x05 |
-| USB | `Connector_USB` | USB_C_Receptacle_USB2.0 |
+| USB | `Connector` | USB_C_Receptacle_USB2.0_16P |
 | Audio | `Connector_Audio` | AudioJack3 |
 | Transistors | `Transistor_FET` | BSS138, IRLML6244 |
 | Op-amps | `Amplifier_Operational` | LM358, MCP6001 |
@@ -1414,6 +1422,8 @@ Common libraries — use search_kicad() for anything not listed here:
 - `lib` is a KiCad symbol library, NOT a manufacturer (not "Bosch", "Microchip").
 - Every Part needs `footprint="Library:Name"` — get it from search_kicad().
 - Connectors: `Part("Connector_Generic", "Conn_01x06", ...)` not "PinHeader_1x06".
+- USB connectors use symbol library `Connector` with a `Connector_USB:*`
+  footprint; `Connector_USB` is the footprint library, not the symbol library.
 - Decoupling caps: value="100nF" wired power-to-ground = auto-placed near parent IC.
 - Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND.
 - Pin names on ICs may differ — use `search_kicad("part", detail=true)` to check.
@@ -1565,7 +1575,7 @@ def _exceptions_guide() -> str:
         "ROUTE_UNCONNECTED": "error: nets that could not be routed",
         "ROUTE_CONGESTION": "advisory: routing succeeded but congestion is high",
         "ROUTE_TIMEOUT": "error: Freerouting exceeded route_timeout_s; retry unchanged with a larger route_timeout_s before changing the circuit",
-        "ROUTE_UNAVAILABLE": "tooling error: routing tools not available or DSN/SES conversion failed",
+        "ROUTE_UNAVAILABLE": "manufacturing gate failed: routing/export tooling did not produce routed manufacturing outputs",
         "DRC_CLEARANCE": "error: trace/pad clearance violation",
         "DRC_UNCONNECTED": "error: net endpoint not connected after routing",
         "DRC_SHORT": "error: unintended connection between nets",

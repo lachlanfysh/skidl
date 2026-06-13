@@ -32,7 +32,7 @@ from schemas.enrichment import (
     enrich_blocks,
     is_power_net_name,
 )
-from schemas.exceptions import DesignException, ExcCode, Severity
+from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
 from schemas.translator import DEFAULT_FP_DIR, DEFAULT_SYM_DIR, translate
 
 
@@ -240,9 +240,12 @@ def _route_tool_exception(
         subject=detail,
         candidates=[],
         retry_hint=(
-            "Do not assume the circuit is wrong. Inspect the generated PCB "
-            "artifact and report this as routing tool feedback unless another "
-            "exception points to a design error."
+            "Manufacturing is incomplete: do not call the board manufacturable "
+            "or complete. Fetch the run artifacts for inspection. If the run "
+            "also reports congestion, long power nets, outline issues, or DRC "
+            "errors, revise board size, layer count, edge placement, or part "
+            "choices before retrying; otherwise report this as a routing/export "
+            "tool failure."
         ),
     )
 
@@ -825,6 +828,65 @@ def _manufacturing_output_exception(mfg: dict) -> DesignException:
     )
 
 
+def _footprint_search_queries(footprint: str) -> list[str]:
+    raw = footprint.split(":", 1)[-1]
+    readable = re.sub(r"[_-]+", " ", raw).strip()
+    queries = [footprint, raw, readable]
+    lower = raw.lower()
+    if "usb" in lower and "micro" in lower:
+        queries.append("USB Micro-B connector")
+    if "usb" in lower and ("usb_c" in lower or "type_c" in lower or "receptacle" in lower):
+        queries.append("USB_C_Receptacle USB2.0 16P")
+    return [q for i, q in enumerate(queries) if q and q not in queries[:i]]
+
+
+def _footprint_replacement_candidates(
+    footprints: dict[str, str],
+) -> tuple[list[Candidate], dict[str, list[str]]]:
+    candidates: list[Candidate] = []
+    suggestions: dict[str, list[str]] = {}
+    seen_pairs: set[tuple[str, str]] = set()
+    try:
+        from llm.kicad_index import search_footprints
+    except Exception:
+        return candidates, suggestions
+
+    for ref, old_fp in footprints.items():
+        matches: list[str] = []
+        for query in _footprint_search_queries(old_fp):
+            try:
+                found = search_footprints(query, limit=5)
+            except Exception:
+                continue
+            for new_fp in found:
+                if new_fp == old_fp or new_fp in matches:
+                    continue
+                matches.append(new_fp)
+        if matches:
+            suggestions[ref] = matches[:5]
+        for new_fp in matches[:3]:
+            pair = (old_fp, new_fp)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            candidates.append(
+                Candidate(
+                    id=f"c{len(candidates) + 1}",
+                    action=ActionType.REPLACE_FOOTPRINT,
+                    params={"old": old_fp, "new": new_fp},
+                    human_summary=(
+                        f"replace missing footprint {old_fp!r} with {new_fp!r}"
+                    ),
+                    cost_hint="cheap",
+                    confidence=0.75,
+                    source="kicad_footprint_search",
+                )
+            )
+            if len(candidates) >= 5:
+                return candidates, suggestions
+    return candidates, suggestions
+
+
 def _footprint_missing_exception(exc: FileNotFoundError, circuit=None) -> DesignException:
     message = str(exc)
     refs: list[str] = []
@@ -851,18 +913,22 @@ def _footprint_missing_exception(exc: FileNotFoundError, circuit=None) -> Design
         "footprints": footprints,
         "message": message,
     }
+    candidates, suggestions = _footprint_replacement_candidates(footprints)
+    if suggestions:
+        subject["suggested_footprints"] = suggestions
     return DesignException(
         id="e-footprint-missing",
         code=ExcCode.FOOTPRINT_MISSING,
         severity=Severity.ERROR,
         message=message,
         subject=subject,
-        candidates=[],
+        candidates=candidates,
         retry_hint=(
             "One or more Part(..., footprint=...) values are not available in "
-            "the configured KiCad footprint libraries. Call search_kicad() for "
-            "the affected part or footprint, update the SKiDL code, and "
-            "resubmit with submit_skidl_code()."
+            "the configured KiCad footprint libraries. Use the candidates or "
+            "subject.suggested_footprints when present; otherwise call "
+            "search_kicad() for the affected part or footprint, update the "
+            "SKiDL code, and resubmit with submit_skidl_code()."
         ),
     )
 

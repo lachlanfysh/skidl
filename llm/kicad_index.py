@@ -154,26 +154,81 @@ def get_footprint_index() -> set[str]:
     return _footprint_index
 
 
+def _search_tokens(text: str) -> list[str]:
+    """Tokenize names/descriptions across KiCad's hyphen/underscore variants."""
+    lower = text.lower()
+    tokens = re.findall(r"[a-z0-9]+(?:\.[0-9]+)?", lower)
+    expanded: list[str] = []
+    for token in tokens:
+        if len(token) > 1:
+            expanded.append(token)
+        if token in {"usb", "type"}:
+            expanded.append(token)
+        if token in {"micro", "mini"}:
+            expanded.append(token)
+
+    if re.search(r"\busb[-_\s]*c\b|\btype[-_\s]*c\b", lower):
+        expanded.extend(["usb", "type", "receptacle"])
+    if re.search(r"\busb[-_\s]*(micro|mini)[-_\s]*b\b|\b(micro|mini)[-_\s]*b\b", lower):
+        expanded.extend(["usb", "receptacle"])
+    if "usb" in expanded and any(t in expanded for t in ("connector", "receptacle")):
+        expanded.append("receptacle")
+    return expanded
+
+
+def _symbol_connector_boost(query_lower: str, query_tokens: set[str], entry: SymbolEntry) -> float:
+    """Boost common connector aliases that KiCad stores in generic libraries."""
+    name_lower = entry.name.lower()
+    if "usb" not in query_tokens:
+        return 0.0
+    if entry.lib != "Connector" or "usb" not in name_lower:
+        return 0.0
+
+    score = 4.0
+    if any(t in query_tokens for t in ("connector", "receptacle")):
+        score += 4.0
+    if "receptacle" in name_lower:
+        score += 3.0
+    if re.search(r"\busb[-_\s]*c\b|\btype[-_\s]*c\b", query_lower):
+        if "usb_c" in name_lower or "type-c" in entry.description.lower():
+            score += 6.0
+    if re.search(r"\bmicro[-_\s]*b\b|\busb[-_\s]*micro\b", query_lower):
+        if "micro" in name_lower and "b" in name_lower:
+            score += 6.0
+    if "16p" in query_lower and "16p" in name_lower:
+        score += 2.0
+    if "14p" in query_lower and "14p" in name_lower:
+        score += 2.0
+    if "6p" in query_lower and "6p" in name_lower:
+        score += 2.0
+    return score
+
+
 def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
     """Fuzzy search across all symbol libraries."""
     index = get_index()
     query_lower = query.lower()
-    query_parts = query_lower.split()
+    query_parts = _search_tokens(query_lower)
+    query_token_set = set(query_parts)
 
     scored: list[tuple[float, SymbolEntry]] = []
     for entries in index.values():
         for entry in entries:
-            text = f"{entry.lib} {entry.name} {entry.description} {entry.keywords}".lower()
+            name_tokens = set(_search_tokens(entry.name))
+            keyword_tokens = set(_search_tokens(entry.keywords))
+            description_tokens = set(_search_tokens(entry.description))
+            lib_tokens = set(_search_tokens(entry.lib))
             score = 0.0
             for part in query_parts:
-                if part in entry.name.lower():
+                if part in name_tokens:
                     score += 3.0
-                elif part in entry.keywords.lower():
+                elif part in keyword_tokens:
                     score += 2.0
-                elif part in entry.description.lower():
+                elif part in description_tokens:
                     score += 1.0
-                elif part in entry.lib.lower():
+                elif part in lib_tokens:
                     score += 0.5
+            score += _symbol_connector_boost(query_lower, query_token_set, entry)
             if score > 0:
                 scored.append((score, entry))
 
@@ -231,6 +286,11 @@ def _mechanical_family_score(query_lower: str, fp_lower: str) -> float:
             score += 3.0
         if "6p" in query_lower and "6p" in fp_lower:
             score += 3.0
+    if any(term in query_lower for term in ("micro-b", "micro b", "usb_b_micro", "usb micro")):
+        if "connector_usb:" in fp_lower:
+            score += 5.0
+        if "micro" in fp_lower and ("usb" in fp_lower or "usb_b" in fp_lower):
+            score += 7.0
     if any(term in query_lower for term in ("pot", "potentiometer", "volume")):
         if "potentiometer" in fp_lower:
             score += 7.0
