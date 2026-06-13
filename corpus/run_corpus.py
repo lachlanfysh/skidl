@@ -302,7 +302,11 @@ def actionable_exceptions(response: DesignResponse) -> list[DesignException]:
         for exc in response.exceptions
         if exc.severity in {Severity.FATAL, Severity.ERROR}
         and exc.candidates
-        and exc.code.value not in ("ENGINE_CRASH", "ENGINE_TIMEOUT")
+        and exc.code.value not in (
+            "ENGINE_CRASH",
+            "ENGINE_TIMEOUT",
+            "POST_ARTIFACT_FAILURE",
+        )
     ]
 
 

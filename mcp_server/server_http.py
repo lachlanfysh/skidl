@@ -352,6 +352,7 @@ def _get_job_hint(job: dict) -> str:
             "ROUTE_UNAVAILABLE",
             "DRC_TOOL_FAILURE",
             "MANUFACTURING_OUTPUT_FAILURE",
+            "POST_ARTIFACT_FAILURE",
         }
         for c in exc_codes
     )
@@ -396,10 +397,10 @@ def _get_job_hint(job: dict) -> str:
             )
         if has_tool_failure:
             return (
-                "A verification/routing tool was unavailable or failed. This is "
-                "tooling feedback, not necessarily a circuit problem. Inspect "
-                f"the exception subjects and fetch get_run('{run_id}') for the "
-                "generated artifacts before changing the design."
+                "A verification/routing/artifact tool was unavailable or failed. "
+                "This is tooling feedback, not necessarily a circuit problem. "
+                f"Inspect the exception subjects and fetch get_run('{run_id}') "
+                "for the generated artifacts before changing the design."
             )
         parts = []
         if has_pin_errors:
@@ -1459,6 +1460,7 @@ def _exceptions_guide() -> str:
         "DRC_COURTYARD": "advisory: component courtyard overlap",
         "DRC_TOOL_FAILURE": "tooling error: DRC tool failed to run",
         "MANUFACTURING_OUTPUT_FAILURE": "error: Gerbers, drill, BOM, or CPL export did not complete",
+        "POST_ARTIFACT_FAILURE": "error: schematic/PCB artifacts exist, but backend finalization failed; fetch artifacts before redesigning",
         "ENGINE_TIMEOUT": "engine hit timeout_s — raise it or simplify",
         "ENGINE_CRASH": "backend worker crashed; retry once, then treat as service failure",
         "CODE_EXEC_ERROR": "SKiDL Python code raised an error; inspect subject.line, line_text, available_pins",

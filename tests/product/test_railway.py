@@ -977,6 +977,24 @@ class TestAgentUX:
         assert "not circuit feedback" in hint
         assert "get_run('run-crash')" in hint
 
+    def test_get_job_hint_for_post_artifact_failure_says_fetch_artifacts(self):
+        from mcp_server.server_http import _get_job_hint
+        hint = _get_job_hint({
+            "status": "failed",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "result": {
+                "run_id": "run-post-artifact",
+                "decision_required": True,
+                "exceptions": [{
+                    "code": "POST_ARTIFACT_FAILURE",
+                    "subject": {"partial_artifacts": ["board.kicad_pcb"]},
+                }],
+            },
+        })
+        assert "tooling feedback" in hint
+        assert "get_run('run-post-artifact')" in hint
+        assert "before changing the design" in hint
+
     @pytest.mark.asyncio
     async def test_apply_correction_rejects_skidl_python_runs(self, monkeypatch):
         from mcp_server import server_http

@@ -115,6 +115,18 @@ def test_decision_kind_classifies_tool_failures_before_no_candidate():
     assert decision_kind([exc]) == "tool_unavailable"
 
 
+def test_decision_kind_classifies_post_artifact_failure_as_tool_failure():
+    exc = DesignException(
+        id="e-post-artifact",
+        code=ExcCode.POST_ARTIFACT_FAILURE,
+        severity=Severity.ERROR,
+        message="PCB artifacts exist but finalization failed",
+        candidates=[],
+    )
+
+    assert decision_kind([exc]) == "tool_unavailable"
+
+
 def test_generate_policy_auto_applies_advisory(tmp_path, monkeypatch):
     calls = []
 

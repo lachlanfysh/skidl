@@ -204,6 +204,24 @@ class TestHelpfulFailures:
         assert exc.candidates[0].action == ActionType.REGENERATE
         assert "schematic renderer limitation" in exc.retry_hint
 
+    def test_after_pcb_crash_maps_to_post_artifact_failure(self):
+        exc = crash_exception(
+            "worker exited with status -11",
+            "segmentation fault after writing PCB",
+            stage="after_pcb_write",
+            artifact_keys=["board.kicad_pcb", "board.kicad_sch"],
+        )
+
+        assert exc.code == ExcCode.POST_ARTIFACT_FAILURE
+        assert exc.severity == Severity.ERROR
+        assert exc.subject["stage"] == "after_pcb_write"
+        assert exc.subject["partial_artifacts"] == [
+            "board.kicad_pcb",
+            "board.kicad_sch",
+        ]
+        assert exc.candidates[0].action == ActionType.REGENERATE
+        assert "Fetch the run artifacts" in exc.retry_hint
+
 
 @needs_kicad
 class TestWorkerAndPipeline:

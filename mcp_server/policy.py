@@ -85,6 +85,7 @@ def _candidate_allowed(
             ExcCode.LAYOUT_KEEPOUT,
             ExcCode.LAYOUT_MISSING_REF,
             ExcCode.ENGINE_CRASH,
+            ExcCode.POST_ARTIFACT_FAILURE,
         }
     if cand.action == ActionType.ADD_PARTS and cand.confidence >= 0.8:
         return True
@@ -144,7 +145,11 @@ def decision_kind(exceptions: list[DesignException]) -> str:
         return "engine_failure"
     if codes & {ExcCode.CODE_EXEC_ERROR}:
         return "code_authoring_error"
-    if codes & {ExcCode.ROUTE_UNAVAILABLE, ExcCode.DRC_TOOL_FAILURE}:
+    if codes & {
+        ExcCode.ROUTE_UNAVAILABLE,
+        ExcCode.DRC_TOOL_FAILURE,
+        ExcCode.POST_ARTIFACT_FAILURE,
+    }:
         return "tool_unavailable"
     if all(exc.severity == Severity.ADVISORY for exc in exceptions):
         return "quality_advisory"

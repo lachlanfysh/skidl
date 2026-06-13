@@ -100,6 +100,39 @@ def crash_exception(
             ),
         )
 
+    if stage == "after_pcb_write" and artifact_keys:
+        subject = {
+            "message": message,
+            "stage": stage,
+            "partial_artifacts": sorted(artifact_keys),
+        }
+        if stderr:
+            subject["stderr_tail"] = stderr[-4000:]
+        return DesignException(
+            id="e-post-artifact-failure",
+            code=ExcCode.POST_ARTIFACT_FAILURE,
+            severity=Severity.ERROR,
+            message=(
+                f"{message}; KiCad artifacts were produced before backend "
+                "finalization failed"
+            ),
+            subject=subject,
+            candidates=[
+                _candidate(
+                    "c1",
+                    ActionType.REGENERATE,
+                    {},
+                    "retry unchanged if the fetched KiCad artifacts are unusable",
+                    "cheap",
+                )
+            ],
+            retry_hint=(
+                "Fetch the run artifacts and inspect the generated schematic/PCB "
+                "before changing the circuit. If the files are usable, treat this "
+                "as a backend finalization issue rather than circuit feedback."
+            ),
+        )
+
     subject = {"message": message}
     if stderr:
         subject["stderr_tail"] = stderr[-4000:]
