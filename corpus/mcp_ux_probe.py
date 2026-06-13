@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -59,6 +60,7 @@ USER_ONLY_SUFFIX = ""
 MAX_MODEL_TURNS = 60
 MAX_TOOL_RESULT_CHARS = 15000
 POLL_SPACING_S = 5.0
+FINAL_REPORT_RE = re.compile(r"^[\s#>*_`-]*FINAL\s+REPORT\b", re.IGNORECASE)
 
 
 class MCPClient:
@@ -244,6 +246,10 @@ def _final_report_block_reason(job_results: dict[str, dict], last_result: dict |
     return ""
 
 
+def _is_final_report_text(content: str | None) -> bool:
+    return bool(FINAL_REPORT_RE.match((content or "").strip()))
+
+
 def _harvest_outstanding_jobs(
     mcp: MCPClient,
     job_results: dict[str, dict],
@@ -420,7 +426,7 @@ def main() -> int:
         content = (msg.get("content") or "").strip()
 
         if not tool_calls:
-            if content.startswith("FINAL REPORT"):
+            if _is_final_report_text(content):
                 premature_final_reason = _final_report_block_reason(
                     job_results,
                     last_mcp_result,
@@ -515,7 +521,7 @@ def main() -> int:
         "turns_used": turn + 1,
         "wall_time_s": round(wall, 1),
         "usage": usage_totals,
-        "finished_with_report": final_report is not None and final_report.startswith("FINAL REPORT"),
+        "finished_with_report": _is_final_report_text(final_report),
         "final_report_valid": final_report_valid,
         "premature_final_reason": premature_final_reason,
         "last_mcp_result": _result_summary(last_mcp_result),

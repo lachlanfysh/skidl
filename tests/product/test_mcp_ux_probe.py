@@ -9,6 +9,7 @@ from corpus.mcp_ux_probe import (
     _extract_mcp_result,
     _final_report_block_reason,
     _harvest_outstanding_jobs,
+    _is_final_report_text,
     _result_summary,
 )
 
@@ -34,6 +35,13 @@ def test_final_report_blocked_while_job_running():
     )
 
     assert "job job-1 is still running" in reason
+
+
+def test_final_report_detection_accepts_markdown_prefixes():
+    assert _is_final_report_text("FINAL REPORT: done")
+    assert _is_final_report_text("**FINAL REPORT:** done")
+    assert _is_final_report_text("## FINAL REPORT")
+    assert not _is_final_report_text("I am still working")
 
 
 def test_result_summary_keeps_manufacturing_and_exception_signal():
