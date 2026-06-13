@@ -84,6 +84,13 @@ def _fake_symbols(monkeypatch):
                     keywords="switch reed magnetic",
                     pin_count=2,
                 ),
+                SymbolEntry(
+                    lib="Switch",
+                    name="SW_E3_SA3216",
+                    description="SPST tactile switch",
+                    keywords="switch tactile push keyboard",
+                    pin_count=2,
+                ),
             ],
         },
     )

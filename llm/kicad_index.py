@@ -332,6 +332,8 @@ def _symbol_switch_boost(query_lower: str, entry: SymbolEntry) -> float:
     if entry.lib == "Switch":
         score = 8.0
         if any(term in query_lower for term in ("keyboard", "cherry mx", "key switch")):
+            if entry.name == "SW_Push":
+                score += 10.0
             if "sw_push" in combined or "push" in combined:
                 score += 5.0
         if any(term in query_lower for term in ("tactile", "pushbutton", "push button", "button")):
