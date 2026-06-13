@@ -1098,6 +1098,39 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
     if error.line_text:
         subject["line_text"] = error.line_text
 
+    missing_lib = re.search(r"Can't open file:\s*([A-Za-z0-9_.+-]+)", str(original))
+    if missing_lib:
+        lib = missing_lib.group(1).rstrip(".")
+        subject["missing_library"] = lib
+        return _code_exception(
+            f"symbol library {lib!r} is not available to SKiDL",
+            (
+                "Use search_kicad(query, detail=true) for the intended part "
+                "and copy a returned Part(...) usage. Do not use KiCad footprint "
+                "library names or guessed symbol library names in Part(lib, name)."
+            ),
+            subject=subject,
+        )
+
+    missing_part = re.search(
+        r"Unable to find part\s+(.+?)\s+in library\s+([A-Za-z0-9_.+-]+)",
+        str(original),
+    )
+    if missing_part:
+        part_name = missing_part.group(1).strip()
+        lib = missing_part.group(2).rstrip(".")
+        subject["missing_part"] = part_name
+        subject["library"] = lib
+        return _code_exception(
+            f"part {part_name!r} was not found in symbol library {lib!r}",
+            (
+                "Call search_kicad(part_name, detail=true) or search by function, "
+                "then update the SKiDL code to use the exact returned library and "
+                "part names before resubmitting."
+            ),
+            subject=subject,
+        )
+
     pin_subject = _infer_pin_lookup(error)
     if "unsupported operand type(s) for +: 'Net' and 'Pin'" in str(original):
         if pin_subject:

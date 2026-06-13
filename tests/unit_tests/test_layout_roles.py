@@ -60,6 +60,14 @@ def test_classify_connector_from_ref_and_text():
     assert classify_part(part).role == "connector"
 
 
+def test_classify_panel_controls_not_as_ics():
+    switch = _Part("SW1", name="RotaryEncoder_Switch", pins=5)
+    pot = _Part("RV1", name="Potentiometer", pins=3)
+
+    assert classify_part(switch).role == "control"
+    assert classify_part(pot).role == "control"
+
+
 def test_classify_crystal_and_regulator():
     crystal = _Part("Y1", value="16MHz", footprint="Crystal:Crystal_SMD")
     regulator = _Part(

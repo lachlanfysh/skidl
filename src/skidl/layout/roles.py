@@ -92,6 +92,20 @@ def classify_part(part) -> PartRole:
                 ["2-pin capacitor on power and ground"],
             )
 
+    if prefix in {"SW", "S", "RV", "POT"} or any(
+        term in text
+        for term in (
+            "switch",
+            "button",
+            "potentiometer",
+            "pot ",
+            "trimmer",
+            "encoder",
+        )
+    ):
+        reasons.append("panel/user-control reference or metadata")
+        return PartRole(ref, "control", 0.85, reasons)
+
     if prefix in {"J", "P", "CON", "CN"} or any(
         term in text for term in ("connector", "header", "usb", "jack", "terminal")
     ):

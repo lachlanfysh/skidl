@@ -86,6 +86,30 @@ def test_score_decoupling_cap_warns_when_far_from_parent():
     assert score.power_net_count == 2
 
 
+def test_score_decoupling_cap_ignores_panel_controls_as_parents():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    switch = _Part(
+        "SW1",
+        name="RotaryEncoder_Switch",
+        footprint="Connector:Header",
+        nets=[vcc, gnd, sig],
+        pins=5,
+    )
+    cap = _Part("C1", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    circuit = _Circuit([switch, cap], [vcc, gnd, sig])
+    placed = [
+        PlacedPart("SW1", 10.0, 10.0, 0.0, "Connector:Header"),
+        PlacedPart("C1", 30.0, 10.0, 0.0, "Capacitor:C_0805"),
+    ]
+
+    score = score_placement(placed, circuit, BBOXES)
+
+    assert score.role_counts["control"] == 1
+    assert not any("decoupling cap" in warning for warning in score.warnings)
+
+
 def test_score_counts_hard_validation_failures():
     circuit = _Circuit([], [])
     placed = [

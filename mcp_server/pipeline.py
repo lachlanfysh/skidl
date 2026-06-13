@@ -177,9 +177,17 @@ def _enrich_code_exceptions(
             pin = pin_match.group("pin")
             ref = pin_match.group("ref")
             part = pin_match.group("part")
-            subject.setdefault("ref", ref)
-            subject.setdefault("pin", pin)
-            subject.setdefault("part", part)
+            mismatch = any(
+                subject.get(key) and subject.get(key) != value
+                for key, value in (("ref", ref), ("pin", pin), ("part", part))
+            )
+            subject["ref"] = ref
+            subject["pin"] = pin
+            subject["part"] = part
+            if mismatch:
+                subject.pop("available_pins", None)
+                subject.pop("suggested_pins", None)
+                subject.pop("variable", None)
             exc.message = (
                 f"pin {pin!r} not found on {ref} ({part}) while executing "
                 "SKiDL code"

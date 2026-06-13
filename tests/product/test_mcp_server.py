@@ -253,6 +253,70 @@ class TestHelpfulFailures:
         assert "ads1115_part['A0']" in exc.subject["line_text"]
         assert "search_kicad" in exc.retry_hint
 
+    def test_stderr_pin_context_overrides_wrong_line_inference(self):
+        exc = DesignException(
+            id="e-code",
+            code=ExcCode.CODE_EXEC_ERROR,
+            severity=Severity.FATAL,
+            message="pin 'VCC' not found on U1 (ATtiny102-M)",
+            subject={
+                "ref": "U1",
+                "pin": "VCC",
+                "part": "ATtiny102-M",
+                "variable": "mcu",
+                "available_pins": ["VCC", "PA0"],
+                "suggested_pins": ["VCC"],
+            },
+        )
+        code = "\n".join([
+            "from skidl import *",
+            "vcc += mcu['VCC'], display['VCC'], battery['VOUT']",
+        ])
+        stderr = (
+            "ERROR: No pins found using HY1602E:DS1[('VCC',)] "
+            "@ [/app/mcp_server/engine_worker.py:906=>/tmp/run/<string>:2]"
+        )
+
+        _enrich_code_exceptions([exc], stderr=stderr, code=code)
+
+        assert exc.message == "pin 'VCC' not found on DS1 (HY1602E) while executing SKiDL code"
+        assert exc.subject["ref"] == "DS1"
+        assert exc.subject["part"] == "HY1602E"
+        assert exc.subject["line"] == 2
+        assert "available_pins" not in exc.subject
+        assert "suggested_pins" not in exc.subject
+        assert "variable" not in exc.subject
+
+    def test_missing_symbol_library_error_is_specific(self):
+        class FakeExecError:
+            original = FileNotFoundError("Can't open file: Connector_USB.\n")
+            line = 7
+            line_text = 'usb = Part("Connector_USB", "USB_C_Receptacle")'
+            namespace = {}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.message == "symbol library 'Connector_USB' is not available to SKiDL"
+        assert exc.subject["missing_library"] == "Connector_USB"
+        assert "search_kicad" in exc.retry_hint
+        assert "guessed symbol library names" in exc.retry_hint
+
+    def test_missing_symbol_part_error_is_specific(self):
+        class FakeExecError:
+            original = ValueError("Unable to find part LCD_16x2 in library Display_Character.")
+            line = 10
+            line_text = 'display = Part("Display_Character", "LCD_16x2")'
+            namespace = {}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.message == (
+            "part 'LCD_16x2' was not found in symbol library 'Display_Character'"
+        )
+        assert exc.subject["missing_part"] == "LCD_16x2"
+        assert exc.subject["library"] == "Display_Character"
+        assert "exact returned library and part names" in exc.retry_hint
+
     def test_crash_stage_infers_partial_artifacts(self, tmp_path):
         (tmp_path / "amp.kicad_sch").write_text("(schematic)")
         (tmp_path / "amp.kicad_pcb").write_text("(pcb)")
