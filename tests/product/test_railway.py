@@ -991,6 +991,43 @@ class TestAgentUX:
             {"num": "1", "name": "GPIO0", "type": "bidirectional"}
         ]
 
+    def test_converted_lcsc_symbol_file_pin_details_are_parsed(self, tmp_path):
+        import mcp_server.server_http as server_http
+
+        sym_file = tmp_path / "C123.kicad_sym"
+        sym_file.write_text(
+            """
+            (kicad_symbol_lib
+              (version 20211014)
+              (generator test)
+              (symbol "C123"
+                (pin power_in line
+                  (at 0 0 0) (length 2.54)
+                  (name "VDD") (number "1"))
+                (pin bidirectional line
+                  (at 0 2.54 0) (length 2.54)
+                  (name "PA0") (number "2"))
+              )
+            )
+            """
+        )
+
+        meta = server_http._augment_converted_meta({
+            "library": "C123",
+            "symbol": "C123",
+            "footprint": "C123:C123_FP",
+            "sym_file": str(sym_file),
+        })
+
+        assert meta["pin_detail"] == {
+            "part": "C123:C123",
+            "footprint": "C123:C123_FP",
+            "pins": [
+                {"num": "1", "name": "VDD", "type": "power_in"},
+                {"num": "2", "name": "PA0", "type": "bidirectional"},
+            ],
+        }
+
     @pytest.mark.asyncio
     async def test_get_job_documents_statuses(self):
         from mcp_server.server_http import mcp

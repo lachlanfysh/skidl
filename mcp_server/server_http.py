@@ -894,6 +894,89 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
 EASYEDA_CACHE = os.path.join(os.path.dirname(__file__), "..", "corpus", "jlc", "easyeda_cache")
 
 
+def _pin_details_from_sym_file(sym_file: str, symbol: str | None) -> list[dict]:
+    """Extract pin details from a generated one-file KiCad symbol library."""
+    if not sym_file or not os.path.exists(sym_file):
+        return []
+    try:
+        from simp_sexp import Sexp
+    except ImportError:
+        return []
+
+    try:
+        content = open(sym_file, encoding="utf-8", errors="replace").read()
+        lib_sexp = Sexp(content)
+        symbols = lib_sexp.search("/kicad_symbol_lib/symbol", ignore_case=True)
+    except Exception:
+        return []
+    if not symbols:
+        return []
+
+    by_name = {s[1]: s for s in symbols if len(s) > 1 and isinstance(s[1], str)}
+    sym = by_name.get(symbol) if symbol else None
+    if sym is None:
+        sym = next(
+            (
+                s for s in symbols
+                if len(s) > 1 and isinstance(s[1], str) and ":" not in s[1]
+            ),
+            symbols[0],
+        )
+
+    extends = sym.search("/symbol/extends", ignore_case=True)
+    pin_source = sym
+    if extends:
+        parent = by_name.get(extends[0][1])
+        if parent is not None:
+            pin_source = parent
+
+    pin_type_map = {
+        "input": "input", "output": "output", "bidirectional": "bidirectional",
+        "tri_state": "tristate", "passive": "passive", "power_in": "power_in",
+        "power_out": "power_out", "open_collector": "output",
+        "open_emitter": "output", "free": "unspecified",
+        "unspecified": "unspecified", "no_connect": "no_connect",
+    }
+    pins: list[dict] = []
+    seen: set[str] = set()
+    pin_sources = [pin_source] + (pin_source.search("/symbol/symbol", ignore_case=True) or [])
+    for source in pin_sources:
+        for pin in source.search("/symbol/pin", ignore_case=True):
+            try:
+                pin_name_node = pin.search("/pin/name")
+                pin_num_node = pin.search("/pin/number")
+                if not pin_name_node or not pin_num_node:
+                    continue
+                num = str(pin_num_node[0][1])
+                if num in seen:
+                    continue
+                seen.add(num)
+                pins.append({
+                    "num": num,
+                    "name": str(pin_name_node[0][1]),
+                    "type": pin_type_map.get(str(pin[1]).lower(), "unspecified"),
+                })
+            except Exception:
+                continue
+    return pins
+
+
+def _augment_converted_meta(meta: dict) -> dict:
+    """Add parsed pin details to converted EasyEDA metadata when possible."""
+    if not isinstance(meta, dict) or meta.get("pin_detail"):
+        return meta
+    pins = _pin_details_from_sym_file(meta.get("sym_file", ""), meta.get("symbol"))
+    if not pins:
+        return meta
+    augmented = dict(meta)
+    augmented["pin_detail"] = {
+        "part": f"{meta.get('library')}:{meta.get('symbol')}",
+        "footprint": meta.get("footprint"),
+        "pins": pins,
+    }
+    return augmented
+
+
 async def _convert_easyeda(lcsc: str) -> dict | None:
     """Convert LCSC part via easyeda2kicad. Checks DB cache → disk cache → API."""
     import subprocess
@@ -922,7 +1005,7 @@ async def _convert_easyeda(lcsc: str) -> dict | None:
                 os.makedirs(fp_dir, exist_ok=True)
                 with open(os.path.join(fp_dir, meta["footprint"].split(":")[-1] + ".kicad_mod"), "wb") as f:
                     f.write(row["fp_data"])
-            return meta
+            return _augment_converted_meta(meta)
     except Exception:
         pass
 
@@ -933,7 +1016,7 @@ async def _convert_easyeda(lcsc: str) -> dict | None:
     if os.path.exists(meta_file):
         try:
             with open(meta_file) as f:
-                return json.loads(f.read())
+                return _augment_converted_meta(json.loads(f.read()))
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -1014,7 +1097,7 @@ async def _convert_easyeda(lcsc: str) -> dict | None:
     except Exception:
         pass
 
-    return meta
+    return _augment_converted_meta(meta)
 
 
 @mcp.tool()
@@ -1046,7 +1129,7 @@ async def convert_lcsc(lcsc: str) -> dict:
 
     usage = f'Part("{lib}", "{sym}", footprint="{fp}")' if fp else f'Part("{lib}", "{sym}")'
 
-    return {
+    result = {
         "ok": True,
         "lcsc": meta["lcsc"],
         "library": lib,
@@ -1055,6 +1138,14 @@ async def convert_lcsc(lcsc: str) -> dict:
         "usage": usage,
         "hint": "Use the 'usage' field in your SKiDL code. The library is auto-loaded.",
     }
+    if meta.get("pin_detail"):
+        result["pin_detail"] = meta["pin_detail"]
+        result["hint"] = (
+            "Use the 'usage' field in your SKiDL code. The library is "
+            "auto-loaded. Use pin_detail.pins for exact converted-symbol pin "
+            "names; do not assume MCU/module functional aliases exist."
+        )
+    return result
 
 
 # ── Resources: deep reference an agent reads on demand ─────────────────
@@ -1453,6 +1544,9 @@ Common libraries — use search_kicad() for anything not listed here:
 - Connectors: `Part("Connector_Generic", "Conn_01x06", ...)` not "PinHeader_1x06".
 - USB connectors use symbol library `Connector` with a `Connector_USB:*`
   footprint; `Connector_USB` is the footprint library, not the symbol library.
+- FFC/FPC display connectors normally use a generic symbol such as
+  `Connector_Generic:Conn_01xNN` with a `Connector_FFC-FPC:*` footprint.
+  `Connector_FFC-FPC` is a footprint library, not a symbol library.
 - Connections: use `net += pin1, pin2` or `pin += net`; no global `connect()`.
 - Decoupling caps: value="100nF" wired power-to-ground = auto-placed near parent IC.
 - Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND.

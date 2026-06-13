@@ -423,6 +423,55 @@ class TestHelpfulFailures:
         assert "T1/T2" in exc.retry_hint
         assert "simpler AudioPlug/AudioJack" in exc.retry_hint
 
+    def test_rgb_led_pin_error_explains_channel_pins(self):
+        led = SimpleNamespace(
+            ref="D1",
+            name="LED_ARGB",
+            pins=[
+                SimpleNamespace(name="~", num="A"),
+                SimpleNamespace(name="~", num="RK"),
+                SimpleNamespace(name="~", num="GK"),
+                SimpleNamespace(name="~", num="BK"),
+            ],
+        )
+
+        class FakeExecError:
+            original = ValueError("No pins found using D1['R']")
+            line = 8
+            line_text = "red += led['R']"
+            namespace = {"led": led}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.subject["pin"] == "R"
+        assert "pin_family_hint" in exc.subject
+        assert "RK" in exc.retry_hint
+        assert "A=anode, K=cathode" in exc.retry_hint
+
+    def test_pico_usb_pin_error_explains_module_boundary(self):
+        pico = SimpleNamespace(
+            ref="A1",
+            name="RaspberryPi_Pico",
+            pins=[
+                SimpleNamespace(name="GPIO0", num="1"),
+                SimpleNamespace(name="VBUS", num="40"),
+                SimpleNamespace(name="GND", num="38"),
+            ],
+        )
+
+        class FakeExecError:
+            original = ValueError("No pins found using A1['USB_DP']")
+            line = 10
+            line_text = "usb_dp += pico['USB_DP']"
+            namespace = {"pico": pico}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.subject["pin"] == "USB_DP"
+        assert "pin_family_hint" in exc.subject
+        assert "complete module with onboard USB" in exc.retry_hint
+        assert "raw RP2040" in exc.retry_hint
+
     def test_missing_footprint_error_suggests_replacements(self, monkeypatch):
         from llm import kicad_index
 

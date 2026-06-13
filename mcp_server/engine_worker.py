@@ -1206,11 +1206,35 @@ def _close(token: str, pool: list[str], n: int = 6) -> list[str]:
 def _connector_pin_family_hint(part_name: str, pin_name: str, available: list[str]) -> str:
     """Explain common mechanical-connector pin families when aliases mislead."""
     part_lower = part_name.lower()
+    pin = str(pin_name).upper()
+    pins_upper = {str(p).upper() for p in available}
+
+    if "led_argb" in part_lower or "led_rgb" in part_lower:
+        if pin in {"R", "G", "B"} and pin not in pins_upper:
+            channel_pins = sorted(
+                p for p in pins_upper
+                if p.startswith(pin) and p in {f"{pin}A", f"{pin}K"}
+            )
+            if channel_pins:
+                return (
+                    f"This RGB LED symbol does not expose plain {pin!r}. "
+                    f"Use {'/'.join(channel_pins)} for the {pin} channel "
+                    "(A=anode, K=cathode), and wire the common anode/cathode "
+                    "pin according to the selected LED symbol."
+                )
+
+    if "raspberrypi_pico" in part_lower and ("USB" in pin or pin in {"D+", "D-", "TP2", "TP3"}):
+        return (
+            "The Raspberry Pi Pico module symbol normally represents the "
+            "complete module with onboard USB, and may not expose USB D+/D- "
+            "test pads as SKiDL pins. For an external USB-C connector, use a "
+            "raw RP2040 symbol/design; for a Pico-module board, omit external "
+            "USB data wiring or use only the module's exposed power/GPIO pins."
+        )
+
     if "audiojack" not in part_lower and "audioplug" not in part_lower:
         return ""
 
-    pin = str(pin_name).upper()
-    pins_upper = {str(p).upper() for p in available}
     if pin in {"T", "R", "S"} and pin not in pins_upper:
         numbered = sorted(p for p in pins_upper if re.fullmatch(rf"{pin}\d+", p))
         normalled = sorted(
