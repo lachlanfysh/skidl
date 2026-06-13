@@ -28,6 +28,7 @@ mcp = FastMCP("eda-mcp")
 def _pipeline_kwargs(opts: dict, out_dir: Path) -> dict:
     return {
         "timeout_s": float(opts.get("timeout_s", 300)),
+        "route_timeout_s": float(opts.get("route_timeout_s", 120)),
         "mode": str(opts.get("mode", "engine_only")),
         "board_id": opts.get("board_id"),
         "telemetry_path": opts.get("telemetry_path"),

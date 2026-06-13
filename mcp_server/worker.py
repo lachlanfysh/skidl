@@ -111,11 +111,13 @@ def _execute_job(job: dict) -> dict:
     policy = normalize_policy(policy_dict)
 
     timeout_s = float(opts.get("timeout_s", 300))
+    route_timeout_s = float(opts.get("route_timeout_s", 120))
     parent_job_id = job.get("parent_job_id")
 
     with tempfile.TemporaryDirectory(prefix="eda-run-") as tmpdir:
         base_kwargs = {
             "timeout_s": timeout_s,
+            "route_timeout_s": route_timeout_s,
             "mode": str(opts.get("mode", "engine_only")),
             "board_id": opts.get("board_id"),
             "record_telemetry": bool(opts.get("record_telemetry", True)),
@@ -181,6 +183,7 @@ def _execute_skidl_job(job: dict) -> dict:
     raw = job["spec"]
     opts = job.get("options") or {}
     timeout_s = float(opts.get("timeout_s", 300))
+    route_timeout_s = float(opts.get("route_timeout_s", 120))
 
     with tempfile.TemporaryDirectory(prefix="eda-run-") as tmpdir:
         response = run_pipeline_code(
@@ -189,6 +192,7 @@ def _execute_skidl_job(job: dict) -> dict:
             outline_mm=raw.get("outline_mm"),
             out_dir=tmpdir,
             timeout_s=timeout_s,
+            route_timeout_s=route_timeout_s,
             board_id=opts.get("board_id"),
             design_intent=raw.get("design_intent") or raw.get("marketing_text"),
         )

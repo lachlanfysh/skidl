@@ -258,6 +258,7 @@ def run_pipeline(
     spec,
     out_dir,
     timeout_s: float = 300,
+    route_timeout_s: float = 120,
     *,
     mode: str = "engine_only",
     run_id: str | None = None,
@@ -286,6 +287,7 @@ def run_pipeline(
         "run_id": run_id,
         "out_dir": str(run_dir),
         "spec": circuit_spec.model_dump(mode="json"),
+        "route_timeout_s": route_timeout_s,
     }
     proc = subprocess.Popen(
         [sys.executable, "-m", "mcp_server.engine_worker"],
@@ -398,6 +400,7 @@ def run_pipeline_code(
     outline_mm: list[float] | None,
     out_dir,
     timeout_s: float = 300,
+    route_timeout_s: float = 120,
     *,
     run_id: str | None = None,
     board_id: str | None = None,
@@ -418,6 +421,7 @@ def run_pipeline_code(
         "board_name": board_name,
         "outline_mm": outline_mm,
         "marketing_text": design_intent or "",
+        "route_timeout_s": route_timeout_s,
     }
     proc = subprocess.Popen(
         [sys.executable, "-m", "mcp_server.engine_worker"],

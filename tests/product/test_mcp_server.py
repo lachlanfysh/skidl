@@ -6,6 +6,8 @@ import json
 import os
 import subprocess
 import sys
+import types
+from pathlib import Path
 
 import pytest
 
@@ -16,6 +18,7 @@ from mcp_server.engine_worker import (
     _exec_skidl,
     _manufacturing_output_exception,
     _missing_manufacturing_outputs,
+    _route_pcb,
 )
 from mcp_server.pipeline import (
     _enrich_code_exceptions,
@@ -265,6 +268,41 @@ class TestHelpfulFailures:
         assert "pin 'PB4' not found" not in exc.message
         assert exc.subject["pin"] == "PB4"
         assert "net += pin1, pin2" in exc.retry_hint
+
+
+class TestRoutingExceptions:
+    def test_route_timeout_suggests_router_budget_retry(self, monkeypatch, tmp_path):
+        original_exists = Path.exists
+
+        def fake_exists(path: Path) -> bool:
+            if str(path) == "/opt/freerouting/freerouting-2.0.1.jar":
+                return True
+            return original_exists(path)
+
+        fake_pcbnew = types.SimpleNamespace(
+            LoadBoard=lambda path: object(),
+            ExportSpecctraDSN=lambda board, path: True,
+        )
+
+        def fake_run(*args, **kwargs):
+            assert kwargs["timeout"] == 120
+            raise subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+
+        monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/java")
+        monkeypatch.setattr(Path, "exists", fake_exists)
+        monkeypatch.setitem(sys.modules, "pcbnew", fake_pcbnew)
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        exceptions = _route_pcb(str(tmp_path / "timeout.kicad_pcb"), timeout_s=120)
+
+        assert len(exceptions) == 1
+        exc = exceptions[0]
+        assert exc.code == ExcCode.ROUTE_TIMEOUT
+        assert exc.candidates[0].action == ActionType.REGENERATE
+        assert exc.candidates[0].params == {
+            "run_options": {"route_timeout_s": 240.0},
+        }
+        assert "route_timeout_s=240" in exc.retry_hint
 
 
 @needs_kicad

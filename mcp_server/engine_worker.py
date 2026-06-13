@@ -289,6 +289,7 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
             capture_output=True, text=True,
         )
     except sp.TimeoutExpired:
+        next_timeout = min(max(timeout_s * 2.0, timeout_s + 120.0), 900.0)
         return [DesignException(
             id="e-route-timeout",
             code=ExcCode.ROUTE_TIMEOUT,
@@ -296,15 +297,24 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
             message=f"Freerouting exceeded {timeout_s:.0f}s timeout",
             subject={"timeout_s": timeout_s},
             candidates=[
-                Candidate(id="c1", action=ActionType.SCALE_OUTLINE,
+                Candidate(id="c1", action=ActionType.REGENERATE,
+                          params={"run_options": {"route_timeout_s": next_timeout}},
+                          human_summary=f"Retry unchanged with route_timeout_s={next_timeout:.0f}",
+                          confidence=0.75),
+                Candidate(id="c2", action=ActionType.SCALE_OUTLINE,
                           params={"area_factor": 1.3},
                           human_summary="Enlarge board 30% and retry routing",
                           confidence=0.6),
-                Candidate(id="c2", action=ActionType.SET_LAYERS,
+                Candidate(id="c3", action=ActionType.SET_LAYERS,
                           params={"layers": 4},
                           human_summary="Switch to 4-layer board for easier routing",
                           confidence=0.5),
             ],
+            retry_hint=(
+                f"First resubmit the same design with run_options.route_timeout_s="
+                f"{next_timeout:.0f}. If timeout repeats, simplify placement, "
+                "increase outline, or use a board stackup the engine supports."
+            ),
         )]
 
     # Parse unrouted count from Freerouting stdout

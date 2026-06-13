@@ -133,8 +133,9 @@ async def submit_design(
     CircuitSpec is legacy/internal. New MCP clients should use
     submit_skidl_code() and eda://guide/skidl.
 
-    run_options (all optional): {"timeout_s": 300} engine wall-clock limit —
-    raise to 600-1500 for dense boards; {"board_id": "..."} telemetry label.
+    run_options (all optional): {"timeout_s": 300} engine wall-clock limit;
+    {"route_timeout_s": 120} Freerouting-only limit — raise to 300-900
+    after ROUTE_TIMEOUT; {"board_id": "..."} telemetry label.
 
     policy controls server-side auto-correction between iterations
     (default: none — every exception comes back to you):
@@ -230,7 +231,8 @@ async def submit_skidl_code(
     design_intent: optional original user/design request. Include it so the
       server can warn when the code appears to omit requested features such as
       USB-C, STEMMA/Qwiic, I2C/SPI, LiPo charging, regulators, or shunts.
-    run_options: {"timeout_s": 300} — raise for complex boards.
+    run_options: {"timeout_s": 300, "route_timeout_s": 120} — raise
+      timeout_s for complex boards, route_timeout_s after ROUTE_TIMEOUT.
 
     Returns: {"job_id": "...", "status": "queued"}. Poll get_job(job_id).
     """
@@ -1409,6 +1411,8 @@ is a routed board when routing succeeds.
 - queued -> running transition is usually <5s when workers are free.
 - Simple boards (<20 parts): done in 10-60s. Dense boards: minutes; raise
   timeout_s when a design has many ICs, connectors, or tight routing.
+  If the exception is ROUTE_TIMEOUT, retry the same code first with
+  route_timeout_s=300-900 before redesigning the board.
 - status "failed" or "timeout" with exceptions attached is the NORMAL
   correction path, not an outage. Only a null result + error string means
   the job crashed.
@@ -1418,6 +1422,7 @@ is a routed board when routing succeeds.
 | key | default | when to change |
 |---|---|---|
 | timeout_s | 300 | raise to 600-1500 for dense boards or slow autorouting |
+| route_timeout_s | 120 | raise to 300-900 after ROUTE_TIMEOUT; must stay below timeout_s |
 | board_id | none | telemetry label for tracking related runs |
 
 ## Iterating - KEEP GOING UNTIL SUCCEEDED
@@ -1473,7 +1478,7 @@ def _exceptions_guide() -> str:
         "DESIGN_MISSING_FEATURE": "advisory: marketing text mentions a feature not in spec",
         "ROUTE_UNCONNECTED": "error: nets that could not be routed",
         "ROUTE_CONGESTION": "advisory: routing succeeded but congestion is high",
-        "ROUTE_TIMEOUT": "error: Freerouting exceeded time limit",
+        "ROUTE_TIMEOUT": "error: Freerouting exceeded route_timeout_s; retry unchanged with a larger route_timeout_s before changing the circuit",
         "ROUTE_UNAVAILABLE": "tooling error: routing tools not available or DSN/SES conversion failed",
         "DRC_CLEARANCE": "error: trace/pad clearance violation",
         "DRC_UNCONNECTED": "error: net endpoint not connected after routing",

@@ -15,6 +15,7 @@ import pytest_asyncio
 os.environ.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
 
 from mcp_server.db import DB
+from mcp_server.pipeline import DesignResponse
 from mcp_server.worker import _execute_job, _find_artifacts, worker_loop
 
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
@@ -270,6 +271,77 @@ class TestDB:
 
 
 # ── Worker execution ──────────────────────────────────────────────────
+
+
+class TestWorkerOptionPassthrough:
+    def test_circuit_spec_route_timeout_reaches_pipeline(self, monkeypatch):
+        seen = {}
+
+        def fake_run_pipeline(spec, out_dir, **kwargs):
+            seen.update(kwargs)
+            return DesignResponse(
+                run_id="fake-run",
+                ok=True,
+                status="succeeded",
+                stage="complete",
+                metrics={
+                    "manufacturable": True,
+                    "manufacturing_complete": True,
+                },
+            )
+
+        monkeypatch.setattr("mcp_server.worker.run_pipeline", fake_run_pipeline)
+
+        job = {
+            "spec": SIMPLE_SPEC,
+            "options": {"timeout_s": 600, "route_timeout_s": 420},
+            "policy": {},
+        }
+        result = _execute_job(job)
+
+        assert result["run_id"] == "fake-run"
+        assert seen["timeout_s"] == 600
+        assert seen["route_timeout_s"] == 420
+
+    def test_skidl_code_route_timeout_reaches_pipeline(self, monkeypatch):
+        seen = {}
+
+        def fake_run_pipeline_code(**kwargs):
+            seen.update(kwargs)
+            return DesignResponse(
+                run_id="fake-code-run",
+                ok=True,
+                status="succeeded",
+                stage="complete",
+                metrics={
+                    "manufacturable": True,
+                    "manufacturing_complete": True,
+                },
+            )
+
+        monkeypatch.setattr("mcp_server.worker.run_pipeline_code", fake_run_pipeline_code)
+
+        job = {
+            "spec": {
+                "_mode": "skidl_python",
+                "code": "from skidl import *",
+                "board_name": "code-board",
+                "outline_mm": [40.0, 25.0],
+                "design_intent": "test board",
+            },
+            "options": {
+                "timeout_s": 600,
+                "route_timeout_s": 420,
+                "board_id": "route-timeout-test",
+            },
+            "policy": {},
+        }
+        result = _execute_job(job)
+
+        assert result["run_id"] == "fake-code-run"
+        assert seen["timeout_s"] == 600
+        assert seen["route_timeout_s"] == 420
+        assert seen["board_id"] == "route-timeout-test"
 
 
 @needs_kicad
@@ -813,7 +885,7 @@ class TestAgentUX:
         for needle in (
             "get_job", "job_id", "Part()", "Net()", "footprint",
             "Library:Name", "POWER", "100nF", "eda://guide/skidl",
-            "timeout_s", "LCSC", "manufacturing",
+            "timeout_s", "route_timeout_s", "LCSC", "manufacturing",
         ):
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
 
