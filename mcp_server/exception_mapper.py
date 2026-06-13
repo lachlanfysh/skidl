@@ -22,6 +22,27 @@ def suppress_waived(
     ]
 
 
+def order_exceptions_for_agent(
+    exceptions: Iterable[DesignException],
+) -> list[DesignException]:
+    """Order exceptions by actionability while preserving local stage order."""
+
+    severity_rank = {
+        Severity.FATAL: 0,
+        Severity.ERROR: 1,
+        Severity.ADVISORY: 2,
+    }
+    return [
+        exc for _, exc in sorted(
+            enumerate(exceptions),
+            key=lambda item: (
+                severity_rank.get(item[1].severity, 3),
+                item[0],
+            ),
+        )
+    ]
+
+
 def _candidate(
     cid: str,
     action: ActionType,
@@ -369,5 +390,5 @@ def payload_exceptions(payload: dict, spec: CircuitSpec | None) -> list[DesignEx
         for exc in payload.get("exceptions", [])
     ]
     if spec is not None:
-        return suppress_waived(exceptions, spec)
-    return exceptions
+        exceptions = suppress_waived(exceptions, spec)
+    return order_exceptions_for_agent(exceptions)

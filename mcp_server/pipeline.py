@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from mcp_server.exception_mapper import (
     crash_exception,
+    order_exceptions_for_agent,
     payload_exceptions,
     timeout_exception,
 )
@@ -487,6 +488,7 @@ def run_pipeline_code(
             stderr=stderr,
             code=code,
         )
+        exceptions = order_exceptions_for_agent(exceptions)
         if proc.returncode not in (0, None) and not exceptions:
             artifact_keys = _partial_artifact_names(run_dir)
             exceptions = [

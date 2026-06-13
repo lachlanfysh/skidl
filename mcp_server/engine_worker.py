@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from mcp_server.exception_mapper import (
     crash_exception,
     layout_exceptions,
+    order_exceptions_for_agent,
     spec_malformed_exception,
     suppress_waived,
 )
@@ -194,6 +195,7 @@ def _json_result(
     exceptions = list(exceptions or [])
     if spec is not None:
         exceptions = suppress_waived(exceptions, spec)
+    exceptions = order_exceptions_for_agent(exceptions)
     fatal_or_error = any(
         exc.severity in (Severity.FATAL, Severity.ERROR) for exc in exceptions
     )

@@ -11,7 +11,12 @@ from pathlib import Path
 
 import pytest
 
-from mcp_server.exception_mapper import crash_exception, layout_exceptions, suppress_waived
+from mcp_server.exception_mapper import (
+    crash_exception,
+    layout_exceptions,
+    order_exceptions_for_agent,
+    suppress_waived,
+)
 from mcp_server.engine_worker import (
     _code_exception_from_exec,
     _circuit_to_spec_dict,
@@ -125,6 +130,43 @@ class TestExceptionMapper:
         spec.waivers = [exc.waiver_key()]
 
         assert suppress_waived([exc], spec) == []
+
+    def test_agent_order_puts_errors_before_advisories(self):
+        advisory = DesignException(
+            id="e-high-congestion",
+            code=ExcCode.HIGH_CONGESTION,
+            severity=Severity.ADVISORY,
+            message="layout congestion is high",
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.ACCEPT_ADVISORY,
+                    params={},
+                    human_summary="accept advisory",
+                )
+            ],
+        )
+        error = DesignException(
+            id="e-route-timeout",
+            code=ExcCode.ROUTE_TIMEOUT,
+            severity=Severity.ERROR,
+            message="routing timed out",
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.REGENERATE,
+                    params={"run_options": {"route_timeout_s": 240}},
+                    human_summary="retry routing longer",
+                )
+            ],
+        )
+
+        ordered = order_exceptions_for_agent([advisory, error])
+
+        assert [exc.code for exc in ordered] == [
+            ExcCode.ROUTE_TIMEOUT,
+            ExcCode.HIGH_CONGESTION,
+        ]
 
     def test_layout_validation_overlap_maps_to_candidate(self):
         class Validation:
