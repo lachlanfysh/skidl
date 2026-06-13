@@ -222,11 +222,20 @@ def _fix_truncation(text: str) -> str:
     return t
 
 
-def _fix_bare_net_pins(parsed: dict) -> dict:
+def _fix_bare_net_pins(parsed: Any) -> Any:
     """Fix bare net names used as pin references (e.g., 'GND' instead of 'U1.GND').
     Remove them from pin lists — enrichment will re-add the connections properly."""
-    for net in parsed.get("nets", []):
+    if not isinstance(parsed, dict):
+        return parsed
+    nets = parsed.get("nets", [])
+    if not isinstance(nets, list):
+        return parsed
+    for net in nets:
+        if not isinstance(net, dict):
+            continue
         pins = net.get("pins", [])
+        if not isinstance(pins, list):
+            continue
         net["pins"] = [p for p in pins if "." in str(p)]
     return parsed
 
@@ -452,15 +461,17 @@ _INTERNAL_REVIEW_SYSTEM = (
 )
 
 _EXTERNAL_REVIEW_SYSTEM = (
-    "You are a third-party engineering agent using a PCB generation API. The API "
-    "exposes two tools: generate_design(spec) runs the full schematic+layout "
-    "pipeline on a JSON circuit spec and returns design exceptions; "
-    "apply_correction(exception_id, candidate_id) mutates the spec with the chosen "
-    "candidate's action and lets you regenerate. Your last generate_design call "
-    "returned the exceptions below; decide which correction candidate to apply for "
-    "each exception. Pick exactly ONE candidate id per exception, preferring cheap "
-    "fixes that address the root cause, and never repeating a correction from the "
-    "prior-corrections history.\n"
+    "You are a third-party engineering agent using the legacy CircuitSpec JSON "
+    "evaluation API. The current MCP product surface is submit_skidl_code(), but "
+    "this evaluator intentionally exercises the old generate_design/apply_correction "
+    "loop for corpus compatibility. The legacy API exposes two tools: "
+    "generate_design(spec) runs the full schematic+layout pipeline on a JSON "
+    "circuit spec and returns design exceptions; apply_correction(exception_id, "
+    "candidate_id) mutates the spec with the chosen candidate's action and lets "
+    "you regenerate. Your last generate_design call returned the exceptions below; "
+    "decide which correction candidate to apply for each exception. Pick exactly "
+    "ONE candidate id per exception, preferring cheap fixes that address the root "
+    "cause, and never repeating a correction from the prior-corrections history.\n"
     "\n"
     "STRICT OUTPUT REQUIREMENT: Output ONLY a JSON array of objects of the form "
     '{"exception_id": "...", "candidate_id": "..."} — one entry per exception, '
@@ -641,7 +652,7 @@ async def external_agent_review(
     stage: str = "review_external",
 ) -> tuple[list[dict], list[dict], bool]:
     """Same contract as review_exceptions, but framed as a third-party agent
-    consuming the PCB generation API (generate_design / apply_correction)."""
+    consuming the legacy CircuitSpec API (generate_design / apply_correction)."""
     return await _review(
         exceptions,
         board_context,

@@ -365,4 +365,6 @@ async def test_external_agent_review_uses_external_stage_and_framing():
     assert stages[0]["stage"] == "review_external"
     system = calls[0]["messages"][0]["content"]
     assert "generate_design" in system and "apply_correction" in system
+    assert "legacy CircuitSpec JSON" in system
+    assert "submit_skidl_code" in system
     assert {c["exception_id"] for c in choices} == {"e1", "e2"}

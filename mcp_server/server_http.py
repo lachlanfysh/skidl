@@ -36,7 +36,10 @@ mcp = FastMCP(
         "part names, and footprints. Write SKiDL Python code and submit via "
         "submit_skidl_code(). The server handles schematic generation, PCB "
         "layout, autorouting, and DRC. Poll get_job() until done, then "
-        "get_run() for artifacts. Read eda://guide/skidl for conventions."
+        "get_run() for artifacts. If a run returns exceptions, edit the "
+        "SKiDL code using the structured exception details and resubmit. "
+        "CircuitSpec JSON is a legacy/internal surface, not the preferred "
+        "MCP workflow. Read eda://guide/skidl for conventions."
     ),
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
@@ -73,8 +76,8 @@ def _validate_spec(input_spec: dict | str) -> CircuitSpec:
         raise ValueError(
             "Spec validation failed — fix these and resubmit:\n"
             + "\n".join(lines)
-            + "\n\nHint: Read resource eda://guide/circuit-spec for the "
-            "full format reference, valid field values, and a worked example."
+            + "\n\nHint: CircuitSpec JSON is legacy/internal. New MCP clients "
+            "should write SKiDL Python and call submit_skidl_code()."
         )
 
 
@@ -86,7 +89,14 @@ async def submit_design(
     run_options: dict | None = None,
     policy: dict | None = None,
 ) -> dict:
-    """Submit a PCB design job. Returns {job_id, status:"queued"} immediately.
+    """Legacy/internal: submit a CircuitSpec JSON design job.
+
+    New agent-facing clients should use submit_skidl_code() instead. The
+    CircuitSpec JSON surface remains for corpus runners, compatibility tests,
+    and internal debugging while the product converges on SKiDL Python at the
+    MCP boundary.
+
+    Returns {job_id, status:"queued"} immediately.
 
     The engine (schematic generation + PCB placement + ERC) runs on a worker;
     poll get_job(job_id) every 5-15s until status is succeeded/failed/timeout.
@@ -120,7 +130,8 @@ async def submit_design(
       3V3, 5V, VBAT, GND, AGND...) — placement quality depends on it.
     - Decoupling caps: value "100nF" wired power-to-ground is auto-detected
       and placed 1.5mm from its IC. Other values/names are not detected.
-    Read resource eda://guide/circuit-spec for full docs and worked example.
+    CircuitSpec is legacy/internal. New MCP clients should use
+    submit_skidl_code() and eda://guide/skidl.
 
     run_options (all optional): {"timeout_s": 300} engine wall-clock limit —
     raise to 600-1500 for dense boards; {"board_id": "..."} telemetry label.
@@ -145,8 +156,10 @@ async def submit_design(
     return {
         "job_id": job_id,
         "status": "queued",
+        "deprecated": True,
         "hint": (
-            "Job queued. Poll with get_job(job_id) every 10s until "
+            "Legacy CircuitSpec job queued. Prefer submit_skidl_code() for "
+            "new MCP clients. Poll with get_job(job_id) every 10s until "
             "status is 'succeeded' or 'failed'."
         ),
     }
@@ -250,12 +263,13 @@ async def get_job(job_id: str) -> dict:
     "succeeded", "failed", "timeout". Poll every 5-15s while queued/running.
 
     When finished, the "result" field contains:
-    - run_id: pass to get_run() for artifacts, or apply_correction() to fix
+    - run_id: pass to get_run() for artifacts
     - ok: true if all quality gates passed
     - exceptions: list of structured problems, each with resolution
       candidates (see eda://guide/exceptions). Empty list = clean run.
     - decision_required + decision_kind: set when the engine stopped and
-      needs you to choose a fix via apply_correction()
+      needs you to edit the SKiDL code and resubmit. apply_correction() is
+      legacy CircuitSpec-only; do not use it for submit_skidl_code() runs.
     - summary, metrics, layout: quality data (placement score, HPWL, ERC)
 
     If the job crashed, "error" holds the traceback message and result may
@@ -285,16 +299,23 @@ async def get_job(job_id: str) -> dict:
 def _get_job_hint(job: dict) -> str:
     """Context-sensitive hint based on job state."""
     status = job.get("status", "")
+    spec = job.get("spec") or {}
+    is_skidl_python = isinstance(spec, dict) and spec.get("_mode") == "skidl_python"
     if status in ("queued", "running"):
         return "Still processing. Poll again in 10s."
 
     result = job.get("result")
     if not isinstance(result, dict):
         if job.get("error"):
+            if is_skidl_python:
+                return (
+                    "Job crashed. Check your SKiDL code, read resource "
+                    "eda://guide/skidl for conventions, then fix and resubmit "
+                    "with submit_skidl_code()."
+                )
             return (
-                "Job crashed. Check your spec for issues — read resource "
-                "eda://guide/circuit-spec for the format reference, then "
-                "fix and resubmit with submit_design()."
+                "Legacy CircuitSpec job crashed. Check your spec for issues, "
+                "then fix and resubmit. New clients should use submit_skidl_code()."
             )
         return "Job finished with no result. Resubmit."
 
@@ -336,28 +357,46 @@ def _get_job_hint(job: dict) -> str:
                 "Library/part not found — check lib is a KiCad library name "
                 "(e.g. 'Sensor_Temperature'), not a manufacturer"
             )
-        parts.append(
-            "Pick candidate fixes and call apply_correction(run_id, corrections). "
-            "Read resource eda://guide/exceptions for the full correction model"
-        )
+        if is_skidl_python:
+            parts.append(
+                "Use the candidates as repair guidance, edit the SKiDL code, "
+                "and resubmit with submit_skidl_code(). apply_correction() only "
+                "supports legacy CircuitSpec JSON runs"
+            )
+        else:
+            parts.append(
+                "Pick candidate fixes and call apply_correction(run_id, corrections). "
+                "This path is legacy CircuitSpec JSON; new clients should prefer "
+                "submit_skidl_code(). Read resource eda://guide/exceptions for "
+                "the full correction model"
+            )
         return ". ".join(parts) + "."
+
+    if is_skidl_python:
+        return (
+            f"Run finished with {len(exceptions)} exception(s). Inspect the "
+            "candidates, edit the SKiDL code, and resubmit with submit_skidl_code(); "
+            f"or get_run('{run_id}') if the results are acceptable. "
+            "Read resource eda://guide/exceptions for correction guidance."
+        )
 
     return (
         f"Run finished with {len(exceptions)} exception(s). "
-        f"Inspect the candidates and apply_correction() to fix, or "
+        f"Inspect the candidates and apply_correction() to fix this legacy "
+        f"CircuitSpec run, or "
         f"get_run('{run_id}') if the results are acceptable. "
         f"Read resource eda://guide/exceptions for correction guidance."
     )
 
 
 async def estimate_complexity(input_spec: dict) -> dict:
-    """Pre-flight estimate for a CircuitSpec — fast (<2s), free, no side effects.
+    """Legacy/internal pre-flight estimate for a CircuitSpec.
 
     Predicts: complexity_tier (simple|moderate|complex|ambitious), expected
     decision count, how many will auto-fix vs need review, runtime/timeout
     risk, and warnings (e.g. unknown footprints, board too dense).
 
-    Use it to choose run_options before submit_design(): an "ambitious"
+    Use it to choose run_options before legacy submit_design(): an "ambitious"
     tier suggests timeout_s of 900+, and its warnings often identify spec
     problems you can fix before spending a run. Also returns
     remapped_footprints — substitutions the engine will make automatically.
@@ -392,7 +431,8 @@ def _estimate_hint(result: dict) -> str:
     if issues:
         parts.append(
             f"Found {len(issues)} spec issue(s) — fix before submitting. "
-            f"Read resource eda://guide/circuit-spec for format reference"
+            f"CircuitSpec JSON is legacy/internal; new clients should use "
+            f"submit_skidl_code()"
         )
     elif warnings:
         parts.append(
@@ -402,13 +442,14 @@ def _estimate_hint(result: dict) -> str:
     if tier in ("complex", "ambitious"):
         parts.append(
             f"Complexity: {tier}. Use timeout_s=900 or higher in run_options "
-            f"when you submit_design()"
+            f"when you submit"
         )
 
     if not issues:
         parts.append(
-            "Spec looks valid. Submit with submit_design() — the engine runs "
-            "design review, enrichment, routing, and DRC automatically"
+            "Legacy CircuitSpec looks valid. New MCP clients should usually "
+            "write SKiDL Python and submit with submit_skidl_code(); the engine "
+            "runs design review, enrichment, routing, and DRC automatically"
         )
 
     return ". ".join(parts) + "."
@@ -416,9 +457,13 @@ def _estimate_hint(result: dict) -> str:
 
 @mcp.tool()
 async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
-    """Apply chosen exception candidates from a finished run; submits a new job.
+    """Legacy CircuitSpec-only: apply chosen candidates and submit a new job.
 
-    This is the iteration step of the design loop. When get_job() returns
+    Do not use this for submit_skidl_code() runs. For SKiDL Python runs,
+    read the structured exception/candidate details, edit the Python source,
+    and resubmit with submit_skidl_code().
+
+    For legacy CircuitSpec runs, this is the iteration step. When get_job() returns
     exceptions, each one carries candidates — machine-applicable fixes with
     ids c1, c2... and a human_summary. You select by id; you never describe
     the fix in prose:
@@ -440,7 +485,15 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
     exceptions in one call. Errors if an id doesn't exist in that run.
     """
     run_data = await db.load_run(run_id)
-    spec = CircuitSpec.model_validate(run_data["spec"])
+    saved_spec = run_data["spec"]
+    if isinstance(saved_spec, dict) and saved_spec.get("_mode") == "skidl_python":
+        raise ValueError(
+            "apply_correction only supports legacy CircuitSpec JSON runs. "
+            "This run came from submit_skidl_code(); edit the SKiDL Python "
+            "source using the returned exceptions/candidates and resubmit "
+            "with submit_skidl_code()."
+        )
+    spec = CircuitSpec.model_validate(saved_spec)
     exceptions = [DesignException.model_validate(e) for e in run_data["exceptions"]]
     by_exc = {exc.id: exc for exc in exceptions}
 
@@ -478,8 +531,9 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
         "status": "queued",
         "parent_run_id": parent_run_id,
         "hint": (
-            "Corrections applied, new job queued. "
-            "Poll get_job(job_id) every 10s for results."
+            "Legacy CircuitSpec corrections applied, new job queued. "
+            "Poll get_job(job_id) every 10s for results. New clients should "
+            "prefer the submit_skidl_code edit/resubmit loop."
         ),
     }
 
@@ -864,7 +918,12 @@ def exceptions_guide() -> str:
 
 
 CIRCUIT_SPEC_GUIDE = """\
-# Writing a CircuitSpec
+# Writing a CircuitSpec (Legacy/Internal)
+
+CircuitSpec JSON is no longer the preferred public MCP surface. Agents should
+write SKiDL Python and call `submit_skidl_code()`; use `eda://guide/skidl` for
+that workflow. This reference remains for internal runners, compatibility
+tests, and debugging the translator/correction machinery.
 
 A CircuitSpec is pure JSON data — never code. It fully describes a board:
 parts, electrical connections, and board metadata.
@@ -1156,8 +1215,8 @@ is a routed board when routing succeeds.
 ## Polling
 
 - queued -> running transition is usually <5s when workers are free.
-- Simple boards (<20 parts): done in 10-60s. Dense boards: minutes.
-  estimate_complexity's runtime_prediction tells you what to expect.
+- Simple boards (<20 parts): done in 10-60s. Dense boards: minutes; raise
+  timeout_s when a design has many ICs, connectors, or tight routing.
 - status "failed" or "timeout" with exceptions attached is the NORMAL
   correction path, not an outage. Only a null result + error string means
   the job crashed.
@@ -1166,10 +1225,14 @@ is a routed board when routing succeeds.
 
 | key | default | when to change |
 |---|---|---|
-| timeout_s | 300 | raise to 600-1500 for boards estimate_complexity calls complex/ambitious |
+| timeout_s | 300 | raise to 600-1500 for dense boards or slow autorouting |
 | board_id | none | telemetry label for tracking related runs |
 
-## policy (server-side auto-correction)
+## policy (legacy CircuitSpec only)
+
+`submit_skidl_code()` does not mutate the user's Python source. For SKiDL
+Python runs, the agent reads exceptions, edits the source, and resubmits.
+The policy options below apply only to legacy CircuitSpec JSON jobs.
 
 Default is `{"auto_apply": "none", "max_internal_corrections": 0}` — every
 exception comes back to you. To let the server iterate by itself:
@@ -1185,20 +1248,22 @@ exception comes back to you. To let the server iterate by itself:
   BOM substitutions, mechanical/outline changes, unknown pinouts
   (the `stop_for` decision kinds).
 
-## Iterating — KEEP GOING UNTIL SUCCEEDED
+## Iterating - KEEP GOING UNTIL SUCCEEDED
 
-- Each apply_correction() produces a child job linked to its parent; the
-  spec it mutates is the parent run's spec, so corrections compound across
-  iterations.
-- **Do not stop after a fixed number of rounds.** Keep applying corrections
-  and resubmitting until get_job() returns status "succeeded". Library
+- For SKiDL Python runs, edit the source code using the structured
+  exceptions/candidates and call `submit_skidl_code()` again.
+- For legacy CircuitSpec runs, each apply_correction() produces a child job
+  linked to its parent; the spec it mutates is the parent run's spec, so
+  corrections compound across iterations.
+- **Do not stop after a fixed number of rounds.** Keep editing/resubmitting
+  until get_job() returns status "succeeded". Library
   mismatches, pin name errors, and footprint fixes are normal — each
   correction gets you closer. The engine tells you exactly what's wrong
-  and suggests fixes; apply them all and resubmit.
+  and suggests fixes; address them all and resubmit.
 - If the same exception recurs with the same candidate, pick a different
   candidate instead of repeating. If no candidates work, try a different
   lib/part/footprint from the error's `suggested_fix` or `available_pins`.
-- The server auto-enriches your spec with decoupling caps, I2C pull-ups,
+- The server auto-enriches the design with decoupling caps, I2C pull-ups,
   and other standard passives — you don't need to include those.
 - Run data expires ~48h after completion — fetch artifacts promptly.
 
@@ -1213,9 +1278,10 @@ exception comes back to you. To let the server iterate by itself:
 - **auto_apply: "safe"** handles placement retries and advisory waivers
   but NOT library or footprint swaps (those are always manual decisions,
   even at high confidence).
-- **Exception IDs (e1, e2...) are per-run.** After apply_correction()
-  creates a new job, poll the NEW job and use IDs from its exceptions,
-  not from the previous run.
+- **Exception IDs (e1, e2...) are per-run.** For legacy CircuitSpec
+  `apply_correction()` jobs, poll the NEW job and use IDs from its
+  exceptions, not from the previous run. For SKiDL Python jobs, edit and
+  resubmit the code.
 """
 
 
@@ -1319,7 +1385,7 @@ def _exceptions_guide() -> str:
         "- quality_advisory — only advisories remain; waive or fix",
         "- correction_choice — general fix selection",
         "- no_candidate — at least one exception has no machine fix;",
-        "  edit the spec manually and submit_design again",
+        "  edit the SKiDL source and submit_skidl_code() again",
         "",
         "## Exception codes",
         "",

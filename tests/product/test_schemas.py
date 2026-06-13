@@ -8,6 +8,7 @@ os.environ.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
 
 from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import CorrectionError, apply_candidate
+from schemas.enrichment import design_review_exceptions, enrich_blocks
 from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
 from schemas.translator import translate
 
@@ -41,6 +42,24 @@ GOOD_NETS = [
 ]
 
 
+def vbat_spec_dict(parts=None, nets=None):
+    return {
+        "board": {"name": "vbat-board"},
+        "parts": parts or [
+            {
+                "ref": "J1",
+                "lib": "Connector_Generic",
+                "part": "Conn_01x02",
+                "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+            }
+        ],
+        "nets": nets or [
+            {"name": "VBAT", "power": True, "pins": ["J1.1"]},
+            {"name": "GND", "power": True, "pins": ["J1.2"]},
+        ],
+    }
+
+
 class TestSpecValidation:
     def test_duplicate_refs_rejected(self):
         with pytest.raises(ValueError, match="duplicate part refs"):
@@ -60,6 +79,57 @@ class TestSpecValidation:
         with pytest.raises(ValueError, match="REF.PIN"):
             mk_spec([{"ref": "U1", "lib": "Device", "part": "R", "footprint": "a:b"}],
                     [{"name": "N", "pins": ["U1"]}])
+
+
+class TestEnrichmentIntent:
+    def test_vbat_net_alone_does_not_inject_lipo_charger(self):
+        enriched, actions = enrich_blocks(vbat_spec_dict(), marketing_text="")
+
+        assert not any(p.get("value") == "MCP73831" for p in enriched["parts"])
+        assert not any(a["rule"] == "lipo_charger" for a in actions)
+
+    def test_lipo_marketing_still_injects_charger(self):
+        enriched, actions = enrich_blocks(
+            vbat_spec_dict(),
+            marketing_text="Rechargeable LiPo battery charger input",
+        )
+
+        assert any(p.get("value") == "MCP73831" for p in enriched["parts"])
+        assert any(a["rule"] == "BLOCK:lipo_charger" for a in actions)
+
+    def test_ambiguous_vbat_becomes_advisory(self):
+        exceptions = design_review_exceptions(vbat_spec_dict())
+
+        vbat = [e for e in exceptions if e.subject.get("net") == "VBAT"]
+        assert vbat
+        assert vbat[0].severity == Severity.ADVISORY
+        assert "consider adding a charger" in vbat[0].message
+
+    def test_coin_cell_vbat_does_not_get_charger_advisory(self):
+        spec = vbat_spec_dict(parts=[
+            {
+                "ref": "BT1",
+                "lib": "Device",
+                "part": "Battery_Cell",
+                "value": "CR2032",
+                "footprint": "Battery:BatteryHolder_Keystone_1060_1x2032",
+            },
+            {
+                "ref": "J1",
+                "lib": "Connector_Generic",
+                "part": "Conn_01x02",
+                "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+            },
+        ], nets=[
+            {"name": "VBAT", "power": True, "pins": ["BT1.1", "J1.1"]},
+            {"name": "GND", "power": True, "pins": ["BT1.2", "J1.2"]},
+        ])
+
+        exceptions = design_review_exceptions(spec)
+        assert not [
+            e for e in exceptions
+            if e.subject.get("feature") == "battery_source_intent"
+        ]
 
 
 @needs_kicad

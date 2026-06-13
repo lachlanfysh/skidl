@@ -1,16 +1,16 @@
 # eda-mcp Architecture
 
-Internal reference doc. Last updated 2026-06-10.
+Internal reference doc. Last updated 2026-06-13.
 
 ---
 
 ## What Is This?
 
-You give an AI agent a product description like "Adafruit Feather RP2040" and it designs you a PCB. Not a picture of one — an actual KiCad schematic and board layout you could send to a fab house.
+You give an AI agent a product description like "an I2C temperature sensor breakout" and it designs you a PCB. Not a picture of one - an actual KiCad schematic, routed board, and manufacturing bundle you could inspect in KiCad and send to a fab house.
 
-eda-mcp is the engine that makes this work. It accepts a JSON circuit specification (parts, connections, board shape) and produces real KiCad output files. When something goes wrong — a pin name doesn't exist, parts overlap on the board, a footprint isn't installed — it doesn't just fail. It tells you exactly what went wrong and offers specific fixes the agent can pick from, no guesswork required.
+eda-mcp is the engine that makes this work. The public MCP surface now accepts SKiDL Python code through `submit_skidl_code()`. The agent writes real SKiDL (`Part()`, `Net()`, pin connections), while the server owns schematic generation, placement, routing, DRC, artifact packaging, and manufacturing output. When something goes wrong - a pin name doesn't exist, parts overlap on the board, a footprint isn't installed - it doesn't just fail. It returns structured exceptions and candidate fixes the agent can use to edit the SKiDL code and resubmit.
 
-The whole thing runs over MCP (Model Context Protocol), so any AI agent that speaks MCP can use it as a tool. The agent never needs to know SKiDL's Python API, understand KiCad internals, or write any code. Just JSON in, PCB out.
+CircuitSpec JSON still exists, but it is now a legacy/internal surface: useful for corpus runners, deterministic translator tests, and compatibility checks. It should not be the default agent UX. New clients should use `search_kicad()` -> `submit_skidl_code()` -> `get_job()` -> `get_run()`.
 
 ---
 
@@ -18,53 +18,54 @@ The whole thing runs over MCP (Model Context Protocol), so any AI agent that spe
 
 ```mermaid
 flowchart LR
-    A["Product Description\n(marketing text)"] --> B["LLM\n(Llama 70B on OpenRouter)"]
-    B --> C["JSON CircuitSpec\n(parts + nets + board)"]
-    C --> D["Translator\n(5-pass validation)"]
-    D -->|clean| E["SKiDL Engine"]
-    D -->|errors found| F["DesignExceptions\n+ Candidates"]
-    F --> G{"Agent picks\na fix"}
-    G --> H["apply_candidate()\nmutates the spec"]
-    H --> C
-    E --> I["Schematic Gen\n(.kicad_sch)"]
-    I --> J["Layout Engine\n(place parts)"]
-    J --> K["PCB Output\n(.kicad_pcb)"]
-    K --> L["Telemetry Record\n(runs.jsonl)"]
+    A["Product Description"] --> B["Agent plans BOM\nand calls search_kicad()"]
+    B --> C["SKiDL Python\nPart(), Net(), pins"]
+    C --> D["submit_skidl_code()"]
+    D --> E["Isolated Worker\nruns user code"]
+    E --> F["SKiDL Circuit"]
+    F --> G["Design Review\n+ Enrichment"]
+    G -->|exceptions| H["DesignExceptions\n+ Candidates"]
+    H --> I{"Agent decision"}
+    I --> J["Edit SKiDL code\nand resubmit"]
+    J --> D
+    G -->|clean| K["Schematic Gen\n(.kicad_sch)"]
+    K --> L["Layout + Routing\n+ DRC"]
+    L --> M["KiCad + Manufacturing\nArtifacts"]
+    M --> N["Telemetry Record"]
+    O["Legacy JSON CircuitSpec"] -. internal/corpus .-> F
 ```
 
 ---
 
 ## Processing Stages — What Happens At Each Step
 
-### Stage 1: From Words to Wires
+### Stage 1: From Words to SKiDL
 
 ```mermaid
 flowchart TD
-    A["Marketing description:\n'Adafruit ADS1115 16-bit ADC breakout\nwith I2C and Stemma QT'"] --> B["LLM reads description\nknows KiCad libraries\nfollows strict JSON schema"]
-    B --> C["JSON CircuitSpec"]
-    C --> D["10 parts, 10 nets\nADS1115 IC, decoupling caps,\nI2C pull-ups, JST connectors"]
+    A["Design request:\n'I2C ADC breakout with header'"] --> B["Agent searches KiCad/LCSC\nfor symbols, footprints, stock"]
+    B --> C["SKiDL Python code"]
+    C --> D["Parts, nets, connectors,\npower rails, decoupling"]
 ```
 
-**What it does:** An LLM (Llama 3.3 70B by default — cheap at $0.10/Mtok) reads a product description and produces a structured JSON spec listing every component, every electrical connection, and board metadata. The prompt includes KiCad library guidance, footprint naming rules, and worked examples so the LLM doesn't hallucinate package names.
+**What it does:** The agent turns intent into executable SKiDL. It should search before coding, use exact KiCad library/part/footprint names, set power rails to `POWER`, include connectors, and add enough passives to make the board physically and electrically plausible.
 
-**What can go wrong:** The LLM picks a pin name that doesn't exist, uses a footprint from a library that isn't installed, or produces invalid JSON. That's fine — the next stage catches all of these.
+**What can go wrong:** The agent picks a pin name that doesn't exist, uses a footprint from a library that isn't installed, forgets a connector, or writes invalid SKiDL. That's fine - the pipeline returns structured exceptions and the agent edits the code.
 
-### Stage 2: Validation (The Translator)
+### Stage 2: Validation And Circuit Extraction
 
 ```mermaid
 flowchart TD
-    A["JSON CircuitSpec"] --> B["Pass 1: Do all REF.PIN\nreferences point to\nreal parts?"]
-    B --> C["Pass 2: Do the KiCad\nsymbol libraries exist\non this machine?"]
-    C --> D["Pass 3: Does each part\nexist inside its library?"]
-    D --> E["Pass 4: Does each\nfootprint exist?"]
-    E --> F["Pass 5: Does each pin\nexist on the real symbol?"]
-    F -->|all clean| G["Build SKiDL Circuit"]
-    B & C & D & E & F -->|problems found| H["Collect ALL errors\ninto DesignExceptions\nwith fix candidates"]
+    A["SKiDL Python"] --> B["Worker executes in\nisolated subprocess"]
+    B --> C["SKiDL Circuit"]
+    C --> D["Check symbols,\nfootprints, pins,\ndesign policy"]
+    D -->|all clean| E["Generate artifacts"]
+    B & D -->|problems found| F["DesignExceptions\nwith fix candidates"]
 ```
 
-**What it does:** Five validation passes check the spec against what's actually installed on the machine. It doesn't stop at the first error — it collects every problem and generates fix suggestions for each one using fuzzy string matching against real library contents.
+**What it does:** The worker runs user code out-of-process, extracts the SKiDL circuit, checks it against installed KiCad resources and product policy, and maps failures into structured exceptions.
 
-**Why it matters:** The LLM said pin "VDD" but the real symbol calls it "IOVDD"? The translator finds the closest matches ("IOVDD", "DVDD", "AVDD") and offers them as numbered candidates. No AI needed for this part — it's pure filesystem lookups and string distance.
+**Why it matters:** The agent said pin "VDD" but the real symbol calls it "IOVDD"? The engine can return valid pin names and ranked candidates. No AI is needed for that part - it is filesystem lookups, SKiDL/KiCad introspection, and deterministic policy.
 
 ### Stage 3: Schematic Generation
 
@@ -100,22 +101,20 @@ Every single run — success, failure, timeout, crash — produces exactly one r
 
 ---
 
-## The Correction Loop — The Core Innovation
+## The Correction Loop - The Core Innovation
 
 This is what makes eda-mcp a product, not just a script.
 
 ```mermaid
 flowchart TD
-    A["CircuitSpec"] --> B["Translate + Build"]
-    B -->|success| C["Schematic + PCB"]
+    A["SKiDL Python"] --> B["Worker + Engine"]
+    B -->|success| C["Schematic + Routed PCB\n+ Manufacturing bundle"]
     B -->|exceptions| D["DesignExceptions\neach with ranked Candidates"]
-    D --> E{"Who picks\nthe fix?"}
-    E -->|engine_only mode| F["Always pick c1\n(best-guess, $0)"]
-    E -->|internal mode| G["LLM reviews and picks\n(Llama 70B, ~$0.001)"]
-    E -->|MCP mode| H["Customer's agent picks\n(via apply_correction tool)"]
-    F & G & H --> I["apply_candidate()\ndeep-copies spec,\napplies one mutation"]
-    I --> A
-    A -.->|max 8 iterations| J["Give up, record result"]
+    D --> E{"Agent decision"}
+    E --> F["Edit code:\nfix pin, part, footprint,\noutline, connector, policy"]
+    F --> A
+    G["Legacy CircuitSpec"] -.-> H["apply_candidate()\nmutates JSON spec"]
+    H -.-> B
 ```
 
 **How an exception looks:**
@@ -128,7 +127,7 @@ The spec says `U1.VBUS` but the real chip only has pins `VCC, GND, SDA, SCL`. Th
 | c2 | replace_pin | Change `U1.VBUS` to `U1.SDA` |
 | c3 | remove_net_pin | Drop this connection entirely |
 
-The agent picks `c1`. The engine deep-copies the spec, does a find-and-replace of `U1.VBUS` with `U1.VCC` across all nets, and re-runs. If the fix was right, it builds. If not, new exceptions come back and the loop continues.
+For SKiDL Python runs, the agent edits the code (for example replacing `u1["VBUS"]` with `u1["VCC"]`) and submits again. For legacy CircuitSpec runs, `apply_correction()` can still mutate JSON specs directly, but that path is no longer the public product surface.
 
 **The 12 correction actions:**
 
@@ -154,7 +153,8 @@ The agent picks `c1`. The engine deep-copies the spec, does a find-and-replace o
 ```mermaid
 graph TD
     subgraph "Contract Layer"
-        S1["schemas/circuit_spec.py\nThe JSON input format"]
+        S0["SKiDL Python\nPublic MCP input"]
+        S1["schemas/circuit_spec.py\nLegacy/internal JSON IR"]
         S2["schemas/translator.py\n5-pass validator"]
         S3["schemas/exceptions.py\n18 error codes + candidates"]
         S4["schemas/corrections.py\n12 mutation actions"]
@@ -167,7 +167,8 @@ graph TD
     end
 
     subgraph "Product Surface"
-        M1["mcp_server/server.py\n3 MCP tools via stdio"]
+        M0["mcp_server/server_http.py\nsubmit_skidl_code + async jobs"]
+        M1["mcp_server/server.py\nLegacy stdio JSON tools"]
         M2["mcp_server/pipeline.py\nSubprocess isolation + watchdog"]
         M3["mcp_server/engine_worker.py\nThe actual subprocess"]
         M4["mcp_server/policy.py\nAuto-correction rules"]

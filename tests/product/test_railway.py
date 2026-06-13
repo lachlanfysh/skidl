@@ -28,17 +28,43 @@ needs_kicad = pytest.mark.skipif(
 
 
 SIMPLE_SPEC = {
-    "board": {"name": "test-board"},
+    "board": {"name": "test-board", "outline_hint_mm": [30.0, 20.0]},
     "parts": [
         {
             "ref": "R1",
-            "lib": "Device",
+            "lib": None,
             "part": "R",
             "value": "10K",
             "footprint": "Resistor_SMD:R_0603_1608Metric",
-        }
+            "pins": [
+                {"num": "1", "name": "A"},
+                {"num": "2", "name": "B"},
+            ],
+        },
+        {
+            "ref": "R2",
+            "lib": None,
+            "part": "R",
+            "value": "10K",
+            "footprint": "Resistor_SMD:R_0603_1608Metric",
+            "pins": [
+                {"num": "1", "name": "A"},
+                {"num": "2", "name": "B"},
+            ],
+        },
+        {
+            "ref": "J1",
+            "lib": "Connector_Generic",
+            "part": "Conn_01x03",
+            "value": "IO",
+            "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+        },
     ],
-    "nets": [],
+    "nets": [
+        {"name": "VCC", "power": True, "pins": ["J1.1", "R1.A"]},
+        {"name": "SIG", "pins": ["J1.2", "R1.B", "R2.A"]},
+        {"name": "GND", "power": True, "pins": ["J1.3", "R2.B"]},
+    ],
 }
 
 MULTI_PART_SPEC = {
@@ -251,7 +277,7 @@ class TestWorkerExecution:
     """Test _execute_job against the real engine."""
 
     def test_simple_spec_succeeds(self):
-        """A single resistor should translate + generate schematic + layout."""
+        """A tiny connector/resistor board should generate schematic + layout."""
         job = {"spec": SIMPLE_SPEC, "options": {"timeout_s": 120}, "policy": {}}
         result = _execute_job(job)
         assert result["run_id"]
@@ -685,8 +711,8 @@ class TestAgentUX:
         tools = await mcp.list_tools()
         names = {t.name for t in tools}
         assert names == {
-            "submit_design", "get_job", "estimate_complexity",
-            "apply_correction", "get_run",
+            "submit_skidl_code", "get_job", "apply_correction", "get_run",
+            "search_kicad", "convert_lcsc",
         }
         for tool in tools:
             assert tool.description and len(tool.description) > 100, (
@@ -694,17 +720,17 @@ class TestAgentUX:
             )
 
     @pytest.mark.asyncio
-    async def test_submit_design_teaches_the_loop(self):
-        """An agent reading only submit_design must learn: spec shape,
-        polling, footprint format, power-net convention, and resources."""
+    async def test_submit_skidl_code_teaches_the_loop(self):
+        """An agent reading only submit_skidl_code must learn the product loop."""
         from mcp_server.server_http import mcp
         tools = {t.name: t for t in await mcp.list_tools()}
-        desc = tools["submit_design"].description
+        desc = tools["submit_skidl_code"].description
         for needle in (
-            "get_job", "job_id", "footprint", "Library:Name",
-            "power", "REF.PIN", "100nF", "eda://", "timeout_s",
+            "get_job", "job_id", "Part()", "Net()", "footprint",
+            "Library:Name", "POWER", "100nF", "eda://guide/skidl",
+            "timeout_s", "LCSC", "manufacturing",
         ):
-            assert needle in desc, f"submit_design description missing {needle!r}"
+            assert needle in desc, f"submit_skidl_code description missing {needle!r}"
 
     @pytest.mark.asyncio
     async def test_get_job_documents_statuses(self):
@@ -714,6 +740,7 @@ class TestAgentUX:
         for status in ("queued", "running", "succeeded", "failed", "timeout"):
             assert status in desc
         assert "run_id" in desc and "exceptions" in desc
+        assert "submit_skidl_code" in desc and "legacy CircuitSpec" in desc
 
     @pytest.mark.asyncio
     async def test_apply_correction_documents_selection(self):
@@ -722,6 +749,8 @@ class TestAgentUX:
         desc = tools["apply_correction"].description
         assert "exception_id" in desc and "candidate_id" in desc
         assert "confidence" in desc
+        assert "Legacy CircuitSpec-only" in desc
+        assert "submit_skidl_code" in desc
 
     @pytest.mark.asyncio
     async def test_resources_listed(self):
@@ -729,72 +758,78 @@ class TestAgentUX:
         resources = await mcp.list_resources()
         uris = {str(r.uri) for r in resources}
         assert uris == {
-            "eda://schema/circuit-spec",
-            "eda://guide/circuit-spec",
+            "eda://guide/skidl",
             "eda://guide/workflow",
             "eda://guide/exceptions",
         }
         for r in resources:
             assert r.description, f"{r.uri} has no description"
 
-    @pytest.mark.asyncio
-    async def test_schema_resource_is_live_model_schema(self):
-        from mcp_server.server_http import mcp
-        from schemas.circuit_spec import CircuitSpec
-        content = await mcp.read_resource("eda://schema/circuit-spec")
-        schema = json.loads(list(content)[0].content)
-        assert schema == CircuitSpec.model_json_schema()
-
-    @pytest.mark.asyncio
-    async def test_guide_examples_validate_against_schema(self):
-        """Every complete spec example embedded in the guides must be a
-        valid CircuitSpec — otherwise the docs teach agents broken input."""
+    def test_circuit_spec_reference_is_legacy_not_public_resource(self):
         from mcp_server.server_http import CIRCUIT_SPEC_GUIDE
-        from schemas.circuit_spec import CircuitSpec
-        specs = [
-            b for b in self._extract_json_blocks(CIRCUIT_SPEC_GUIDE)
-            if isinstance(b, dict) and "board" in b and "parts" in b
-        ]
-        assert specs, "guide contains no complete spec example"
-        for spec in specs:
-            CircuitSpec.model_validate(spec)
+        assert "Legacy/Internal" in CIRCUIT_SPEC_GUIDE
+        assert "submit_skidl_code()" in CIRCUIT_SPEC_GUIDE
 
-    def test_submit_design_inline_example_validates(self):
-        """The JSON example inside the submit_design docstring must parse
-        and validate — agents copy it verbatim."""
-        import re
+    def test_submit_skidl_code_docstring_is_python_first(self):
         from mcp_server import server_http
-        from schemas.circuit_spec import CircuitSpec
-        doc = server_http.submit_design.__doc__
-        m = re.search(r"^    (\{\n.*?\n    \})$", doc, re.DOTALL | re.MULTILINE)
-        assert m, "no JSON example found in submit_design docstring"
-        block = "\n".join(line[4:] if line.startswith("    ") else line
-                          for line in m.group(1).split("\n"))
-        spec = json.loads(block)
-        CircuitSpec.model_validate(spec)
+        doc = server_http.submit_skidl_code.__doc__
+        assert "from skidl import *" in doc
+        assert "Part(" in doc and "Net(" in doc
+        assert "CircuitSpec" not in doc
 
     @needs_kicad
-    def test_guide_example_parts_exist_in_kicad_libs(self):
-        """Symbols and footprints named in the worked example must exist in
-        the KiCad libraries the worker image ships."""
-        from mcp_server.server_http import CIRCUIT_SPEC_GUIDE
-        specs = [
-            b for b in self._extract_json_blocks(CIRCUIT_SPEC_GUIDE)
-            if isinstance(b, dict) and "board" in b and "parts" in b
-        ]
+    def test_skidl_guide_example_parts_exist_in_kicad_libs(self):
+        """Part()/footprint examples in the guide should name real KiCad libs."""
+        import re
+        from mcp_server.server_http import SKIDL_GUIDE
+
         fp_root = Path("/usr/share/kicad/footprints")
         sym_root = Path("/usr/share/kicad/symbols")
-        for spec in specs:
-            for part in spec["parts"]:
-                if part.get("lib"):
-                    sym_file = sym_root / f"{part['lib']}.kicad_sym"
-                    assert sym_file.exists(), f"missing symbol lib {part['lib']}"
-                    assert f'"{part["part"]}"' in sym_file.read_text(), (
-                        f"symbol {part['part']} not in {part['lib']}"
-                    )
-                lib, name = part["footprint"].split(":")
-                fp_file = fp_root / f"{lib}.pretty" / f"{name}.kicad_mod"
-                assert fp_file.exists(), f"missing footprint {part['footprint']}"
+        examples = re.findall(
+            r'Part\("([^"]+)",\s*"([^"]+)".*?footprint="([^"]+)"',
+            SKIDL_GUIDE,
+            re.DOTALL,
+        )
+        assert examples, "SKiDL guide has no Part() examples with footprints"
+
+        for lib, part, footprint in examples:
+            sym_file = sym_root / f"{lib}.kicad_sym"
+            assert sym_file.exists(), f"missing symbol lib {lib}"
+            assert f'"{part}"' in sym_file.read_text(), f"symbol {part} not in {lib}"
+            fp_lib, fp_name = footprint.split(":")
+            fp_file = fp_root / f"{fp_lib}.pretty" / f"{fp_name}.kicad_mod"
+            assert fp_file.exists(), f"missing footprint {footprint}"
+
+    def test_get_job_hint_for_python_mode_says_edit_and_resubmit(self):
+        from mcp_server.server_http import _get_job_hint
+        hint = _get_job_hint({
+            "status": "failed",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "result": {
+                "run_id": "run-python",
+                "decision_required": True,
+                "exceptions": [{"code": "SPEC_PIN_NOT_FOUND"}],
+            },
+        })
+        assert "edit the SKiDL code" in hint
+        assert "submit_skidl_code()" in hint
+        assert "apply_correction() only supports legacy" in hint
+
+    @pytest.mark.asyncio
+    async def test_apply_correction_rejects_skidl_python_runs(self, monkeypatch):
+        from mcp_server import server_http
+
+        class FakeDB:
+            async def load_run(self, run_id):
+                return {
+                    "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+                    "exceptions": [],
+                    "response": {"run_id": run_id},
+                }
+
+        monkeypatch.setattr(server_http, "db", FakeDB())
+        with pytest.raises(ValueError, match="submit_skidl_code"):
+            await server_http.apply_correction("run-python", [])
 
     @pytest.mark.asyncio
     async def test_exceptions_guide_covers_all_codes_and_actions(self):
@@ -811,5 +846,6 @@ class TestAgentUX:
         from mcp_server.server_http import mcp
         instructions = mcp.instructions
         assert instructions
-        assert "submit_design" in instructions
+        assert "submit_skidl_code" in instructions
+        assert "CircuitSpec JSON is a legacy/internal surface" in instructions
         assert "eda://" in instructions

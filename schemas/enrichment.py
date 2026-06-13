@@ -817,8 +817,9 @@ def _block_implied_by_spec(template: dict, parts: list[dict], nets: list[dict]) 
     if tid == "lipo_charger":
         charger_hints = ("MCP7383", "BQ2407", "TP4056", "LT3652", "CHARGER", "LIPO")
         has_charger_part = any(any(h in s for h in charger_hints) for s in part_strings)
-        has_vbat = "VBAT" in net_names
-        return has_charger_part or has_vbat
+        # VBAT is also used for coin cells, RTC backup pins, and battery inputs.
+        # A bare net name is not enough evidence to inject an active charger.
+        return has_charger_part
 
     if tid == "stemma_qt":
         return any("JST_SH" in s or "STEMMA" in s or "QWIIC" in s for s in part_strings)
@@ -1129,6 +1130,57 @@ def _design_review_power_rails(parts, nets, exceptions, eid_counter):
             ))
 
 
+def _design_review_vbat_intent(parts, nets, exceptions, eid_counter):
+    """VBAT deserves intent review, but must not imply a LiPo charger.
+
+    The same net name is used for rechargeable LiPo inputs, coin-cell RTC
+    backup, and non-rechargeable battery headers. Product-facing agents should
+    see the ambiguity without the engine inventing a charging circuit.
+    """
+    from schemas.exceptions import (
+        Candidate, DesignException, ExcCode, Severity, ActionType,
+    )
+
+    has_vbat = any(str(n.get("name", "")).upper() == "VBAT" for n in nets)
+    if not has_vbat:
+        return
+
+    part_text = " ".join(
+        str(p.get(field, "") or "").upper()
+        for p in parts
+        for field in ("ref", "lib", "part", "value", "footprint")
+    )
+    charger_hints = ("MCP7383", "BQ2407", "TP4056", "LT3652", "CHARGER", "LIPO")
+    coin_cell_hints = ("CR2032", "CR1220", "COIN", "BATTERY_HOLDER", "BATTERYHOLDER")
+    if any(h in part_text for h in charger_hints):
+        return
+    if any(h in part_text for h in coin_cell_hints):
+        return
+
+    eid_counter[0] += 1
+    exceptions.append(DesignException(
+        id=f"e-design-{eid_counter[0]}",
+        code=ExcCode.DESIGN_MISSING_FEATURE,
+        severity=Severity.ADVISORY,
+        message=(
+            "VBAT net present with no obvious charger or coin-cell holder. "
+            "If this is a rechargeable battery board, consider adding a charger "
+            "IC such as MCP73831, BQ24074, or TP4056; otherwise accept this "
+            "advisory."
+        ),
+        subject={"net": "VBAT", "feature": "battery_source_intent"},
+        candidates=[
+            Candidate(
+                id="c1",
+                action=ActionType.ACCEPT_ADVISORY,
+                params={},
+                human_summary="Accept — VBAT is a non-rechargeable or externally managed battery source",
+                confidence=0.6,
+            ),
+        ],
+    ))
+
+
 def design_review_exceptions(
     spec_dict: dict,
     marketing_text: str = "",
@@ -1147,6 +1199,7 @@ def design_review_exceptions(
     _design_review_bulk_caps(parts, nets, exceptions, eid_counter)
     _design_review_connectors(parts, exceptions, eid_counter)
     _design_review_power_rails(parts, nets, exceptions, eid_counter)
+    _design_review_vbat_intent(parts, nets, exceptions, eid_counter)
 
     if marketing_text:
         _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counter)

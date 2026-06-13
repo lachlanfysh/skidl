@@ -32,6 +32,7 @@ def trivial_spec() -> dict:
                 "ref": "R1",
                 "lib": None,
                 "part": "R",
+                "value": "10K",
                 "footprint": "Resistor_SMD:R_0603_1608Metric",
                 "pins": [
                     {"num": "1", "name": "A"},
@@ -42,16 +43,25 @@ def trivial_spec() -> dict:
                 "ref": "R2",
                 "lib": None,
                 "part": "R",
+                "value": "10K",
                 "footprint": "Resistor_SMD:R_0603_1608Metric",
                 "pins": [
                     {"num": "1", "name": "A"},
                     {"num": "2", "name": "B"},
                 ],
             },
+            {
+                "ref": "J1",
+                "lib": "Connector_Generic",
+                "part": "Conn_01x03",
+                "value": "IO",
+                "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+            },
         ],
         "nets": [
-            {"name": "SIG", "pins": ["R1.A", "R2.A"]},
-            {"name": "GND", "power": True, "pins": ["R1.B", "R2.B"]},
+            {"name": "VCC", "power": True, "pins": ["J1.1", "R1.A"]},
+            {"name": "SIG", "pins": ["J1.2", "R1.B", "R2.A"]},
+            {"name": "GND", "power": True, "pins": ["J1.3", "R2.B"]},
         ],
     }
 
