@@ -316,9 +316,11 @@ def _is_plain_switch_query(query_lower: str) -> bool:
             "button",
             "key switch",
             "keyboard",
+            "keypad",
             "cherry mx",
             "tactile",
             "reed",
+            "matrix",
         )
     )
 
@@ -335,6 +337,13 @@ def _symbol_switch_boost(query_lower: str, entry: SymbolEntry) -> float:
             if entry.name == "SW_Push":
                 score += 10.0
             if "sw_push" in combined or "push" in combined:
+                score += 5.0
+        if "keypad" in query_lower or "sw_matrix" in query_lower or (
+            "matrix" in query_lower and any(term in query_lower for term in ("key", "switch"))
+        ):
+            if entry.name == "SW_Push":
+                score += 12.0
+            if "push" in combined:
                 score += 5.0
         if any(term in query_lower for term in ("tactile", "pushbutton", "push button", "button")):
             if "push" in combined:

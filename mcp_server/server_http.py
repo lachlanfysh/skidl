@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from copy import deepcopy
 
 from pydantic import ValidationError
@@ -792,6 +793,34 @@ def _lcsc_variants(query: str, limit: int = 6) -> list[dict]:
     return variants
 
 
+def _search_design_notes(query: str, symbols: list, lcsc: list[dict]) -> list[str]:
+    """Return agent-facing design notes for common misleading searches."""
+    query_lower = query.lower()
+    notes: list[str] = []
+
+    if "keypad" in query_lower or "sw_matrix" in query_lower:
+        notes.append(
+            "Keypad matrices usually do not have a single KiCad symbol such as "
+            "SW_Matrix_4x4. Model an onboard keypad as individual "
+            'Part("Switch", "SW_Push", ...) switches wired between ROWx and COLx '
+            "nets, or model an off-board keypad as a "
+            'Part("Connector_Generic", "Conn_01x08", ...) row/column connector.'
+        )
+
+    if re.search(r"\bstm32|atmega|rp2040|nrf52|samd\b", query_lower):
+        has_module = any(getattr(sym, "lib", "") == "MCU_Module" for sym in symbols)
+        if has_module or lcsc:
+            notes.append(
+                "For a custom PCB around the chip, prefer a bare MCU symbol or "
+                "convert_lcsc() for the exact stocked part. MCU_Module/NUCLEO/Pico "
+                "symbols represent whole development boards with board-header "
+                "pins, not necessarily the MCU's raw package pins. Use module "
+                "symbols only when you intend to mount that module/dev board."
+            )
+
+    return notes
+
+
 @mcp.tool()
 async def search_kicad(query: str, detail: bool = False) -> dict:
     """Search KiCad symbol libraries and footprints by name or description.
@@ -861,6 +890,9 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
             result["pin_details"] = pin_details
 
     lcsc = _lcsc_variants(query)
+    design_notes = _search_design_notes(query, symbols, lcsc)
+    if design_notes:
+        result["design_notes"] = design_notes
     if lcsc:
         result["lcsc_variants"] = lcsc
         has_kicad_sym = len(result["symbols"]) > 0
@@ -888,6 +920,8 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
             "and mono/stereo/TRS before cycling through footprints; read "
             "eda://guide/parts for the checklist."
         )
+    if design_notes:
+        result["hint"] += " " + " ".join(design_notes)
     return result
 
 
@@ -1276,6 +1310,16 @@ footprint library, not the symbol library passed as the first Part() argument.
 - A pin header footprint is not a symbol. Use
   `Part("Connector_Generic", "Conn_01xNN", footprint="Connector_PinHeader_...")`.
 
+## Keypads and switch matrices
+
+- KiCad usually does not provide one ready-made `SW_Matrix_4x4` symbol.
+- For an onboard keypad, instantiate one `Part("Switch", "SW_Push", ...)`
+  per key and wire each switch between a ROWx net and a COLx net.
+- For an off-board membrane/keypad, use a row/column connector such as
+  `Part("Connector_Generic", "Conn_01x08", ...)` for 4 rows + 4 columns.
+- Search `keypad switch` or `SW_Push`, not only `keypad matrix`, when you
+  need the primitive switch symbol.
+
 ## Mounting holes and test points
 
 - Mounting holes are mechanical parts. Use `Mechanical:MountingHole` or
@@ -1547,6 +1591,12 @@ Common libraries — use search_kicad() for anything not listed here:
 - FFC/FPC display connectors normally use a generic symbol such as
   `Connector_Generic:Conn_01xNN` with a `Connector_FFC-FPC:*` footprint.
   `Connector_FFC-FPC` is a footprint library, not a symbol library.
+- Keypads/matrices: do not invent `SW_Matrix_4x4`. Use individual
+  `Switch:SW_Push` parts wired between row/column nets, or a
+  `Connector_Generic:Conn_01xNN` for an off-board keypad.
+- Custom MCU board vs dev board: `MCU_Module` symbols such as NUCLEO,
+  Feather, Pico, or Arduino represent whole modules with header pins. For a
+  custom PCB around the chip, use a bare MCU symbol or `convert_lcsc()`.
 - Connections: use `net += pin1, pin2` or `pin += net`; no global `connect()`.
 - Decoupling caps: value="100nF" wired power-to-ground = auto-placed near parent IC.
 - Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND.

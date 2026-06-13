@@ -991,6 +991,40 @@ class TestAgentUX:
             {"num": "1", "name": "GPIO0", "type": "bidirectional"}
         ]
 
+    @pytest.mark.asyncio
+    async def test_search_kicad_adds_design_notes_for_keypads_and_modules(
+        self,
+        monkeypatch,
+    ):
+        from llm.kicad_index import SymbolEntry
+        import llm.kicad_index as kicad_index
+        import mcp_server.server_http as server_http
+
+        monkeypatch.setattr(kicad_index, "search_footprints", lambda query, limit=5: [])
+        monkeypatch.setattr(kicad_index, "get_symbol_detail", lambda lib, name: None)
+
+        def fake_symbols(query, limit=8):
+            if "keypad" in query.lower():
+                return [SymbolEntry(lib="Switch", name="SW_Push")]
+            return [SymbolEntry(lib="MCU_Module", name="NUCLEO64-F411RE")]
+
+        monkeypatch.setattr(kicad_index, "search_symbols", fake_symbols)
+        monkeypatch.setattr(
+            server_http,
+            "_lcsc_variants",
+            lambda query: [{"lcsc": "C123", "mfr": "STM32F411RET6"}]
+            if "stm32" in query.lower()
+            else [],
+        )
+
+        keypad = await server_http.search_kicad("4x4 keypad matrix", detail=True)
+        mcu = await server_http.search_kicad("STM32F411RET6", detail=True)
+
+        assert "SW_Matrix_4x4" in keypad["design_notes"][0]
+        assert "SW_Push" in keypad["hint"]
+        assert "MCU_Module/NUCLEO/Pico" in mcu["design_notes"][0]
+        assert "custom PCB around the chip" in mcu["hint"]
+
     def test_converted_lcsc_symbol_file_pin_details_are_parsed(self, tmp_path):
         import mcp_server.server_http as server_http
 
@@ -1074,8 +1108,14 @@ class TestAgentUX:
             "Mechanical:MountingHole",
             "Connector:TestPoint",
             "Device:TestPoint",
+            "SW_Matrix_4x4",
+            "Switch",
+            "ROWx",
+            "COLx",
         ):
             assert needle in PARTS_GUIDE
+        assert "Custom MCU board vs dev board" in SKIDL_GUIDE
+        assert "convert_lcsc()" in SKIDL_GUIDE
         assert "eda://guide/parts" in SKIDL_GUIDE
 
     def test_circuit_spec_reference_is_legacy_not_public_resource(self):

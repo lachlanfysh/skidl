@@ -348,7 +348,29 @@ def _terminal_status(status: str | None) -> bool:
     return status in {"succeeded", "succeeded_with_warnings", "failed", "timeout", "crashed"}
 
 
-def _final_report_block_reason(job_results: dict[str, dict], last_result: dict | None) -> str:
+def _needs_resubmission(result: dict | None) -> bool:
+    if not isinstance(result, dict):
+        return False
+    status = result.get("status")
+    nested = result.get("result")
+    if isinstance(nested, dict):
+        if nested.get("ok") is False:
+            return True
+        if nested.get("status") in {"failed", "timeout", "crashed"}:
+            return True
+        metrics = nested.get("metrics")
+        if isinstance(metrics, dict) and metrics.get("manufacturable") is False:
+            return True
+    return status in {"failed", "timeout", "crashed"} and result.get("ok") is False
+
+
+def _final_report_block_reason(
+    job_results: dict[str, dict],
+    last_result: dict | None,
+    *,
+    submissions: int = 0,
+    max_submissions: int = DEFAULT_MAX_SUBMISSIONS,
+) -> str:
     for job_id, result in sorted(job_results.items()):
         status = result.get("status")
         if status in {"queued", "running"}:
@@ -357,6 +379,20 @@ def _final_report_block_reason(job_results: dict[str, dict], last_result: dict |
         status = last_result.get("status")
         if status and not _terminal_status(status):
             return f"last job status is {status}; poll get_job() until terminal"
+    if submissions < max_submissions:
+        for job_id, result in sorted(job_results.items()):
+            if _needs_resubmission(result):
+                return (
+                    f"job {job_id} failed and {max_submissions - submissions} "
+                    "submit_skidl_code attempt(s) remain; edit the SKiDL code "
+                    "using the latest exceptions and resubmit"
+                )
+        if _needs_resubmission(last_result):
+            return (
+                "latest MCP result failed and "
+                f"{max_submissions - submissions} submit_skidl_code attempt(s) "
+                "remain; edit the SKiDL code using the latest exceptions and resubmit"
+            )
     return ""
 
 
@@ -578,6 +614,8 @@ def main() -> int:
                 premature_final_reason = _final_report_block_reason(
                     job_results,
                     last_mcp_result,
+                    submissions=submissions,
+                    max_submissions=args.max_submissions,
                 )
                 if premature_final_reason:
                     messages.append({
@@ -585,9 +623,10 @@ def main() -> int:
                         "content": (
                             "You cannot give the final report yet: "
                             f"{premature_final_reason}. Continue with tool "
-                            "calls. If a terminal result failed, say so in a "
-                            "FINAL REPORT only after fetching the final run "
-                            "data or deciding you are stuck."
+                            "calls. Read the latest exception details, edit "
+                            "the SKiDL code, and call submit_skidl_code() "
+                            "again until the design is manufacturable or the "
+                            "probe submission cap is reached."
                         ),
                     })
                     nudges += 1

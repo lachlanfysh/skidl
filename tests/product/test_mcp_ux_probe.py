@@ -69,6 +69,29 @@ def test_final_report_blocked_while_job_running():
     assert "job job-1 is still running" in reason
 
 
+def test_final_report_blocked_after_failed_job_when_submissions_remain():
+    reason = _final_report_block_reason(
+        {"job-1": {"status": "failed", "ok": False}},
+        {"status": "failed", "ok": False},
+        submissions=3,
+        max_submissions=5,
+    )
+
+    assert "job job-1 failed" in reason
+    assert "2 submit_skidl_code attempt(s) remain" in reason
+
+
+def test_final_report_allowed_after_failed_job_at_submission_cap():
+    reason = _final_report_block_reason(
+        {"job-1": {"status": "failed", "ok": False}},
+        {"status": "failed", "ok": False},
+        submissions=5,
+        max_submissions=5,
+    )
+
+    assert reason == ""
+
+
 def test_final_report_detection_accepts_markdown_prefixes():
     assert _is_final_report_text("FINAL REPORT: done")
     assert _is_final_report_text("**FINAL REPORT:** done")

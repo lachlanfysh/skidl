@@ -185,6 +185,18 @@ def test_search_symbols_prefers_switch_library_for_keyboard_switch(monkeypatch):
     assert matches[0].name == "SW_Push"
 
 
+def test_search_symbols_prefers_push_switch_for_keypad_matrix(monkeypatch):
+    _fake_symbols(monkeypatch)
+
+    natural = kicad_index.search_symbols("4x4 keypad matrix", limit=3)
+    missing_part = kicad_index.search_symbols("SW_Matrix_4x4", limit=3)
+
+    assert natural[0].lib == "Switch"
+    assert natural[0].name == "SW_Push"
+    assert missing_part[0].lib == "Switch"
+    assert missing_part[0].name == "SW_Push"
+
+
 def test_search_footprints_filters_din41612_for_midi_din(monkeypatch):
     _fake_footprints(monkeypatch)
 
