@@ -180,6 +180,7 @@ def plan_layout(
         resolved_bboxes,
         intent_plan=intent_plan,
         power_topology=power_topology,
+        fp_geometries=fp_geometries,
     )
 
     ctx = LayoutContext.from_circuit(circuit)

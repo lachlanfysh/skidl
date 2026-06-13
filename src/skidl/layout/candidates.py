@@ -348,8 +348,9 @@ def _append_candidate(
     reasons: list[str],
     intent_plan: PlacementIntentPlan | None = None,
     power_topology: PowerTopology | None = None,
+    fp_geometries: dict[str, object] | None = None,
 ):
-    placed = place_parts(groups, constraints, fp_bboxes)
+    placed = place_parts(groups, constraints, fp_bboxes, fp_geometries=fp_geometries)
     candidate = PlacementCandidate(
         name=name,
         placed_parts=placed,
@@ -366,6 +367,7 @@ def generate_placement_candidates(
     fp_bboxes: dict[str, tuple[float, float]],
     intent_plan: PlacementIntentPlan | None = None,
     power_topology: PowerTopology | None = None,
+    fp_geometries: dict[str, object] | None = None,
 ) -> list[PlacementCandidate]:
     """Generate deterministic placement candidates from available intent."""
     candidates: list[PlacementCandidate] = []
@@ -379,6 +381,7 @@ def generate_placement_candidates(
         ["explicit constraints and default placement order"],
         intent_plan,
         power_topology,
+        fp_geometries,
     )
     _append_candidate(
         candidates,
@@ -389,6 +392,7 @@ def generate_placement_candidates(
         ["inferred connector edge anchors applied before primary parts"],
         intent_plan,
         power_topology,
+        fp_geometries,
     )
     _append_candidate(
         candidates,
@@ -399,6 +403,7 @@ def generate_placement_candidates(
         ["power input and regulator-like parts biased into a power zone"],
         intent_plan,
         power_topology,
+        fp_geometries,
     )
     _append_candidate(
         candidates,
@@ -409,6 +414,7 @@ def generate_placement_candidates(
         ["source/protection/conversion/storage/load power chains biased together"],
         intent_plan,
         power_topology,
+        fp_geometries,
     )
     _append_candidate(
         candidates,
@@ -419,6 +425,7 @@ def generate_placement_candidates(
         ["edge/UI/power/debug refs biased into a shared service zone"],
         intent_plan,
         power_topology,
+        fp_geometries,
     )
     _append_candidate(
         candidates,
@@ -429,6 +436,7 @@ def generate_placement_candidates(
         ["repeated channel refs aligned and distributed as an ordered array"],
         intent_plan,
         power_topology,
+        fp_geometries,
     )
 
     if intent_plan is not None and intent_plan.backend_status.enabled:
@@ -444,6 +452,7 @@ def generate_placement_candidates(
             ],
             intent_plan,
             power_topology,
+            fp_geometries,
         )
 
     return candidates

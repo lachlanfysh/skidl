@@ -181,13 +181,102 @@ def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
     return [e for _, e in scored[:limit]]
 
 
-def search_footprints(query: str, limit: int = 10) -> list[str]:
-    """Search available footprints by name."""
-    fps = get_footprint_index()
+def _fp_tokens(text: str) -> list[str]:
+    tokens = re.findall(r"[a-z0-9]+(?:\.[0-9]+)?", text.lower())
+    expanded: list[str] = []
+    for token in tokens:
+        expanded.append(token)
+        if token in {"right", "angle", "edge", "edgefacing"}:
+            expanded.append("horizontal")
+        if token in {"tht", "through", "hole"}:
+            expanded.append("throughhole")
+        if token in {"smd", "smt"}:
+            expanded.extend(["smd", "smt"])
+        if token in {"dual", "gang"}:
+            expanded.extend(["dual", "double"])
+        if token in {"2", "02", "2p"}:
+            expanded.extend(["1x02", "02p"])
+        if token in {"3", "03", "3p"}:
+            expanded.extend(["1x03", "03p"])
+    return [token for token in expanded if len(token) > 1]
+
+
+def _mechanical_family_score(query_lower: str, fp_lower: str) -> float:
+    score = 0.0
+    if any(term in query_lower for term in ("jack", "audio", "trs", "mono", "3.5", "pj-3", "pj3")):
+        if "connector_audio:" in fp_lower:
+            score += 6.0
+        if "jack_3.5mm" in fp_lower:
+            score += 6.0
+        if "pj320d" in fp_lower or "pj-320" in query_lower:
+            score += 2.0
+    if any(term in query_lower for term in ("terminal", "screw", "field input")):
+        if "terminalblock" in fp_lower:
+            score += 7.0
+        if "1x02" in fp_lower and any(term in query_lower for term in ("2 pin", "2-pin", "02")):
+            score += 3.0
+    if "5.08" in query_lower and "p5.08mm" in fp_lower:
+        score += 5.0
+    if "5.00" in query_lower and "p5.00mm" in fp_lower:
+        score += 4.0
+    if "3.50" in query_lower or "3.5mm" in query_lower:
+        if "p3.50mm" in fp_lower:
+            score += 4.0
+    if any(term in query_lower for term in ("usb-c", "usb c", "usb_c", "type-c", "type c")):
+        if "connector_usb:" in fp_lower:
+            score += 5.0
+        if "usb_c_receptacle" in fp_lower:
+            score += 7.0
+        if "16p" in query_lower and "16p" in fp_lower:
+            score += 3.0
+        if "6p" in query_lower and "6p" in fp_lower:
+            score += 3.0
+    if any(term in query_lower for term in ("pot", "potentiometer", "volume")):
+        if "potentiometer" in fp_lower:
+            score += 7.0
+        if any(term in query_lower for term in ("dual", "gang", "stereo")) and (
+            "dual" in fp_lower or "double" in fp_lower
+        ):
+            score += 4.0
+    if any(term in query_lower for term in ("right angle", "edge-facing", "horizontal")):
+        if "horizontal" in fp_lower:
+            score += 3.0
+    if "vertical" in query_lower and "vertical" in fp_lower:
+        score += 3.0
+    if any(term in query_lower for term in ("smd", "smt")):
+        if "smd" in fp_lower or "smt" in fp_lower:
+            score += 3.0
+    elif any(term in query_lower for term in ("through hole", "through-hole", "tht")):
+        if "smd" not in fp_lower and "smt" not in fp_lower:
+            score += 1.5
+    return score
+
+
+def _score_footprint(query: str, fp: str) -> float:
     query_lower = query.lower()
-    matches = [fp for fp in fps if query_lower in fp.lower()]
-    matches.sort(key=lambda x: (not x.lower().startswith(query_lower), len(x)))
-    return matches[:limit]
+    fp_lower = fp.lower()
+    if query_lower in fp_lower:
+        return 1000.0 - len(fp) * 0.001
+    score = _mechanical_family_score(query_lower, fp_lower)
+    fp_words = set(_fp_tokens(fp_lower))
+    for token in _fp_tokens(query_lower):
+        if token in fp_words:
+            score += 2.0
+        elif token in fp_lower:
+            score += 1.0
+    return score
+
+
+def search_footprints(query: str, limit: int = 10) -> list[str]:
+    """Search available footprints by token and mechanical-family relevance."""
+    fps = get_footprint_index()
+    scored = [
+        (_score_footprint(query, fp), fp)
+        for fp in fps
+    ]
+    scored = [(score, fp) for score, fp in scored if score > 0]
+    scored.sort(key=lambda item: (-item[0], len(item[1]), item[1]))
+    return [fp for _, fp in scored[:limit]]
 
 
 def validate_footprint(fp_name: str) -> bool:

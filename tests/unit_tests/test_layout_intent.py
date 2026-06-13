@@ -82,6 +82,28 @@ def test_infers_edge_connector_power_and_debug_intent():
     assert "mechanical_mating" in _kinds(plan, "J1")
 
 
+def test_spreads_multiple_connectors_on_same_edge():
+    sig = _Net("SIG")
+    gnd = _Net("GND")
+    jacks = [
+        _Part(f"J{i}", name="3.5mm audio jack", footprint="Connector_Audio:Jack", nets=[sig, gnd], pins=3)
+        for i in range(1, 4)
+    ]
+    circuit = _Circuit(jacks, [sig, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 60.0))
+
+    anchors = sorted(
+        [anchor for anchor in plan.edge_anchors if anchor.ref in {"J1", "J2", "J3"}],
+        key=lambda anchor: anchor.ref,
+    )
+    assert {anchor.edge for anchor in anchors} == {"right"}
+    offsets = [anchor.offset_mm for anchor in anchors]
+    assert offsets == sorted(offsets)
+    assert len(set(offsets)) == 3
+    assert all(0.0 < offset < 60.0 for offset in offsets)
+
+
 def test_infers_board_ui_mating_intent():
     gnd = _Net("GND")
     button = _Part(

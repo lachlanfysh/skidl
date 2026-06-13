@@ -607,6 +607,46 @@ def _colocate_display_and_controls(
     )
 
 
+def _spread_edge_anchor_offsets(plan: PlacementIntentPlan, outline=None) -> None:
+    """Assign stable, spaced offsets to inferred edge anchors.
+
+    Edge anchors express "this part should mate with this board edge", not
+    "every part should sit at the edge midpoint".  When several connectors
+    share an edge, midpoint placement creates avoidable overlaps and pushes
+    adjacent-edge connectors into the same corner.  Spread inferred anchors
+    along the available edge while keeping single anchors centered.
+    """
+    if outline is None or not plan.edge_anchors:
+        return
+
+    anchors_by_edge: dict[str, list[EdgeAnchor]] = {}
+    for anchor in plan.edge_anchors:
+        anchors_by_edge.setdefault(anchor.edge.lower(), []).append(anchor)
+
+    for edge, anchors in anchors_by_edge.items():
+        if edge in {"top", "bottom"}:
+            start = outline.x_min
+            length = outline.width_mm
+        elif edge in {"left", "right"}:
+            start = outline.y_min
+            length = outline.height_mm
+        else:
+            continue
+        if length <= 0:
+            continue
+
+        anchors.sort(key=lambda anchor: anchor.ref)
+        if len(anchors) == 1:
+            anchors[0].offset_mm = start + length / 2
+            continue
+
+        pad = min(max(length * 0.12, 5.0), length * 0.30)
+        usable = max(0.0, length - 2 * pad)
+        step = usable / max(1, len(anchors) - 1)
+        for idx, anchor in enumerate(anchors):
+            anchor.offset_mm = start + pad + step * idx
+
+
 def infer_placement_intents(
     circuit,
     outline=None,
@@ -684,4 +724,5 @@ def infer_placement_intents(
     plan.repeated_channels = _infer_repeated_channels(circuit, roles)
     _infer_rf_intents(circuit, plan, outline)
     _colocate_display_and_controls(plan, outline)
+    _spread_edge_anchor_offsets(plan, outline)
     return plan

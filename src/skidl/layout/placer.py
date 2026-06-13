@@ -296,6 +296,71 @@ def _edge_anchor_position(
     return x, y, rot
 
 
+def _rotated_local_bounds(geometry, ref: str, footprint: str, rot_deg: float):
+    if geometry is None:
+        return None
+    return geometry.transformed_bounds(
+        PlacedPart(ref=ref, x_mm=0.0, y_mm=0.0, rot_deg=rot_deg, footprint=footprint)
+    )
+
+
+def _edge_anchor_origin_position(
+    anchor: EdgeAnchor,
+    width: float,
+    height: float,
+    outline: BoardOutline,
+    *,
+    geometry=None,
+    ref: str = "",
+    footprint: str = "",
+) -> tuple[float, float, float, float, float, float, float]:
+    """Return origin, rotation, occupied-center and dimensions for an edge anchor.
+
+    KiCad footprint coordinates are module origins, not bounding-box centers.
+    For many THT connectors the origin is at pad 1 or another mechanical
+    reference, so placing the origin at the edge-safe bbox center still leaves
+    the true courtyard outside the board.  When geometry is available, place
+    the transformed footprint bounds against the edge and use their center for
+    collision checks.
+    """
+    target_x, target_y, rot = _edge_anchor_position(anchor, width, height, outline)
+    ew, eh = (height, width) if rot % 180 == 90 else (width, height)
+    if outline is None or geometry is None:
+        return target_x, target_y, rot, target_x, target_y, ew, eh
+
+    bounds = _rotated_local_bounds(geometry, ref, footprint, rot)
+    if bounds is None:
+        return target_x, target_y, rot, target_x, target_y, ew, eh
+    bx_min, by_min, bx_max, by_max = bounds
+    center_dx = (bx_min + bx_max) / 2
+    center_dy = (by_min + by_max) / 2
+    ew = bx_max - bx_min
+    eh = by_max - by_min
+    edge = anchor.edge.lower()
+    x_mid, y_mid = _bounds_center(outline)
+
+    if edge in {"top", "bottom"}:
+        center_x = anchor.offset_mm if anchor.offset_mm is not None else x_mid
+        origin_x = center_x - center_dx
+        if edge == "top":
+            origin_y = outline.y_min + anchor.inset_mm - by_min
+        else:
+            origin_y = outline.y_max - anchor.inset_mm - by_max
+        center_y = origin_y + center_dy
+    elif edge in {"left", "right"}:
+        center_y = anchor.offset_mm if anchor.offset_mm is not None else y_mid
+        origin_y = center_y - center_dy
+        if edge == "left":
+            origin_x = outline.x_min + anchor.inset_mm - bx_min
+        else:
+            origin_x = outline.x_max - anchor.inset_mm - bx_max
+        center_x = origin_x + center_dx
+    else:
+        raise ValueError(f"Unknown edge anchor '{anchor.edge}' for {anchor.ref}")
+
+    return origin_x, origin_y, rot, center_x, center_y, ew, eh
+
+
 def _is_primary_part(part) -> bool:
     return len(part) != 2
 
@@ -486,6 +551,7 @@ def place_parts(
     constraints: LayoutConstraints,
     fp_bboxes: dict[str, tuple[float, float]],
     circuit=None,
+    fp_geometries: dict[str, object] | None = None,
 ) -> list[PlacedPart]:
     """Place all parts, honoring fixed positions and filling in the rest.
 
@@ -512,10 +578,18 @@ def place_parts(
         occupied.append(ko_entry)
         _grid.insert(f"__ko_{len(occupied)}", ko_entry[0], ko_entry[1], ko_entry[2], ko_entry[3])
 
-    def _commit(pp: PlacedPart, w: float, h: float):
+    def _commit(
+        pp: PlacedPart,
+        w: float,
+        h: float,
+        center_x: float | None = None,
+        center_y: float | None = None,
+    ):
         placed_map[pp.ref] = pp
-        occupied.append((pp.x_mm, pp.y_mm, w, h))
-        _grid.insert(pp.ref, pp.x_mm, pp.y_mm, w, h)
+        cx = pp.x_mm if center_x is None else center_x
+        cy = pp.y_mm if center_y is None else center_y
+        occupied.append((cx, cy, w, h))
+        _grid.insert(pp.ref, cx, cy, w, h)
 
     all_parts = []
     for group in groups.values():
@@ -547,27 +621,37 @@ def place_parts(
         if part.ref in placed_map or part.ref not in edge_map:
             continue
         w, h = _bbox(part, fp_bboxes)
-        target_x, target_y, rot = _edge_anchor_position(
-            edge_map[part.ref], w, h, constraints.outline
+        footprint = _footprint_name(part)
+        geometry = (fp_geometries or {}).get(footprint)
+        origin_x, origin_y, rot, center_x, center_y, ew, eh = (
+            _edge_anchor_origin_position(
+                edge_map[part.ref],
+                w,
+                h,
+                constraints.outline,
+                geometry=geometry,
+                ref=part.ref,
+                footprint=footprint,
+            )
         )
-        # Use effective (post-rotation) dimensions for collision/clamping
-        ew, eh = (h, w) if rot % 180 == 90 else (w, h)
         bounds = constraints.outline
-        target_x, target_y = _clamp_to_bounds(target_x, target_y, ew, eh, bounds)
-        x, y = _find_clear_position(
-            target_x, target_y, ew, eh, _grid, bounds=bounds
+        x_center, y_center = _find_clear_position(
+            center_x, center_y, ew, eh, _grid, bounds=bounds
         )
-        x, y = _clamp_to_bounds(x, y, ew, eh, bounds)
+        origin_x += x_center - center_x
+        origin_y += y_center - center_y
         _commit(
             PlacedPart(
                 ref=part.ref,
-                x_mm=x,
-                y_mm=y,
+                x_mm=origin_x,
+                y_mm=origin_y,
                 rot_deg=rot,
-                footprint=_footprint_name(part),
+                footprint=footprint,
             ),
             ew,
             eh,
+            center_x=x_center,
+            center_y=y_center,
         )
 
     # Layer 3: primary parts before passives. This gives capacitors and

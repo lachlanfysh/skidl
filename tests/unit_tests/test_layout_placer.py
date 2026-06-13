@@ -17,6 +17,7 @@ from skidl.layout.constraints import (
     NearConstraint,
 )
 from skidl.layout.hierarchy import PlacementGroup
+from skidl.layout.geometry import FootprintGeometry
 from skidl.layout.writer import PlacedPart
 from skidl.layout.placer import place_parts, _overlaps, derive_outline
 
@@ -322,6 +323,33 @@ def test_edge_anchor_places_connector_on_bottom_edge():
     # courtyard bottom edge sits 0.5mm inside the board edge (default inset)
     assert j1.y_mm + h / 2 == pytest.approx(outline.y_max - 0.5)
     assert j1.rot_deg == 180.0
+
+
+def test_edge_anchor_uses_footprint_origin_aware_geometry():
+    outline = BoardOutline(50.0, 30.0)
+    footprint = "Connector_Audio:Jack_OffCenter"
+    jack = _make_mock_part("J1", "JACK", footprint, num_pins=3)
+    group = PlacementGroup(name="service", parts=[jack], adjacency={})
+    geometry = FootprintGeometry(
+        footprint=footprint,
+        courtyard_bounds=(-1.0, -2.0, 8.0, 4.0),
+    )
+
+    result = place_parts(
+        {"service": group},
+        _simple_constraints(
+            outline=outline,
+            edge_anchors=[EdgeAnchor("J1", "bottom", offset_mm=25.0)],
+        ),
+        {footprint: (9.0, 6.0)},
+        fp_geometries={footprint: geometry},
+    )
+
+    j1 = next(p for p in result if p.ref == "J1")
+    bounds = geometry.transformed_bounds(j1)
+    assert bounds[3] == pytest.approx(outline.y_max - 0.5)
+    assert bounds[0] >= outline.x_min
+    assert bounds[2] <= outline.x_max
 
 
 def test_keepout_is_avoided_during_placement():
