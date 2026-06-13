@@ -19,7 +19,9 @@ from mcp_server.exception_mapper import (
 )
 from mcp_server.engine_worker import (
     _code_exception_from_exec,
+    _code_exception_from_syntax,
     _circuit_to_spec_dict,
+    _drc_to_exceptions,
     _exec_skidl,
     _export_dsn_with_pcbnew,
     _footprint_missing_exception,
@@ -487,8 +489,64 @@ class TestHelpfulFailures:
         assert exc.subject["pin"] == "PB4"
         assert "net += pin1, pin2" in exc.retry_hint
 
+    def test_syntax_error_reports_line_and_skidl_connection_hint(self):
+        err = SyntaxError(
+            "'function call' is an illegal expression for augmented assignment",
+            ("<string>", 7, 1, 'make_net()[0] += usb["CC1"]\n'),
+        )
+
+        exc = _code_exception_from_syntax(err)
+
+        assert exc.code == ExcCode.CODE_EXEC_ERROR
+        assert exc.subject["line"] == 7
+        assert exc.subject["line_text"] == 'make_net()[0] += usb["CC1"]'
+        assert "net += pin1, pin2" in exc.retry_hint
+        assert "no global `connect()` helper" in exc.retry_hint
+
+    def test_connect_name_error_gets_skidl_specific_hint(self):
+        class FakeExecError:
+            original = NameError("name 'connect' is not defined")
+            line = 11
+            line_text = 'connect(usb["CC1"], r_cc1[1])'
+            namespace = {}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.code == ExcCode.CODE_EXEC_ERROR
+        assert exc.subject["line"] == 11
+        assert "does not provide a global connect() helper" in exc.retry_hint
+        assert "vcc += u1['VCC'], c1[1]" in exc.retry_hint
+
 
 class TestRoutingExceptions:
+    def test_drc_unconnected_includes_examples_refs_and_retry_hint(self):
+        report = {
+            "unconnected_items": [
+                {
+                    "items": [
+                        {"description": "Pad 1 [GND] of J1"},
+                        {"description": "Track end [GND] near U2"},
+                    ],
+                    "pos": {"x": 10.0, "y": 12.5},
+                },
+                {
+                    "items": [
+                        {"description": "Pad 2 [SDA] of U3"},
+                    ],
+                },
+            ],
+            "violations": [],
+        }
+
+        exc = _drc_to_exceptions(report)[0]
+
+        assert exc.code == ExcCode.DRC_UNCONNECTED
+        assert exc.subject["nets"] == {"GND": 2, "SDA": 1}
+        assert exc.subject["refs"] == ["J1", "U2", "U3"]
+        assert exc.subject["examples"][0]["pos"] == {"x": 10.0, "y": 12.5}
+        assert "not manufacturable" in exc.retry_hint
+        assert "subject.examples" in exc.retry_hint
+
     def test_route_timeout_suggests_router_budget_retry(self, monkeypatch, tmp_path):
         original_exists = Path.exists
 

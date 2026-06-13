@@ -180,7 +180,8 @@ async def submit_skidl_code(
 
     Write standard SKiDL Python: Part(), Net(), pin connections. The server
     handles the full pipeline (schematic, PCB layout, routing, DRC) — do NOT
-    call generate_schematic() or generate_netlist() in your code.
+    call generate_schematic() or generate_netlist() in your code. There is no
+    global connect() helper; connect with `net += pin1, pin2` or `pin += net`.
 
     A run is only clean when routing, DRC, and manufacturing export all pass.
     Clean runs include Gerbers, drill files, BOM CSV, and CPL (pick-and-place)
@@ -221,6 +222,9 @@ async def submit_skidl_code(
     - Power nets: set net.drive = POWER on every supply/ground rail.
     - Decoupling caps: value="100nF" between power and ground per IC.
     - Connectors: Part("Connector_Generic", "Conn_01x06", ...).
+    - Connections: use `net += pin1, pin2` or `pin += net`. Do not write
+      `connect(pin1, pin2)`, and do not put a function call on the left side
+      of `+=`.
     - Use standard power names: VCC, VDD, 3V3, 5V, VBUS, GND, AGND.
     - Use @subcircuit to group functional blocks for cleaner schematics.
     Read resource eda://guide/skidl for a quick reference.
@@ -1355,6 +1359,7 @@ SKIDL_GUIDE = """\
 
 Write standard SKiDL Python code. The server handles schematic generation,
 PCB layout, autorouting, and DRC — do NOT call generate_schematic() etc.
+There is no global `connect()` helper.
 
 ## Step 1: Search before you code
 
@@ -1388,7 +1393,15 @@ c1 = Part("Device", "C", value="100nF",
 # Connect by pin name (ICs) or number (passives)
 vcc += u1["VDD"], c1[1]
 gnd += u1["GND"], c1[2]
+u1["ADDR"] += gnd
 ```
+
+Connection syntax rules:
+- Use `net += pin1, pin2` to join many endpoints to one named net.
+- Use `pin += net` for a single pin-to-net connection.
+- Do not use a global `connect()` function; SKiDL does not define one here.
+- Do not put a function call or temporary expression on the left side of `+=`.
+- Do not use `Net("X") + part["PIN"]`; create `x = Net("X")`, then `x += part["PIN"]`.
 
 ## KiCad library names (NOT manufacturer names)
 
@@ -1424,6 +1437,7 @@ Common libraries — use search_kicad() for anything not listed here:
 - Connectors: `Part("Connector_Generic", "Conn_01x06", ...)` not "PinHeader_1x06".
 - USB connectors use symbol library `Connector` with a `Connector_USB:*`
   footprint; `Connector_USB` is the footprint library, not the symbol library.
+- Connections: use `net += pin1, pin2` or `pin += net`; no global `connect()`.
 - Decoupling caps: value="100nF" wired power-to-ground = auto-placed near parent IC.
 - Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND.
 - Pin names on ICs may differ — use `search_kicad("part", detail=true)` to check.

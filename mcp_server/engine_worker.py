@@ -568,6 +568,33 @@ def _drc_to_exceptions(report: dict) -> list:
     violations = report.get("violations", [])
     unconnected = report.get("unconnected_items", [])
 
+    def drc_examples(items: list[dict], limit: int = 8) -> list[dict]:
+        examples = []
+        for item in items[:limit]:
+            descriptions = []
+            for sub in item.get("items", []) or []:
+                desc = str(sub.get("description") or "").strip()
+                if desc:
+                    descriptions.append(desc)
+            if not descriptions:
+                desc = str(item.get("description") or "").strip()
+                if desc:
+                    descriptions.append(desc)
+            example = {"descriptions": descriptions[:4]}
+            for key in ("pos", "position", "location"):
+                if key in item:
+                    example[key] = item[key]
+                    break
+            examples.append(example)
+        return examples
+
+    def refs_from_examples(examples: list[dict]) -> list[str]:
+        refs = set()
+        for example in examples:
+            for desc in example.get("descriptions", []):
+                refs.update(re.findall(r"\b[A-Z]{1,4}\d+\b", desc))
+        return sorted(refs)
+
     if unconnected:
         nets = Counter()
         for item in unconnected:
@@ -577,12 +604,26 @@ def _drc_to_exceptions(report: dict) -> list:
                     nets[m.group(1)] += 1
         if nets:
             top_nets = ", ".join(f"{n}({c})" for n, c in nets.most_common(5))
+            examples = drc_examples(unconnected)
             exceptions.append(DesignException(
                 id="e-drc-unconnected",
                 code=ExcCode.DRC_UNCONNECTED,
                 severity=Severity.ERROR,
                 message=f"{sum(nets.values())} unconnected item(s): {top_nets}",
-                subject={"nets": dict(nets), "count": sum(nets.values())},
+                subject={
+                    "nets": dict(nets),
+                    "count": sum(nets.values()),
+                    "examples": examples,
+                    "refs": refs_from_examples(examples),
+                },
+                retry_hint=(
+                    "Routing is incomplete, so the board is not manufacturable. "
+                    "Inspect subject.examples for representative DRC items and "
+                    "subject.refs for affected components; reduce congestion by "
+                    "moving related parts closer, moving edge connectors to the "
+                    "board edge, increasing board/layer budget, or choosing "
+                    "smaller/clearer footprints before resubmitting."
+                ),
                 candidates=[
                     Candidate(id="c1", action=ActionType.SCALE_OUTLINE,
                               params={"area_factor": 1.2},
@@ -597,23 +638,37 @@ def _drc_to_exceptions(report: dict) -> list:
     clearance_count = 0
     courtyard_count = 0
     short_count = 0
+    clearance_items = []
+    short_items = []
 
     for v in violations:
         vtype = v.get("type", "").lower()
         if "clearance" in vtype:
             clearance_count += 1
+            clearance_items.append(v)
         elif "courtyard" in vtype:
             courtyard_count += 1
         elif "short" in vtype:
             short_count += 1
+            short_items.append(v)
 
     if clearance_count:
+        examples = drc_examples(clearance_items)
         exceptions.append(DesignException(
             id="e-drc-clearance",
             code=ExcCode.DRC_CLEARANCE,
             severity=Severity.ERROR,
             message=f"{clearance_count} clearance violation(s)",
-            subject={"count": clearance_count},
+            subject={
+                "count": clearance_count,
+                "examples": examples,
+                "refs": refs_from_examples(examples),
+            },
+            retry_hint=(
+                "Clearance DRC failed, so the board is not manufacturable. "
+                "Inspect subject.examples, then reduce density around those "
+                "items or choose footprints/placement with more clearance."
+            ),
             candidates=[
                 Candidate(id="c1", action=ActionType.SCALE_OUTLINE,
                           params={"area_factor": 1.2},
@@ -641,12 +696,23 @@ def _drc_to_exceptions(report: dict) -> list:
         ))
 
     if short_count:
+        examples = drc_examples(short_items)
         exceptions.append(DesignException(
             id="e-drc-short",
             code=ExcCode.DRC_SHORT,
             severity=Severity.ERROR,
             message=f"{short_count} short circuit(s) detected",
-            subject={"count": short_count},
+            subject={
+                "count": short_count,
+                "examples": examples,
+                "refs": refs_from_examples(examples),
+            },
+            retry_hint=(
+                "Short-circuit DRC failed, so the board is not manufacturable. "
+                "Inspect subject.examples to identify the conflicting items; "
+                "fix placement/routing or the schematic connection before "
+                "resubmitting."
+            ),
             candidates=[
                 Candidate(id="c1", action=ActionType.REGENERATE, params={},
                           human_summary="Regenerate placement and routing",
@@ -1150,6 +1216,29 @@ def _code_exception(
     )
 
 
+def _code_exception_from_syntax(error: SyntaxError) -> DesignException:
+    subject = {}
+    if error.lineno is not None:
+        subject["line"] = error.lineno
+    if error.text:
+        subject["line_text"] = error.text.strip()
+    if error.offset is not None:
+        subject["column"] = error.offset
+    hint = (
+        "Fix the Python syntax and resubmit. SKiDL connections are usually "
+        "`net += pin1, pin2` or `pin += net`; the left side of `+=` must be "
+        "a named Net/Pin expression, not a function call or temporary value. "
+        "There is no global `connect()` helper."
+    )
+    if "augmented assignment" not in str(error):
+        hint = (
+            "Fix the Python syntax and resubmit. For SKiDL wiring, use "
+            "`net += pin1, pin2` or `pin += net`; there is no global "
+            "`connect()` helper."
+        )
+    return _code_exception(f"SyntaxError: {error}", hint, subject=subject)
+
+
 def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException:
     original = error.original
     original_text = f"{type(original).__name__}: {original}"
@@ -1207,6 +1296,18 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
                 "Create or reuse a named Net, then connect endpoints with "
                 "`net += pin1, pin2`. Do not use `Net(...) + part['PIN']` "
                 "inside a connection expression."
+            ),
+            subject=subject,
+        )
+
+    if "name 'connect' is not defined" in str(original):
+        return _code_exception(
+            original_text,
+            (
+                "SKiDL does not provide a global connect() helper. Connect "
+                "endpoints by attaching them to a named net, e.g. "
+                "`vcc += u1['VCC'], c1[1]` or `u1['GND'] += gnd`, then "
+                "resubmit with submit_skidl_code()."
             ),
             subject=subject,
         )
@@ -1270,7 +1371,7 @@ def _run_skidl_code(envelope: dict) -> dict:
     except SyntaxError as exc:
         return _json_result(
             run_id=run_id, ok=False, stage="exec",
-            exceptions=[_code_exception(f"SyntaxError: {exc}")],
+            exceptions=[_code_exception_from_syntax(exc)],
             metrics=_metrics(),
         )
     except SkidlCodeExecutionError as exc:

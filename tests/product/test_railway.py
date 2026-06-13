@@ -1088,6 +1088,14 @@ class TestAgentUX:
         assert "suggested pins: AIN0, ADDR" in hint
         assert "submit_skidl_code()" in hint
 
+    def test_skidl_guide_teaches_connection_syntax_not_connect_helper(self):
+        from mcp_server.server_http import SKIDL_GUIDE
+
+        assert "net += pin1, pin2" in SKIDL_GUIDE
+        assert "pin += net" in SKIDL_GUIDE
+        assert "Do not use a global `connect()` function" in SKIDL_GUIDE
+        assert 'Net("X") + part["PIN"]' in SKIDL_GUIDE
+
     def test_get_job_hint_for_engine_crash_says_backend_failure(self):
         from mcp_server.server_http import _get_job_hint
         hint = _get_job_hint({

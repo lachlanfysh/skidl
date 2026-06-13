@@ -49,7 +49,8 @@ Practical notes:
 - Poll asynchronous jobs with the polling tool until they reach a terminal \
 status; the harness inserts real delays between polls for you.
 - If a run returns exceptions, edit the SKiDL source using the service's \
-structured feedback and resubmit. Stop after at most 5 correction rounds.
+structured feedback and resubmit. Stop after at most 5 correction rounds; \
+the harness enforces this cap.
 - When you finish (or are stuck), reply with plain text starting with \
 "FINAL REPORT:" summarizing the outcome, every point of confusion you hit, \
 anything you had to guess, and what the service could explain better.
@@ -61,6 +62,7 @@ MAX_MODEL_TURNS = 60
 MAX_TOOL_RESULT_CHARS = 15000
 DEFAULT_LLM_TIMEOUT_S = 240.0
 DEFAULT_MAX_WALL_S = 900.0
+DEFAULT_MAX_SUBMISSIONS = 5
 POLL_SPACING_S = 5.0
 FINAL_REPORT_RE = re.compile(r"^[\s#>*_`-]*FINAL\s+REPORT\b", re.IGNORECASE)
 
@@ -429,6 +431,8 @@ def main() -> int:
                     help="Per OpenRouter request timeout in seconds.")
     ap.add_argument("--max-wall-s", type=float, default=DEFAULT_MAX_WALL_S,
                     help="Hard wall-clock budget for one probe; <=0 disables.")
+    ap.add_argument("--max-submissions", type=int, default=DEFAULT_MAX_SUBMISSIONS,
+                    help="Maximum submit_skidl_code calls before forcing final report.")
     args = ap.parse_args()
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -485,6 +489,7 @@ def main() -> int:
     job_results: dict[str, dict] = {}
     last_mcp_result: dict | None = None
     nudges = 0
+    submissions = 0
 
     for turn in range(MAX_MODEL_TURNS):
         if args.max_wall_s > 0 and time.time() - started >= args.max_wall_s:
@@ -610,18 +615,27 @@ def main() -> int:
                 result = f"TOOL ERROR: your arguments were not valid JSON: {exc}"
                 arguments = None
             if arguments is not None:
-                if name == "get_job":
-                    wait = POLL_SPACING_S - (time.time() - last_poll_at)
-                    if wait > 0:
-                        time.sleep(wait)
-                    last_poll_at = time.time()
-                try:
-                    if name == "read_resource":
-                        result = mcp.read_resource(arguments["uri"])
-                    else:
-                        result = mcp.call_tool(name, arguments)
-                except Exception as exc:
-                    result = f"TOOL ERROR: {exc}"
+                if name == "submit_skidl_code" and submissions >= args.max_submissions:
+                    result = (
+                        "TOOL ERROR: probe max submit_skidl_code calls reached "
+                        f"({args.max_submissions}). Do not submit again; write "
+                        "FINAL REPORT from the latest terminal MCP result."
+                    )
+                else:
+                    if name == "get_job":
+                        wait = POLL_SPACING_S - (time.time() - last_poll_at)
+                        if wait > 0:
+                            time.sleep(wait)
+                        last_poll_at = time.time()
+                    try:
+                        if name == "read_resource":
+                            result = mcp.read_resource(arguments["uri"])
+                        else:
+                            result = mcp.call_tool(name, arguments)
+                        if name == "submit_skidl_code":
+                            submissions += 1
+                    except Exception as exc:
+                        result = f"TOOL ERROR: {exc}"
             parsed_result = _extract_mcp_result(name, result)
             if parsed_result is not None:
                 last_mcp_result = parsed_result
@@ -642,6 +656,21 @@ def main() -> int:
                 "tool_call_id": tc["id"],
                 "content": result,
             })
+            if (
+                name == "get_job"
+                and submissions >= args.max_submissions
+                and isinstance(parsed_result, dict)
+                and _terminal_status(parsed_result.get("status"))
+            ):
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "You have reached the probe submission cap. Do not "
+                        "submit another design. Finish now with a FINAL REPORT "
+                        "that states whether the latest result is manufacturable "
+                        "and summarizes the blocking exceptions."
+                    ),
+                })
 
     harvest_last_result, post_cap_results = _harvest_outstanding_jobs(
         mcp,
@@ -660,6 +689,8 @@ def main() -> int:
         "turns_used": turn + 1,
         "wall_time_s": round(wall, 1),
         "usage": usage_totals,
+        "submissions": submissions,
+        "max_submissions": args.max_submissions,
         "finished_with_report": _is_final_report_text(final_report),
         "final_report_valid": final_report_valid,
         "premature_final_reason": premature_final_reason,
