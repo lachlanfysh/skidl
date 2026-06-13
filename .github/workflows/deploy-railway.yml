@@ -27,6 +27,7 @@ jobs:
     timeout-minutes: 45
 
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
       RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID }}
@@ -36,16 +37,30 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Validate Railway configuration
+      - name: Check Railway configuration
+        id: railway_config
         run: |
-          test -n "$RAILWAY_TOKEN" || (echo "Missing GitHub secret RAILWAY_TOKEN" >&2; exit 1)
-          test -n "$RAILWAY_PROJECT_ID" || (echo "Missing GitHub variable RAILWAY_PROJECT_ID" >&2; exit 1)
-          test -n "$RAILWAY_SERVICE_ID" || (echo "Missing GitHub variable RAILWAY_SERVICE_ID" >&2; exit 1)
+          ready=true
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::notice::Skipping Railway deploy: missing GitHub secret RAILWAY_TOKEN"
+            ready=false
+          fi
+          if [ -z "$RAILWAY_PROJECT_ID" ]; then
+            echo "::notice::Skipping Railway deploy: missing GitHub variable RAILWAY_PROJECT_ID"
+            ready=false
+          fi
+          if [ -z "$RAILWAY_SERVICE_ID" ]; then
+            echo "::notice::Skipping Railway deploy: missing GitHub variable RAILWAY_SERVICE_ID"
+            ready=false
+          fi
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
 
       - name: Install Railway CLI
+        if: steps.railway_config.outputs.ready == 'true'
         run: npm install -g @railway/cli@5.12.1
 
       - name: Deploy
+        if: steps.railway_config.outputs.ready == 'true'
         run: |
           railway up \
             --ci \

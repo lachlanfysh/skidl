@@ -47,5 +47,8 @@ Configure these in GitHub:
 - Variable `RAILWAY_SERVICE_ID`: the MCP service id or name.
 - Variable `RAILWAY_ENVIRONMENT`: optional, defaults to `production`.
 
+Until those values exist, the workflow exits successfully with notices and does
+not deploy.
+
 The workflow intentionally targets only the canonical repo/branch and uses path
 filters matching `railway.json` so documentation-only changes do not redeploy.
