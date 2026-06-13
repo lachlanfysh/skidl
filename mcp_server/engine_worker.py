@@ -972,8 +972,9 @@ def _code_exception(
 
 def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException:
     original = error.original
+    original_text = f"{type(original).__name__}: {original}"
     subject = {
-        "python_error": f"{type(original).__name__}: {original}",
+        "python_error": original_text,
         "traceback_tail": "".join(
             traceback.format_exception(type(original), original, original.__traceback__)
         )[-4000:],
@@ -984,11 +985,36 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
         subject["line_text"] = error.line_text
 
     pin_subject = _infer_pin_lookup(error)
+    if "unsupported operand type(s) for +: 'Net' and 'Pin'" in str(original):
+        if pin_subject:
+            subject.update(pin_subject)
+        return _code_exception(
+            "invalid SKiDL net expression: '+' does not connect a Net and Pin",
+            (
+                "Create or reuse a named Net, then connect endpoints with "
+                "`net += pin1, pin2`. Do not use `Net(...) + part['PIN']` "
+                "inside a connection expression."
+            ),
+            subject=subject,
+        )
+
     if pin_subject:
         subject.update(pin_subject)
         pin = pin_subject["pin"]
         ref = pin_subject["ref"]
         part = pin_subject.get("part") or "part"
+        available = {str(p) for p in pin_subject.get("available_pins") or []}
+        if str(pin) in available:
+            return _code_exception(
+                original_text,
+                (
+                    "The referenced pin exists, so this is a Python/SKiDL "
+                    "expression error on subject.line rather than an unknown "
+                    "pin. Inspect subject.line_text, edit the code, and "
+                    "resubmit with submit_skidl_code()."
+                ),
+                subject=subject,
+            )
         suggestions = pin_subject.get("suggested_pins") or []
         suffix = f"; close pins: {', '.join(suggestions[:5])}" if suggestions else ""
         return _code_exception(

@@ -11,6 +11,7 @@ import pytest
 
 from mcp_server.exception_mapper import crash_exception, layout_exceptions, suppress_waived
 from mcp_server.engine_worker import (
+    _code_exception_from_exec,
     _circuit_to_spec_dict,
     _exec_skidl,
     _manufacturing_output_exception,
@@ -221,6 +222,35 @@ class TestHelpfulFailures:
         ]
         assert exc.candidates[0].action == ActionType.REGENERATE
         assert "Fetch the run artifacts" in exc.retry_hint
+
+    def test_valid_pin_in_bad_net_expression_is_not_reported_missing(self):
+        class FakePin:
+            def __init__(self, name, num):
+                self.name = name
+                self.num = num
+                self.aliases = []
+
+        class FakePart:
+            ref = "U2"
+            name = "ATmega328P-A"
+            value = "ATmega328P-A"
+            pins = [FakePin("PB4", "18"), FakePin("GND", "8")]
+
+        class FakeExecError:
+            original = TypeError(
+                "unsupported operand type(s) for +: 'Net' and 'Pin'"
+            )
+            line = 80
+            line_text = 'prog[1] += Net("MISO") + mcu["PB4"]'
+            namespace = {"mcu": FakePart()}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.code == ExcCode.CODE_EXEC_ERROR
+        assert "does not connect a Net and Pin" in exc.message
+        assert "pin 'PB4' not found" not in exc.message
+        assert exc.subject["pin"] == "PB4"
+        assert "net += pin1, pin2" in exc.retry_hint
 
 
 @needs_kicad
