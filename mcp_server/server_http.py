@@ -15,9 +15,6 @@ import asyncio
 import json
 import logging
 import os
-import re
-from copy import deepcopy
-from datetime import datetime, timezone
 
 from pydantic import ValidationError
 
@@ -38,64 +35,12 @@ mcp = FastMCP(
         "PCB design service. Use search_kicad() to find correct library names, "
         "part names, and footprints. Write SKiDL Python code and submit via "
         "submit_skidl_code(). The server handles schematic generation, PCB "
-        "layout, autorouting, and DRC. For complex/mechanical boards, submit "
-        "first with run_options.pipeline_goal='placement_review' so the human "
-        "can inspect/finesse grouped placement before routing. Poll get_job() until done, then "
-        "get_run() for artifacts. Show preview_2d_top.png to the human when "
-        "available; if they give visual/design feedback, record it with "
-        "submit_human_feedback() before editing and resubmitting. If a run "
-        "returns exceptions, edit the SKiDL code using the structured "
-        "exception details and resubmit. "
-        "Do all design submissions through submit_skidl_code(); read "
-        "eda://guide/skidl for conventions and eda://guide/parts before "
-        "choosing jacks, pots, switches, USB, headers, or other mechanical parts."
+        "layout, autorouting, and DRC. Poll get_job() until done, then "
+        "get_run() for artifacts. Read eda://guide/skidl for conventions."
     ),
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 db = DB()
-
-
-def _normalize_assembly_policy(value: object | None) -> str:
-    text = str(value or "single_sided").strip().lower().replace("-", "_")
-    aliases = {
-        "single": "single_sided",
-        "single_side": "single_sided",
-        "one_sided": "single_sided",
-        "one_side": "single_sided",
-        "front_only": "single_sided",
-        "double": "double_sided",
-        "double_side": "double_sided",
-        "dual_sided": "double_sided",
-        "dual_side": "double_sided",
-        "two_sided": "double_sided",
-        "two_side": "double_sided",
-    }
-    text = aliases.get(text, text)
-    if text in {"single_sided", "double_sided"}:
-        return text
-    return "single_sided"
-
-
-def _normalize_pipeline_goal(value: object | None) -> str:
-    text = str(value or "manufacturing").strip().lower().replace("-", "_")
-    aliases = {
-        "place": "placement_review",
-        "placement": "placement_review",
-        "placed": "placement_review",
-        "placement_only": "placement_review",
-        "review": "placement_review",
-        "review_placement": "placement_review",
-        "preview": "placement_review",
-        "routing": "manufacturing",
-        "route": "manufacturing",
-        "route_after_review": "manufacturing",
-        "fab": "manufacturing",
-        "mfg": "manufacturing",
-    }
-    text = aliases.get(text, text)
-    if text in {"manufacturing", "placement_review"}:
-        return text
-    return "manufacturing"
 
 
 def _validate_spec(input_spec: dict | str) -> CircuitSpec:
@@ -128,8 +73,8 @@ def _validate_spec(input_spec: dict | str) -> CircuitSpec:
         raise ValueError(
             "Spec validation failed — fix these and resubmit:\n"
             + "\n".join(lines)
-            + "\n\nHint: CircuitSpec JSON is legacy/internal. New MCP clients "
-            "should write SKiDL Python and call submit_skidl_code()."
+            + "\n\nHint: Read resource eda://guide/circuit-spec for the "
+            "full format reference, valid field values, and a worked example."
         )
 
 
@@ -141,14 +86,7 @@ async def submit_design(
     run_options: dict | None = None,
     policy: dict | None = None,
 ) -> dict:
-    """Legacy/internal: submit a CircuitSpec JSON design job.
-
-    New agent-facing clients should use submit_skidl_code() instead. The
-    CircuitSpec JSON surface remains for corpus runners, compatibility tests,
-    and internal debugging while the product converges on SKiDL Python at the
-    MCP boundary.
-
-    Returns {job_id, status:"queued"} immediately.
+    """Submit a PCB design job. Returns {job_id, status:"queued"} immediately.
 
     The engine (schematic generation + PCB placement + ERC) runs on a worker;
     poll get_job(job_id) every 5-15s until status is succeeded/failed/timeout.
@@ -182,12 +120,10 @@ async def submit_design(
       3V3, 5V, VBAT, GND, AGND...) — placement quality depends on it.
     - Decoupling caps: value "100nF" wired power-to-ground is auto-detected
       and placed 1.5mm from its IC. Other values/names are not detected.
-    CircuitSpec is legacy/internal. New MCP clients should use
-    submit_skidl_code() and eda://guide/skidl.
+    Read resource eda://guide/circuit-spec for full docs and worked example.
 
-    run_options (all optional): {"timeout_s": 300} engine wall-clock limit;
-    {"route_timeout_s": 120} Freerouting-only limit — raise to 300-900
-    after ROUTE_TIMEOUT; {"board_id": "..."} telemetry label.
+    run_options (all optional): {"timeout_s": 300} engine wall-clock limit —
+    raise to 600-1500 for dense boards; {"board_id": "..."} telemetry label.
 
     policy controls server-side auto-correction between iterations
     (default: none — every exception comes back to you):
@@ -209,10 +145,8 @@ async def submit_design(
     return {
         "job_id": job_id,
         "status": "queued",
-        "deprecated": True,
         "hint": (
-            "Legacy CircuitSpec job queued. Prefer submit_skidl_code() for "
-            "new MCP clients. Poll with get_job(job_id) every 10s until "
+            "Job queued. Poll with get_job(job_id) every 10s until "
             "status is 'succeeded' or 'failed'."
         ),
     }
@@ -223,21 +157,17 @@ async def submit_skidl_code(
     code: str,
     board_name: str = "board",
     outline_mm: list[float] | None = None,
-    corner_radius_mm: float | None = None,
     kicad_version: str = "9",
-    design_intent: str = "",
-    custom_footprints: dict | list | None = None,
     run_options: dict | None = None,
 ) -> dict:
     """Submit SKiDL Python code to generate a PCB design.
 
     Write standard SKiDL Python: Part(), Net(), pin connections. The server
     handles the full pipeline (schematic, PCB layout, routing, DRC) — do NOT
-    call generate_schematic() or generate_netlist() in your code. There is no
-    global connect() helper; connect with `net += pin1, pin2` or `pin += net`.
+    call generate_schematic() or generate_netlist() in your code.
 
-    A run is only clean when routing, DRC, and manufacturing export all pass.
-    Clean runs include Gerbers, drill files, BOM CSV, and CPL (pick-and-place)
+    When the board passes routing + DRC, manufacturing files are generated
+    automatically: Gerbers, drill files, BOM CSV, and CPL (pick-and-place)
     CSV — everything needed for JLCPCB ordering. These are bundled in the
     output zip alongside the KiCad source files.
 
@@ -275,17 +205,6 @@ async def submit_skidl_code(
     - Power nets: set net.drive = POWER on every supply/ground rail.
     - Decoupling caps: value="100nF" between power and ground per IC.
     - Connectors: Part("Connector_Generic", "Conn_01x06", ...).
-    - Audio jacks, pots, switches, USB, and headers are mechanical choices, not
-      just symbols. Read eda://guide/parts and call search_kicad(...,
-      detail=true) before choosing them.
-    - Do not guess numeric pins on audio jacks. KiCad jack symbols often
-      expose semantic pins such as T/S, T1/S1, TN/SN, R/RN. Pots usually expose
-      1/2/3 terminals, but still confirm the selected symbol with
-      search_kicad(..., detail=true) when unsure. After an exception, use
-      subject.available_pins and wire the exact listed pins.
-    - Connections: use `net += pin1, pin2` or `pin += net`. Do not write
-      `connect(pin1, pin2)`, and do not put a function call on the left side
-      of `+=`.
     - Use standard power names: VCC, VDD, 3V3, 5V, VBUS, GND, AGND.
     - Use @subcircuit to group functional blocks for cleaner schematics.
     Read resource eda://guide/skidl for a quick reference.
@@ -293,360 +212,95 @@ async def submit_skidl_code(
     code: Python source defining a SKiDL circuit.
     board_name: name for output files (default "board").
     outline_mm: [width, height] in mm. Omit to auto-size from parts.
-    corner_radius_mm: optional rectangular outline corner radius in mm. Omit
-      to use the engine's product-board default. Set 0 for square corners.
-      For Eurorack/panel/mechanical boards, ask or infer deliberately; obvious
-      Eurorack context defaults square unless this is explicit.
     kicad_version: target KiCad version for output format ("9" or "10").
-    design_intent: optional original user/design request. Include it so the
-      server can warn when the code appears to omit requested features such as
-      USB-C, STEMMA/Qwiic, I2C/SPI, LiPo charging, regulators, or shunts.
-    run_options: {"timeout_s": 300, "route_timeout_s": 120,
-      "assembly_policy": "single_sided", "pipeline_goal": "manufacturing"}
-      — raise timeout_s for complex boards, route_timeout_s after
-      ROUTE_TIMEOUT. Choose pipeline_goal up front:
-      "manufacturing" means schematic + layout + routing + DRC + fabrication
-      exports; "placement_review" means schematic + PCB placement + preview
-      only, with routing/DRC/manufacturing deliberately skipped so a human can
-      inspect and nudge a mechanically important floorplan in KiCad first.
-      Choose assembly_policy up front: "single_sided" avoids automatic
-      rear-side SMD placement and is the cost-preserving default;
-      "double_sided" allows front-panel controls with rear electronics when
-      the human accepts the extra fabrication/assembly cost. For Eurorack,
-      ask/decide whether this is a single-board dual-sided module or a
-      two-board panel/main-board stack.
-      If double_sided is chosen, set `part.assembly_side = "front"` or
-      `"back"` on parts where the side matters; do not use the back merely
-      as a squeezing/autorouting escape hatch.
-      For enclosure semantics, set `part.edge_preference = "left"`, "right",
-      "top", or "bottom" on connectors/headers that must face a specific
-      side; optional `part.edge_offset_mm` sets the along-edge position and
-      `part.edge_rot_deg` fixes connector-mouth orientation after preview
-      feedback.
-      Prefer `part.edge_preference` or `EDA_FLOORPLAN["edge_anchors"]` for
-      USB, Qwiic/JST, pin headers, jacks, barrels, and other board-edge
-      connectors. Do not hard-code these as `fixed_positions` unless the human
-      gave exact mechanical coordinates; KiCad footprint origins are not always
-      at the footprint center, so guessed fixed connector coordinates often
-      overhang the board.
-      For explicit human/mechanical floorplans, define a global
-      `EDA_FLOORPLAN` dict in the submitted Python after refs exist. It can
-      carry `outline`, `fixed_positions`, `edge_anchors`, `grid`/`grids`,
-      `align`, `distribute`, `assembly_sides`, `keepouts`, and physical
-      `cutouts`/`apertures`/`slots`:
-      `EDA_FLOORPLAN = {"outline": {"width_mm": 120, "height_mm": 180},
-      "grid": {"refs": ["U_S00", "U_S01", "U_S10", "U_S11"],
-      "rows": 2, "cols": 2, "x_mm": 18, "y_mm": 36, "dx_mm": 22,
-      "dy_mm": 24, "side": "front"}, "assembly_sides": {"U_MCU": "back"},
-      "edge_anchors": [{"ref": "J_USB", "edge": "bottom",
-      "offset_mm": 60}], "keepouts": [{"x_min": 0, "y_min": 0,
-      "x_max": 120, "y_max": 8, "label": "mounting rail"}],
-      "cutouts": [{"name": "sensor_window", "x_min": 40, "y_min": 70,
-      "x_max": 80, "y_max": 110}]}`.
-      Use fixed_positions for real user floorplans such as sensor grids,
-      displays, batteries, mounting holes, panel controls, and large modules;
-      do not strip them merely because the hosted service owns
-      generation/layout. If porting existing project code, you may keep
-      `skidl.layout` constraint objects such as `FixedPosition`, `EdgeAnchor`,
-      `KeepOut`, `BoardCutout`, `BoardOutline`, or `LayoutConstraints` inside
-      `EDA_FLOORPLAN`; the hosted worker normalizes them before layout.
-      For dense Eurorack, pedal, control-panel, or enclosure-front boards,
-      edge_preference alone is usually not enough. Use EDA_FLOORPLAN to put
-      panel controls into an intentional row/grid, reserve clearance for
-      mounting holes and power headers, and keep the analog/electronics core in
-      a separate interior or back-side zone before asking the placer to fill in
-      passives.
-      For custom project footprints that Railway does not have installed,
-      pass the KiCad `.kicad_mod` text via custom_footprints:
-      `custom_footprints={"MyLib:MyFootprint": "(footprint ...)"}`. The
-      key must exactly match `Part(..., footprint="MyLib:MyFootprint")`, and
-      the submitted text must be a top-level KiCad `(footprint ...)`
-      S-expression whose declared name is `MyFootprint`. A list form is also
-      accepted: `[{"library": "MyLib", "name": "MyFootprint",
-      "content": "(footprint ...)"}]`. You may also define a global
-      `EDA_FOOTPRINTS` dict in code for compatibility, but prefer
-      custom_footprints so the code stays readable. The server writes these
-      into a temporary `MyLib.pretty/MyFootprint.kicad_mod` library for this
-      run before footprint preflight/layout. Do not pass local paths, URLs, or
-      fp-lib-table references; hosted workers only accept submitted footprint
-      text and reject path-like payload fields.
-      For layout overlap/outline/congestion feedback, prefer improving
-      grouping, connector choices, and outline_mm before resubmitting.
+    run_options: {"timeout_s": 300} — raise for complex boards.
 
-    Returns: {"job_id": "...", "status": "queued"}. This is only an
-    acknowledgement, not a completed design. Poll get_job(job_id) until it
-    returns a terminal status: "succeeded", "succeeded_with_warnings",
-    "failed", "failed_reviewable", "timeout", or "crashed".
+    Returns: {"job_id": "...", "status": "queued"}. Poll get_job(job_id).
     """
     if not code or not code.strip():
         raise ValueError("code must be non-empty SKiDL Python source.")
 
-    opts = dict(run_options or {})
-    assembly_policy = _normalize_assembly_policy(opts.get("assembly_policy"))
-    opts["assembly_policy"] = assembly_policy
-    pipeline_goal = _normalize_pipeline_goal(opts.get("pipeline_goal"))
-    opts["pipeline_goal"] = pipeline_goal
     job_spec = {
         "_mode": "skidl_python",
         "code": code,
         "board_name": board_name or "board",
         "outline_mm": outline_mm,
-        "corner_radius_mm": corner_radius_mm,
-        "assembly_policy": assembly_policy,
-        "pipeline_goal": pipeline_goal,
-        "design_intent": design_intent or "",
-        "custom_footprints": custom_footprints,
         "kicad_version": kicad_version or "9",
     }
+    opts = dict(run_options or {})
     job_id = await db.create_job(job_spec, opts)
     return {
         "job_id": job_id,
         "status": "queued",
         "hint": (
-            "Job queued. This is not a design result yet. Poll with "
-            "get_job(job_id) every 10s until status is 'succeeded', "
-            "'succeeded_with_warnings', 'failed', 'failed_reviewable', "
-            "'timeout', or 'crashed'. "
-            "If your code has errors (wrong lib/part/pin names), you'll get "
-            "a clear message — fix and resubmit. When the board passes "
-            "routing, DRC, and manufacturing export, Gerbers, BOM, and CPL "
-            "are included in the output zip."
+            "Job queued. Poll with get_job(job_id) every 10s until "
+            "status is 'succeeded' or 'failed'. If your code has errors "
+            "(wrong lib/part/pin names), you'll get a clear message — "
+            "fix and resubmit. When the board passes DRC, manufacturing "
+            "files (Gerbers, BOM, CPL) are included in the output zip."
         ),
     }
 
 
 @mcp.tool()
 async def get_job(job_id: str) -> dict:
-    """Poll a submitted job. Returns status and a compact finished result.
+    """Poll a submitted job. Returns status and, when finished, the full result.
 
     status values: "queued" (waiting for a worker), "running",
-    "succeeded", "succeeded_with_warnings", "failed", "failed_reviewable",
-    "timeout", "crashed", or "not_found" if the supplied job_id is unknown
-    to the queue.
-    Poll every 5-15s while queued/running. A submit response with
-    status="queued" is not a design result; keep polling get_job(job_id) until
-    one of the terminal statuses above appears, then inspect result/run_id.
-    If status is "not_found", do not rewrite the circuit; verify you used the
-    exact job_id returned by submit_skidl_code() and retry the lookup once.
+    "succeeded", "failed", "timeout". Poll every 5-15s while queued/running.
 
     When finished, the "result" field contains:
-    - run_id: pass to get_run() for artifacts
+    - run_id: pass to get_run() for artifacts, or apply_correction() to fix
     - ok: true if all quality gates passed
     - exceptions: list of structured problems, each with resolution
       candidates (see eda://guide/exceptions). Empty list = clean run.
     - decision_required + decision_kind: set when the engine stopped and
-      needs you to edit the SKiDL code and resubmit.
+      needs you to choose a fix via apply_correction()
     - summary, metrics, layout: quality data (placement score, HPWL, ERC)
 
     If the job crashed, "error" holds the traceback message and result may
-    be null. A failed/failed_reviewable/timeout status with exceptions is normal — that is
-    the correction loop, not a malfunction; inspect the candidates. A
-    failed_reviewable status means preview artifacts exist and should be
-    shown to the human before resubmitting. A
-    succeeded_with_warnings status is a usable result with advisories; call
-    get_run(result.run_id) for previews/artifacts before final judgement.
+    be null. A failed/timeout status with exceptions is normal — that is
+    the correction loop, not a malfunction; inspect the candidates.
     """
-    try:
-        job = deepcopy(await db.get_job(job_id))
-    except KeyError:
-        return {
-            "job_id": job_id,
-            "status": "not_found",
-            "result": None,
-            "hint": (
-                "No queued/running/finished job exists for this job_id. This is "
-                "a job lookup/control-plane problem, not circuit feedback. "
-                "Verify the exact job_id returned by submit_skidl_code(), then "
-                "retry get_job once before resubmitting."
-            ),
-        }
+    job = await db.get_job(job_id)
 
     # Trim response size — full spec and verbose layout are available via get_run.
     result = job.get("result")
     if isinstance(result, dict):
-        _compact_job_result_for_agent(result)
+        result.pop("spec", None)
+        result.pop("_artifact_paths", None)
+        result.pop("stderr", None)
+        # Keep layout.score summary, drop verbose report/candidates
+        layout = result.get("layout")
+        if isinstance(layout, dict):
+            score = layout.get("score")
+            result["layout"] = {"ok": layout.get("ok"), "score": score}
+        elif isinstance(layout, str) and len(layout) > 2000:
+            result["layout"] = layout[:2000] + "\n... (use get_run for full data)"
 
-    _annotate_progress_for_agent(job)
     job["hint"] = _get_job_hint(job)
-    job.pop("spec", None)
     return job
-
-
-def _annotate_progress_for_agent(job: dict) -> None:
-    """Add a small heartbeat age so agents can distinguish slow from stale."""
-
-    progress = job.get("progress")
-    if not isinstance(progress, dict):
-        return
-    heartbeat_at = job.get("last_seen_at") or progress.get("updated_at")
-    age = _iso_age_seconds(heartbeat_at)
-    if age is not None:
-        progress["heartbeat_age_s"] = round(age, 1)
-
-
-def _iso_age_seconds(value: object) -> float | None:
-    if not value:
-        return None
-    try:
-        text = str(value)
-        if text.endswith("Z"):
-            text = text[:-1] + "+00:00"
-        dt = datetime.fromisoformat(text)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-    except ValueError:
-        return None
-    return max(0.0, (datetime.now(timezone.utc) - dt.astimezone(timezone.utc)).total_seconds())
-
-
-def _trim_agent_value(value, *, max_str: int = 800, max_items: int = 24, depth: int = 0):
-    """Trim nested values so get_job remains a control response."""
-
-    if isinstance(value, str):
-        if len(value) <= max_str:
-            return value
-        return value[:max_str] + f"\n... ({len(value) - max_str} chars omitted)"
-    if depth >= 4:
-        return str(value)[:max_str]
-    if isinstance(value, list):
-        items = [
-            _trim_agent_value(item, max_str=max_str, max_items=max_items, depth=depth + 1)
-            for item in value[:max_items]
-        ]
-        if len(value) > max_items:
-            items.append(f"... ({len(value) - max_items} more items)")
-        return items
-    if isinstance(value, dict):
-        out = {}
-        for idx, (key, item) in enumerate(value.items()):
-            if idx >= max_items:
-                out["_truncated_keys"] = len(value) - max_items
-                break
-            out[key] = _trim_agent_value(
-                item,
-                max_str=max_str,
-                max_items=max_items,
-                depth=depth + 1,
-            )
-        return out
-    return value
-
-
-def _compact_candidate_for_agent(candidate: dict) -> dict:
-    return {
-        key: _trim_agent_value(candidate.get(key), max_str=500, max_items=12)
-        for key in ("id", "action", "params", "human_summary", "confidence")
-        if key in candidate
-    }
-
-
-def _compact_exception_for_agent(exc: dict) -> dict:
-    compact = {
-        key: _trim_agent_value(exc.get(key), max_str=500, max_items=12)
-        for key in ("id", "code", "severity", "message", "subject", "retry_hint")
-        if key in exc
-    }
-    candidates = exc.get("candidates")
-    if isinstance(candidates, list):
-        compact["candidates"] = [
-            _compact_candidate_for_agent(c)
-            for c in candidates[:4]
-            if isinstance(c, dict)
-        ]
-        if len(candidates) > 4:
-            compact["candidates_truncated"] = len(candidates) - 4
-    return compact
-
-
-def _compact_job_result_for_agent(result: dict) -> None:
-    """Mutate a finished job result into a compact agent-control packet."""
-
-    result.pop("spec", None)
-    result.pop("_artifact_paths", None)
-    result.pop("stderr", None)
-    if "summary" in result:
-        result["summary"] = _trim_agent_value(result["summary"], max_str=1200)
-
-    layout = result.get("layout")
-    if isinstance(layout, dict):
-        score = layout.get("score")
-        result["layout"] = {"ok": layout.get("ok"), "score": score}
-    elif isinstance(layout, str) and len(layout) > 2000:
-        result["layout"] = layout[:2000] + "\n... (use get_run for full data)"
-
-    exceptions = result.get("exceptions")
-    if isinstance(exceptions, list):
-        compact_exceptions = [
-            _compact_exception_for_agent(exc)
-            for exc in exceptions[:5]
-            if isinstance(exc, dict)
-        ]
-        result["exception_codes"] = [
-            exc.get("code")
-            for exc in exceptions
-            if isinstance(exc, dict) and exc.get("code")
-        ]
-        result["top_exception"] = compact_exceptions[0] if compact_exceptions else None
-        result["exceptions"] = compact_exceptions
-        if len(exceptions) > len(compact_exceptions):
-            result["exceptions_truncated"] = len(exceptions) - len(compact_exceptions)
 
 
 def _get_job_hint(job: dict) -> str:
     """Context-sensitive hint based on job state."""
     status = job.get("status", "")
-    spec = job.get("spec") or {}
-    is_skidl_python = isinstance(spec, dict) and spec.get("_mode") == "skidl_python"
     if status in ("queued", "running"):
-        progress = job.get("progress") if isinstance(job.get("progress"), dict) else {}
-        stage = str(progress.get("stage") or status)
-        message = str(progress.get("message") or "still processing")
-        age = progress.get("heartbeat_age_s")
-        age_note = f" Last heartbeat {age:.1f}s ago." if isinstance(age, (int, float)) else ""
-        return f"Still processing ({stage}): {message}.{age_note} Poll again in 10s."
+        return "Still processing. Poll again in 10s."
 
     result = job.get("result")
     if not isinstance(result, dict):
         if job.get("error"):
-            if is_skidl_python:
-                return (
-                    "Job crashed. Check your SKiDL code, read resource "
-                    "eda://guide/skidl for conventions, then fix and resubmit "
-                    "with submit_skidl_code()."
-                )
             return (
-                "Legacy CircuitSpec job crashed. Check your spec for issues, "
-                "then fix and resubmit. New clients should use submit_skidl_code()."
+                "Job crashed. Check your spec for issues — read resource "
+                "eda://guide/circuit-spec for the format reference, then "
+                "fix and resubmit with submit_design()."
             )
         return "Job finished with no result. Resubmit."
 
     exceptions = result.get("exceptions", [])
     decision_required = result.get("decision_required", False)
     run_id = result.get("run_id", "")
-    exc_codes = [e.get("code", "") for e in exceptions if isinstance(e, dict)]
-    reviewable_failure = bool(
-        result.get("reviewable_failure")
-        or status == "failed_reviewable"
-    )
-    worker_timeout = bool(
-        result.get("worker_timeout")
-        or result.get("failure_kind") == "worker_runtime_timeout"
-    )
-    worker_lost = bool(
-        result.get("worker_lost")
-        or result.get("failure_kind") == "worker_lost"
-        or any(
-            isinstance(exc, dict)
-            and exc.get("code") == "ENGINE_CRASH"
-            and isinstance(exc.get("subject"), dict)
-            and exc["subject"].get("stage") == "worker_lost"
-            for exc in exceptions
-        )
-    )
-    engine_timeout = bool(
-        result.get("engine_timeout")
-        or ("ENGINE_TIMEOUT" in exc_codes and not worker_timeout)
-    )
 
     enrichment = result.get("enrichment")
     enrich_note = ""
@@ -668,129 +322,12 @@ def _get_job_hint(job: dict) -> str:
             f"with get_run('{run_id}').{mfg_note}{enrich_note}"
         )
 
-    if reviewable_failure:
-        if run_id:
-            return (
-                f"Terminal reviewable failure ({status}). Preview artifacts are "
-                "available; show them to the human, then fetch "
-                f"get_run('{run_id}') and revise placement or floorplan "
-                "intent before resubmitting."
-            )
-        return (
-            f"Terminal reviewable failure ({status}). Preview artifacts are "
-            "available; show them to the human, then revise placement or "
-            "floorplan intent before resubmitting."
-        )
-
-    if worker_timeout:
-        if run_id:
-            return (
-                "Terminal timeout: this hosted job hit timeout_s and is done. "
-                f"Fetch get_run('{run_id}') to inspect any partial_artifacts, "
-                "then raise timeout_s or simplify the design."
-            )
-        return (
-            "Terminal timeout: this hosted job hit timeout_s and is done. "
-            "Raise timeout_s or simplify the design."
-        )
-
+    exc_codes = [e.get("code", "") for e in exceptions if isinstance(e, dict)]
     has_pin_errors = any("PIN" in c for c in exc_codes)
     has_footprint_errors = any("FOOTPRINT" in c or "BAD_FOOTPRINT" in c for c in exc_codes)
     has_lib_errors = any("LIB" in c or "PART" in c for c in exc_codes)
-    has_code_errors = "CODE_EXEC_ERROR" in exc_codes
-    has_engine_failure = any(c in {"ENGINE_CRASH", "ENGINE_TIMEOUT"} for c in exc_codes)
-    has_tool_failure = any(
-        c in {
-            "ROUTE_UNAVAILABLE",
-            "DRC_TOOL_FAILURE",
-            "MANUFACTURING_OUTPUT_FAILURE",
-            "POST_ARTIFACT_FAILURE",
-        }
-        for c in exc_codes
-    )
-    has_no_candidates = any(
-        isinstance(e, dict) and not e.get("candidates")
-        for e in exceptions
-    )
 
     if decision_required:
-        if worker_lost:
-            if not run_id:
-                return (
-                    "Worker lost while the job was running. This is backend "
-                    "failure, not circuit feedback. Retry unchanged once; no "
-                    "run artifacts were produced before the worker was lost. "
-                    "If it repeats, report the service failure instead of "
-                    "rewriting the circuit."
-                )
-            return (
-                "Worker lost while the job was running. This is backend "
-                "failure, not circuit feedback. Retry unchanged once; if it "
-                f"repeats, fetch get_run('{run_id}') to inspect stderr_tail "
-                "and any partial_artifacts, then report the service failure."
-            )
-        if engine_timeout:
-            if not run_id:
-                return (
-                    "Engine hit timeout_s while processing the job. This is "
-                    "backend failure, not circuit feedback. Raise timeout_s or "
-                    "simplify the design, then resubmit."
-                )
-            return (
-                "Engine hit timeout_s while processing the job. This is "
-                f"backend failure, not circuit feedback. Fetch get_run('{run_id}') "
-                "to inspect stderr_tail and any partial_artifacts, then raise "
-                "timeout_s or simplify the design."
-            )
-        if has_engine_failure:
-            if not run_id:
-                return (
-                    "Backend engine failure, not circuit feedback. Retry once "
-                    "unchanged; if it repeats, report the service failure "
-                    "instead of rewriting the circuit."
-                )
-            return (
-                "Backend engine failure, not circuit feedback. Retry once unchanged; "
-                f"if it repeats, fetch get_run('{run_id}') to inspect stderr_tail "
-                "and any partial_artifacts, then report the service failure."
-            )
-        if has_code_errors and is_skidl_python:
-            first = next(
-                (e for e in exceptions if isinstance(e, dict)
-                 and e.get("code") == "CODE_EXEC_ERROR"),
-                {},
-            )
-            subject = first.get("subject") if isinstance(first, dict) else {}
-            if not isinstance(subject, dict):
-                subject = {}
-            line = subject.get("line")
-            line_text = subject.get("line_text")
-            available = subject.get("available_pins") or []
-            suggestions = subject.get("suggested_pins") or []
-            details = []
-            if line:
-                details.append(f"line {line}")
-            if line_text:
-                details.append(f"`{line_text}`")
-            if suggestions:
-                details.append(f"suggested pins: {', '.join(map(str, suggestions[:8]))}")
-            elif available:
-                details.append(f"available pins: {', '.join(map(str, available[:12]))}")
-            suffix = f" ({'; '.join(details)})" if details else ""
-            return (
-                f"SKiDL code execution error{suffix}. Edit the SKiDL source "
-                "and resubmit with submit_skidl_code()."
-            )
-        if has_tool_failure:
-            return (
-                "Manufacturing is incomplete: do not call this board "
-                "manufacturable or complete. Inspect the exception subjects "
-                f"and fetch get_run('{run_id}') for generated artifacts. If "
-                "congestion, long power nets, outline issues, or DRC errors "
-                "are present, revise the board size, layer count, edge "
-                "placement, or part choices before retrying; otherwise report "
-                "the routing/export tool failure."
-            )
         parts = []
         if has_pin_errors:
             parts.append(
@@ -806,45 +343,15 @@ def _get_job_hint(job: dict) -> str:
                 "Library/part not found — check lib is a KiCad library name "
                 "(e.g. 'Sensor_Temperature'), not a manufacturer"
             )
-        if is_skidl_python:
-            if has_no_candidates:
-                parts.append(
-                    "No machine-applicable code patch is available; use the "
-                    "exception message, subject, and retry_hint to edit the "
-                    "SKiDL code, then resubmit with submit_skidl_code()"
-                )
-            else:
-                parts.append(
-                    "Use the candidates as repair guidance, edit the SKiDL code, "
-                    "and resubmit with submit_skidl_code()"
-                )
-        else:
-            if has_no_candidates:
-                parts.append(
-                    "At least one exception has no machine candidate. Edit the "
-                    "legacy CircuitSpec manually using the exception retry_hint, "
-                    "or switch to submit_skidl_code() for the Python-first flow"
-                )
-            else:
-                parts.append(
-                    "Pick candidate fixes and call apply_correction(run_id, corrections). "
-                    "This path is legacy CircuitSpec JSON; new clients should prefer "
-                    "submit_skidl_code(). Read resource eda://guide/exceptions for "
-                    "the full correction model"
-                )
-        return ". ".join(parts) + "."
-
-    if is_skidl_python:
-        return (
-            f"Run finished with {len(exceptions)} exception(s). Inspect the "
-            "candidates, edit the SKiDL code, and resubmit with submit_skidl_code(); "
-            f"or get_run('{run_id}') if the results are acceptable. "
-            "Read resource eda://guide/exceptions for correction guidance."
+        parts.append(
+            "Pick candidate fixes and call apply_correction(run_id, corrections). "
+            "Read resource eda://guide/exceptions for the full correction model"
         )
+        return ". ".join(parts) + "."
 
     return (
         f"Run finished with {len(exceptions)} exception(s). "
-        f"Inspect the candidates and fix this legacy internal CircuitSpec run, or "
+        f"Inspect the candidates and apply_correction() to fix, or "
         f"get_run('{run_id}') if the results are acceptable. "
         f"Read resource eda://guide/exceptions for correction guidance."
         f"{enrich_note}"
@@ -852,13 +359,13 @@ def _get_job_hint(job: dict) -> str:
 
 
 async def estimate_complexity(input_spec: dict) -> dict:
-    """Legacy/internal pre-flight estimate for a CircuitSpec.
+    """Pre-flight estimate for a CircuitSpec — fast (<2s), free, no side effects.
 
     Predicts: complexity_tier (simple|moderate|complex|ambitious), expected
     decision count, how many will auto-fix vs need review, runtime/timeout
     risk, and warnings (e.g. unknown footprints, board too dense).
 
-    Use it to choose run_options before legacy submit_design(): an "ambitious"
+    Use it to choose run_options before submit_design(): an "ambitious"
     tier suggests timeout_s of 900+, and its warnings often identify spec
     problems you can fix before spending a run. Also returns
     remapped_footprints — substitutions the engine will make automatically.
@@ -893,8 +400,7 @@ def _estimate_hint(result: dict) -> str:
     if issues:
         parts.append(
             f"Found {len(issues)} spec issue(s) — fix before submitting. "
-            f"CircuitSpec JSON is legacy/internal; new clients should use "
-            f"submit_skidl_code()"
+            f"Read resource eda://guide/circuit-spec for format reference"
         )
     elif warnings:
         parts.append(
@@ -904,27 +410,23 @@ def _estimate_hint(result: dict) -> str:
     if tier in ("complex", "ambitious"):
         parts.append(
             f"Complexity: {tier}. Use timeout_s=900 or higher in run_options "
-            f"when you submit"
+            f"when you submit_design()"
         )
 
     if not issues:
         parts.append(
-            "Legacy CircuitSpec looks valid. New MCP clients should usually "
-            "write SKiDL Python and submit with submit_skidl_code(); the engine "
-            "runs design review, enrichment, routing, and DRC automatically"
+            "Spec looks valid. Submit with submit_design() — the engine runs "
+            "design review, enrichment, routing, and DRC automatically"
         )
 
     return ". ".join(parts) + "."
 
 
+@mcp.tool()
 async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
-    """Legacy CircuitSpec-only: apply chosen candidates and submit a new job.
+    """Apply chosen exception candidates from a finished run; submits a new job.
 
-    Do not use this for submit_skidl_code() runs. For SKiDL Python runs,
-    read the structured exception/candidate details, edit the Python source,
-    and resubmit with submit_skidl_code().
-
-    For legacy CircuitSpec runs, this is the iteration step. When get_job() returns
+    This is the iteration step of the design loop. When get_job() returns
     exceptions, each one carries candidates — machine-applicable fixes with
     ids c1, c2... and a human_summary. You select by id; you never describe
     the fix in prose:
@@ -946,15 +448,17 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
     exceptions in one call. Errors if an id doesn't exist in that run.
     """
     run_data = await db.load_run(run_id)
-    saved_spec = run_data["spec"]
-    if isinstance(saved_spec, dict) and saved_spec.get("_mode") == "skidl_python":
-        raise ValueError(
-            "apply_correction only supports legacy CircuitSpec JSON runs. "
-            "This run came from submit_skidl_code(); edit the SKiDL Python "
-            "source using the returned exceptions/candidates and resubmit "
-            "with submit_skidl_code()."
-        )
-    spec = CircuitSpec.model_validate(saved_spec)
+    raw_spec = run_data["spec"]
+
+    if isinstance(raw_spec, dict) and raw_spec.get("_mode") == "skidl_python":
+        return {
+            "error": "apply_correction is not supported for Python-mode submissions. "
+            "To fix issues, modify your SKiDL code and resubmit with submit_skidl_code(). "
+            "The exception details show what needs fixing.",
+            "run_id": run_id,
+        }
+
+    spec = CircuitSpec.model_validate(raw_spec)
     exceptions = [DesignException.model_validate(e) for e in run_data["exceptions"]]
     by_exc = {exc.id: exc for exc in exceptions}
 
@@ -992,23 +496,18 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
         "status": "queued",
         "parent_run_id": parent_run_id,
         "hint": (
-            "Legacy CircuitSpec corrections applied, new job queued. "
-            "Poll get_job(job_id) every 10s for results. New clients should "
-            "prefer the submit_skidl_code edit/resubmit loop."
+            "Corrections applied, new job queued. "
+            "Poll get_job(job_id) every 10s for results."
         ),
     }
 
 
 @mcp.tool()
 async def get_run(run_id: str) -> dict:
-    """Fetch full run data: spec, exceptions, response, feedback, and artifacts.
+    """Fetch full run data: spec, exceptions, response, and KiCad artifacts.
 
-    artifacts contains .kicad_sch and .kicad_pcb file contents. It may also
-    contain preview_2d_top.png (base64 flat 2D board preview for human review),
-    preview_top.svg (2D vector source), preview_assembly.svg (side-aware
-    front/back placement mockup), and preview_top.png (base64 KiCad 3D render
-    when available). When the board passes routing, DRC, and
-    manufacturing export, files also include:
+    artifacts contains .kicad_sch and .kicad_pcb file contents. When the
+    board passes routing + DRC, manufacturing files are also included:
     bom.csv (JLCPCB BOM with LCSC part numbers), cpl.csv (pick-and-place),
     and Gerber/drill files in the zip.
 
@@ -1018,41 +517,15 @@ async def get_run(run_id: str) -> dict:
     file, Gerbers, drill files, BOM, and CPL. Upload the gerbers/ folder
     directly to JLCPCB for ordering.
 
-    Human review loop: when preview_2d_top.png is present, show it to the
-    human. If they say what should change, call submit_human_feedback() with
-    their comments before editing/resubmitting. Prior feedback for this run is
-    returned in the feedback field.
-
     Note: run data expires ~48h after completion.
     """
     run_data = await db.load_run(run_id)
-    run_data["feedback"] = await db.list_run_feedback(run_data["run_id"])
     artifacts = run_data.get("artifacts") or {}
     file_types = [k.rsplit(".", 1)[-1] for k in artifacts if "." in k and not k.startswith("_")]
     has_zip = "_board.zip" in artifacts
     has_mfg = "bom.csv" in artifacts or any(
         k.endswith(".gbr") for k in artifacts
     )
-    has_preview = any(
-        name in artifacts
-        for name in (
-            "preview_2d_top.png",
-            "preview_assembly.svg",
-            "preview_top.svg",
-            "preview_top.png",
-        )
-    )
-    preview_note = ""
-    if has_preview:
-        preview_note = (
-            " Human-review previews are included: show preview_2d_top.png first "
-            "for the flat 2D board view, use preview_assembly.svg when "
-            "front/back assembly side assumptions matter, preview_top.svg as "
-            "the KiCad vector source, or preview_top.png for the KiCad 3D render "
-            "when present. "
-            "After the human reviews the image, call submit_human_feedback() "
-            "before revising and resubmitting."
-        )
     if artifacts:
         if has_zip:
             mfg_note = ""
@@ -1066,130 +539,18 @@ async def get_run(run_id: str) -> dict:
                 f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
                 f"Use the _board.zip artifact (base64-encoded) for a "
                 f"self-contained KiCad project — includes schematic sheets, "
-                f"custom libraries, 3D models, and project config.{preview_note}{mfg_note}"
+                f"custom libraries, 3D models, and project config.{mfg_note}"
             )
         else:
             run_data["hint"] = (
                 f"Run data retrieved with {len(artifacts)} artifact(s) "
                 f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
                 f"Write these files to disk — they're complete KiCad files "
-                f"you can open directly.{preview_note}"
+                f"you can open directly."
             )
     else:
         run_data["hint"] = "Run data retrieved but no artifacts were generated."
     return run_data
-
-
-def _clean_feedback_labels(labels: list[str] | None) -> list[str]:
-    if not labels:
-        return []
-    cleaned: list[str] = []
-    seen: set[str] = set()
-    for label in labels:
-        text = re.sub(r"[^a-z0-9_.:-]+", "-", str(label).strip().lower()).strip("-")
-        if not text or text in seen:
-            continue
-        cleaned.append(text[:64])
-        seen.add(text)
-        if len(cleaned) >= 12:
-            break
-    return cleaned
-
-
-@mcp.tool()
-async def submit_human_feedback(
-    run_id: str,
-    feedback: str,
-    target_artifact: str = "preview_2d_top.png",
-    labels: list[str] | None = None,
-    suggested_action: str = "",
-    source: str = "human_via_agent",
-    metadata: dict | None = None,
-) -> dict:
-    """Record human review feedback for a generated PCB run.
-
-    Use this after get_run() and after showing the human preview_2d_top.png
-    (preferred), preview_assembly.svg, preview_top.svg, or preview_top.png. This is the ask-human
-    turn: preserve what the human said before you revise SKiDL code and
-    resubmit a new run.
-
-    Examples of good feedback:
-    - "Header should be centered on the bottom edge and rotated 180 degrees."
-    - "Mounting holes should be in the corners; this board is much too large."
-    - "For Eurorack, keep jacks in two aligned rows and do not round corners."
-
-    Parameters:
-    - run_id: run being reviewed, from get_job()/get_run().
-    - feedback: human's natural-language visual/design feedback.
-    - target_artifact: artifact shown to the human, usually preview_2d_top.png
-      or preview_assembly.svg when assembly side/front-back placement matters.
-    - labels: optional short tags such as ["placement", "silkscreen", "outline"].
-    - suggested_action: optional agent interpretation of the next edit.
-    - metadata: optional small structured context; do not include secrets.
-
-    Returns the stored feedback and a next-step hint. This tool records review
-    data; it does not automatically modify the design.
-    """
-    text = str(feedback or "").strip()
-    if not text:
-        raise ValueError("feedback must be non-empty.")
-    if len(text) > 4000:
-        raise ValueError("feedback must be 4000 characters or fewer.")
-
-    run_data = await db.load_run(run_id)
-    artifacts = run_data.get("artifacts") or {}
-    artifact = str(target_artifact or "").strip() or "preview_2d_top.png"
-    cleaned_labels = _clean_feedback_labels(labels)
-    action = str(suggested_action or "").strip()
-    if len(action) > 1000:
-        raise ValueError("suggested_action must be 1000 characters or fewer.")
-
-    structured = {
-        "labels": cleaned_labels,
-        "suggested_action": action,
-        "artifact_exists": artifact in artifacts,
-        "available_preview_artifacts": [
-            name for name in (
-                "preview_2d_top.png",
-                "preview_assembly.svg",
-                "preview_top.svg",
-                "preview_top.png",
-            )
-            if name in artifacts
-        ],
-    }
-    if isinstance(metadata, dict) and metadata:
-        structured["metadata"] = _trim_agent_value(
-            metadata,
-            max_str=500,
-            max_items=20,
-        )
-
-    entry = await db.add_run_feedback(
-        run_data["run_id"],
-        feedback=text,
-        artifact=artifact,
-        source=str(source or "human_via_agent").strip() or "human_via_agent",
-        structured=structured,
-    )
-
-    warning = None
-    if artifact not in artifacts:
-        warning = (
-            f"Artifact {artifact!r} is not present on this run. "
-            "Feedback was still recorded; verify the run/artifact pairing."
-        )
-
-    return {
-        "status": "recorded",
-        "feedback": entry,
-        "warning": warning,
-        "next_step": (
-            "Use this human feedback to edit the SKiDL source or run options, "
-            "then submit a new job with submit_skidl_code(). Keep the previous "
-            "run_id in your own notes so the before/after loop is traceable."
-        ),
-    }
 
 
 # ── Library search ────────────────────────────────────────────────────
@@ -1229,77 +590,6 @@ def _lcsc_variants(query: str, limit: int = 6) -> list[dict]:
     return variants
 
 
-def _search_design_notes(query: str, symbols: list, lcsc: list[dict]) -> list[str]:
-    """Return agent-facing design notes for common misleading searches."""
-    query_lower = query.lower()
-    notes: list[str] = []
-
-    if "keypad" in query_lower or "sw_matrix" in query_lower:
-        notes.append(
-            "Keypad matrices usually do not have a single KiCad symbol such as "
-            "SW_Matrix_4x4. Model an onboard keypad as individual "
-            'Part("Switch", "SW_Push", ...) switches wired between ROWx and COLx '
-            "nets, or model an off-board keypad as a "
-            'Part("Connector_Generic", "Conn_01x08", ...) row/column connector.'
-        )
-
-    if "testpoint" in query_lower or "test point" in query_lower or "test pad" in query_lower:
-        notes.append(
-            "Electrical test pads use the Connector:TestPoint symbol with a "
-            "TestPoint:* footprint. Do not use Part(\"TestPoint\", ...); "
-            'use Part("Connector", "TestPoint", '
-            'footprint="TestPoint:TestPoint_Pad_D1.5mm").'
-        )
-
-    if re.search(r"\b(bme280|bmp280|bme680|bosch|lga[-_\s]*8)\b", query_lower):
-        notes.append(
-            "Bosch environmental sensors such as BME280/BMP280 use Bosch LGA "
-            "packages. Search footprints for \"BME280 Bosch LGA-8\" or use the "
-            "exact footprint returned by search_kicad/convert_lcsc rather than "
-            "guessing a generic Package_LGA name."
-        )
-        notes.append(
-            "BME280/BMP280 symbols commonly use SPI-style pin names in both SPI "
-            "and I2C designs: SDI is I2C SDA, SCK is I2C SCL, SDO selects the "
-            "I2C address, and CSB should be tied high for I2C mode."
-        )
-
-    if re.search(r"\b(opto|optocoupler|opto[-_\s]*isolator|6n13[78])\b", query_lower):
-        notes.append(
-            "KiCad optocoupler/opto-isolator symbols are usually in the "
-            "Isolator library. For MIDI input stages, search specific parts "
-            "such as search_kicad(\"6N138\", detail=true) and copy the returned "
-            "Part(...) usage."
-        )
-
-    if re.search(r"\b(relay|ec2-|g5v|g6k|tx2)\b", query_lower):
-        notes.append(
-            "Relay symbols often expose numeric package pins only. Use "
-            "search_kicad(relay_part, detail=true) before wiring and connect "
-            "the exact numeric coil/contact pins returned by the symbol."
-        )
-
-    if re.search(r"\bstm32|atmega|rp2040|nrf52|samd\b", query_lower):
-        has_module = any(getattr(sym, "lib", "") == "MCU_Module" for sym in symbols)
-        if has_module or lcsc:
-            notes.append(
-                "For a custom PCB around the chip, prefer a bare MCU symbol or "
-                "convert_lcsc() for the exact stocked part. MCU_Module/NUCLEO/Pico "
-                "symbols represent whole development boards with board-header "
-                "pins, not necessarily the MCU's raw package pins. Use module "
-                "symbols only when you intend to mount that module/dev board."
-            )
-        if "stm32" in query_lower:
-            notes.append(
-                "STM32 manufacturer order codes may map to KiCad package-family "
-                "symbols, for example an exact ...T6 stocked part can use a "
-                "matching ...Tx KiCad symbol while the exact order code is kept "
-                "through convert_lcsc()/BOM metadata."
-            )
-
-    return notes
-
-
 @mcp.tool()
 async def search_kicad(query: str, detail: bool = False) -> dict:
     """Search KiCad symbol libraries and footprints by name or description.
@@ -1315,17 +605,12 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
     Examples:
         search_kicad("MCP9808")       -> symbol + MSOP-8 ($1.69) / DFN-8 ($2.36)
         search_kicad("STM32F405")     -> symbol + LQFP-64 / UFQFPN-64 variants
-        search_kicad("USB-C receptacle") -> Connector : USB_C_Receptacle_... with Connector_USB footprints
+        search_kicad("USB-C connector") -> Connector_USB : USB_C_Receptacle_...
         search_kicad("ATmega328P")    -> TQFP-32 / VQFN-32 / DIP-28 with prices
         search_kicad("IS31FL3731", detail=True) -> pin list + QFN-28 / SSOP-28
 
     query: Part number, IC name, function description, or footprint name.
-      For electromechanical parts, include the decision terms you need:
-      "3.5mm mono switched right angle through hole jack", "TRS vertical
-      SMD jack", "edge-facing USB-C receptacle", "2-pin 5.08mm screw terminal".
-    detail: If true, returns pin lists for the top symbol matches. The
-      pin_detail field is the top match; pin_details contains several
-      part-specific pin lists so you can inspect the exact symbol you choose.
+    detail: If true, returns full pin list for the top symbol match.
     """
     from llm.kicad_index import (
         get_symbol_detail,
@@ -1351,27 +636,19 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
         result["symbols"].append(entry)
 
     if detail and symbols:
-        pin_details = []
-        for sym in symbols[:5]:
-            det = get_symbol_detail(sym.lib, sym.name)
-            if not det:
-                continue
-            pin_details.append({
+        top = symbols[0]
+        det = get_symbol_detail(top.lib, top.name)
+        if det:
+            result["pin_detail"] = {
                 "part": f"{det.lib}:{det.name}",
                 "footprint": det.footprint,
                 "pins": [
                     {"num": p.num, "name": p.name, "type": p.func}
                     for p in det.pins
                 ],
-            })
-        if pin_details:
-            result["pin_detail"] = pin_details[0]
-            result["pin_details"] = pin_details
+            }
 
     lcsc = _lcsc_variants(query)
-    design_notes = _search_design_notes(query, symbols, lcsc)
-    if design_notes:
-        result["design_notes"] = design_notes
     if lcsc:
         result["lcsc_variants"] = lcsc
         has_kicad_sym = len(result["symbols"]) > 0
@@ -1392,102 +669,12 @@ async def search_kicad(query: str, detail: bool = False) -> dict:
     else:
         result["hint"] = (
             "Use the 'usage' field directly in your SKiDL code. "
-            "Set detail=true to see pin names for wiring. "
-            "USB symbols are usually in the Connector symbol library; "
-            "Connector_USB is a footprint library. "
-            "For jacks/connectors, decide orientation, mounting, switching, "
-            "and mono/stereo/TRS before cycling through footprints; read "
-            "eda://guide/parts for the checklist."
+            "Set detail=true to see pin names for wiring."
         )
-    if design_notes:
-        result["hint"] += " " + " ".join(design_notes)
     return result
 
 
 EASYEDA_CACHE = os.path.join(os.path.dirname(__file__), "..", "corpus", "jlc", "easyeda_cache")
-
-
-def _pin_details_from_sym_file(sym_file: str, symbol: str | None) -> list[dict]:
-    """Extract pin details from a generated one-file KiCad symbol library."""
-    if not sym_file or not os.path.exists(sym_file):
-        return []
-    try:
-        from simp_sexp import Sexp
-    except ImportError:
-        return []
-
-    try:
-        content = open(sym_file, encoding="utf-8", errors="replace").read()
-        lib_sexp = Sexp(content)
-        symbols = lib_sexp.search("/kicad_symbol_lib/symbol", ignore_case=True)
-    except Exception:
-        return []
-    if not symbols:
-        return []
-
-    by_name = {s[1]: s for s in symbols if len(s) > 1 and isinstance(s[1], str)}
-    sym = by_name.get(symbol) if symbol else None
-    if sym is None:
-        sym = next(
-            (
-                s for s in symbols
-                if len(s) > 1 and isinstance(s[1], str) and ":" not in s[1]
-            ),
-            symbols[0],
-        )
-
-    extends = sym.search("/symbol/extends", ignore_case=True)
-    pin_source = sym
-    if extends:
-        parent = by_name.get(extends[0][1])
-        if parent is not None:
-            pin_source = parent
-
-    pin_type_map = {
-        "input": "input", "output": "output", "bidirectional": "bidirectional",
-        "tri_state": "tristate", "passive": "passive", "power_in": "power_in",
-        "power_out": "power_out", "open_collector": "output",
-        "open_emitter": "output", "free": "unspecified",
-        "unspecified": "unspecified", "no_connect": "no_connect",
-    }
-    pins: list[dict] = []
-    seen: set[str] = set()
-    pin_sources = [pin_source] + (pin_source.search("/symbol/symbol", ignore_case=True) or [])
-    for source in pin_sources:
-        for pin in source.search("/symbol/pin", ignore_case=True):
-            try:
-                pin_name_node = pin.search("/pin/name")
-                pin_num_node = pin.search("/pin/number")
-                if not pin_name_node or not pin_num_node:
-                    continue
-                num = str(pin_num_node[0][1])
-                if num in seen:
-                    continue
-                seen.add(num)
-                pins.append({
-                    "num": num,
-                    "name": str(pin_name_node[0][1]),
-                    "type": pin_type_map.get(str(pin[1]).lower(), "unspecified"),
-                })
-            except Exception:
-                continue
-    return pins
-
-
-def _augment_converted_meta(meta: dict) -> dict:
-    """Add parsed pin details to converted EasyEDA metadata when possible."""
-    if not isinstance(meta, dict) or meta.get("pin_detail"):
-        return meta
-    pins = _pin_details_from_sym_file(meta.get("sym_file", ""), meta.get("symbol"))
-    if not pins:
-        return meta
-    augmented = dict(meta)
-    augmented["pin_detail"] = {
-        "part": f"{meta.get('library')}:{meta.get('symbol')}",
-        "footprint": meta.get("footprint"),
-        "pins": pins,
-    }
-    return augmented
 
 
 async def _convert_easyeda(lcsc: str) -> dict | None:
@@ -1518,7 +705,7 @@ async def _convert_easyeda(lcsc: str) -> dict | None:
                 os.makedirs(fp_dir, exist_ok=True)
                 with open(os.path.join(fp_dir, meta["footprint"].split(":")[-1] + ".kicad_mod"), "wb") as f:
                     f.write(row["fp_data"])
-            return _augment_converted_meta(meta)
+            return meta
     except Exception:
         pass
 
@@ -1529,7 +716,7 @@ async def _convert_easyeda(lcsc: str) -> dict | None:
     if os.path.exists(meta_file):
         try:
             with open(meta_file) as f:
-                return _augment_converted_meta(json.loads(f.read()))
+                return json.loads(f.read())
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -1610,7 +797,7 @@ async def _convert_easyeda(lcsc: str) -> dict | None:
     except Exception:
         pass
 
-    return _augment_converted_meta(meta)
+    return meta
 
 
 @mcp.tool()
@@ -1642,7 +829,7 @@ async def convert_lcsc(lcsc: str) -> dict:
 
     usage = f'Part("{lib}", "{sym}", footprint="{fp}")' if fp else f'Part("{lib}", "{sym}")'
 
-    result = {
+    return {
         "ok": True,
         "lcsc": meta["lcsc"],
         "library": lib,
@@ -1651,14 +838,6 @@ async def convert_lcsc(lcsc: str) -> dict:
         "usage": usage,
         "hint": "Use the 'usage' field in your SKiDL code. The library is auto-loaded.",
     }
-    if meta.get("pin_detail"):
-        result["pin_detail"] = meta["pin_detail"]
-        result["hint"] = (
-            "Use the 'usage' field in your SKiDL code. The library is "
-            "auto-loaded. Use pin_detail.pins for exact converted-symbol pin "
-            "names; do not assume MCU/module functional aliases exist."
-        )
-    return result
 
 
 # ── Resources: deep reference an agent reads on demand ─────────────────
@@ -1702,195 +881,8 @@ def exceptions_guide() -> str:
     return EXCEPTIONS_GUIDE
 
 
-@mcp.resource(
-    "eda://guide/parts",
-    name="Part choice guide",
-    description="How to choose ambiguous electromechanical parts such as audio jacks, USB connectors, screw terminals, switches, and headers.",
-    mime_type="text/markdown",
-)
-def parts_guide() -> str:
-    return PARTS_GUIDE
-
-
-PARTS_GUIDE = """\
-# Part choice guide
-
-Some parts are not just electrical symbols. Their footprint is a product
-decision. Before cycling through footprints, decide the mechanical variant and
-then search with those words.
-
-## 3.5mm audio and synth jacks
-
-Ask or decide these points before choosing a jack:
-
-- **Mono/TS vs stereo/TRS**: mono CV/gate usually needs TS; MIDI TRS and
-  stereo audio need TRS.
-- **Switched vs unswitched**: switched jacks add normalling pins. Use them
-  only when the design needs detect/normalling; otherwise they add routing
-  and pin-name confusion.
-- **Mounting**: through-hole is stronger and easier to hand solder; SMD is
-  lower profile but mechanically weaker unless the footprint has support tabs.
-- **Orientation**: horizontal/right-angle is edge-facing for enclosures;
-  vertical points out of the board face and is usually the right choice for
-  Eurorack/control-panel PCBs that sit behind a panel.
-- **Panel/edge constraint**: jacks, USB-C, switches, pots, and screw terminals
-  normally belong on a board edge. Keep mating parts on the same edge when
-  the product has a panel.
-- **Sleeve/ground**: connect sleeve to circuit GND unless the request calls
-  for isolated/chassis grounding. Shield/chassis pins may be separate.
-
-Search examples:
-
-```
-search_kicad("3.5mm TRS unswitched right angle through hole jack", detail=true)
-search_kicad("3.5mm mono switched right angle jack footprint")
-search_kicad("AudioJack3 right angle through hole")
-search_kicad("PJ-320A 3.5mm TRS jack")
-```
-
-Common KiCad symbol patterns:
-
-- `Connector_Audio:AudioJack2` or similar: mono/TS.
-- `Connector_Audio:AudioJack3`: TRS stereo or TRS MIDI.
-- Symbols with switch pins expose extra contacts. Inspect with
-  `detail=true` and wire only the required contacts.
-- Simple unswitched plug/jack symbols usually expose `T`, `R`, and `S`.
-  Switched or dual jack symbols may expose `T1`, `T2`, `TN`, `TN1`, `R1`,
-  `RN1`, `S1`, `SN1`, etc. `N` pins are normalled/switched contacts, not
-  the main plug contact. If you do not need normalling/detect, choose the
-  simpler unswitched symbol to reduce routing and pin-name ambiguity.
-- MIDI DIN is a circular DIN connector. Do not substitute DIN41612 footprints;
-  those are backplane/card connectors, not 5-pin MIDI panel connectors.
-
-If the request does not specify jack style, make the choice visible in your
-final report. For enclosure-edge products, prefer edge-facing through-hole
-jacks unless there is a reason to choose SMD or vertical.
-
-SKiDL pin examples:
-
-```python
-# Unswitched mono/TS-style audio symbol: inspect exact pins first.
-jack = Part("Connector_Audio", "AudioJack2", footprint="...")
-sig += jack["T"]
-gnd += jack["S"]
-
-# Switched symbols often use numbered/switch pins. Wire only the contacts
-# the design actually needs; N pins are normalling/detect contacts.
-jack = Part("Connector_Audio", "AudioJack2_SwitchT", footprint="...")
-sig += jack["T"]
-normalled += jack["TN"]
-gnd += jack["S"]
-
-pot = Part("Device", "R_Potentiometer", value="100k", footprint="...")
-top += pot[1]
-wiper += pot[2]
-bottom += pot[3]
-```
-
-For Eurorack or synth module boards with a Eurorack/Doepfer/IDC power header,
-prefer Thonkiconn/PJ398-style vertical panel jacks. Do not choose horizontal
-PJ320/right-angle edge jacks for Eurorack unless the human explicitly asks for
-edge-mounted jacks or a non-standard mechanical stack.
-
-For Eurorack panel/control boards, decide the assembly stack before submitting:
-single-board Eurorack often wants front-facing jacks/pots/switches/LEDs and
-rear-facing power/electronics, but that is a double-sided assembly choice and
-can add cost. If the human prefers single-sided assembly, keep SMD/electronics
-on one side or model a two-board panel/main-board stack. State this choice in
-`run_options.assembly_policy` and your final report. When double-sided is
-chosen, set `part.assembly_side = "front"` for panel-facing controls/jacks/LEDs
-and `"back"` for rear-facing power/electronics where the side matters.
-
-## USB-C receptacles
-
-Decide whether the board needs:
-
-- power-only sink, USB 2.0 data, or USB-PD/CC controller support
-- through-hole shell tabs versus pure SMD
-- edge-facing horizontal connector versus vertical connector
-- 6-pin/power-only, 16-pin USB2, or 24-pin full-featured connector
-
-For a 5V sink board, include 5.1K pull-downs on CC1 and CC2, VBUS bulk
-capacitance, and ESD/TVS protection when requested. Search with terms like
-`USB_C_Receptacle USB2.0 16P` or use `convert_lcsc()` for a specific stocked
-connector. KiCad USB connector symbols normally use symbol library `Connector`
-with `USB_C_Receptacle_*` / `USB_B_*` part names; `Connector_USB` is a
-footprint library, not the symbol library passed as the first Part() argument.
-
-## Screw terminals and headers
-
-- Screw terminals are usually edge-facing and through-hole.
-- Pitch matters: 3.5mm, 3.81mm, and 5.08mm are not interchangeable.
-- A pin header footprint is not a symbol. Use
-  `Part("Connector_Generic", "Conn_01xNN", footprint="Connector_PinHeader_...")`.
-
-## Plug-in dev modules and sockets
-
-- Treat plug-in boards such as Daisy Seed, Pico, Feather, and Arduino as
-  module sockets, not as bare MCU ICs and not as generic edge headers.
-- Daisy Seed should normally be represented as:
-  `Part("Connector_Generic", "Conn_02x20_Counter_Clockwise", value="Daisy Seed", footprint="Module:Electrosmith_Daisy_Seed")`.
-- Daisy Seed is an internal socketed module. Do not force it to a board edge
-  unless the human explicitly asks for that mechanical layout.
-- Daisy Seed VIN is pin 39 and GND is pin 40. AGND is pin 20. Pins 21 and 38
-  are Daisy 3.3V regulator outputs; do not drive them from an external 3.3V
-  rail unless the human explicitly confirms the power architecture.
-- Daisy audio pins are fixed-function codec pins: 16/17 are audio inputs and
-  18/19 are audio outputs. USB D-/D+ are pins 36/37. MIDI UART designs usually
-  use the exposed UART pins, with any required opto/level shifting off-module.
-
-## Keypads and switch matrices
-
-- KiCad usually does not provide one ready-made `SW_Matrix_4x4` symbol.
-- For an onboard keypad, instantiate one `Part("Switch", "SW_Push", ...)`
-  per key and wire each switch between a ROWx net and a COLx net.
-- For an off-board membrane/keypad, use a row/column connector such as
-  `Part("Connector_Generic", "Conn_01x08", ...)` for 4 rows + 4 columns.
-- Search `keypad switch` or `SW_Push`, not only `keypad matrix`, when you
-  need the primitive switch symbol.
-
-## Mounting holes and test points
-
-- Mounting holes are mechanical parts. Use `Mechanical:MountingHole` or
-  `Mechanical:MountingHole_Pad`, not `Device:TestPoint`.
-- Plain screw holes usually have no electrical net:
-  `Part("Mechanical", "MountingHole", footprint="MountingHole:MountingHole_3.2mm_M3")`.
-- Use plated/padded mounting holes only when the hole should connect to a
-  net such as chassis, shield, or GND:
-  `Part("Mechanical", "MountingHole_Pad", footprint="MountingHole:MountingHole_3.2mm_M3_Pad_TopBottom")`.
-- Electrical probe pads are `Connector:TestPoint` with a `TestPoint:*`
-  footprint, then connect pin 1 to the measured net:
-  `tp = Part("Connector", "TestPoint", footprint="TestPoint:TestPoint_Pad_D1.5mm")`.
-
-Search examples:
-
-```
-search_kicad("Mechanical MountingHole M3", detail=true)
-search_kicad("Connector TestPoint pad", detail=true)
-search_kicad("TestPoint_Pad_D1.5mm footprint")
-```
-
-## When to ask the human
-
-Ask before committing when the mechanical choice affects the product:
-
-- panel-facing versus board-facing controls/connectors
-- vertical versus right-angle jacks
-- switched/normalling audio jacks
-- unusual pitches or enclosure-driven connector locations
-- isolated/chassis ground requirements
-
-If you cannot ask, choose a conservative default and state it explicitly.
-"""
-
-
 CIRCUIT_SPEC_GUIDE = """\
-# Writing a CircuitSpec (Legacy/Internal)
-
-CircuitSpec JSON is no longer the preferred public MCP surface. Agents should
-write SKiDL Python and call `submit_skidl_code()`; use `eda://guide/skidl` for
-that workflow. This reference remains for internal runners, compatibility
-tests, and debugging the translator/correction machinery.
+# Writing a CircuitSpec
 
 A CircuitSpec is pure JSON data — never code. It fully describes a board:
 parts, electrical connections, and board metadata.
@@ -1913,18 +905,12 @@ parts, electrical connections, and board metadata.
 | name | str, required | used for output file naming |
 | form_factor | str | ONLY these exact values: `feather`, `qt_py`, `metro`, `metro_mini`, `trinket`, `itsybitsy`, `shield_uno`. Omit for custom boards |
 | outline_hint_mm | [w, h] | board size in mm when form_factor is omitted. **Use this for most boards** — form_factor is only for Adafruit-compatible dev boards |
-| corner_radius_mm | number | optional corner radius for rectangular outlines. Omit for the product-board default, set `0` for square corners |
 | layers | int | copper layers, 2 (default) or 4. Use 4 for dense boards |
 
 **Choosing board size:** Most boards should omit `form_factor` and set
 `outline_hint_mm` instead. A "compact" sensor breakout might be `[25, 20]`,
 a medium MCU board `[50, 40]`. Do NOT use descriptive words like "compact"
 or "small" — these are not valid form_factor values.
-
-**Corner radius:** Most product boards should use modest rounded corners,
-especially when mounting holes are present. Eurorack/front-panel modules are a
-special mechanical/aesthetic case: ask the user or set `corner_radius_mm: 0`
-unless the panel/PCB should explicitly be rounded.
 
 ## parts
 
@@ -1956,7 +942,7 @@ tristate, passive, unspecified, no_connect.
 - ICs: `Analog_ADC`, `Analog_DAC`, `Interface_I2C`, `Interface_SPI`
 - MCUs: `MCU_Microchip`, `MCU_Nordic`, `MCU_RaspberryPi`, `MCU_ST`
 - Connectors: `Connector_Generic` (Conn_01x04, Conn_01x06, Conn_02x05...),
-  `Connector` (USB_C_Receptacle_..., TestPoint), `Connector_JST` (for Qwiic/STEMMA QT)
+  `Connector_USB`, `Connector_JST` (for Qwiic/STEMMA QT)
 - FETs/transistors: `Transistor_FET`, `Transistor_BJT`
 - Power: `Regulator_Linear`, `Regulator_Switching`
 - RF: `RF_Module`
@@ -1965,9 +951,8 @@ Wrong: `"lib": "Bosch"`, `"lib": "MOSFET"`, `"lib": "TI"`.
 Right: `"lib": "Sensor_Pressure"`, `"lib": "Transistor_FET"`, `"lib": "Analog_ADC"`.
 
 **Connectors (common mistake):** For pin headers use `lib: "Connector_Generic"`,
-`part: "Conn_01x06"` (not "PinHeader_1x06"). USB-C/Micro-B connector symbols
-usually use `lib: "Connector"` with a `Connector_USB:*` footprint. For screw
-terminals use `part: "Screw_Terminal_01x02"` etc.
+`part: "Conn_01x06"` (not "PinHeader_1x06"). For screw terminals use
+`part: "Screw_Terminal_01x02"` etc.
 
 Other part fields:
 - `value` — "10K", "100nF" etc. Matters for passives.
@@ -2043,13 +1028,6 @@ SKIDL_GUIDE = """\
 
 Write standard SKiDL Python code. The server handles schematic generation,
 PCB layout, autorouting, and DRC — do NOT call generate_schematic() etc.
-For complex mechanical boards, control panels, Eurorack modules, dense
-instrument boards, or designs with explicit human floorplans, use
-`run_options.pipeline_goal="placement_review"` first. That produces a
-schematic, placed PCB, and previews for human/agent review without forcing
-premature autorouting. After the human is happy with placement, resubmit with
-`pipeline_goal="manufacturing"` for routing, DRC, and fabrication outputs.
-There is no global `connect()` helper.
 
 ## Step 1: Search before you code
 
@@ -2059,7 +1037,7 @@ names, and footprints. Don't guess — KiCad library names are not obvious.
 ```
 search_kicad("BME280")       -> Sensor_Humidity : BME280
 search_kicad("STM32F405")    -> MCU_ST_STM32F4 : STM32F405RGT6
-search_kicad("USB-C")        -> Connector : USB_C_Receptacle_... + Connector_USB footprints
+search_kicad("USB-C")        -> Connector_USB : USB_C_Receptacle_...
 search_kicad("level shifter") -> finds TXS0102, TXB0104, etc.
 ```
 
@@ -2083,105 +1061,7 @@ c1 = Part("Device", "C", value="100nF",
 # Connect by pin name (ICs) or number (passives)
 vcc += u1["VDD"], c1[1]
 gnd += u1["GND"], c1[2]
-u1["ADDR"] += gnd
 ```
-
-Connection syntax rules:
-- Use `net += pin1, pin2` to join many endpoints to one named net.
-- Use `pin += net` for a single pin-to-net connection.
-- Do not use a global `connect()` function; SKiDL does not define one here.
-- Do not put a function call or temporary expression on the left side of `+=`.
-- Do not use `Net("X") + part["PIN"]`; create `x = Net("X")`, then `x += part["PIN"]`.
-
-Mechanical placement hints:
-- `part.assembly_side = "front"` or `"back"` for explicit side choices.
-- `part.edge_preference = "left" | "right" | "top" | "bottom"` for
-  enclosure-facing connectors such as pedal input/output/power or desktop
-  instrument I/O. Optional `part.edge_offset_mm` sets the along-edge position.
-- Prefer `part.edge_preference` or `EDA_FLOORPLAN["edge_anchors"]` for
-  USB, Qwiic/JST, pin headers, jacks, barrels, and other edge connectors.
-  Do not use `fixed_positions` for guessed connector coordinates; KiCad
-  footprint origins vary and fixed connector origins can place the real
-  footprint outside the board.
-- If a jack, USB, JST/Qwiic, or barrel connector is on the correct edge but
-  faces the wrong way in preview, set `part.edge_rot_deg = 0 | 90 | 180 | 270`
-  on the next submission. Do not accept a board where connector openings point
-  inward or sideways when the product needs outward cable access.
-- For human/mechanical floorplans, define `EDA_FLOORPLAN` after refs exist:
-
-```python
-EDA_FLOORPLAN = {
-    "outline": {"width_mm": 120, "height_mm": 180, "corner_radius_mm": 2},
-    "fixed_positions": [
-        {"ref": "U1", "x_mm": 60, "y_mm": 40, "rotation_deg": 0},
-        {"ref": "J1", "x_mm": 10, "y_mm": 90, "rotation_deg": 90},
-    ],
-    "edge_anchors": [{"ref": "USB1", "edge": "bottom"}],
-    "grid": {
-        "refs": ["U_S00", "U_S01", "U_S10", "U_S11"],
-        "rows": 2,
-        "cols": 2,
-        "x_mm": 18,
-        "y_mm": 36,
-        "dx_mm": 22,
-        "dy_mm": 24,
-        "side": "front",
-    },
-    "align": [{"refs": ["LED1", "LED2", "LED3"], "axis": "y"}],
-    "distribute": [{"refs": ["LED1", "LED2", "LED3"], "axis": "x"}],
-    "assembly_sides": {"U_MCU": "back", "J_USB": "front"},
-    "keepouts": [{"x_min": 0, "y_min": 0, "x_max": 120, "y_max": 8}],
-    "cutouts": [
-        {"name": "sensor_window", "x_min": 40, "y_min": 70, "x_max": 80, "y_max": 110},
-        {"name": "cable_slot", "shape": "slot", "start": [20, 150], "end": [55, 150], "width_mm": 3},
-    ],
-}
-```
-
-Preserve explicit sensor grids, controls, displays, batteries, modules, and
-mounting/mechanical intent this way. Do not strip a floorplan just because the
-hosted service owns schematic/layout/routing. `grid` expands into locked
-positions plus row/column align/distribute constraints when origin and pitch
-are supplied. `cutouts`, `apertures`, and `slots` are physical board voids:
-they are emitted as internal Edge.Cuts geometry, shown in layout metadata and
-previews, and protected from component placement.
-
-When porting an existing local layout script, `EDA_FLOORPLAN` may also contain
-`skidl.layout` constraint objects such as `FixedPosition`, `EdgeAnchor`,
-`KeepOut`, `BoardCutout`, `BoardOutline`, or a `LayoutConstraints` instance.
-Keep those human floorplans intact rather than stripping them from hosted
-submissions.
-
-If the user has custom project footprints that Railway does not have installed,
-pass the KiCad `.kicad_mod` text to `submit_skidl_code(custom_footprints=...)`:
-
-```python
-submit_skidl_code(
-    code=code,
-    custom_footprints={
-    "Daughterboards:USB_C_Breakout_6pin": '''
-(footprint "USB_C_Breakout_6pin"
-  ...
-)
-''',
-    },
-)
-```
-
-The key must match the `Part(..., footprint="Library:Name")` string. The
-server writes these as temporary `Library.pretty/Name.kicad_mod` files before
-footprint preflight, layout, and PCB writing. Use this for placement review or
-manufacturing when the human's local project library is required. The agent
-must read the `.kicad_mod` file locally and pass its text; the hosted worker
-cannot open arbitrary paths on the agent's machine. The submitted text must be
-a parseable top-level `(footprint ...)` S-expression, and the footprint name
-inside the text must match the `Name` portion of the key. Do not pass local
-paths, URLs, or fp-lib-table references; path-like payload fields are rejected.
-A list form is accepted for generated bundles:
-`[{"library": "Library", "name": "Name", "content": "(footprint ...)"}]`.
-A global `EDA_FOOTPRINTS` dict inside submitted code is still accepted for
-compatibility, but prefer the tool parameter so the SKiDL source stays
-readable.
 
 ## KiCad library names (NOT manufacturer names)
 
@@ -2190,8 +1070,6 @@ Common libraries — use search_kicad() for anything not listed here:
 | Category | Library name | Example parts |
 |----------|-------------|---------------|
 | Passives | `Device` | R, C, C_Polarized, L, LED, D_Schottky |
-| Controls | `Device` | R_Potentiometer, R_Potentiometer_Dual |
-| Switches | `Switch` | SW_Push, SW_Reed, SW_SPST |
 | Sensors | `Sensor_Temperature` | BME280, TMP117, MCP9808, LM75 |
 | Sensors | `Sensor_Humidity` | BME280, SHT3x, HDC1080 |
 | ADCs | `Analog_ADC` | ADS1115, MCP3008, ADS1015 |
@@ -2202,7 +1080,7 @@ Common libraries — use search_kicad() for anything not listed here:
 | MCUs | `MCU_RaspberryPi` | RP2040 |
 | MCUs | `MCU_Nordic_nRF52` | nRF52840-QIAA |
 | Connectors | `Connector_Generic` | Conn_01x04, Conn_01x06, Conn_02x05 |
-| USB | `Connector` | USB_C_Receptacle_USB2.0_16P |
+| USB | `Connector_USB` | USB_C_Receptacle_USB2.0 |
 | Audio | `Connector_Audio` | AudioJack3 |
 | Transistors | `Transistor_FET` | BSS138, IRLML6244 |
 | Op-amps | `Amplifier_Operational` | LM358, MCP6001 |
@@ -2212,33 +1090,12 @@ Common libraries — use search_kicad() for anything not listed here:
 ## Key rules
 
 - **Search first**: `search_kicad("your part")` before writing any Part() call.
-- Ambiguous mechanical parts: read `eda://guide/parts` before choosing
-  jacks, USB connectors, screw terminals, switches, pots, or panel parts.
 - `lib` is a KiCad symbol library, NOT a manufacturer (not "Bosch", "Microchip").
 - Every Part needs `footprint="Library:Name"` — get it from search_kicad().
 - Connectors: `Part("Connector_Generic", "Conn_01x06", ...)` not "PinHeader_1x06".
-- USB connectors use symbol library `Connector` with a `Connector_USB:*`
-  footprint; `Connector_USB` is the footprint library, not the symbol library.
-- FFC/FPC display connectors normally use a generic symbol such as
-  `Connector_Generic:Conn_01xNN` with a `Connector_FFC-FPC:*` footprint.
-  `Connector_FFC-FPC` is a footprint library, not a symbol library.
-- Keypads/matrices: do not invent `SW_Matrix_4x4`. Use individual
-  `Switch:SW_Push` parts wired between row/column nets, or a
-  `Connector_Generic:Conn_01xNN` for an off-board keypad.
-- Custom MCU board vs dev board: `MCU_Module` symbols such as NUCLEO,
-  Feather, Pico, or Arduino represent whole modules with header pins. For a
-  custom PCB around the chip, use a bare MCU symbol or `convert_lcsc()`.
-- Electrosmith Daisy Seed is a socketed module: use
-  `Connector_Generic:Conn_02x20_Counter_Clockwise` with footprint
-  `Module:Electrosmith_Daisy_Seed`, and treat it as an internal module socket.
-- Connections: use `net += pin1, pin2` or `pin += net`; no global `connect()`.
 - Decoupling caps: value="100nF" wired power-to-ground = auto-placed near parent IC.
 - Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND.
 - Pin names on ICs may differ — use `search_kicad("part", detail=true)` to check.
-- Multi-unit op-amps/comparators: inspect the exact unit pins before wiring.
-  Do not assume B/C/D units reuse A-side package pin numbers. For TL07x-style
-  symbols, use unit-local pins such as `op.uB["+"]`, `op.uB["-"]`, and the
-  listed output pin from `search_kicad("TL074", detail=true)`.
 - Use @subcircuit for functional blocks:
 
 ```python
@@ -2292,9 +1149,9 @@ Think through the full BOM before coding:
 ## Step 1 — Submit and iterate
 
 Every design succeeds if you persist. The engine gives you exact errors
-and suggested fixes at every step — edit the SKiDL source, resubmit, and the
-board converges to a manufacturable PCB. First-pass submissions typically need
-3-8 correction rounds for library names, pin names, and footprints. This is
+and suggested fixes at every step — apply them, resubmit, and the board
+converges to a manufacturable PCB. First-pass specs typically need 3-8
+correction rounds for library names, pin names, and footprints. This is
 normal and expected — each round gets closer.
 
 ```
@@ -2317,95 +1174,55 @@ is a routed board when routing succeeds.
 ## Polling
 
 - queued -> running transition is usually <5s when workers are free.
-- Simple boards (<20 parts): done in 10-60s. Dense boards: minutes; raise
-  timeout_s when a design has many ICs, connectors, or tight routing.
-  If the exception is ROUTE_TIMEOUT, retry the same code first with
-  route_timeout_s=300-900 before redesigning the board.
+- Simple boards (<20 parts): done in 10-60s. Dense boards: minutes.
+  estimate_complexity's runtime_prediction tells you what to expect.
 - status "failed" or "timeout" with exceptions attached is the NORMAL
   correction path, not an outage. Only a null result + error string means
   the job crashed.
+
+## Board outline
+
+Pass `outline_mm=[width, height]` as a top-level parameter to `submit_skidl_code()`
+to set an explicit board size in millimeters. Omit to let the engine auto-size from
+parts (usually adds 20-30% margin). Example: `outline_mm=[50, 30]` for a 50×30mm board.
 
 ## run_options
 
 | key | default | when to change |
 |---|---|---|
-| timeout_s | 300 | raise to 600-1500 for dense boards or slow autorouting |
-| route_timeout_s | 120 | raise to 300-900 after ROUTE_TIMEOUT; must stay below timeout_s |
-| assembly_policy | "single_sided" | set "double_sided" only after deciding the human accepts rear-side assembly cost |
-| pipeline_goal | "manufacturing" | use "placement_review" first for complex/mechanical boards needing human visual review |
+| timeout_s | 300 | raise to 600-1500 for boards estimate_complexity calls complex/ambitious |
 | board_id | none | telemetry label for tracking related runs |
 
-Choose `assembly_policy` before submitting. The default `"single_sided"` keeps
-SMD/electronics on the front where possible and avoids using the back as an
-easy placement escape hatch. `"double_sided"` allows front-panel controls with
-rear electronics, which is often mechanically right for a single-board
-Eurorack module but can add fabrication/assembly cost. If a Eurorack design
-asks for single-sided assembly, either keep the board genuinely single-sided or
-model a two-board panel/main-board stack rather than silently moving SMD parts
-to the back.
+## policy (server-side auto-correction)
 
-`assembly_policy` is the board-level cost/permission gate. It is not the whole
-floorplan. If `"double_sided"` is chosen, be opinionated about sides by setting
-`part.assembly_side = "front"` or `"back"` for mechanically meaningful parts.
-For Eurorack, strongly prefer front controls/jacks/LEDs and rear
-power/electronics on single-board modules. For other boards, use the back only
-when it serves a real mechanical, connector, thermal, shielding, or packaging
-reason; otherwise keep the design single-sided and cheaper.
+Default is `{"auto_apply": "none", "max_internal_corrections": 0}` — every
+exception comes back to you. To let the server iterate by itself:
 
-Use `part.edge_preference = "left" | "right" | "top" | "bottom"` when the
-human or product implies a specific side. This is important for enclosure and
-panel work: guitar pedals usually want input left, output right, power top, and
-footswitch bottom; desktop instruments often want audio/MIDI on rear/side
-edges and controls on the front panel. Optional `part.edge_offset_mm` sets the
-position along that edge in mm. Optional `part.edge_rot_deg` fixes orientation
-when preview shows a jack/USB/JST/barrel connector on the correct edge but
-facing the wrong direction.
+```json
+{"auto_apply": "safe", "max_internal_corrections": 4}
+```
 
-For dense panel boards, do not rely on `edge_preference` alone. Eurorack,
-guitar pedals, synth control boards, and other enclosure-front designs need an
-explicit `EDA_FLOORPLAN`: put pots/switches/LEDs/jacks in deliberate rows or
-grids, keep mounting-hole clearance open, place Eurorack power or rear I/O away
-from the front-control field, and leave an interior/back-side zone for the
-analog/electronics core. If the preview shows out-of-bounds panel hardware or
-overlaps, resubmit with stronger floorplan coordinates/zones before changing
-the circuit.
+- `advisory_only` — server waives advisory-severity findings, returns
+  everything else.
+- `safe` — server additionally retries placement/routing failures and
+  regenerates after crashes. It still stops for anything needing judgment:
+  BOM substitutions, mechanical/outline changes, unknown pinouts
+  (the `stop_for` decision kinds).
 
-## Layout feedback
+## Iterating — KEEP GOING UNTIL SUCCEEDED
 
-- For boards where mechanical layout matters, a clean `placement_review` run is
-  a valid intermediate result. Show the preview, collect human feedback, and
-  iterate placement before attempting routing.
-- Track the best successful `placement_review` run_id, preview, and layout
-  score while iterating. Later resubmissions are experiments; if they introduce
-  overlaps, outline violations, or a much lower score, keep the earlier clean
-  run as the current candidate instead of treating the latest run as progress.
-- LAYOUT_OVERLAP, LAYOUT_OUTLINE_VIOLATION, and HIGH_CONGESTION are usually
-  placement/constraint feedback, not schematic failures.
-- When `get_run()` returns `preview_2d_top.png`, show it to the human before
-  claiming the board is visually acceptable. If front/back assembly side matters,
-  also show `preview_assembly.svg`. If they give feedback, immediately
-  call `submit_human_feedback(run_id, feedback, target_artifact="preview_2d_top.png")`
-  to record the review turn, then edit the SKiDL source or run options and
-  resubmit.
-- Before blindly enlarging the board, edit the SKiDL source so related parts
-  are in the same `@subcircuit`, decoupling caps sit with their IC, connector
-  footprint style matches the product, and panel/edge parts are deliberate.
-- If the physical request is simply too dense, resubmit with a larger
-  `outline_mm=[width, height]`.
-
-## Iterating - KEEP GOING UNTIL SUCCEEDED
-
-- For SKiDL Python runs, edit the source code using the structured
-  exceptions/candidates and call `submit_skidl_code()` again.
-- **Do not stop after a fixed number of rounds.** Keep editing/resubmitting
-  until get_job() returns status "succeeded". Library
+- Each apply_correction() produces a child job linked to its parent; the
+  spec it mutates is the parent run's spec, so corrections compound across
+  iterations.
+- **Do not stop after a fixed number of rounds.** Keep applying corrections
+  and resubmitting until get_job() returns status "succeeded". Library
   mismatches, pin name errors, and footprint fixes are normal — each
   correction gets you closer. The engine tells you exactly what's wrong
-  and suggests fixes; address them all and resubmit.
+  and suggests fixes; apply them all and resubmit.
 - If the same exception recurs with the same candidate, pick a different
   candidate instead of repeating. If no candidates work, try a different
   lib/part/footprint from the error's `suggested_fix` or `available_pins`.
-- The server auto-enriches the design with decoupling caps, I2C pull-ups,
+- The server auto-enriches your spec with decoupling caps, I2C pull-ups,
   and other standard passives — you don't need to include those.
 - Run data expires ~48h after completion — fetch artifacts promptly.
 
@@ -2417,6 +1234,12 @@ the circuit.
 - **Pin names on ICs often differ from net names.** BME280 uses SDI/SCK
   (not SDA/SCL). When you get SPEC_UNKNOWN_PIN errors, check the
   `available_pins` list in the exception — it shows the real pin names.
+- **auto_apply: "safe"** handles placement retries and advisory waivers
+  but NOT library or footprint swaps (those are always manual decisions,
+  even at high confidence).
+- **Exception IDs (e1, e2...) are per-run.** After apply_correction()
+  creates a new job, poll the NEW job and use IDs from its exceptions,
+  not from the previous run.
 """
 
 
@@ -2429,7 +1252,7 @@ def _exceptions_guide() -> str:
         "SPEC_BAD_FOOTPRINT": "footprint id malformed or unknown",
         "FOOTPRINT_MISSING": "footprint not found in KiCad libraries at layout time",
         "SCH_PLACEMENT_FAILURE": "schematic placer could not place cleanly",
-        "SCH_ROUTING_FAILURE": "schematic wiring/rendering failed; retry once, then treat repeated failures as a renderer limitation",
+        "SCH_ROUTING_FAILURE": "schematic wiring failed",
         "ERC_PIN_NOT_CONNECTED": "ERC: pin left floating",
         "ERC_PIN_NOT_DRIVEN": "ERC: input pin has no driver",
         "ERC_REAL_ERROR": "ERC: electrical conflict (e.g. two outputs tied)",
@@ -2446,18 +1269,16 @@ def _exceptions_guide() -> str:
         "DESIGN_MISSING_FEATURE": "advisory: marketing text mentions a feature not in spec",
         "ROUTE_UNCONNECTED": "error: nets that could not be routed",
         "ROUTE_CONGESTION": "advisory: routing succeeded but congestion is high",
-        "ROUTE_TIMEOUT": "error: Freerouting exceeded route_timeout_s; retry unchanged with a larger route_timeout_s before changing the circuit",
-        "ROUTE_UNAVAILABLE": "manufacturing gate failed: routing/export tooling did not produce routed manufacturing outputs",
+        "ROUTE_TIMEOUT": "error: Freerouting exceeded time limit",
+        "ROUTE_UNAVAILABLE": "error: routing tools not available — board is unrouted",
         "DRC_CLEARANCE": "error: trace/pad clearance violation",
         "DRC_UNCONNECTED": "error: net endpoint not connected after routing",
         "DRC_SHORT": "error: unintended connection between nets",
         "DRC_COURTYARD": "advisory: component courtyard overlap",
-        "DRC_TOOL_FAILURE": "tooling error: DRC tool failed to run",
-        "MANUFACTURING_OUTPUT_FAILURE": "error: Gerbers, drill, BOM, or CPL export did not complete",
-        "POST_ARTIFACT_FAILURE": "error: schematic/PCB artifacts exist, but backend finalization failed; fetch artifacts before redesigning",
+        "DRC_TOOL_FAILURE": "advisory: DRC tool failed to run",
         "ENGINE_TIMEOUT": "engine hit timeout_s — raise it or simplify",
-        "ENGINE_CRASH": "backend worker crashed; retry once, then treat as service failure",
-        "CODE_EXEC_ERROR": "SKiDL Python code raised an error; inspect subject.line, line_text, available_pins",
+        "ENGINE_CRASH": "engine crashed; usually retry (regenerate)",
+        "CODE_EXEC_ERROR": "SKiDL Python code raised an error during execution",
         "BUDGET_EXHAUSTED": "correction budget used up without convergence",
     }
     action_docs = {
@@ -2493,9 +1314,8 @@ def _exceptions_guide() -> str:
         " ]}",
         "```",
         "",
-        "For SKiDL submissions, candidates are repair guidance. Edit the SKiDL source",
-        "using the exception message, subject, candidate summary, and retry_hint;",
-        "then call `submit_skidl_code()` again.",
+        "You resolve it by id: `apply_correction(run_id, [{\"exception_id\": \"e1\", \"candidate_id\": \"c1\"}])`.",
+        "Never re-describe a fix in natural language — pick a candidate.",
         "",
         "## Severities",
         "",
@@ -2506,9 +1326,9 @@ def _exceptions_guide() -> str:
         "## Choosing candidates",
         "",
         "- Candidates are ordered best-first; c1 is the deterministic pick.",
-        "- Higher confidence means the fix is usually mechanical; lower",
-        "  confidence means the engine wants judgment (often JLC part",
-        "  substitutions or pin guesses).",
+        "- confidence >= 0.8 means a policy of auto_apply='safe' would have",
+        "  taken it without asking. Lower confidence = the engine wants your",
+        "  judgment (often JLC part substitutions or pin guesses).",
         "- Check human_summary against the user's intent before accepting",
         "  BOM substitutions (replace_part / replace_footprint).",
         "- If the same exception+candidate pair recurs after applying it,",
@@ -2520,12 +1340,10 @@ def _exceptions_guide() -> str:
         "- bom_substitution — a part/footprint swap needs approval",
         "- unknown_pinout — pin mapping is uncertain",
         "- engine_failure — crash or timeout",
-        "- code_authoring_error — submitted SKiDL Python failed during execution",
-        "- tool_unavailable — router/DRC tooling was missing or failed",
         "- quality_advisory — only advisories remain; waive or fix",
         "- correction_choice — general fix selection",
         "- no_candidate — at least one exception has no machine fix;",
-        "  edit the SKiDL source and submit_skidl_code() again",
+        "  edit the spec manually and submit_design again",
         "",
         "## Exception codes",
         "",

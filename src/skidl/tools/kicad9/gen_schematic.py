@@ -732,6 +732,7 @@ def gen_schematic(
         # Phase 2: ERC correction loop (only when auto_stub is enabled).
         if options.get("auto_stub", False) and shutil.which("kicad-cli"):
             max_erc_iterations = options.get("erc_max_iterations", 3)
+            prev_fixable_count = None
             for erc_attempt in range(max_erc_iterations):
                 erc_report = _run_erc(output_file)
                 errors = _parse_erc_report(erc_report)
@@ -747,6 +748,13 @@ def gen_schematic(
                         f"ERC clean after {erc_attempt + 1} iteration(s)"
                     )
                     break
+
+                if prev_fixable_count is not None and len(fixable) >= prev_fixable_count:
+                    active_logger.info(
+                        f"ERC: no progress ({len(fixable)} errors unchanged), stopping after {erc_attempt + 1} iteration(s)"
+                    )
+                    break
+                prev_fixable_count = len(fixable)
 
                 if not _stub_nets_for_erc_errors(circuit, fixable):
                     active_logger.info(

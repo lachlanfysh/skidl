@@ -31,7 +31,7 @@ from typing import Literal
 # ---------------------------------------------------------------------------
 
 POWER_PIN_RE = re.compile(
-    r"^(V[+-]|[-+]?VS|V(CC|DD|DDIO|DDA|SSA|SS|IN|OUT|BAT|REF|BUS)|"
+    r"^(V(CC|DD|DDIO|DDA|SSA|SS|IN|OUT|BAT|REF|BUS)|"
     r"A?V(CC|DD)|D?V(CC|DD)|IOV(DD))$",
     re.IGNORECASE,
 )
@@ -44,8 +44,8 @@ GROUND_PIN_RE = re.compile(
 POWER_NET_RE = re.compile(
     r"^(V(CC|DD|DDA|DDIO|SS|IN|OUT|BAT|REF|BUS)|"
     r"A?V(CC|DD)|D?V(CC|DD)|IOV(DD)|"
-    r"[-+]?\d+(\.\d+)?V(\d+)?|[-+]?\d+V\d+|"
-    r"[-+]?3\.?3V?|[-+]?5V?)$",
+    r"\+\d+(\.\d+)?V(\d+)?|"
+    r"\+3\.?3V?|\+5V?)$",
     re.IGNORECASE,
 )
 
@@ -56,7 +56,7 @@ GROUND_NET_RE = re.compile(
 
 RESET_PIN_RE = re.compile(r"^[/~]?(N?RST|RESET|RSTN|nRESET)$", re.IGNORECASE)
 BOOT_PIN_RE = re.compile(r"^BOOT[0-1]?$|^BOOTSEL$", re.IGNORECASE)
-I2C_NET_RE = re.compile(r"^(?:SDA|SCL)\d*$|^.+[_./-](?:SDA|SCL)\d*$", re.IGNORECASE)
+I2C_NET_RE = re.compile(r"^(SDA|SCL)\d*$", re.IGNORECASE)
 SPI_CS_RE = re.compile(r"^[/~]?(CS[BN]?|SS|NSS|CE[0-9]?)$", re.IGNORECASE)
 OPEN_DRAIN_RE = re.compile(
     r"^[/~]?(INT|IRQ|ALERT|DRDY|RDY|ALARM|SQW|nINT|INT_N)$", re.IGNORECASE
@@ -64,24 +64,10 @@ OPEN_DRAIN_RE = re.compile(
 ADDR_PIN_RE = re.compile(r"^(ADDR|A[0-2]|ADD[0-1]|ADR[0-2])$", re.IGNORECASE)
 USB_DATA_RE = re.compile(r"^(D[+-]|DP|DM|USB_D[PM]|USB_DP|USB_DM)$", re.IGNORECASE)
 USB_CC_RE = re.compile(r"^CC[12]$", re.IGNORECASE)
-SIGNAL_NET_RE = re.compile(
-    r"^("
-    r"SDA\d*|SCL\d*|ADDR|A[0-9]|ADD[0-9]|ADR[0-9]|ALERT|INT|IRQ|DRDY|"
-    r"AIN\d*|AOUT\d*|ADC\d*|DAC\d*|"
-    r"MOSI|MISO|SCK|SCLK|CS|CSB|NSS|SS|"
-    r"D[+-]|DP|DM|USB_D[PM]|USB_DP|USB_DM|CC[12]|"
-    r"TX|RX|TXD|RXD|GPIO\d*|PWM\d*|CV\d*|GATE\d*|TRIG\d*"
-    r")$",
-    re.IGNORECASE,
-)
 DECAP_VALUE_RE = re.compile(r"^(100n|0\.1u)", re.IGNORECASE)
 BULK_CAP_RE = re.compile(r"^(1[0-9]u|2[2-9]u|[3-9]\du|[1-9]\d\du|10u|22u|47u|100u)", re.IGNORECASE)
 
 _PASSIVE_PREFIXES = {"R", "C", "L", "D", "J", "SW", "F", "FB"}
-_NEGATED_MARKETING_RE = re.compile(
-    r"\b(no|not|without|exclude|excluding|omit|omitting|skip|skipping|external|off[-\s]?board)\b",
-    re.IGNORECASE,
-)
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +77,7 @@ _NEGATED_MARKETING_RE = re.compile(
 @dataclass
 class EnrichmentAction:
     rule: str
-    category: Literal["silent", "loud"]
+    category: Literal["silent", "loud", "advisory"]
     description: str
     parts_added: list[str] = field(default_factory=list)
     nets_modified: list[str] = field(default_factory=list)
@@ -131,15 +117,6 @@ def _part_on_net(net: dict, ref: str) -> bool:
     return any(p.startswith(f"{ref}.") for p in net.get("pins", []))
 
 
-def _pin_names_on_net_for_ref(net: dict, ref: str) -> list[str]:
-    prefix = f"{ref}."
-    return [
-        str(pin_ref[len(prefix):])
-        for pin_ref in net.get("pins", [])
-        if str(pin_ref).startswith(prefix)
-    ]
-
-
 def _refs_on_net(net: dict) -> list[str]:
     return list({p.split(".")[0] for p in net.get("pins", []) if "." in p})
 
@@ -156,58 +133,11 @@ def _find_nets_for_ref(nets: list[dict], ref: str) -> list[dict]:
 
 
 def _is_power_net(net: dict) -> bool:
-    if SIGNAL_NET_RE.match(str(net.get("name", "") or "")):
-        return False
     return net.get("power", False) or bool(POWER_NET_RE.match(net.get("name", "")))
 
 
 def _is_ground_net(net: dict) -> bool:
     return bool(GROUND_NET_RE.match(net.get("name", "")))
-
-
-def _is_named_supply_rail(name: str) -> bool:
-    """True for nets that should be treated as supply rails in review output.
-
-    SKiDL/Python submissions can accidentally set drive=POWER on ordinary
-    signal nets. Routing may still use that drive strength, but design-review
-    advisories such as "add a bulk capacitor" should only fire for nets whose
-    names look like real supply rails.
-    """
-    text = str(name or "")
-    return (
-        bool(POWER_NET_RE.match(text))
-        and not bool(GROUND_NET_RE.match(text))
-        and not bool(SIGNAL_NET_RE.match(text))
-    )
-
-
-def _is_usb_c_part(part: dict) -> bool:
-    text = " ".join(
-        str(part.get(field, "") or "")
-        for field in ("lib", "part", "value", "footprint")
-    )
-    return bool(
-        re.search(
-            r"(USB[_\-\s]?C|TYPE[_\-\s]?C|USB4105|TYPE-C-31)",
-            text,
-            re.IGNORECASE,
-        )
-    )
-
-
-def _net_has_power_pin_for_ref(net: dict, ref: str) -> bool:
-    return any(POWER_PIN_RE.match(pin) for pin in _pin_names_on_net_for_ref(net, ref))
-
-
-def _net_has_ground_pin_for_ref(net: dict, ref: str) -> bool:
-    return any(GROUND_PIN_RE.match(pin) for pin in _pin_names_on_net_for_ref(net, ref))
-
-
-def _is_supply_net_for_ref(net: dict, ref: str) -> bool:
-    name = str(net.get("name", "") or "")
-    if SIGNAL_NET_RE.match(name):
-        return False
-    return _net_has_power_pin_for_ref(net, ref)
 
 
 def _get_power_nets_for_ref(nets: list[dict], ref: str) -> tuple[set[str], set[str]]:
@@ -217,19 +147,11 @@ def _get_power_nets_for_ref(nets: list[dict], ref: str) -> tuple[set[str], set[s
         if not _part_on_net(net, ref):
             continue
         name = net.get("name", "")
-        if _is_ground_net(net) or _net_has_ground_pin_for_ref(net, ref):
+        if _is_ground_net(net):
             ground_nets.add(name)
-        elif _is_supply_net_for_ref(net, ref):
+        elif _is_power_net(net):
             power_nets.add(name)
     return power_nets, ground_nets
-
-
-def _get_named_supply_rails_for_ref(nets: list[dict], ref: str) -> set[str]:
-    return {
-        str(net.get("name", ""))
-        for net in nets
-        if _part_on_net(net, ref) and _is_supply_net_for_ref(net, ref)
-    }
 
 
 def _has_cap_on_net_pair(parts: list[dict], nets: list[dict],
@@ -325,40 +247,6 @@ def _find_ground_net_name(nets: list[dict]) -> str:
     return "GND"
 
 
-def is_power_net_name(name: str) -> bool:
-    """Return True when a net name is conventionally power or ground."""
-    return bool(POWER_NET_RE.match(name or "") or GROUND_NET_RE.match(name or ""))
-
-
-def _keyword_re(keyword: str) -> re.Pattern:
-    kw = keyword.strip().lower()
-    if kw == "battery charg":
-        pattern = r"(?<![a-z0-9])battery\s+charg\w*(?![a-z0-9])"
-    else:
-        pattern = re.escape(kw).replace(r"\ ", r"\s+")
-        pattern = rf"(?<![a-z0-9]){pattern}(?![a-z0-9])"
-    return re.compile(pattern, re.IGNORECASE)
-
-
-def _is_negated_marketing_match(text: str, start: int) -> bool:
-    """Detect local negation like 'no charger' without reading the whole prompt."""
-    window = text[max(0, start - 56):start]
-    window = re.split(r"[.;:\n]", window)[-1]
-    return bool(_NEGATED_MARKETING_RE.search(window))
-
-
-def _matched_marketing_keywords(marketing_text: str, keywords: list[str]) -> list[str]:
-    text = marketing_text.lower()
-    matched: list[str] = []
-    for keyword in keywords:
-        for match in _keyword_re(keyword).finditer(text):
-            if _is_negated_marketing_match(text, match.start()):
-                continue
-            matched.append(keyword)
-            break
-    return matched
-
-
 # ---------------------------------------------------------------------------
 # Individual rules
 # ---------------------------------------------------------------------------
@@ -424,7 +312,12 @@ def _rule_a2_a3_regulator_caps(parts, nets, actions):
 
 def _rule_a4_usb_cc_pulldowns(parts, nets, actions):
     """5.1K pull-downs on USB-C CC1/CC2 pins."""
-    has_usb_c = any(_is_usb_c_part(p) for p in parts)
+    has_usb_c = any(
+        "USB_C" in str(p.get("part", "") or "").upper() or
+        "USB_C" in str(p.get("footprint", "") or "").upper() or
+        "Type-C" in str(p.get("footprint", "") or "")
+        for p in parts
+    )
     if not has_usb_c:
         return
 
@@ -850,52 +743,7 @@ def _load_block_templates() -> list[dict]:
     return templates
 
 
-def _part_net_names(nets: list[dict], ref: str) -> set[str]:
-    names: set[str] = set()
-    for net in nets:
-        if _part_on_net(net, ref):
-            names.add(str(net.get("name", "") or "").upper())
-    return names
-
-
-def _looks_like_connector_part(part: dict) -> bool:
-    text = " ".join(
-        str(part.get(field, "") or "")
-        for field in ("ref", "lib", "part", "value", "footprint")
-    ).upper()
-    return any(
-        hint in text
-        for hint in (
-            "CONN",
-            "CONNECTOR",
-            "HEADER",
-            "JST",
-            "STEMMA",
-            "QWIIC",
-        )
-    )
-
-
-def _has_qwiic_like_i2c_connector(parts: list[dict], nets: list[dict]) -> bool:
-    """Return True when a connector already exposes GND, power, SDA and SCL."""
-    for part in parts:
-        if not _looks_like_connector_part(part):
-            continue
-        net_names = _part_net_names(nets, str(part.get("ref", "") or ""))
-        if not {"SDA", "SCL"}.issubset(net_names):
-            continue
-        has_ground = any(GROUND_NET_RE.match(name) for name in net_names)
-        has_power = any(POWER_NET_RE.match(name) for name in net_names)
-        if has_ground and has_power:
-            return True
-    return False
-
-
-def _block_already_present(
-    template: dict,
-    parts: list[dict],
-    nets: list[dict] | None = None,
-) -> bool:
+def _block_already_present(template: dict, parts: list[dict]) -> bool:
     """Check if the block's key component is already in the spec.
 
     Checks both the detection.ic_present list AND the template's own
@@ -903,15 +751,6 @@ def _block_already_present(
     """
     detection = template.get("detection", {})
     ic_names = detection.get("ic_present", [])
-    tid = template.get("id")
-
-    if tid == "stemma_qt" and nets is not None:
-        if _has_qwiic_like_i2c_connector(parts, nets):
-            return True
-
-    if tid == "usb_c_input":
-        if any(_is_usb_c_part(part) for part in parts):
-            return True
 
     # Check explicit IC names
     for ic_name in ic_names:
@@ -945,7 +784,8 @@ def _block_keywords_match(template: dict, marketing_text: str) -> bool:
     keywords = detection.get("keywords", [])
     if not keywords:
         return False
-    return bool(_matched_marketing_keywords(marketing_text, keywords))
+    text_lower = marketing_text.lower()
+    return any(kw.lower() in text_lower for kw in keywords)
 
 
 def _block_implied_by_spec(template: dict, parts: list[dict], nets: list[dict]) -> bool:
@@ -972,16 +812,16 @@ def _block_implied_by_spec(template: dict, parts: list[dict], nets: list[dict]) 
     tid = template["id"]
 
     if tid == "usb_c_input":
-        return any(
-            re.search(r"(USB[_\-\s]?C|TYPE[_\-\s]?C|USB4105|TYPE-C-31)", s)
-            for s in part_strings
-        )
+        return any("USB_C" in s or "USB-C" in s or "TYPE-C" in s for s in part_strings)
 
     if tid == "lipo_charger":
         charger_hints = ("MCP7383", "BQ2407", "TP4056", "LT3652", "CHARGER", "LIPO")
         has_charger_part = any(any(h in s for h in charger_hints) for s in part_strings)
-        # VBAT is also used for coin cells, RTC backup pins, and battery inputs.
-        # A bare net name is not enough evidence to inject an active charger.
+        coin_cell_hints = ("CR2032", "CR2025", "CR1220", "COIN", "BATTERY_HOLDER",
+                           "BK-912", "BK-916", "KEYSTONE")
+        has_coin_cell = any(any(h in s for h in coin_cell_hints) for s in part_strings)
+        if has_coin_cell:
+            return False
         return has_charger_part
 
     if tid == "stemma_qt":
@@ -1001,17 +841,18 @@ def _block_implied_by_spec(template: dict, parts: list[dict], nets: list[dict]) 
 
 
 def _block_needs_regulator(template: dict, parts: list[dict], nets: list[dict]) -> bool:
-    """Special detection for LDO: require an input rail and a 3V3 output rail."""
+    """Special detection for LDO: only inject if +3V3 net exists but no regulator."""
     if template.get("id") != "ldo_3v3":
         return True
-    net_names = {str(n.get("name", "") or "").upper() for n in nets}
-    has_3v3 = any(name in {"+3V3", "3V3", "+3.3V", "3.3V"} for name in net_names)
-    has_input_rail = any(name in {"VIN", "VBUS", "VUSB", "+5V", "5V"} for name in net_names)
+    has_3v3 = any(
+        n.get("name", "") in ("+3V3", "3V3", "+3.3V")
+        for n in nets
+    )
     has_regulator = any(
         "Regulator" in str(p.get("lib", "") or "")
         for p in parts
     )
-    return has_3v3 and has_input_rail and not has_regulator
+    return has_3v3 and not has_regulator
 
 
 def enrich_blocks(
@@ -1057,7 +898,7 @@ def enrich_blocks(
         from_spec = _block_implied_by_spec(template, parts, nets)
         if not from_keywords and not from_spec:
             continue
-        if _block_already_present(template, parts, nets):
+        if _block_already_present(template, parts):
             continue
         if not _block_needs_regulator(template, parts, nets):
             continue
@@ -1121,6 +962,24 @@ def enrich_blocks(
                     f"Parts: {', '.join(added_parts)}",
         ))
 
+    # Advisory: VBAT net present but no charger injected or found — ask agent
+    net_names_upper = {n.get("name", "").upper() for n in nets}
+    if "VBAT" in net_names_upper:
+        charger_hints = ("MCP7383", "BQ2407", "TP4056", "LT3652", "CHARGER")
+        part_strs = {str(p.get(f, "") or "").upper() for p in parts for f in ("part", "value", "lib")}
+        has_charger = any(any(h in s for h in charger_hints) for s in part_strs)
+        injected_charger = any(a.rule == "BLOCK:lipo_charger" for a in actions)
+        if not has_charger and not injected_charger:
+            actions.append(EnrichmentAction(
+                rule="ADVISORY:vbat_charging",
+                category="advisory",
+                description="VBAT net detected — does this board need LiPo charging?",
+                message="Your design has a VBAT net but no charging circuit. "
+                        "If this is a rechargeable battery board, consider adding a "
+                        "charger IC (MCP73831, BQ24074, TP4056). If VBAT is for a "
+                        "coin cell or non-rechargeable source, no action needed.",
+            ))
+
     spec["parts"] = parts
     spec["nets"] = nets
     return spec, [a.to_dict() for a in actions]
@@ -1158,7 +1017,8 @@ def _design_review_bulk_caps(parts, nets, exceptions, eid_counter):
         ref = p.get("ref", "")
         if _is_passive(ref):
             continue
-        ic_power_nets.update(_get_named_supply_rails_for_ref(nets, ref))
+        power_nets, _ = _get_power_nets_for_ref(nets, ref)
+        ic_power_nets.update(power_nets)
 
     for pn in sorted(ic_power_nets):
         if _has_cap_on_net_pair(parts, nets, pn, gnd_name, BULK_CAP_RE):
@@ -1199,41 +1059,17 @@ def _design_review_bulk_caps(parts, nets, exceptions, eid_counter):
         ))
 
 
-ONBOARD_CONNECTOR_MODULE_RE = re.compile(
-    r"(raspberry\s*pi\s*pico|raspberrypi_pico|rp2040[-_ ]?zero|"
-    r"\bpico\b|esp32.*(dev|kit|module)|devkit|feather|itsybitsy|"
-    r"teensy|arduino|daisy[_ ]?seed|xiao|qt[_ ]?py)",
-    re.IGNORECASE,
-)
-
-
-def _is_user_connection_part(part: dict) -> bool:
-    ref = str(part.get("ref", "") or "")
-    lib = str(part.get("lib", "") or "")
-    name = str(part.get("part", "") or "")
-    value = str(part.get("value", "") or "")
-    footprint = str(part.get("footprint", "") or "")
-    haystack = " ".join((lib, name, value, footprint))
-
-    if ref.startswith("J") or "Connector" in lib:
-        return True
-    if re.search(
-        r"(Connector|PinHeader|Socket|Terminal|USB|JST|Qwiic|STEMMA|"
-        r"Barrel|Jack|AudioJack)",
-        footprint,
-        re.IGNORECASE,
-    ):
-        return True
-    return bool(ONBOARD_CONNECTOR_MODULE_RE.search(haystack))
-
-
 def _design_review_connectors(parts, exceptions, eid_counter):
     """Board must have at least one connector."""
     from schemas.exceptions import (
         Candidate, DesignException, ExcCode, Severity, ActionType,
     )
 
-    has_connector = any(_is_user_connection_part(p) for p in parts)
+    has_connector = any(
+        p.get("ref", "").startswith("J") or
+        "Connector" in str(p.get("lib", "") or "")
+        for p in parts
+    )
     if has_connector:
         return
     eid_counter[0] += 1
@@ -1315,57 +1151,6 @@ def _design_review_power_rails(parts, nets, exceptions, eid_counter):
             ))
 
 
-def _design_review_vbat_intent(parts, nets, exceptions, eid_counter):
-    """VBAT deserves intent review, but must not imply a LiPo charger.
-
-    The same net name is used for rechargeable LiPo inputs, coin-cell RTC
-    backup, and non-rechargeable battery headers. Product-facing agents should
-    see the ambiguity without the engine inventing a charging circuit.
-    """
-    from schemas.exceptions import (
-        Candidate, DesignException, ExcCode, Severity, ActionType,
-    )
-
-    has_vbat = any(str(n.get("name", "")).upper() == "VBAT" for n in nets)
-    if not has_vbat:
-        return
-
-    part_text = " ".join(
-        str(p.get(field, "") or "").upper()
-        for p in parts
-        for field in ("ref", "lib", "part", "value", "footprint")
-    )
-    charger_hints = ("MCP7383", "BQ2407", "TP4056", "LT3652", "CHARGER", "LIPO")
-    coin_cell_hints = ("CR2032", "CR1220", "COIN", "BATTERY_HOLDER", "BATTERYHOLDER")
-    if any(h in part_text for h in charger_hints):
-        return
-    if any(h in part_text for h in coin_cell_hints):
-        return
-
-    eid_counter[0] += 1
-    exceptions.append(DesignException(
-        id=f"e-design-{eid_counter[0]}",
-        code=ExcCode.DESIGN_MISSING_FEATURE,
-        severity=Severity.ADVISORY,
-        message=(
-            "VBAT net present with no obvious charger or coin-cell holder. "
-            "If this is a rechargeable battery board, consider adding a charger "
-            "IC such as MCP73831, BQ24074, or TP4056; otherwise accept this "
-            "advisory."
-        ),
-        subject={"net": "VBAT", "feature": "battery_source_intent"},
-        candidates=[
-            Candidate(
-                id="c1",
-                action=ActionType.ACCEPT_ADVISORY,
-                params={},
-                human_summary="Accept — VBAT is a non-rechargeable or externally managed battery source",
-                confidence=0.6,
-            ),
-        ],
-    ))
-
-
 def design_review_exceptions(
     spec_dict: dict,
     marketing_text: str = "",
@@ -1384,7 +1169,6 @@ def design_review_exceptions(
     _design_review_bulk_caps(parts, nets, exceptions, eid_counter)
     _design_review_connectors(parts, exceptions, eid_counter)
     _design_review_power_rails(parts, nets, exceptions, eid_counter)
-    _design_review_vbat_intent(parts, nets, exceptions, eid_counter)
 
     if marketing_text:
         _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counter)
@@ -1398,22 +1182,10 @@ def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counte
         Candidate, DesignException, ExcCode, Severity, ActionType,
     )
 
-    def has_i2c_interface() -> bool:
-        net_names = [str(n.get("name", "") or "") for n in nets]
-        has_sda = any(re.search(r"(?:^|[_./-])SDA\d*$", name, re.I) for name in net_names)
-        has_scl = any(re.search(r"(?:^|[_./-])SCL\d*$", name, re.I) for name in net_names)
-        if has_sda and has_scl:
-            return True
-        return any(
-            "JST_SH" in str(p.get("footprint", "") or "")
-            or "STEMMA" in str(p.get("value", "") or "").upper()
-            or "QWIIC" in str(p.get("value", "") or "").upper()
-            for p in parts
-        )
-
+    marketing = marketing_text.lower()
     checks = [
         (["i2c", "i²c"], "I2C interface",
-         has_i2c_interface),
+         lambda: any(I2C_NET_RE.match(n.get("name", "")) for n in nets)),
         (["spi"], "SPI interface",
          lambda: any(n.get("name", "").upper() in {"MOSI", "MISO", "SCK", "SCLK", "SDI", "SDO", "COPI", "CIPO"} for n in nets)),
         (["lipo", "lipoly", "battery charg", "rechargeable"], "Battery/LiPo charger",
@@ -1421,7 +1193,7 @@ def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counte
              any(kw in str(p.get(f, "") or "").lower() for kw in ("mcp73831", "bq24", "tp4056", "battery_management"))
              for p in parts for f in ("part", "lib", "value"))),
         (["usb-c", "usb c", "type-c"], "USB-C connector",
-         lambda: any(_is_usb_c_part(p) for p in parts)),
+         lambda: any("USB_C" in str(p.get("part", "") or "").upper() or "USB_C" in str(p.get("footprint", "") or "").upper() for p in parts)),
         (["neopixel", "ws2812"], "NeoPixel/addressable LED",
          lambda: any("WS2812" in str(p.get("part", "") or "").upper() for p in parts)),
         (["stemma", "qwiic"], "STEMMA QT/Qwiic connector",
@@ -1433,8 +1205,7 @@ def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counte
     ]
 
     for keywords, feature_name, present_fn in checks:
-        matched_keywords = _matched_marketing_keywords(marketing_text, keywords)
-        if not matched_keywords:
+        if not any(kw in marketing for kw in keywords):
             continue
         if present_fn():
             continue
@@ -1444,7 +1215,7 @@ def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counte
             code=ExcCode.DESIGN_MISSING_FEATURE,
             severity=Severity.ADVISORY,
             message=f"Marketing mentions {feature_name} but not found in spec",
-            subject={"feature": feature_name, "keywords_matched": matched_keywords},
+            subject={"feature": feature_name, "keywords_matched": [kw for kw in keywords if kw in marketing]},
             candidates=[
                 Candidate(
                     id="c1",
