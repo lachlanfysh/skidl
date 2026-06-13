@@ -21,35 +21,6 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 - **Build the package**: `python setup.py sdist`
 - **Clean build artifacts**: `rm dist/*`
 
-## Codex Sub-Agent Orchestration Memory
-
-When Lachlan asks to run Mini sub-agents against this MCP, use Codex
-sub-agents directly. Spawn `gpt-5.4-mini` workers and have them call the hosted
-MCP themselves via direct JSON-RPC or a tiny local helper script that only
-handles transport.
-Use `python -m corpus.mcp_direct ...` for this transport when available.
-
-Do not point those Codex sub-agents at `corpus/mcp_ux_probe.py` for normal Mini
-sub-agent test rounds. That harness is an OpenRouter model-in-the-loop UX probe:
-it is useful for testing MCP discoverability by external models, but it changes
-the actor under test and can fail on OpenRouter credits. It is not equivalent to
-"Codex Mini sub-agents using the MCP".
-
-For hosted MCP rounds:
-- Use `https://mcp-server-production-5d58.up.railway.app/mcp`.
-- Load `EDA_AUTH_TOKEN` from this repo's `.env`; never print the token.
-- Forbid local generation/layout/routing fallback.
-- Ask agents to call `submit_skidl_code`, poll `get_job` until terminal, then
-  call `get_run` when a `run_id` exists.
-- Handy examples:
-  - `python -m corpus.mcp_direct tools`
-  - `python -m corpus.mcp_direct call search_kicad '{"query":"MCP9808"}'`
-  - `python -m corpus.mcp_direct call submit_skidl_code @/tmp/submit_args.json`
-  - `python -m corpus.mcp_direct call get_job '{"job_id":"..."}'`
-- Have agents report `job_id`, `run_id`, terminal status/stage,
-  manufacturable/routed state, artifact or preview paths, and concise placement
-  or tool-feedback observations.
-
 ## Project Architecture
 SKiDL acts as an infrastructure-as-code tool for circuit design, converting Python-based
 circuit descriptions into netlists for PCB layout tools (primarily KiCad).
@@ -398,3 +369,13 @@ zone.SetLayer(board.GetLayerID('In1.Cu'))
 - **DRC JSON is the feedback signal.** `unconnected_items[].items[].description` contains `[NetName]` and `pos.x/y` — extract both to map failures to physical locations.
 - **kicad-cli has NO specctra export** — must use pcbnew Python API (`ExportSpecctraDSN` / `ImportSpecctraSES`).
 - **Typical timing:** Simple boards (<50 parts): 5-30s. Dense boards (70+ parts, constrained outline): 2-10 min per iteration.
+
+## Local Codex Memory
+
+Claude project memory exists for this project and is reused in place:
+
+`~/.codex/claude-projects/-home-lachlan-Projects-skidl/memory`
+
+Before substantial work, read `MEMORY.md` in that directory and then only the
+specific referenced memory files relevant to the task. Do not print or copy
+secret values; reuse project-local ignored config through normal scripts.
