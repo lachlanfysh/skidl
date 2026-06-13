@@ -360,6 +360,38 @@ class TestHelpfulFailures:
         assert exc.subject["library"] == "Display_Character"
         assert "exact returned library and part names" in exc.retry_hint
 
+    def test_missing_symbol_part_error_suggests_close_search_matches(self, monkeypatch):
+        from llm import kicad_index
+        from llm.kicad_index import SymbolEntry
+
+        monkeypatch.setattr(
+            kicad_index,
+            "search_symbols",
+            lambda query, limit=5: [
+                SymbolEntry(
+                    lib="Device",
+                    name="R_Potentiometer",
+                    description="Potentiometer",
+                    pin_count=3,
+                )
+            ]
+            if "Potentiometer" in query
+            else [],
+        )
+
+        class FakeExecError:
+            original = ValueError("Unable to find part Potentiometer in library Device.")
+            line = 29
+            line_text = 'pot1 = Part("Device", "Potentiometer")'
+            namespace = {}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.subject["suggested_parts"][0]["library"] == "Device"
+        assert exc.subject["suggested_parts"][0]["part"] == "R_Potentiometer"
+        assert 'Part("Device", "R_Potentiometer"' in exc.subject["suggested_parts"][0]["usage"]
+        assert "subject.suggested_parts" in exc.retry_hint
+
     def test_switched_audio_jack_pin_error_explains_pin_family(self):
         jack = SimpleNamespace(
             ref="J1",

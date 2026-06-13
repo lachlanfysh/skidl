@@ -303,6 +303,49 @@ def _symbol_audio_connector_boost(query_lower: str, entry: SymbolEntry) -> float
     return score
 
 
+def _is_plain_switch_query(query_lower: str) -> bool:
+    """True for user controls/switches, not switched jacks or connectors."""
+    if any(term in query_lower for term in ("jack", "audio", "trs", "trrs", "barrel", "din")):
+        return False
+    return any(
+        term in query_lower
+        for term in (
+            "switch",
+            "pushbutton",
+            "push button",
+            "button",
+            "key switch",
+            "keyboard",
+            "cherry mx",
+            "tactile",
+            "reed",
+        )
+    )
+
+
+def _symbol_switch_boost(query_lower: str, entry: SymbolEntry) -> float:
+    """Prefer the Switch library for mechanical/user switch queries."""
+    if not _is_plain_switch_query(query_lower):
+        return 0.0
+
+    combined = f"{entry.lib} {entry.name} {entry.description} {entry.keywords}".lower()
+    if entry.lib == "Switch":
+        score = 8.0
+        if any(term in query_lower for term in ("keyboard", "cherry mx", "key switch")):
+            if "sw_push" in combined or "push" in combined:
+                score += 5.0
+        if any(term in query_lower for term in ("tactile", "pushbutton", "push button", "button")):
+            if "push" in combined:
+                score += 4.0
+        if "reed" in query_lower and "reed" in combined:
+            score += 5.0
+        return score
+
+    if entry.lib.startswith("Connector"):
+        return -8.0
+    return 0.0
+
+
 def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
     """Fuzzy search across all symbol libraries."""
     index = get_index()
@@ -330,6 +373,7 @@ def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
             score += _symbol_connector_boost(query_lower, query_token_set, entry)
             score += _symbol_din_connector_boost(query_lower, entry)
             score += _symbol_audio_connector_boost(query_lower, entry)
+            score += _symbol_switch_boost(query_lower, entry)
             if score > 0:
                 scored.append((score, entry))
 

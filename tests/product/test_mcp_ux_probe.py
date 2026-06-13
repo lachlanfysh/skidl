@@ -81,7 +81,9 @@ def test_result_summary_keeps_manufacturing_and_exception_signal():
         "run_id": "run-1",
         "status": "failed",
         "ok": False,
+        "stage": "layout_write",
         "metrics": {"manufacturable": False, "manufacturing_complete": False},
+        "exception_codes": ["FOOTPRINT_MISSING", "LAYOUT_OVERLAP", "HIGH_CONGESTION"],
         "exceptions": [{"code": "LAYOUT_OVERLAP"}, {"code": "DRC_CLEARANCE"}],
     })
 
@@ -89,9 +91,10 @@ def test_result_summary_keeps_manufacturing_and_exception_signal():
         "run_id": "run-1",
         "status": "failed",
         "ok": False,
+        "stage": "layout_write",
         "manufacturable": False,
         "manufacturing_complete": False,
-        "exception_codes": ["LAYOUT_OVERLAP", "DRC_CLEARANCE"],
+        "exception_codes": ["FOOTPRINT_MISSING", "LAYOUT_OVERLAP", "HIGH_CONGESTION"],
     }
 
 

@@ -326,17 +326,21 @@ def _result_summary(result: dict | None) -> dict:
         return {}
     exceptions = result.get("exceptions") or []
     metrics = result.get("metrics") or {}
+    exception_codes = result.get("exception_codes")
+    if not isinstance(exception_codes, list):
+        exception_codes = [
+            exc.get("code")
+            for exc in exceptions
+            if isinstance(exc, dict) and exc.get("code")
+        ]
     return {
         "run_id": result.get("run_id"),
         "status": result.get("status"),
         "ok": result.get("ok"),
+        "stage": result.get("stage"),
         "manufacturable": metrics.get("manufacturable"),
         "manufacturing_complete": metrics.get("manufacturing_complete"),
-        "exception_codes": [
-            exc.get("code")
-            for exc in exceptions
-            if isinstance(exc, dict) and exc.get("code")
-        ],
+        "exception_codes": exception_codes,
     }
 
 

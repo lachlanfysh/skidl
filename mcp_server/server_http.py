@@ -1424,6 +1424,8 @@ Common libraries — use search_kicad() for anything not listed here:
 | Category | Library name | Example parts |
 |----------|-------------|---------------|
 | Passives | `Device` | R, C, C_Polarized, L, LED, D_Schottky |
+| Controls | `Device` | R_Potentiometer, R_Potentiometer_Dual |
+| Switches | `Switch` | SW_Push, SW_Reed, SW_SPST |
 | Sensors | `Sensor_Temperature` | BME280, TMP117, MCP9808, LM75 |
 | Sensors | `Sensor_Humidity` | BME280, SHT3x, HDC1080 |
 | ADCs | `Analog_ADC` | ADS1115, MCP3008, ADS1015 |

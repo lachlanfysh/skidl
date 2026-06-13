@@ -1234,6 +1234,44 @@ def _connector_pin_family_hint(part_name: str, pin_name: str, available: list[st
     return ""
 
 
+def _symbol_part_suggestions(part_name: str, library: str = "", limit: int = 5) -> list[dict]:
+    """Return exact Part() usages for a missing symbol part name."""
+    try:
+        from llm.kicad_index import search_symbols
+    except Exception:
+        return []
+
+    queries = [part_name]
+    if library:
+        queries.append(f"{library} {part_name}")
+    suggestions: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for query in queries:
+        try:
+            matches = search_symbols(query, limit=limit)
+        except Exception:
+            continue
+        for sym in matches:
+            key = (sym.lib, sym.name)
+            if key in seen:
+                continue
+            seen.add(key)
+            usage = (
+                f'Part("{sym.lib}", "{sym.name}", footprint="{sym.footprint}")'
+                if sym.footprint
+                else f'Part("{sym.lib}", "{sym.name}", footprint="...")'
+            )
+            suggestions.append({
+                "library": sym.lib,
+                "part": sym.name,
+                "description": sym.description,
+                "usage": usage,
+            })
+            if len(suggestions) >= limit:
+                return suggestions
+    return suggestions
+
+
 def _code_exception(
     message: str,
     hint: str = "",
@@ -1311,13 +1349,27 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
         lib = missing_part.group(2).rstrip(".")
         subject["missing_part"] = part_name
         subject["library"] = lib
-        return _code_exception(
-            f"part {part_name!r} was not found in symbol library {lib!r}",
-            (
+        suggestions = _symbol_part_suggestions(part_name, lib)
+        if suggestions:
+            subject["suggested_parts"] = suggestions
+            suggested = ", ".join(
+                f"{s['library']}:{s['part']}" for s in suggestions[:3]
+            )
+            hint = (
+                "Use one of subject.suggested_parts exactly, or call "
+                "search_kicad(part_name, detail=true), then update the SKiDL "
+                "code to use the exact returned library and part names before "
+                f"resubmitting. Likely matches: {suggested}."
+            )
+        else:
+            hint = (
                 "Call search_kicad(part_name, detail=true) or search by function, "
                 "then update the SKiDL code to use the exact returned library and "
                 "part names before resubmitting."
-            ),
+            )
+        return _code_exception(
+            f"part {part_name!r} was not found in symbol library {lib!r}",
+            hint,
             subject=subject,
         )
 

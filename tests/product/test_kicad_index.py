@@ -69,6 +69,22 @@ def _fake_symbols(monkeypatch):
                     pin_count=13,
                 ),
             ],
+            "Switch": [
+                SymbolEntry(
+                    lib="Switch",
+                    name="SW_Push",
+                    description="Push button switch, generic, two pins",
+                    keywords="switch push button keyboard key",
+                    pin_count=2,
+                ),
+                SymbolEntry(
+                    lib="Switch",
+                    name="SW_Reed",
+                    description="Reed switch",
+                    keywords="switch reed magnetic",
+                    pin_count=2,
+                ),
+            ],
         },
     )
 
@@ -151,6 +167,15 @@ def test_search_symbols_prefers_din_symbol_for_midi_din(monkeypatch):
 
     assert matches[0].lib == "Connector"
     assert matches[0].name == "DIN-5"
+
+
+def test_search_symbols_prefers_switch_library_for_keyboard_switch(monkeypatch):
+    _fake_symbols(monkeypatch)
+
+    matches = kicad_index.search_symbols("mechanical keyboard switch", limit=3)
+
+    assert matches[0].lib == "Switch"
+    assert matches[0].name == "SW_Push"
 
 
 def test_search_footprints_filters_din41612_for_midi_din(monkeypatch):
