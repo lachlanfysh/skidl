@@ -404,6 +404,17 @@ def main() -> int:
                     continue
                 final_report = f"(OpenRouter HTTP {code}: {detail})"
                 break
+            except json.JSONDecodeError as exc:
+                detail = resp.text[:300].replace("\n", "\\n") if "resp" in locals() else ""
+                print(
+                    (
+                        f"[{turn:02d}] OpenRouter JSON decode error "
+                        f"(attempt {attempt+1}): {exc}; body={detail}"
+                    ),
+                    flush=True,
+                )
+                time.sleep(5 * (attempt + 1))
+                continue
             except httpx.HTTPError as exc:
                 print(f"[{turn:02d}] HTTP error (attempt {attempt+1}): {exc}", flush=True)
                 time.sleep(5 * (attempt + 1))

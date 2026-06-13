@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from io import StringIO
 
+from corpus import mcp_ux_probe
 from corpus.mcp_ux_probe import (
     _extract_mcp_result,
     _final_report_block_reason,
@@ -106,3 +107,59 @@ def test_harvest_outstanding_jobs_polls_terminal_and_fetches_artifacts(tmp_path)
     assert (tmp_path / "board.kicad_pcb").exists()
     assert ("get_run", {"run_id": "run-1"}) in mcp.calls
     assert "post_cap get_job" in call_log.getvalue()
+
+
+def test_main_summarizes_openrouter_malformed_json(tmp_path, monkeypatch):
+    class FakeMCP:
+        def __init__(self, url, token):
+            pass
+
+        def connect(self):
+            return {"instructions": "test instructions"}
+
+        def list_tools(self):
+            return []
+
+        def list_resources(self):
+            return []
+
+    class BadJSONResponse:
+        text = "<html>not json</html>"
+        content = text.encode()
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            raise json.JSONDecodeError("Expecting value", self.text, 0)
+
+    class FakeHTTP:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        def post(self, *args, **kwargs):
+            return BadJSONResponse()
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(mcp_ux_probe, "MCPClient", FakeMCP)
+    monkeypatch.setattr(mcp_ux_probe.httpx, "Client", FakeHTTP)
+    monkeypatch.setattr(mcp_ux_probe.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        mcp_ux_probe.sys,
+        "argv",
+        [
+            "mcp_ux_probe",
+            "--server",
+            "https://example.invalid/mcp",
+            "--token",
+            "test-token",
+            "--out",
+            str(tmp_path),
+        ],
+    )
+
+    assert mcp_ux_probe.main() == 0
+    summary = json.loads((tmp_path / "summary.json").read_text())
+
+    assert summary["finished_with_report"] is False
+    assert "OpenRouter unreachable after 3 retries" in summary["final_report"]
