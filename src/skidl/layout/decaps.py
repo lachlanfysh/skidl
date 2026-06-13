@@ -288,12 +288,18 @@ def _placement_target(
     parent: PlacedPart,
     cap_width: float,
     cap_height: float,
+    parent_geometry: FootprintGeometry | None = None,
 ) -> tuple[float, float] | None:
     target = _average_xy(_target_points(intent))
     if target is None:
         return None
-    dx = target[0] - parent.x_mm
-    dy = target[1] - parent.y_mm
+    parent_x, parent_y = parent.x_mm, parent.y_mm
+    if parent_geometry is not None:
+        x_min, y_min, x_max, y_max = parent_geometry.transformed_bounds(parent)
+        parent_x = (x_min + x_max) / 2
+        parent_y = (y_min + y_max) / 2
+    dx = target[0] - parent_x
+    dy = target[1] - parent_y
     magnitude = math.hypot(dx, dy)
     if magnitude < 1e-6:
         dx, dy, magnitude = 1.0, 0.0, 1.0
@@ -373,11 +379,24 @@ def _occupied_without(
     circuit,
     fp_bboxes: dict,
     keepouts,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
 ) -> list[tuple[float, float, float, float]]:
     part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
     occupied = _occupied_from_keepouts(keepouts)
     for ref, placed in placed_by_ref.items():
         if ref == skip_ref:
+            continue
+        geometry = (fp_geometries or {}).get(placed.footprint)
+        if geometry is not None:
+            x_min, y_min, x_max, y_max = geometry.transformed_bounds(placed)
+            occupied.append(
+                (
+                    (x_min + x_max) / 2,
+                    (y_min + y_max) / 2,
+                    x_max - x_min,
+                    y_max - y_min,
+                )
+            )
             continue
         part = part_by_ref.get(ref)
         if part is not None:
@@ -419,7 +438,14 @@ def refine_decaps(
             continue
 
         width, height = _bbox(cap_part, fp_bboxes)
-        target = _placement_target(intent, parent_placed, width, height)
+        parent_geometry = fp_geometries.get(parent_placed.footprint)
+        target = _placement_target(
+            intent,
+            parent_placed,
+            width,
+            height,
+            parent_geometry,
+        )
         if target is None:
             continue
 
@@ -432,6 +458,7 @@ def refine_decaps(
             circuit,
             fp_bboxes,
             constraints.keepouts if constraints is not None else None,
+            fp_geometries,
         )
         x, y = _find_clear_position(
             target_x,

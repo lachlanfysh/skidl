@@ -125,6 +125,46 @@ def test_refine_decaps_moves_cap_to_actual_pad_side_and_rotates_it():
     assert "actual U1 VDD/GND pads" in result.ref_reasons["C1"][0]
 
 
+def test_refine_decaps_avoids_parent_with_off_center_origin():
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    parent = _Part(
+        "U1",
+        footprint="Pkg:OffCenterIC",
+        pins=[("1", vdd), ("2", gnd)],
+        name="MCU",
+    )
+    cap = _Part("C1", value="100nF", footprint="Pkg:Cap", pins=[("1", vdd), ("2", gnd)])
+    circuit = _Circuit([parent, cap], [vdd, gnd])
+    geometries = {
+        "Pkg:OffCenterIC": FootprintGeometry(
+            footprint="Pkg:OffCenterIC",
+            pads=[
+                PadGeometry("1", 0.5, 5.0, 0.6, 0.6),
+                PadGeometry("2", 0.5, 6.0, 0.6, 0.6),
+            ],
+            body_bounds=(0.0, 0.0, 10.0, 10.0),
+        ),
+        **_basic_geometries(),
+    }
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Pkg:OffCenterIC"),
+        PlacedPart("C1", 20.0, 32.0, 0.0, "Pkg:Cap"),
+    ]
+
+    result = refine_decaps(
+        placed,
+        circuit,
+        geometries,
+        {"Pkg:OffCenterIC": (10.0, 10.0), "Pkg:Cap": (2.0, 1.2)},
+    )
+    refined = {part.ref: part for part in result.placed_parts}
+    parent_bounds = geometries["Pkg:OffCenterIC"].transformed_bounds(refined["U1"])
+    cap_bounds = geometries["Pkg:Cap"].transformed_bounds(refined["C1"])
+
+    assert cap_bounds[2] <= parent_bounds[0] or cap_bounds[0] >= parent_bounds[2]
+
+
 def test_multiple_decaps_distribute_across_parent_power_pads():
     vdd = _Net("VDD")
     gnd = _Net("GND")
