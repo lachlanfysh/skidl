@@ -176,6 +176,17 @@ def _search_tokens(text: str) -> list[str]:
     return expanded
 
 
+def _is_round_din_text(query_lower: str) -> bool:
+    """True for circular DIN/MIDI connector text, not DIN41612 backplanes."""
+    if "din41612" in query_lower:
+        return False
+    if re.search(r"\bdin[-_\s]*(?:[3-8]|[3-8][-_ ]?pin|pin)\b", query_lower):
+        return True
+    return "din" in query_lower and any(
+        term in query_lower for term in ("midi", "connector", "jack", "socket", "5-pin", "5 pin")
+    )
+
+
 def _symbol_connector_boost(query_lower: str, query_tokens: set[str], entry: SymbolEntry) -> float:
     """Boost common connector aliases that KiCad stores in generic libraries."""
     name_lower = entry.name.lower()
@@ -204,9 +215,38 @@ def _symbol_connector_boost(query_lower: str, query_tokens: set[str], entry: Sym
     return score
 
 
+def _symbol_din_connector_boost(query_lower: str, entry: SymbolEntry) -> float:
+    """Boost circular DIN connector symbols without conflating DIN41612."""
+    if not _is_round_din_text(query_lower) or entry.lib != "Connector":
+        return 0.0
+
+    name_lower = entry.name.lower()
+    if not name_lower.startswith("din-"):
+        return 0.0
+
+    score = 8.0
+    requested_pin_count = None
+    match = re.search(r"\bdin[-_\s]*([3-8])\b|\b([3-8])[-_\s]*pin\b", query_lower)
+    if match:
+        requested_pin_count = next(group for group in match.groups() if group)
+    if requested_pin_count:
+        if f"din-{requested_pin_count}" in name_lower:
+            score += 10.0
+        else:
+            score -= 3.0
+    if "180" in query_lower and "180" in name_lower:
+        score += 2.0
+    return score
+
+
 def _symbol_audio_connector_boost(query_lower: str, entry: SymbolEntry) -> float:
     """Bias audio/control jack symbol search toward the requested contact style."""
     if entry.lib != "Connector_Audio":
+        return 0.0
+
+    if _is_round_din_text(query_lower) and not any(
+        term in query_lower for term in ("trs", "trrs", "3.5", "audio", "stereo", "mono")
+    ):
         return 0.0
 
     name_lower = entry.name.lower()
@@ -288,6 +328,7 @@ def search_symbols(query: str, limit: int = 10) -> list[SymbolEntry]:
                 elif part in lib_tokens:
                     score += 0.5
             score += _symbol_connector_boost(query_lower, query_token_set, entry)
+            score += _symbol_din_connector_boost(query_lower, entry)
             score += _symbol_audio_connector_boost(query_lower, entry)
             if score > 0:
                 scored.append((score, entry))
@@ -317,16 +358,7 @@ def _fp_tokens(text: str) -> list[str]:
 
 
 def _is_round_din_query(query_lower: str) -> bool:
-    """True for circular DIN/MIDI connector queries, not DIN41612 backplanes."""
-    if "din41612" in query_lower:
-        return False
-    if "midi" in query_lower:
-        return True
-    if re.search(r"\bdin[-_\s]*(?:[3-8]|[3-8][-_ ]?pin|pin)\b", query_lower):
-        return True
-    return "din" in query_lower and any(
-        term in query_lower for term in ("connector", "jack", "socket", "5-pin", "5 pin")
-    )
+    return _is_round_din_text(query_lower)
 
 
 def _is_round_din_footprint(fp_lower: str) -> bool:

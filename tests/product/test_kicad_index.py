@@ -14,6 +14,20 @@ def _fake_symbols(monkeypatch):
             "Connector": [
                 SymbolEntry(
                     lib="Connector",
+                    name="DIN-3",
+                    description="3-pin DIN connector",
+                    keywords="din connector",
+                    pin_count=3,
+                ),
+                SymbolEntry(
+                    lib="Connector",
+                    name="DIN-5",
+                    description="5-pin DIN connector",
+                    keywords="din midi connector",
+                    pin_count=5,
+                ),
+                SymbolEntry(
+                    lib="Connector",
                     name="USB_C_Receptacle_USB2.0_16P",
                     description="USB Type-C receptacle USB2.0",
                     keywords="usb universal serial bus type-C USB2.0",
@@ -128,6 +142,15 @@ def test_search_symbols_prefers_switched_audio_jack_when_requested(monkeypatch):
 
     assert matches[0].lib == "Connector_Audio"
     assert matches[0].name == "AudioJack3_Dual_Ground_Switch"
+
+
+def test_search_symbols_prefers_din_symbol_for_midi_din(monkeypatch):
+    _fake_symbols(monkeypatch)
+
+    matches = kicad_index.search_symbols("5-pin DIN MIDI jack footprint", limit=3)
+
+    assert matches[0].lib == "Connector"
+    assert matches[0].name == "DIN-5"
 
 
 def test_search_footprints_filters_din41612_for_midi_din(monkeypatch):
