@@ -652,9 +652,10 @@ class TestAuthMiddleware:
     def test_signup_page_is_public(self, client):
         resp = client.get("/signup")
         assert resp.status_code == 200
-        assert "EDA-MCP" in resp.text
-        assert "Open beta" in resp.text
-        assert "Request beta access" in resp.text
+        assert "eda mcp" in resp.text
+        assert "open beta" in resp.text
+        assert "request beta access" in resp.text
+        assert "KiCad generated PCB render" in resp.text
 
     def test_signup_submit_validates_email(self, client):
         resp = client.post(

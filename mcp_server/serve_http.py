@@ -20,6 +20,7 @@ import re
 import secrets
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from urllib.parse import parse_qs
 from urllib import request as urlrequest
 from urllib.error import URLError
@@ -52,7 +53,24 @@ ADMIN_COOKIE = "eda_admin"
 MAX_SIGNUP_BODY_BYTES = 20_000
 _SIGNUP_ATTEMPTS: dict[str, list[float]] = {}
 _ADMIN_LOGIN_ATTEMPTS: dict[str, list[float]] = {}
+ASSETS_DIR = Path(__file__).with_name("assets")
 logger = logging.getLogger("eda-mcp.http")
+
+
+def _signup_board_svg() -> str:
+    """Inline a small KiCad-generated board render for the public signup page."""
+    try:
+        svg = (ASSETS_DIR / "signup-board.svg").read_text(encoding="utf-8")
+    except OSError:
+        return '<div class="board-fallback">pcb preview</div>'
+    start = svg.find("<svg")
+    if start >= 0:
+        svg = svg[start:]
+    return svg.replace(
+        "<svg",
+        '<svg class="board-svg" role="img" aria-label="KiCad generated PCB render"',
+        1,
+    )
 
 
 def _env_first(*names: str) -> str:
@@ -382,142 +400,184 @@ def _signup_html(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>EDA-MCP Open Beta</title>
+  <title>eda mcp open beta</title>
   <style>
     :root {{
       color-scheme: light;
-      --ink: #191917;
-      --muted: #69665f;
-      --line: #1f1f1b;
-      --hairline: rgba(31, 31, 27, .18);
-      --paper: #e8e5dc;
-      --panel: #efede6;
-      --field: #f8f7f1;
-      --accent: #e94f37;
-      --accent-dark: #191917;
-      --warn: #8f260f;
-      --warn-bg: #f3dfd8;
-      --ok: #1d5635;
-      --ok-bg: #dfeadf;
+      --ink: #0f0e12;
+      --paper: #eee8df;
+      --panel: #fffaf3;
+      --field: #ddd6cc;
+      --line: #cfc5b8;
+      --muted: #767676;
+      --blue: #0071bb;
+      --terra: #b9654c;
+      --terra-soft: #d7a08d;
+      --warn: #c0262c;
+      --ok: #006837;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 300;
       color: var(--ink);
-      background:
-        linear-gradient(90deg, var(--hairline) 1px, transparent 1px),
-        linear-gradient(var(--hairline) 1px, transparent 1px),
-        var(--paper);
-      background-size: 22px 22px;
-      line-height: 1.35;
+      background: var(--paper);
+      line-height: 1.42;
+      -webkit-font-smoothing: antialiased;
     }}
+    a {{ color: inherit; text-decoration: none; }}
+    header {{
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 2;
+      height: 64px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      color: var(--ink);
+      background: rgba(245, 245, 245, .86);
+      backdrop-filter: blur(12px);
+    }}
+    .brand, nav {{
+      font-size: 13px;
+      line-height: 1;
+      text-transform: lowercase;
+    }}
+    nav {{
+      display: flex;
+      gap: 22px;
+      color: var(--muted);
+    }}
+    nav a:hover {{ color: var(--ink); text-decoration: underline; }}
     main {{
-      width: min(1080px, calc(100vw - 28px));
+      width: min(1180px, calc(100vw - 28px));
       margin: 0 auto;
       min-height: 100vh;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
-      gap: 32px;
-      align-items: center;
-      padding: 36px 0;
+      grid-template-columns: minmax(0, 1.05fr) minmax(330px, 420px);
+      gap: 54px;
+      align-items: end;
+      padding: 116px 0 52px;
     }}
-    .eyebrow {{
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 9px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      color: var(--ink);
-      font-family: "Courier New", Courier, monospace;
-      font-size: 12px;
-      font-weight: 400;
-      letter-spacing: 0;
-      text-transform: uppercase;
+    .kicker {{
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: lowercase;
     }}
     h1 {{
-      margin: 20px 0 16px;
+      margin: 0;
       max-width: 760px;
-      font-family: "Times New Roman", Times, serif;
       font-size: 82px;
-      font-weight: 400;
-      line-height: .88;
+      font-weight: 200;
+      line-height: .96;
       letter-spacing: 0;
+      text-transform: lowercase;
     }}
     .intro {{
+      margin: 18px 0 0;
       max-width: 640px;
-      color: var(--muted);
-      font-size: 18px;
+      font-size: 20px;
+      font-weight: 300;
     }}
-    .points {{
-      margin: 28px 0 0;
-      padding: 0;
+    .product {{
+      margin-top: 40px;
       display: grid;
-      gap: 0;
-      list-style: none;
-      color: var(--ink);
-      border-top: 1px solid var(--line);
-      border-left: 1px solid var(--line);
+      grid-template-columns: minmax(0, 1fr) minmax(170px, 240px);
+      gap: 14px;
+      align-items: stretch;
+      max-width: 780px;
     }}
-    .points li {{
+    .plate {{
+      min-height: 320px;
+      padding: 24px;
       display: grid;
-      grid-template-columns: 42px 1fr;
-      gap: 0;
-      align-items: start;
-      min-height: 56px;
-      border-right: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-      background: rgba(239,237,230,.72);
-    }}
-    .mark {{
-      width: 42px;
-      height: 100%;
-      border-right: 1px solid var(--line);
-      color: var(--ink);
-      display: inline-grid;
       place-items: center;
-      font-family: "Courier New", Courier, monospace;
-      font-size: 12px;
-      font-weight: 400;
-      background: #d9d6cd;
+      background: var(--terra-soft);
     }}
-    .points span:last-child {{ padding: 12px 14px; }}
-    .form-panel {{
+    .board-art {{
+      width: min(460px, 84%);
+      display: grid;
+      place-items: center;
+      padding: 22px;
       background: var(--panel);
-      border: 1px solid var(--line);
-      box-shadow: 8px 8px 0 rgba(25,25,23,.16);
-      padding: 18px;
+    }}
+    .board-svg {{
+      width: 100%;
+      height: auto;
+      max-height: 300px;
+    }}
+    .board-fallback {{
+      width: 100%;
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      color: var(--terra);
+      background: var(--panel);
+      text-transform: lowercase;
+    }}
+    .specs {{
+      display: grid;
+      grid-template-rows: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--terra);
+    }}
+    .spec {{
+      padding: 16px;
+      background: var(--panel);
+    }}
+    .spec b {{
+      display: block;
+      margin-bottom: 9px;
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--muted);
+    }}
+    .spec span {{ display: block; max-width: 16ch; }}
+    .form-panel {{
+      padding: 0;
+      background: transparent;
     }}
     .form-panel h2 {{
-      margin: 0 0 6px;
-      font-family: "Times New Roman", Times, serif;
-      font-size: 34px;
-      font-weight: 400;
+      margin: 0;
+      font-size: 32px;
+      font-weight: 200;
       letter-spacing: 0;
+      text-transform: lowercase;
     }}
     .form-panel p {{
-      margin: 0 0 18px;
+      margin: 10px 0 24px;
       color: var(--muted);
       font-size: 14px;
     }}
+    form {{
+      border-top: 1px solid var(--line);
+    }}
     label {{
       display: block;
-      margin: 13px 0 5px;
-      font-family: "Courier New", Courier, monospace;
-      font-size: 11px;
-      font-weight: 400;
-      color: var(--ink);
-      text-transform: uppercase;
+      margin: 18px 0 7px;
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--muted);
+      text-transform: lowercase;
     }}
     input, textarea {{
       width: 100%;
-      border: 1px solid var(--line);
+      border: 0;
       border-radius: 0;
-      padding: 10px 11px;
+      padding: 13px 14px;
       font: inherit;
       color: var(--ink);
       background: var(--field);
+      outline: none;
+    }}
+    input:focus, textarea:focus {{
+      box-shadow: 0 0 0 1px var(--terra) inset;
     }}
     .website-field {{
       position: absolute;
@@ -527,24 +587,24 @@ def _signup_html(
       overflow: hidden;
     }}
     textarea {{
-      min-height: 110px;
+      min-height: 132px;
       resize: vertical;
     }}
     button {{
       width: 100%;
-      margin-top: 16px;
-      border: 1px solid var(--line);
+      min-height: 52px;
+      margin-top: 18px;
+      border: 0;
       border-radius: 0;
-      padding: 12px 16px;
+      padding: 0 16px;
       background: var(--ink);
-      color: white;
-      font-family: "Courier New", Courier, monospace;
-      font-size: 12px;
-      font-weight: 400;
-      text-transform: uppercase;
+      color: var(--paper);
+      font-size: 16px;
+      font-weight: 300;
+      text-transform: lowercase;
       cursor: pointer;
     }}
-    button:hover {{ background: var(--accent); color: var(--ink); }}
+    button:hover {{ opacity: .72; }}
     .fineprint {{
       margin-top: 14px;
       font-size: 13px;
@@ -555,69 +615,85 @@ def _signup_html(
       border-radius: 0;
       margin: 0 0 16px;
       font-size: 14px;
+      background: var(--panel);
     }}
     .notice.error {{
       color: var(--warn);
-      background: var(--warn-bg);
-      border: 1px solid #fed7aa;
+      border: 1px solid var(--warn);
     }}
     .notice.success {{
       color: var(--ok);
-      background: var(--ok-bg);
-      border: 1px solid #bbf7d0;
+      border: 1px solid var(--ok);
     }}
     @media (max-width: 840px) {{
+      header {{ position: static; }}
       main {{
         grid-template-columns: 1fr;
-        gap: 28px;
-        padding: 32px 0;
+        gap: 40px;
+        padding: 32px 0 44px;
       }}
-      h1 {{ font-size: 48px; }}
+      h1 {{ font-size: 56px; }}
       .intro {{ font-size: 16px; }}
+      .product {{ grid-template-columns: 1fr; }}
     }}
     @media (max-width: 420px) {{
-      h1 {{ font-size: 40px; }}
+      header {{ padding: 16px 14px; }}
+      nav {{ gap: 14px; }}
+      h1 {{ font-size: 46px; }}
+      .plate {{ min-height: 240px; }}
     }}
   </style>
 </head>
 <body>
+  <header>
+    <a class="brand" href="/signup">eda mcp</a>
+    <nav aria-label="site">
+      <a href="/health">status</a>
+      <a href="/admin/login">admin</a>
+    </nav>
+  </header>
   <main>
     <section>
-      <div class="eyebrow">Open beta // access request</div>
-      <h1>EDA MCP</h1>
+      <p class="kicker">open beta / access request</p>
+      <h1>eda mcp</h1>
       <p class="intro">
-        A small, opinionated board-design service for agents: SKiDL in,
-        schematic/layout/routing/DRC feedback out. Access is opening gradually
-        while usage tracking, quotas, and the manufacturing path are hardened.
+        skidl to schematic, layout, routing and design feedback for coding agents.
       </p>
-      <ul class="points">
-        <li><span class="mark">01</span><span>Agents submit SKiDL code. The service owns schematic, placement, routing, DRC, and manufacturing artifacts.</span></li>
-        <li><span class="mark">02</span><span>Failures come back as structured corrections instead of a pile of opaque CAD logs.</span></li>
-        <li><span class="mark">03</span><span>Beta access is personal and metered so the shared routing workers stay usable.</span></li>
-      </ul>
+      <div class="product" aria-hidden="true">
+        <div class="plate">
+          <div class="board-art">
+            {_signup_board_svg()}
+          </div>
+        </div>
+        <div class="specs">
+          <div class="spec"><b>01</b><span>skidl code in</span></div>
+          <div class="spec"><b>02</b><span>cad feedback loop</span></div>
+          <div class="spec"><b>03</b><span>personal beta tokens</span></div>
+        </div>
+      </div>
     </section>
     <section class="form-panel" aria-label="Open beta signup form">
-      <h2>Request pin</h2>
-      <p>Tell me who you are and what you want to build. I will approve requests manually and email a personal MCP token.</p>
+      <h2>request access</h2>
+      <p>access is opening gradually while worker capacity, usage tracking and the manufacturing path settle.</p>
       {error_html}
       {submitted_html}
       <form method="post" action="/signup">
         <input type="hidden" name="source" value="signup_page">
         <div class="website-field" aria-hidden="true">
-          <label for="website">Website</label>
+          <label for="website">website</label>
           <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
         </div>
-        <label for="email">Email</label>
+        <label for="email">email</label>
         <input id="email" name="email" type="email" value="{_field(values, "email")}" autocomplete="email" required>
-        <label for="name">Name</label>
+        <label for="name">name</label>
         <input id="name" name="name" type="text" value="{_field(values, "name")}" autocomplete="name">
-        <label for="organization">Company or project</label>
+        <label for="organization">company or project</label>
         <input id="organization" name="organization" type="text" value="{_field(values, "organization")}">
-        <label for="use_case">What are you trying to make?</label>
+        <label for="use_case">what are you trying to make?</label>
         <textarea id="use_case" name="use_case" required>{_field(values, "use_case")}</textarea>
-        <button type="submit">Request beta access</button>
+        <button type="submit">request beta access</button>
       </form>
-      <p class="fineprint">No automatic ordering, no shared tokens, no public free-for-all. This is a controlled beta for real board-design workflows.</p>
+      <p class="fineprint">controlled beta. personal tokens. no automatic ordering yet.</p>
     </section>
   </main>
 </body>
@@ -639,76 +715,87 @@ def _admin_login_html(error: str = "") -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin - EDA-MCP</title>
+  <title>admin - eda mcp</title>
   <style>
+    :root {{
+      --ink: #0f0e12;
+      --paper: #eee8df;
+      --panel: #fffaf3;
+      --field: #ddd6cc;
+      --line: #cfc5b8;
+      --muted: #767676;
+      --terra: #b9654c;
+    }}
+    * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
       min-height: 100vh;
       display: grid;
       place-items: center;
-      font-family: Arial, Helvetica, sans-serif;
-      color: #191917;
-      background:
-        linear-gradient(90deg, rgba(31,31,27,.16) 1px, transparent 1px),
-        linear-gradient(rgba(31,31,27,.16) 1px, transparent 1px),
-        #e8e5dc;
-      background-size: 22px 22px;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 300;
+      color: var(--ink);
+      background: var(--paper);
+      -webkit-font-smoothing: antialiased;
     }}
     form {{
       width: min(420px, calc(100vw - 28px));
-      border: 1px solid #191917;
-      background: #efede6;
-      box-shadow: 8px 8px 0 rgba(25,25,23,.16);
-      padding: 18px;
+      padding: 0;
     }}
     h1 {{
-      margin: 0 0 14px;
-      font-family: "Times New Roman", Times, serif;
+      margin: 0 0 24px;
       font-size: 40px;
-      font-weight: 400;
+      font-weight: 200;
       letter-spacing: 0;
+      text-transform: lowercase;
     }}
     label {{
       display: block;
-      margin: 0 0 6px;
-      font-family: "Courier New", Courier, monospace;
-      font-size: 11px;
-      text-transform: uppercase;
+      margin: 0 0 7px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: lowercase;
     }}
     input, button {{
       width: 100%;
-      border: 1px solid #191917;
+      border: 0;
       border-radius: 0;
-      padding: 10px 11px;
+      padding: 13px 14px;
       font: inherit;
-      background: #f8f7f1;
+      background: var(--field);
+    }}
+    input:focus {{
+      outline: none;
+      box-shadow: 0 0 0 1px var(--terra) inset;
     }}
     button {{
-      margin-top: 14px;
-      background: #191917;
-      color: #fff;
-      font-family: "Courier New", Courier, monospace;
-      font-size: 12px;
-      text-transform: uppercase;
+      min-height: 52px;
+      margin-top: 18px;
+      background: var(--ink);
+      color: var(--paper);
+      font-size: 16px;
+      text-transform: lowercase;
       cursor: pointer;
     }}
+    button:hover {{ opacity: .72; }}
     .notice {{
       margin: 0 0 12px;
       padding: 10px;
-      border: 1px solid #8f260f;
-      background: #f3dfd8;
-      color: #8f260f;
+      border: 1px solid #c0262c;
+      background: var(--panel);
+      color: #c0262c;
       font-size: 14px;
     }}
   </style>
 </head>
 <body>
   <form method="post" action="/admin/login">
-    <h1>Admin</h1>
+    <h1>admin</h1>
     {error_html}
-    <label for="token">Owner token</label>
+    <label for="token">owner token</label>
     <input id="token" name="token" type="password" autocomplete="current-password" autofocus>
-    <button type="submit">Unlock</button>
+    <button type="submit">unlock</button>
   </form>
 </body>
 </html>"""
@@ -868,40 +955,39 @@ def _admin_shell(title: str, body: str) -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{html.escape(title)} - EDA-MCP</title>
+  <title>{html.escape(title.lower())} - eda mcp</title>
   <style>
     :root {{
-      --ink: #191917;
-      --muted: #69665f;
-      --line: #1f1f1b;
-      --paper: #e8e5dc;
-      --panel: #efede6;
-      --field: #f8f7f1;
-      --accent: #e94f37;
+      --ink: #0f0e12;
+      --muted: #767676;
+      --line: #cfc5b8;
+      --paper: #eee8df;
+      --panel: #fffaf3;
+      --field: #ddd6cc;
+      --terra: #b9654c;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 300;
       color: var(--ink);
-      background:
-        linear-gradient(90deg, rgba(31,31,27,.16) 1px, transparent 1px),
-        linear-gradient(rgba(31,31,27,.16) 1px, transparent 1px),
-        var(--paper);
-      background-size: 22px 22px;
+      background: var(--paper);
+      -webkit-font-smoothing: antialiased;
     }}
     main {{
       width: min(1120px, calc(100vw - 28px));
       margin: 0 auto;
-      padding: 32px 0;
+      padding: 42px 0;
     }}
     h1 {{
       margin: 0 0 18px;
-      font-family: "Times New Roman", Times, serif;
       font-size: 52px;
-      font-weight: 400;
+      font-weight: 200;
       line-height: .95;
       letter-spacing: 0;
+      text-transform: lowercase;
     }}
     .panel {{
       border: 1px solid var(--line);
@@ -920,20 +1006,18 @@ def _admin_shell(title: str, body: str) -> str:
       text-align: left;
     }}
     th {{
-      font-family: "Courier New", Courier, monospace;
       font-size: 11px;
-      font-weight: 400;
-      text-transform: uppercase;
-      background: #d9d6cd;
+      font-weight: 300;
+      text-transform: lowercase;
+      background: var(--field);
     }}
     .muted {{ color: var(--muted); }}
     .status {{
       display: inline-block;
       border: 1px solid var(--line);
       padding: 2px 6px;
-      font-family: "Courier New", Courier, monospace;
       font-size: 11px;
-      text-transform: uppercase;
+      text-transform: lowercase;
       background: var(--field);
     }}
     button {{
@@ -941,13 +1025,12 @@ def _admin_shell(title: str, body: str) -> str:
       border-radius: 0;
       padding: 8px 10px;
       background: var(--ink);
-      color: #fff;
-      font-family: "Courier New", Courier, monospace;
+      color: var(--paper);
       font-size: 11px;
-      text-transform: uppercase;
+      text-transform: lowercase;
       cursor: pointer;
     }}
-    button:hover {{ background: var(--accent); color: var(--ink); }}
+    button:hover {{ opacity: .72; }}
     code {{
       display: block;
       max-width: 100%;
@@ -955,7 +1038,7 @@ def _admin_shell(title: str, body: str) -> str:
       border: 1px solid var(--line);
       background: var(--field);
       padding: 10px;
-      font-family: "Courier New", Courier, monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 13px;
     }}
     .token {{ margin-top: 18px; }}
