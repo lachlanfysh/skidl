@@ -351,8 +351,11 @@ def _with_repeated_channel_array(
         return arrayed
 
     outline = arrayed.outline
+    edge_refs = {anchor.ref for anchor in arrayed.edge_anchors or []}
     for channel in intent_plan.repeated_channels:
-        slot_refs = _channel_slot_refs(channel)
+        slot_refs = [
+            ref for ref in _channel_slot_refs(channel) if ref not in edge_refs
+        ]
         if len(slot_refs) < 2:
             continue
 
@@ -384,6 +387,9 @@ def _with_repeated_channel_array(
         if slots:
             slot_width = (end_x - start_x) / max(len(slots), 1)
             for idx, slot in enumerate(slots):
+                refs = [ref for ref in slot.refs if ref not in edge_refs]
+                if not refs:
+                    continue
                 slot_x_min = start_x + idx * slot_width - slot_width * 0.35
                 slot_x_max = start_x + (idx + 1) * slot_width + slot_width * 0.35
                 arrayed.zones.append(
@@ -393,7 +399,7 @@ def _with_repeated_channel_array(
                         y_min=outline.y_min,
                         x_max=min(outline.x_max, slot_x_max),
                         y_max=outline.y_min + outline.height_mm * 0.62,
-                        refs=slot.refs,
+                        refs=refs,
                     )
                 )
 

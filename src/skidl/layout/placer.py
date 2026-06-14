@@ -483,6 +483,7 @@ def _apply_soft_constraints(
     part_by_ref = {part.ref: part for part, _ in all_parts}
     group_by_ref = {part.ref: group for part, group in all_parts}
     fixed_refs = {fp.ref for fp in (constraints.fixed or [])}
+    fixed_refs.update(anchor.ref for anchor in (constraints.edge_anchors or []))
 
     def _occupied_without(ref: str) -> list[tuple]:
         occupied = _occupied_from_keepouts(constraints.keepouts)

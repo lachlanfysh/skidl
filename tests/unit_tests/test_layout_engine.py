@@ -4,6 +4,7 @@ import pytest
 
 from skidl.layout.constraints import (
     BoardOutline,
+    DistributeConstraint,
     EdgeAnchor,
     FixedPosition,
     LayoutConstraints,
@@ -63,6 +64,7 @@ BBOXES = {
     "Connector:PinHeader_1x04": (2.54, 10.16),
     "Connector:PinHeader_1x06": (2.54, 15.24),
     "Connector_Audio:Thonkiconn_PJ398SM": (8.0, 8.0),
+    "Connector_Audio:Jack_3.5mm_PJ320D_Horizontal": (14.0, 10.0),
 }
 
 
@@ -459,6 +461,105 @@ def test_plan_layout_aligns_panel_jacks_without_edge_anchoring():
     xs = [placed[ref].x_mm for ref in ("J1", "J2", "J3")]
     assert max(ys) - min(ys) <= 1.0
     assert max(xs) - min(xs) >= 30.0
+
+
+def test_plan_layout_keeps_horizontal_audio_jack_row_on_edge():
+    outline = BoardOutline(75.0, 100.0)
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    signal_nets = [_Net(f"OUT{idx}") for idx in range(1, 7)]
+    u1 = _Part(
+        "U1",
+        name="MCU",
+        footprint="Package_QFP:MCU",
+        nets=[vcc, gnd, *signal_nets],
+        pins=8,
+    )
+    jacks = [
+        _Part(
+            f"J{idx}",
+            name="horizontal 3.5mm trigger output jack",
+            footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+            nets=[signal_nets[idx - 1], gnd],
+            pins=2,
+        )
+        for idx in range(1, 7)
+    ]
+    passives = [
+        _Part(
+            f"R{idx}",
+            value="220",
+            footprint="Capacitor:C_0805",
+            nets=[signal_nets[idx - 1]],
+        )
+        for idx in range(1, 7)
+    ]
+    circuit = _Circuit([u1, *jacks, *passives], [vcc, gnd, *signal_nets])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+
+    anchors = {anchor.ref: anchor.edge for anchor in result.intent_plan.edge_anchors}
+    placed = {part.ref: part for part in result.placed_parts}
+    jack_width, jack_height = BBOXES["Connector_Audio:Jack_3.5mm_PJ320D_Horizontal"]
+    rotated_width = jack_height
+
+    for ref in {f"J{idx}" for idx in range(1, 7)}:
+        assert anchors[ref] == "right"
+        jack = placed[ref]
+        assert jack.rot_deg == 90.0
+        assert jack.x_mm + rotated_width / 2 == pytest.approx(outline.x_max - 0.5)
+        assert not any(warning.startswith(f"{ref}: violates right-edge") for warning in result.score.warnings)
+
+
+def test_soft_constraints_do_not_move_edge_anchored_connectors():
+    outline = BoardOutline(75.0, 100.0)
+    gnd = _Net("GND")
+    j1 = _Part(
+        "J1",
+        name="horizontal 3.5mm trigger output jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+        nets=[gnd],
+        pins=2,
+    )
+    j2 = _Part(
+        "J2",
+        name="horizontal 3.5mm trigger output jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+        nets=[gnd],
+        pins=2,
+    )
+    circuit = _Circuit([j1, j2], [gnd])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=outline,
+            edge_anchors=[
+                EdgeAnchor("J1", "right", offset_mm=25.0),
+                EdgeAnchor("J2", "right", offset_mm=75.0),
+            ],
+            distribute=[
+                DistributeConstraint(
+                    refs=["J1", "J2"],
+                    axis="x",
+                    start_mm=10.0,
+                    end_mm=20.0,
+                ),
+            ],
+        ),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    jack_width, jack_height = BBOXES["Connector_Audio:Jack_3.5mm_PJ320D_Horizontal"]
+    rotated_width = jack_height
+
+    assert placed["J1"].x_mm + rotated_width / 2 == pytest.approx(outline.x_max - 0.5)
+    assert placed["J2"].x_mm + rotated_width / 2 == pytest.approx(outline.x_max - 0.5)
 
 
 def test_plan_layout_reports_power_topology_chain():
