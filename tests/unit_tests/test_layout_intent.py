@@ -171,6 +171,92 @@ def test_repeated_visible_parts_get_kind_grouped_array_constraints():
         assert "array_subject" in _kinds(plan, ref)
 
 
+def test_tall_panel_visible_parts_get_column_constraints():
+    gnd = _Net("GND")
+    signal = _Net("SIG")
+    controls = [
+        _Part(
+            f"RV{idx}",
+            name="panel potentiometer",
+            footprint="Potentiometer_THT:Potentiometer_Alpha",
+            nets=[signal, gnd],
+        )
+        for idx in range(1, 3)
+    ]
+    jacks = [
+        _Part(
+            f"J{idx}",
+            name="Thonkiconn PJ398SM 3.5mm audio jack",
+            footprint="Connector_Audio:Thonkiconn_PJ398SM",
+            nets=[signal, gnd],
+        )
+        for idx in range(1, 4)
+    ]
+    circuit = _Circuit([*controls, *jacks], [signal, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(36.0, 118.0))
+
+    control_refs = frozenset({"RV1", "RV2"})
+    jack_refs = frozenset({"J1", "J2", "J3"})
+    align_by_refs = {frozenset(c.refs): c for c in plan.align_constraints}
+    distribute_by_refs = {frozenset(c.refs): c for c in plan.distribute_constraints}
+
+    assert align_by_refs[control_refs].axis == "x"
+    assert align_by_refs[jack_refs].axis == "x"
+    assert align_by_refs[control_refs].value_mm != align_by_refs[jack_refs].value_mm
+    assert distribute_by_refs[control_refs].axis == "y"
+    assert distribute_by_refs[jack_refs].axis == "y"
+    assert distribute_by_refs[jack_refs].end_mm - distribute_by_refs[jack_refs].start_mm > 60.0
+
+
+def test_simple_ic_board_adds_near_constraints_for_passives():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    u1 = _Part("U1", name="sensor IC", footprint="Package_SO:SOIC-8", nets=[vcc, gnd, sig], pins=8)
+    c1 = _Part("C1", value="100nF", footprint="Capacitor:C_0603", nets=[vcc, gnd])
+    r1 = _Part("R1", value="10k", footprint="Resistor:R_0603", nets=[sig, gnd])
+    circuit = _Circuit([u1, c1, r1], [vcc, gnd, sig])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(40.0, 25.0))
+
+    near_pairs = {(constraint.ref, constraint.target_ref) for constraint in plan.near_constraints}
+    assert ("C1", "U1") in near_pairs
+    assert ("R1", "U1") in near_pairs
+
+
+def test_daisy_seed_is_internal_module_socket_not_edge_header():
+    vin = _Net("VIN")
+    gnd = _Net("GND")
+    sig = _Net("AUDIO_OUT_L")
+    daisy = _Part(
+        "J1",
+        value="Daisy Seed",
+        name="Conn_02x20_Counter_Clockwise",
+        footprint="Module:Electrosmith_Daisy_Seed",
+        nets=[vin, gnd, sig],
+        pins=40,
+    )
+    r1 = _Part("R1", value="100R", footprint="Resistor:R_0603", nets=[sig, gnd])
+    circuit = _Circuit([daisy, r1], [vin, gnd, sig])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(90.0, 60.0))
+
+    mating = next(intent for intent in plan.mating_intents if intent.ref == "J1")
+    assert mating.kind == "module_socket"
+    assert mating.mating_side == "plug_in_module"
+    assert mating.edge_preference is None
+    assert "module_socket" in _kinds(plan, "J1")
+    assert "internal_connector" in _kinds(plan, "J1")
+    assert "edge_connector" not in _kinds(plan, "J1")
+    assert not any(anchor.ref == "J1" for anchor in plan.edge_anchors)
+    assert not any(face.ref == "J1" for face in plan.face_edges)
+    assert ("R1", "J1") in {
+        (constraint.ref, constraint.target_ref)
+        for constraint in plan.near_constraints
+    }
+
+
 def test_infers_mux_and_repeated_channel_intent():
     ch0 = _Net("CH0_SIG")
     ch1 = _Net("CH1_SIG")

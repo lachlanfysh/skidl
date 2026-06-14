@@ -60,6 +60,50 @@ def _candidate(
     )
 
 
+def _outline_size(outline) -> tuple[float, float, float]:
+    if outline is None:
+        return 0.0, 0.0, 0.0
+    w_mm = float(getattr(outline, "width_mm", 0.0) or 0.0)
+    h_mm = float(getattr(outline, "height_mm", 0.0) or 0.0)
+    return w_mm, h_mm, w_mm * h_mm
+
+
+def _outline_is_spacious(outline) -> bool:
+    """Heuristic guard against telling agents to grow already-large boards."""
+
+    w_mm, h_mm, area = _outline_size(outline)
+    return area >= 3000.0 or max(w_mm, h_mm) >= 80.0
+
+
+def _placement_candidates(
+    *,
+    scale_params: dict,
+    scale_summary: str,
+    spacious_summary: str,
+    outline,
+) -> list[Candidate]:
+    regenerate = _candidate(
+        "c1",
+        ActionType.REGENERATE,
+        {},
+        spacious_summary,
+        "free",
+    )
+    scale = _candidate(
+        "c2",
+        ActionType.SCALE_OUTLINE,
+        scale_params,
+        scale_summary,
+        "cheap",
+    )
+    if _outline_is_spacious(outline):
+        scale.confidence = 0.25
+        return [regenerate, scale]
+    scale.id = "c1"
+    regenerate.id = "c2"
+    return [scale, regenerate]
+
+
 def timeout_exception(timeout_s: float) -> DesignException:
     return DesignException(
         id="e-timeout",
@@ -224,22 +268,18 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                     message=f"{n} placement overlap(s): {', '.join(f'{p[0]}/{p[1]}' for p in pairs[:5])}"
                             + (f" and {n-5} more" if n > 5 else ""),
                     subject={"pairs": pairs, "count": n},
-                    candidates=[
-                        _candidate(
-                            "c1",
-                            ActionType.SCALE_OUTLINE,
-                            scale_params,
-                            f"increase board area by {int((factor-1)*100)}% ({n} overlaps) and re-run",
-                            "cheap",
+                    candidates=_placement_candidates(
+                        scale_params=scale_params,
+                        scale_summary=(
+                            f"increase board area by {int((factor-1)*100)}% "
+                            f"({n} overlaps) and re-run"
                         ),
-                        _candidate(
-                            "c2",
-                            ActionType.REGENERATE,
-                            {},
-                            "retry placement unchanged",
-                            "free",
+                        spacious_summary=(
+                            "retry placement after improving floorplan intent; "
+                            "the current outline is already spacious"
                         ),
-                    ],
+                        outline=outline,
+                    ),
                     retry_hint=(
                         "This is a mechanical placement failure. For a "
                         "submit_skidl_code() run, first improve the SKiDL "
@@ -247,8 +287,11 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                         "@subcircuit, keep decoupling caps in the same block "
                         "as their IC, choose smaller/appropriate connector "
                         "footprints, and put user-facing connectors on "
-                        "sensible board edges. If the board is genuinely too "
-                        "dense, resubmit with a larger outline_mm."
+                        "sensible board edges. If the board is already large "
+                        "or sparse, do not keep scaling; fix floorplan intent, "
+                        "connector style, or footprint choice first. If the "
+                        "board is genuinely too dense, resubmit with a larger "
+                        "outline_mm."
                     ),
                 )
             )
@@ -273,22 +316,17 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                     message=f"{n} part(s) outside board outline: {', '.join(outline_viols[:5])}"
                             + (f" and {n-5} more" if n > 5 else ""),
                     subject={"refs": outline_viols, "count": n},
-                    candidates=[
-                        _candidate(
-                            "c1",
-                            ActionType.SCALE_OUTLINE,
-                            params,
-                            f"grow board outline ({n} violations) and re-run",
-                            "cheap",
+                    candidates=_placement_candidates(
+                        scale_params=params,
+                        scale_summary=(
+                            f"grow board outline ({n} violations) and re-run"
                         ),
-                        _candidate(
-                            "c2",
-                            ActionType.REGENERATE,
-                            {},
-                            "retry placement unchanged",
-                            "free",
+                        spacious_summary=(
+                            "retry placement after improving edge/panel "
+                            "intent; the current outline is already spacious"
                         ),
-                    ],
+                        outline=outline,
+                    ),
                     retry_hint=(
                         "A footprint is outside the board. For a "
                         "submit_skidl_code() run, preserve real mechanical "
@@ -297,7 +335,10 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                         "@subcircuit, use appropriate vertical/right-angle "
                         "connector footprints, and place panel/edge parts "
                         "deliberately. If the requested form factor is too "
-                        "small, resubmit with a larger outline_mm."
+                        "small, resubmit with a larger outline_mm. If the "
+                        "outline is already large or mechanically fixed, do "
+                        "not scale again; fix connector orientation, panel "
+                        "placement, or the requested floorplan."
                     ),
                 )
             )

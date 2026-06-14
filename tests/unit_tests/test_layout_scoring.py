@@ -88,6 +88,43 @@ def test_score_warns_when_outline_is_much_larger_than_placed_envelope():
     assert score.score < 100.0
 
 
+def test_score_prefers_better_use_of_generous_outline():
+    ic = _Part("U1", name="MCU", footprint="Package_QFP:MCU")
+    cap = _Part("C1", value="1uF", footprint="Capacitor:C_0805")
+    circuit = _Circuit([ic, cap], [])
+    outline = BoardOutline(90.0, 60.0)
+    compact = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("C1", 28.0, 20.0, 0.0, "Capacitor:C_0805"),
+    ]
+    spread = [
+        PlacedPart("U1", 40.0, 30.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("C1", 62.0, 30.0, 0.0, "Capacitor:C_0805"),
+    ]
+
+    compact_score = score_placement(compact, circuit, BBOXES, outline=outline)
+    spread_score = score_placement(spread, circuit, BBOXES, outline=outline)
+
+    assert compact_score.score < spread_score.score
+
+
+def test_score_warns_when_primary_ic_is_far_from_center_on_simple_board():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    ic = _Part("U1", name="sensor IC", footprint="Package_QFP:MCU", nets=[vcc, gnd])
+    circuit = _Circuit([ic], [vcc, gnd])
+    placed = [PlacedPart("U1", 12.0, 12.0, 0.0, "Package_QFP:MCU")]
+
+    score = score_placement(
+        placed,
+        circuit,
+        BBOXES,
+        outline=BoardOutline(60.0, 40.0),
+    )
+
+    assert any("board center" in warning for warning in score.warnings)
+
+
 def test_score_decoupling_cap_warns_when_far_from_parent():
     vcc = _Net("VCC")
     gnd = _Net("GND")

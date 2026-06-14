@@ -19,6 +19,10 @@ PANEL_JACK_RE = re.compile(
     re.IGNORECASE,
 )
 POWER_JACK_RE = re.compile(r"(dc.?jack|barrel|power.?jack)", re.IGNORECASE)
+DAISY_SEED_RE = re.compile(
+    r"(electrosmith.?daisy|daisy.?seed|electrosmith_daisy_seed)",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -124,6 +128,10 @@ def classify_part(part) -> PartRole:
     if PANEL_JACK_RE.search(text) and not POWER_JACK_RE.search(text):
         reasons.append("panel/audio jack metadata")
         return PartRole(ref, "panel_jack", 0.9, reasons)
+
+    if DAISY_SEED_RE.search(text):
+        reasons.append("Daisy Seed plug-in module/socket metadata")
+        return PartRole(ref, "module_socket", 0.95, reasons)
 
     if prefix in {"J", "P", "CON", "CN"} or any(
         term in text for term in ("connector", "header", "usb", "jack", "terminal")

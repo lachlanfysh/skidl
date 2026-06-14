@@ -290,6 +290,34 @@ def _outline_oversize_warning(
     )
 
 
+def _outline_oversize_penalty(
+    placed_parts: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    outline,
+) -> float:
+    """Return a score penalty for sparse placements on generous outlines."""
+    if outline is None:
+        return 0.0
+    envelope = _placement_envelope(placed_parts, fp_bboxes)
+    if envelope is None:
+        return 0.0
+    envelope_w, envelope_h, envelope_area = envelope
+    outline_area = max(0.0, outline.width_mm) * max(0.0, outline.height_mm)
+    if envelope_area <= 0.0 or outline_area <= 0.0:
+        return 0.0
+
+    area_ratio = outline_area / envelope_area
+    width_slack = max(0.0, outline.width_mm - envelope_w)
+    height_slack = max(0.0, outline.height_mm - envelope_h)
+    if area_ratio < 2.0 or width_slack < 8.0 or height_slack < 6.0:
+        return 0.0
+
+    ratio_penalty = (area_ratio - 2.0) * 4.0
+    slack_penalty = max(0.0, width_slack - 8.0) / 6.0
+    slack_penalty += max(0.0, height_slack - 6.0) / 6.0
+    return min(ratio_penalty + slack_penalty, 28.0)
+
+
 def _role_counts(roles: dict[str, PartRole]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for role in roles.values():
@@ -327,6 +355,30 @@ def _role_warnings(
 
     part_by_ref = {part.ref: part for part in circuit.parts}
     nets_by_ref = {ref: set(pin_net_names(part)) for ref, part in part_by_ref.items()}
+
+    if outline is not None:
+        panel_like_count = sum(
+            1 for role in roles.values() if role.role in {"panel_jack", "control"}
+        )
+        primary_refs = [
+            ref
+            for ref, role in roles.items()
+            if role.role in {"ic", "regulator"} and ref in placed_by_ref
+        ]
+        if (
+            len(primary_refs) == 1
+            and panel_like_count < 2
+            and len(part_by_ref) <= 16
+        ):
+            primary = placed_by_ref[primary_refs[0]]
+            center_x = outline.x_min + outline.width_mm / 2.0
+            center_y = outline.y_min + outline.height_mm / 2.0
+            distance = math.hypot(primary.x_mm - center_x, primary.y_mm - center_y)
+            limit = max(5.0, min(outline.width_mm, outline.height_mm) * 0.18)
+            if distance > limit:
+                warnings.append(
+                    f"{primary.ref}: primary IC/regulator is {distance:.1f}mm from board center"
+                )
 
     parent_roles = {"ic", "regulator"}
     for ref, role in roles.items():
@@ -387,15 +439,31 @@ def _role_warnings(
         ys = [placed_by_ref[ref].y_mm for ref in panel_refs]
         x_span = max(xs) - min(xs)
         y_span = max(ys) - min(ys)
-        expected_x_span = min(20.0, outline.width_mm * 0.35) if outline else 12.0
-        if len(panel_refs) <= 4 and y_span > 2.0:
-            warnings.append(
-                "panel controls/jacks are not aligned into a clean row"
-            )
-        if x_span < expected_x_span:
-            warnings.append(
-                "panel controls/jacks are bunched instead of distributed"
-            )
+        tall_panel = (
+            outline is not None
+            and outline.height_mm >= outline.width_mm * 1.6
+            and outline.height_mm >= 60.0
+        )
+        if tall_panel:
+            expected_y_span = min(55.0, outline.height_mm * 0.45)
+            if x_span > max(12.0, outline.width_mm * 0.45):
+                warnings.append(
+                    "panel controls/jacks are not aligned into clean columns"
+                )
+            if y_span < expected_y_span:
+                warnings.append(
+                    "panel controls/jacks are bunched instead of distributed vertically"
+                )
+        else:
+            expected_x_span = min(20.0, outline.width_mm * 0.35) if outline else 12.0
+            if len(panel_refs) <= 4 and y_span > 2.0:
+                warnings.append(
+                    "panel controls/jacks are not aligned into a clean row"
+                )
+            if x_span < expected_x_span:
+                warnings.append(
+                    "panel controls/jacks are bunched instead of distributed"
+                )
 
     return warnings
 
@@ -435,6 +503,7 @@ def score_placement_quick(
     penalty += len(validation.missing_refs) * 10.0
     penalty += min(total_hpwl / 50.0, 30.0)
     penalty += min(len(warnings) * 5.0, 25.0)
+    penalty += _outline_oversize_penalty(placed_parts, fp_bboxes, outline)
 
     return LayoutScore(
         score=max(0.0, 100.0 - penalty),
@@ -506,6 +575,7 @@ def score_placement(
     penalty += min(crossing_count * 2.0, 20.0)
     penalty += min(congestion_score / 8.0, 15.0)
     penalty += min(len(warnings) * 5.0, 25.0)
+    penalty += _outline_oversize_penalty(placed_parts, fp_bboxes, outline)
     if power_plan is not None:
         for intent in power_plan.route_intents:
             if intent.width_mm >= 0.8 and intent.span_mm > 50.0:

@@ -176,7 +176,12 @@ def _add_intent(
 
 
 def _edge_for_part(text: str, role: PartRole, nets: list[str]) -> str | None:
-    if role.role in {"panel_jack", "display_connector", "internal_connector"}:
+    if role.role in {
+        "panel_jack",
+        "display_connector",
+        "internal_connector",
+        "module_socket",
+    }:
         return None
     if "usb" in text:
         return "bottom"
@@ -202,6 +207,17 @@ def _mating_intent_for_part(
     nets: list[str],
 ) -> MatingIntent | None:
     role_name = role.role if role is not None else ""
+    if role_name == "module_socket":
+        return MatingIntent(
+            ref=ref,
+            kind="module_socket",
+            edge_preference=None,
+            mating_side="plug_in_module",
+            allowed_rotations=(0.0, 180.0),
+            confidence=0.9,
+            reasons=["plug-in module/socket metadata"],
+        )
+
     has_eurorack_supply = {net.upper() for net in nets} & {
         "+12V",
         "-12V",
@@ -408,6 +424,71 @@ def _arrange_array_subjects(
     if len(refs) < 2:
         return
 
+    panel_like_count = sum(
+        len(groups.get(kind, [])) for kind in ("control", "jack", "panel")
+    )
+    tall_panel = (
+        panel_like_count >= 2
+        and outline.height_mm >= outline.width_mm * 1.6
+        and outline.height_mm >= 60.0
+    )
+
+    if tall_panel:
+        kinds = [kind for kind in ("control", "jack", "led", "panel") if groups.get(kind)]
+        usable_kinds = [kind for kind in kinds if kind in {"control", "jack", "panel"}]
+        if not usable_kinds:
+            usable_kinds = kinds
+
+        y_pad = max(8.0, outline.height_mm * 0.16)
+        start_y = outline.y_min + y_pad
+        end_y = outline.y_max - y_pad
+        if start_y >= end_y:
+            start_y = outline.y_min + outline.height_mm * 0.2
+            end_y = outline.y_max - outline.height_mm * 0.2
+
+        if len(usable_kinds) == 1:
+            x_by_kind = {usable_kinds[0]: outline.x_min + outline.width_mm * 0.5}
+        elif len(usable_kinds) == 2:
+            x_by_kind = {
+                usable_kinds[0]: outline.x_min + outline.width_mm * 0.40,
+                usable_kinds[1]: outline.x_min + outline.width_mm * 0.60,
+            }
+        else:
+            x_start = outline.x_min + outline.width_mm * 0.30
+            x_end = outline.x_min + outline.width_mm * 0.70
+            step = (x_end - x_start) / max(1, len(usable_kinds) - 1)
+            x_by_kind = {
+                kind: x_start + idx * step
+                for idx, kind in enumerate(usable_kinds)
+            }
+
+        for kind in kinds:
+            kind_refs = groups.get(kind, [])
+            if not kind_refs:
+                continue
+            x = x_by_kind.get(kind, outline.x_min + outline.width_mm * 0.5)
+            for ref in kind_refs:
+                _add_intent(
+                    plan,
+                    ref,
+                    "array_subject",
+                    78,
+                    "visible repeated part on tall panel",
+                )
+            plan.align_constraints.append(
+                AlignConstraint(refs=kind_refs, axis="x", value_mm=x)
+            )
+            if len(kind_refs) > 1:
+                plan.distribute_constraints.append(
+                    DistributeConstraint(
+                        refs=kind_refs,
+                        axis="y",
+                        start_mm=start_y,
+                        end_mm=end_y,
+                    )
+                )
+        return
+
     x_pad = max(4.0, outline.width_mm * 0.14)
     start_x = outline.x_min + x_pad
     end_x = outline.x_max - x_pad
@@ -452,6 +533,52 @@ def _arrange_array_subjects(
                     end_mm=end_x,
                 )
             )
+
+
+def _add_simple_ic_passive_near_constraints(
+    circuit,
+    plan: PlacementIntentPlan,
+    roles: dict[str, PartRole],
+) -> None:
+    panel_like_count = sum(
+        1 for role in roles.values() if role.role in {"panel_jack", "control"}
+    )
+    if panel_like_count >= 2 or len(getattr(circuit, "parts", []) or []) > 16:
+        return
+
+    primary_refs = [
+        ref
+        for ref, role in roles.items()
+        if role.role in {"ic", "regulator", "module_socket"}
+    ]
+    if len(primary_refs) != 1:
+        return
+
+    primary_ref = primary_refs[0]
+    part_by_ref = {part.ref: part for part in circuit.parts}
+    primary_nets = set(pin_net_names(part_by_ref[primary_ref]))
+    if not primary_nets:
+        return
+
+    existing = {(c.ref, c.target_ref) for c in plan.near_constraints}
+    for ref, role in roles.items():
+        if ref == primary_ref or role.role not in {
+            "decoupling_cap",
+            "signal_passive",
+            "crystal",
+        }:
+            continue
+        nets = set(pin_net_names(part_by_ref.get(ref)))
+        if not primary_nets.intersection(nets):
+            continue
+        key = (ref, primary_ref)
+        if key in existing:
+            continue
+        distance = 5.0 if role.role == "decoupling_cap" else 8.0
+        plan.near_constraints.append(
+            NearConstraint(ref=ref, target_ref=primary_ref, distance_mm=distance)
+        )
+        existing.add(key)
 
 
 def _is_coax_connector(part) -> bool:
@@ -971,6 +1098,10 @@ def infer_placement_intents(
             _add_intent(plan, ref, "panel_control", 84, "front-panel control")
             _add_intent(plan, ref, "front_panel_subject", 82, "panel control")
 
+        if role is not None and role.role == "module_socket":
+            _add_intent(plan, ref, "module_socket", 86, "plug-in module/socket")
+            _add_intent(plan, ref, "internal_connector", 82, "module socket")
+
         if mating_intent is not None and mating_intent.kind == "internal_header":
             _add_intent(
                 plan,
@@ -982,6 +1113,7 @@ def infer_placement_intents(
 
     plan.repeated_channels = _infer_repeated_channels(circuit, roles)
     _infer_rf_intents(circuit, plan, outline)
+    _add_simple_ic_passive_near_constraints(circuit, plan, roles)
     _colocate_display_and_controls(plan, outline)
     _place_opposing_header_pair(plan)
     _place_mounting_holes(plan, mounting_refs, outline)

@@ -695,18 +695,31 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
             message=f"{unrouted} net(s) could not be routed",
             subject={"unrouted_count": unrouted},
             candidates=[
-                Candidate(id="c1", action=ActionType.SCALE_OUTLINE,
-                          params={"area_factor": 1.3},
-                          human_summary=f"Enlarge board 30% ({unrouted} unrouted nets)",
-                          confidence=0.6),
+                Candidate(id="c1", action=ActionType.REGENERATE, params={},
+                          human_summary=(
+                              "Retry placement/routing without changing outline; "
+                              "unrouted nets often indicate floorplan or router choice"
+                          ),
+                          confidence=0.45),
                 Candidate(id="c2", action=ActionType.SET_LAYERS,
                           params={"layers": 4},
-                          human_summary="Switch to 4-layer board",
-                          confidence=0.5),
-                Candidate(id="c3", action=ActionType.REGENERATE, params={},
-                          human_summary="Retry placement (has randomness)",
-                          confidence=0.3),
+                          human_summary="Switch to 4-layer board if complexity justifies it",
+                          confidence=0.45),
+                Candidate(id="c3", action=ActionType.SCALE_OUTLINE,
+                          params={"area_factor": 1.2},
+                          human_summary=(
+                              f"Enlarge board 20% only if the current board is "
+                              f"actually dense ({unrouted} unrouted nets)"
+                          ),
+                          confidence=0.25),
             ],
+            retry_hint=(
+                "Routing is incomplete. Do not blindly grow the outline if the "
+                "board is already sparse or oversized. First improve floorplan: "
+                "move related parts closer, put external connectors on sensible "
+                "edges, reduce long crossing nets, or use a layer count that "
+                "matches the design complexity."
+            ),
         ))
 
     return exceptions
@@ -866,19 +879,34 @@ def _drc_to_exceptions(report: dict) -> list:
                 retry_hint=(
                     "Routing is incomplete, so the board is not manufacturable. "
                     "Inspect subject.examples for representative DRC items and "
-                    "subject.refs for affected components; reduce congestion by "
-                    "moving related parts closer, moving edge connectors to the "
-                    "board edge, increasing board/layer budget, or choosing "
+                    "subject.refs for affected components. Do not blindly grow "
+                    "the outline if the board is already sparse or oversized; "
+                    "first move related parts closer, move edge connectors to "
+                    "sensible edges, fix connector/floorplan intent, increase "
+                    "layer budget when complexity warrants it, or choose "
                     "smaller/clearer footprints before resubmitting."
                 ),
                 candidates=[
-                    Candidate(id="c1", action=ActionType.SCALE_OUTLINE,
-                              params={"area_factor": 1.2},
-                              human_summary="Enlarge board 20% for routing space",
-                              confidence=0.5),
-                    Candidate(id="c2", action=ActionType.REGENERATE, params={},
-                              human_summary="Retry with new placement",
-                              confidence=0.3),
+                    Candidate(id="c1", action=ActionType.REGENERATE, params={},
+                              human_summary=(
+                                  "Retry with a new placement/floorplan before "
+                                  "changing the outline"
+                              ),
+                              confidence=0.45),
+                    Candidate(id="c2", action=ActionType.SET_LAYERS,
+                              params={"layers": 4},
+                              human_summary=(
+                                  "Use 4 layers if routing complexity, not board "
+                                  "size, is the limiting factor"
+                              ),
+                              confidence=0.4),
+                    Candidate(id="c3", action=ActionType.SCALE_OUTLINE,
+                              params={"area_factor": 1.15},
+                              human_summary=(
+                                  "Enlarge board 15% only if the current layout "
+                                  "is visibly dense"
+                              ),
+                              confidence=0.25),
                 ],
             ))
 
@@ -916,14 +944,26 @@ def _drc_to_exceptions(report: dict) -> list:
             retry_hint=(
                 "Clearance DRC failed, so the board is not manufacturable. "
                 "Inspect subject.examples, then reduce density around those "
-                "items or choose footprints/placement with more clearance."
+                "items or choose footprints/placement with more clearance. "
+                "If the board is already spacious, changing footprint choice, "
+                "orientation, or local floorplan is usually more relevant than "
+                "scaling the whole outline."
                 + hotspot_hint(refs, clearance_count)
             ),
             candidates=[
-                Candidate(id="c1", action=ActionType.SCALE_OUTLINE,
-                          params={"area_factor": 1.2},
-                          human_summary="Enlarge board to reduce trace density",
-                          confidence=0.5),
+                Candidate(id="c1", action=ActionType.REGENERATE, params={},
+                          human_summary=(
+                              "Retry placement/routing around the listed DRC "
+                              "hotspots"
+                          ),
+                          confidence=0.4),
+                Candidate(id="c2", action=ActionType.SCALE_OUTLINE,
+                          params={"area_factor": 1.15},
+                          human_summary=(
+                              "Enlarge board 15% only if the local hotspot is "
+                              "genuinely cramped"
+                          ),
+                          confidence=0.25),
             ],
         ))
 

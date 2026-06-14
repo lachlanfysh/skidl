@@ -15,6 +15,7 @@ from skidl.layout.hierarchy import PlacementGroup
 from skidl.layout.intent import (
     ChannelSlot,
     MatingIntent,
+    PlacementIntent,
     PlacementIntentPlan,
     RepeatedChannelIntent,
 )
@@ -60,6 +61,38 @@ def test_generate_placement_candidates_is_deterministic_and_named():
     assert baseline_j1.y_mm != pytest.approx(edge_j1.y_mm)
     # courtyard bottom edge sits 0.5mm inside the board edge (default inset)
     assert edge_j1.y_mm + 2.5 == pytest.approx(29.5)
+
+
+def test_module_socket_candidate_biases_module_to_internal_zone():
+    module = _Part("J1", "Module:Electrosmith_Daisy_Seed", pins=40)
+    aux = _Part("R1", "Resistor:R_0603", pins=2)
+    group = PlacementGroup(name="", parts=[module, aux], adjacency={})
+    constraints = LayoutConstraints(outline=BoardOutline(100.0, 60.0))
+    intent = PlacementIntentPlan()
+
+    intent.intents["J1"] = [
+        PlacementIntent("J1", "module_socket", 86, ["plug-in module/socket"])
+    ]
+
+    candidates = generate_placement_candidates(
+        {None: group},
+        constraints,
+        {
+            "Module:Electrosmith_Daisy_Seed": (18.0, 53.0),
+            "Resistor:R_0603": (1.6, 0.8),
+        },
+        intent_plan=intent,
+    )
+    candidate = next(
+        candidate for candidate in candidates if candidate.name == "module_socket_central"
+    )
+
+    module_zone = next(zone for zone in candidate.constraints.zones if zone.refs == ["J1"])
+    assert module_zone.x_min == pytest.approx(25.0)
+    assert module_zone.x_max == pytest.approx(75.0)
+    assert module_zone.y_min == pytest.approx(2.4)
+    assert module_zone.y_max == pytest.approx(57.6)
+    assert "placement zone" in "; ".join(candidate.ref_reasons["J1"])
 
 
 def test_repeated_channel_candidate_distributes_channel_refs():

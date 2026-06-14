@@ -291,6 +291,37 @@ def _with_cluster_zone(
     return zoned
 
 
+def _with_module_socket_zone(
+    constraints: LayoutConstraints,
+    intent_plan: PlacementIntentPlan | None,
+) -> LayoutConstraints:
+    zoned = _merge_inferred_edge_anchors(constraints, intent_plan)
+    if zoned.outline is None or intent_plan is None:
+        return zoned
+
+    explicit_refs = _explicit_position_refs(constraints)
+    module_refs = [
+        ref
+        for ref in sorted(intent_plan.refs_with_kind("module_socket"))
+        if ref not in explicit_refs
+    ]
+    if not module_refs:
+        return zoned
+
+    outline = zoned.outline
+    zoned.zones.append(
+        AnchorZone(
+            group_name="",
+            x_min=outline.x_min + outline.width_mm * 0.25,
+            y_min=outline.y_min + outline.height_mm * 0.04,
+            x_max=outline.x_min + outline.width_mm * 0.75,
+            y_max=outline.y_min + outline.height_mm * 0.96,
+            refs=module_refs,
+        )
+    )
+    return zoned
+
+
 def _channel_slot_refs(channel: RepeatedChannelIntent) -> list[str]:
     ref_counts: dict[str, int] = {}
     for refs in channel.refs_by_channel.values():
@@ -530,6 +561,17 @@ def generate_placement_candidates(
         _with_cluster_zone(constraints, intent_plan),
         fp_bboxes,
         ["edge/UI/power/debug refs biased into a shared service zone"],
+        intent_plan,
+        power_topology,
+        fp_geometries,
+    )
+    _append_candidate(
+        candidates,
+        "module_socket_central",
+        groups,
+        _with_module_socket_zone(constraints, intent_plan),
+        fp_bboxes,
+        ["plug-in module sockets biased into the internal board area"],
         intent_plan,
         power_topology,
         fp_geometries,

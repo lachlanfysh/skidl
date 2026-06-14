@@ -1492,6 +1492,21 @@ footprint library, not the symbol library passed as the first Part() argument.
 - A pin header footprint is not a symbol. Use
   `Part("Connector_Generic", "Conn_01xNN", footprint="Connector_PinHeader_...")`.
 
+## Plug-in dev modules and sockets
+
+- Treat plug-in boards such as Daisy Seed, Pico, Feather, and Arduino as
+  module sockets, not as bare MCU ICs and not as generic edge headers.
+- Daisy Seed should normally be represented as:
+  `Part("Connector_Generic", "Conn_02x20_Counter_Clockwise", value="Daisy Seed", footprint="Module:Electrosmith_Daisy_Seed")`.
+- Daisy Seed is an internal socketed module. Do not force it to a board edge
+  unless the human explicitly asks for that mechanical layout.
+- Daisy Seed VIN is pin 39 and GND is pin 40. AGND is pin 20. Pins 21 and 38
+  are Daisy 3.3V regulator outputs; do not drive them from an external 3.3V
+  rail unless the human explicitly confirms the power architecture.
+- Daisy audio pins are fixed-function codec pins: 16/17 are audio inputs and
+  18/19 are audio outputs. USB D-/D+ are pins 36/37. MIDI UART designs usually
+  use the exposed UART pins, with any required opto/level shifting off-module.
+
 ## Keypads and switch matrices
 
 - KiCad usually does not provide one ready-made `SW_Matrix_4x4` symbol.
@@ -1785,6 +1800,9 @@ Common libraries — use search_kicad() for anything not listed here:
 - Custom MCU board vs dev board: `MCU_Module` symbols such as NUCLEO,
   Feather, Pico, or Arduino represent whole modules with header pins. For a
   custom PCB around the chip, use a bare MCU symbol or `convert_lcsc()`.
+- Electrosmith Daisy Seed is a socketed module: use
+  `Connector_Generic:Conn_02x20_Counter_Clockwise` with footprint
+  `Module:Electrosmith_Daisy_Seed`, and treat it as an internal module socket.
 - Connections: use `net += pin1, pin2` or `pin += net`; no global `connect()`.
 - Decoupling caps: value="100nF" wired power-to-ground = auto-placed near parent IC.
 - Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND.

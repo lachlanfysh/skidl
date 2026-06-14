@@ -365,6 +365,30 @@ class TestExceptionMapper:
         assert "@subcircuit" in exceptions[0].retry_hint
         assert "larger outline_mm" in exceptions[0].retry_hint
 
+    def test_layout_overlap_on_spacious_board_does_not_scale_first(self):
+        class Validation:
+            overlaps = [("J1", "J2")]
+            outline_violations = []
+            keepout_violations = []
+            missing_refs = []
+
+        class Score:
+            congestion_score = 0.0
+            warnings = []
+
+        class Result:
+            validation = Validation()
+            score = Score()
+            outline = SimpleNamespace(width_mm=100.0, height_mm=55.0)
+
+        exc = layout_exceptions(Result())[0]
+
+        assert exc.code == ExcCode.LAYOUT_OVERLAP
+        assert exc.candidates[0].action == ActionType.REGENERATE
+        assert exc.candidates[1].action == ActionType.SCALE_OUTLINE
+        assert exc.candidates[1].confidence < 0.5
+        assert "do not keep scaling" in exc.retry_hint
+
     def test_layout_oversized_warning_maps_to_outline_advisory(self):
         class Validation:
             overlaps = []
@@ -1025,6 +1049,13 @@ class TestRoutingExceptions:
         assert exc.subject["examples"][0]["pos"] == {"x": 10.0, "y": 12.5}
         assert "not manufacturable" in exc.retry_hint
         assert "subject.examples" in exc.retry_hint
+        assert [c.action for c in exc.candidates] == [
+            ActionType.REGENERATE,
+            ActionType.SET_LAYERS,
+            ActionType.SCALE_OUTLINE,
+        ]
+        assert exc.candidates[-1].confidence < 0.5
+        assert "Do not blindly grow" in exc.retry_hint
 
     def test_drc_short_hotspot_points_to_package_or_footprint(self):
         report = {
@@ -1094,6 +1125,11 @@ class TestRoutingExceptions:
         assert exc.subject["refs"] == ["U2"]
         assert exc.subject["nets"] == {"VCC": 3, "GND": 1, "GPIO": 1}
         assert "too-tight package" in exc.retry_hint
+        assert [c.action for c in exc.candidates] == [
+            ActionType.REGENERATE,
+            ActionType.SCALE_OUTLINE,
+        ]
+        assert exc.candidates[-1].confidence < 0.5
 
     def test_route_timeout_suggests_router_budget_retry(self, monkeypatch, tmp_path):
         original_exists = Path.exists
@@ -1126,6 +1162,47 @@ class TestRoutingExceptions:
             "run_options": {"route_timeout_s": 240.0},
         }
         assert "route_timeout_s=240" in exc.retry_hint
+
+    def test_route_unconnected_does_not_scale_outline_first(self, monkeypatch, tmp_path):
+        original_exists = Path.exists
+        pcb_path = tmp_path / "unrouted.kicad_pcb"
+        dsn_path = tmp_path / "unrouted.dsn"
+        ses_path = tmp_path / "unrouted.ses"
+        jar_path = tmp_path / "freerouting.jar"
+
+        def fake_exists(path: Path) -> bool:
+            if str(path) == str(jar_path):
+                return True
+            return original_exists(path)
+
+        def fake_run(cmd, **kwargs):
+            if len(cmd) >= 3 and "ExportSpecctraDSN" in cmd[2]:
+                dsn_path.write_text("(dsn)")
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            if cmd[0] == "/usr/bin/java":
+                ses_path.write_text("(ses)")
+                return subprocess.CompletedProcess(cmd, 0, "3 unrouted", "")
+            if len(cmd) >= 3 and "ImportSpecctraSES" in cmd[2]:
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            raise AssertionError(cmd)
+
+        monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/java")
+        monkeypatch.setenv("FREEROUTING_JAR", str(jar_path))
+        monkeypatch.setattr(Path, "exists", fake_exists)
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        exceptions = _route_pcb(str(pcb_path), timeout_s=120)
+
+        assert len(exceptions) == 1
+        exc = exceptions[0]
+        assert exc.code == ExcCode.ROUTE_UNCONNECTED
+        assert [c.action for c in exc.candidates] == [
+            ActionType.REGENERATE,
+            ActionType.SET_LAYERS,
+            ActionType.SCALE_OUTLINE,
+        ]
+        assert exc.candidates[-1].confidence < 0.5
+        assert "Do not blindly grow" in exc.retry_hint
 
     def test_dsn_export_segfault_is_route_unavailable(self, monkeypatch, tmp_path):
         def fake_run(cmd, **kwargs):
