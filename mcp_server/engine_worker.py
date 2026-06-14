@@ -436,23 +436,104 @@ if not pcbnew.ExportSpecctraDSN(board, dsn_path):
     return _run_pcbnew_child(script, timeout_s=timeout_s)
 
 
-def _write_pcb_without_footprint_zones(pcb_path: str, output_path: str) -> int:
-    """Write a copy of a KiCad PCB with footprint-local zones removed."""
-    from simp_sexp import Sexp
+def _sanitize_pcb_for_dsn_export(pcb_path: str, output_path: str) -> dict[str, int]:
+    """Write a DSN-export-friendly PCB copy with unsafe footprint metadata removed."""
+    text = Path(pcb_path).read_text()
+    removed = {
+        "footprint_zones_removed": 0,
+        "zone_connect_removed": 0,
+        "pad_properties_removed": 0,
+    }
 
-    board = Sexp(Path(pcb_path).read_text())
-    removed = 0
-    for footprint in list(board.search("footprint")):
-        kept = []
-        for child in footprint:
-            if isinstance(child, list) and child and child[0] == "zone":
-                removed += 1
+    def block_end(src: str, start: int) -> int | None:
+        depth = 0
+        in_string = False
+        escaped = False
+        for idx in range(start, len(src)):
+            char = src[idx]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    in_string = False
                 continue
-            kept.append(child)
-        footprint[:] = kept
-    if removed:
-        Path(output_path).write_text(board.to_str() + "\n")
+            if char == '"':
+                in_string = True
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    return idx + 1
+        return None
+
+    def removal_span(src: str, start: int, end: int) -> tuple[int, int]:
+        line_start = src.rfind("\n", 0, start) + 1
+        if not src[line_start:start].strip():
+            start = line_start
+        if end < len(src) and src[end] == "\n":
+            end += 1
+        return start, end
+
+    def remove_blocks(
+        src: str,
+        pattern: str,
+        count_key: str,
+    ) -> str:
+        pos = 0
+        while match := re.search(pattern, src[pos:]):
+            start = pos + match.start()
+            end = block_end(src, start)
+            if end is None:
+                break
+            start, end = removal_span(src, start, end)
+            src = src[:start] + src[end:]
+            removed[count_key] += 1
+            pos = start
+        return src
+
+    def scrub_footprint_block(block: str) -> str:
+        block = remove_blocks(block, r"\(\s*zone\b", "footprint_zones_removed")
+        block = remove_blocks(
+            block,
+            r'\(\s*property\s+"?pad_prop_',
+            "pad_properties_removed",
+        )
+        block, zone_connect_removed = re.subn(
+            r"^[ \t]*\(zone_connect\b[^\n]*\)\n?",
+            "",
+            block,
+            flags=re.MULTILINE,
+        )
+        removed["zone_connect_removed"] += zone_connect_removed
+        return block
+
+    scrubbed_chunks: list[str] = []
+    pos = 0
+    while match := re.search(r"\(\s*footprint\b", text[pos:]):
+        start = pos + match.start()
+        end = block_end(text, start)
+        if end is None:
+            break
+        scrubbed_chunks.append(text[pos:start])
+        scrubbed_chunks.append(scrub_footprint_block(text[start:end]))
+        pos = end
+    scrubbed_chunks.append(text[pos:])
+    scrubbed_text = "".join(scrubbed_chunks)
+
+    if sum(removed.values()):
+        Path(output_path).write_text(scrubbed_text)
     return removed
+
+
+def _write_pcb_without_footprint_zones(pcb_path: str, output_path: str) -> int:
+    """Compatibility wrapper for older tests/callers."""
+
+    return _sanitize_pcb_for_dsn_export(
+        pcb_path, output_path,
+    )["footprint_zones_removed"]
 
 
 def _export_dsn_with_pcbnew(
@@ -489,14 +570,17 @@ def _export_dsn_with_pcbnew(
                 )
             )
             try:
-                removed = _write_pcb_without_footprint_zones(
+                removed = _sanitize_pcb_for_dsn_export(
                     pcb_path, sanitized_path,
                 )
             except Exception as exc:
                 sanitized_subject["sanitized_retry_error"] = str(exc)
-                removed = 0
-            if removed:
-                sanitized_subject["sanitized_footprint_zones_removed"] = removed
+                removed = {}
+            removed_total = sum(removed.values())
+            if removed_total:
+                sanitized_subject.update(
+                    {f"sanitized_{key}": value for key, value in removed.items()}
+                )
                 try:
                     retry = _export_dsn_child(
                         sanitized_path,
@@ -568,6 +652,41 @@ pcbnew.SaveBoard(pcb_path, board)
         )
 
     if result.returncode != 0:
+        sanitized_subject = {}
+        if result.returncode < 0:
+            sanitized_path = str(
+                Path(pcb_path).with_name(
+                    Path(pcb_path).stem + ".ses_import_sanitized.kicad_pcb"
+                )
+            )
+            try:
+                removed = _sanitize_pcb_for_dsn_export(
+                    pcb_path, sanitized_path,
+                )
+            except Exception as exc:
+                sanitized_subject["sanitized_retry_error"] = str(exc)
+                removed = {}
+            removed_total = sum(removed.values())
+            if removed_total:
+                sanitized_subject.update(
+                    {f"sanitized_{key}": value for key, value in removed.items()}
+                )
+                try:
+                    retry = _import_ses_with_pcbnew(
+                        sanitized_path,
+                        ses_path,
+                        timeout_s=timeout_s,
+                    )
+                except Exception as exc:
+                    sanitized_subject["sanitized_retry_error"] = str(exc)
+                else:
+                    if retry is None:
+                        Path(sanitized_path).replace(pcb_path)
+                        return None
+                    sanitized_subject.update({
+                        "sanitized_retry_code": retry.code.value,
+                        "sanitized_retry_subject": retry.subject,
+                    })
         return _route_tool_exception(
             id="e-route-import-fail",
             message=(
@@ -578,6 +697,7 @@ pcbnew.SaveBoard(pcb_path, board)
             subject={
                 "returncode": result.returncode,
                 "stderr_tail": result.stderr[-2000:],
+                **sanitized_subject,
             },
         )
     return None

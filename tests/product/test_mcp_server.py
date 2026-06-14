@@ -1258,6 +1258,45 @@ class TestRoutingExceptions:
         assert sanitized.exists()
         assert "(zone" not in sanitized.read_text()
 
+    def test_dsn_export_signal_retries_without_kicad9_pad_metadata(self, monkeypatch, tmp_path):
+        pcb_path = tmp_path / "metadata-crash.kicad_pcb"
+        dsn_path = tmp_path / "metadata-crash.dsn"
+        pcb_path.write_text(
+            '(kicad_pcb\n'
+            '  (version 20241229)\n'
+            '  (footprint "QFN_Test"\n'
+            '    (uuid "11111111-1111-1111-1111-111111111111")\n'
+            '    (pad "EP" smd rect\n'
+            '      (at 0 0)\n'
+            '      (size 2 2)\n'
+            '      (layers "F.Cu" "F.Paste" "F.Mask")\n'
+            '      (property "pad_prop_heatsink" (uuid "22222222-2222-2222-2222-222222222222"))\n'
+            '      (zone_connect 2))\n'
+            '    (pad "1" smd rect (at 1 0) (size 0.5 0.5) (layers "F.Cu"))))\n'
+        )
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            if len(calls) == 1:
+                return subprocess.CompletedProcess(cmd, -11, "", "segmentation fault")
+            assert ".dsn_export_sanitized.kicad_pcb" in cmd[2]
+            dsn_path.write_text("(dsn)")
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        exc = _export_dsn_with_pcbnew(str(pcb_path), str(dsn_path))
+
+        assert exc is None
+        assert len(calls) == 2
+        sanitized = tmp_path / "metadata-crash.dsn_export_sanitized.kicad_pcb"
+        assert sanitized.exists()
+        sanitized_text = sanitized.read_text()
+        assert "pad_prop_heatsink" not in sanitized_text
+        assert "(zone_connect" not in sanitized_text
+        assert '(pad "EP"' in sanitized_text
+
     def test_ses_import_segfault_is_route_unavailable(self, monkeypatch, tmp_path):
         def fake_run(cmd, **kwargs):
             return subprocess.CompletedProcess(cmd, -11, "", "segmentation fault")
@@ -1274,6 +1313,43 @@ class TestRoutingExceptions:
         assert exc.subject["stage"] == "ses_import"
         assert exc.subject["returncode"] == -11
         assert "signal 11" in exc.message
+
+    def test_ses_import_signal_retries_with_sanitized_board(self, monkeypatch, tmp_path):
+        pcb_path = tmp_path / "metadata-import-crash.kicad_pcb"
+        ses_path = tmp_path / "metadata-import-crash.ses"
+        pcb_path.write_text(
+            '(kicad_pcb\n'
+            '  (version 20241229)\n'
+            '  (footprint "QFN_Test"\n'
+            '    (uuid "11111111-1111-1111-1111-111111111111")\n'
+            '    (pad "EP" smd rect\n'
+            '      (at 0 0)\n'
+            '      (size 2 2)\n'
+            '      (layers "F.Cu" "F.Paste" "F.Mask")\n'
+            '      (property "pad_prop_heatsink" (uuid "22222222-2222-2222-2222-222222222222"))\n'
+            '      (zone_connect 2))\n'
+            '    (pad "1" smd rect (at 1 0) (size 0.5 0.5) (layers "F.Cu"))))\n'
+        )
+        ses_path.write_text("(ses)")
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            if len(calls) == 1:
+                return subprocess.CompletedProcess(cmd, -11, "", "segmentation fault")
+            assert ".ses_import_sanitized.kicad_pcb" in cmd[2]
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        exc = _import_ses_with_pcbnew(str(pcb_path), str(ses_path))
+
+        assert exc is None
+        assert len(calls) == 2
+        pcb_text = pcb_path.read_text()
+        assert "pad_prop_heatsink" not in pcb_text
+        assert "(zone_connect" not in pcb_text
+        assert '(pad "EP"' in pcb_text
 
     def test_route_import_segfault_does_not_crash_worker(self, monkeypatch, tmp_path):
         original_exists = Path.exists
