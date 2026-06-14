@@ -234,6 +234,94 @@ def test_tall_panel_visible_parts_get_column_constraints():
     assert distribute_by_refs[jack_refs].end_mm - distribute_by_refs[jack_refs].start_mm > 60.0
 
 
+def test_compact_four_panel_jacks_use_source_mined_2x2_grid():
+    gnd = _Net("GND")
+    signal = _Net("SIG")
+    jacks = [
+        _Part(
+            f"J{idx}",
+            name="Thonkiconn PJ398SM 3.5mm audio jack",
+            footprint="Connector_Audio:Thonkiconn_PJ398SM",
+            nets=[signal, gnd],
+        )
+        for idx in range(1, 5)
+    ]
+    circuit = _Circuit(jacks, [signal, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(30.0, 39.6))
+
+    assert "selected corpus-derived compact 2x2 panel jack template" in plan.warnings
+    assert all("panel_template" in _kinds(plan, f"J{idx}") for idx in range(1, 5))
+    row_aligns = [
+        constraint
+        for constraint in plan.align_constraints
+        if constraint.axis == "y" and len(constraint.refs) == 2
+    ]
+    col_aligns = [
+        constraint
+        for constraint in plan.align_constraints
+        if constraint.axis == "x" and len(constraint.refs) == 2
+    ]
+    assert {tuple(constraint.refs) for constraint in row_aligns} >= {
+        ("J1", "J2"),
+        ("J3", "J4"),
+    }
+    assert {tuple(constraint.refs) for constraint in col_aligns} >= {
+        ("J1", "J3"),
+        ("J2", "J4"),
+    }
+    assert any(
+        constraint.axis == "x"
+        and constraint.refs == ["J1", "J2"]
+        and constraint.start_mm == 7.5
+        and constraint.end_mm == 22.5
+        for constraint in plan.distribute_constraints
+    )
+    assert any(
+        constraint.axis == "y"
+        and constraint.refs == ["J1", "J3"]
+        and round(constraint.start_mm, 3) == 13.464
+        and round(constraint.end_mm, 3) == 26.136
+        for constraint in plan.distribute_constraints
+    )
+
+
+def test_long_panel_jacks_use_source_mined_two_row_grid():
+    gnd = _Net("GND")
+    signal = _Net("SIG")
+    jacks = [
+        _Part(
+            f"J{idx}",
+            name="Thonkiconn PJ398SM 3.5mm audio jack",
+            footprint="Connector_Audio:Thonkiconn_PJ398SM",
+            nets=[signal, gnd],
+        )
+        for idx in range(1, 9)
+    ]
+    circuit = _Circuit(jacks, [signal, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(180.0, 39.6))
+
+    assert "selected corpus-derived long two-row panel jack template" in plan.warnings
+    top_row = ("J1", "J2", "J3", "J4")
+    bottom_row = ("J5", "J6", "J7", "J8")
+    align_by_refs = {tuple(constraint.refs): constraint for constraint in plan.align_constraints}
+    distribute_by_refs = {
+        tuple(constraint.refs): constraint
+        for constraint in plan.distribute_constraints
+        if constraint.axis == "x"
+    }
+    assert top_row in align_by_refs
+    assert bottom_row in align_by_refs
+    assert align_by_refs[top_row].axis == "y"
+    assert align_by_refs[bottom_row].axis == "y"
+    assert align_by_refs[top_row].value_mm < align_by_refs[bottom_row].value_mm
+    assert distribute_by_refs[top_row].start_mm == 9.9
+    assert distribute_by_refs[top_row].end_mm == 170.1
+    assert distribute_by_refs[bottom_row].start_mm == 9.9
+    assert distribute_by_refs[bottom_row].end_mm == 170.1
+
+
 def test_simple_ic_board_adds_near_constraints_for_passives():
     vcc = _Net("VCC")
     gnd = _Net("GND")
@@ -314,6 +402,50 @@ def test_infers_mux_and_repeated_channel_intent():
     assert slots[0].sensor_refs == ["U2"]
     assert slots[1].sensor_refs == ["U3"]
     assert slots[2].refs == []
+
+
+def test_repeated_channel_intent_assigns_numbered_shared_rail_decaps_to_slots():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    ch0 = _Net("CH0_SIG")
+    ch1 = _Net("CH1_SIG")
+    mux = _Part(
+        "U1",
+        name="analog mux",
+        footprint="Package_QFN:MUX",
+        nets=[ch0, ch1, vcc, gnd],
+        pins=4,
+    )
+    sensor0 = _Part(
+        "U2",
+        name="sensor CH0",
+        footprint="Sensor:S",
+        nets=[ch0, vcc, gnd],
+        pins=3,
+    )
+    sensor1 = _Part(
+        "U3",
+        name="sensor CH1",
+        footprint="Sensor:S",
+        nets=[ch1, vcc, gnd],
+        pins=3,
+    )
+    shared_decap = _Part("C1", value="100nF", footprint="Cap:C", nets=[vcc, gnd])
+    decap0 = _Part("C2", value="100nF", footprint="Cap:C", nets=[vcc, gnd])
+    decap1 = _Part("C3", value="100nF", footprint="Cap:C", nets=[vcc, gnd])
+    circuit = _Circuit(
+        [mux, sensor0, shared_decap, decap0, sensor1, decap1],
+        [ch0, ch1, vcc, gnd],
+    )
+
+    plan = infer_placement_intents(circuit)
+
+    assert len(plan.repeated_channels) == 1
+    slots = {slot.channel_number: slot for slot in plan.repeated_channels[0].slots}
+    assert "C2" in slots[0].refs
+    assert "C3" in slots[1].refs
+    assert "C1" not in slots[0].refs
+    assert "C1" not in slots[1].refs
 
 
 # ---------------------------------------------------------------------------

@@ -106,8 +106,8 @@ def transform_point(
     # KiCad PCB coordinates are Y-down, so positive footprint rotations are
     # clockwise in screen/world space rather than the usual math Y-up rotation.
     return (
-        origin_x + local_x * math.cos(radians) + local_y * math.sin(radians),
-        origin_y - local_x * math.sin(radians) + local_y * math.cos(radians),
+        origin_x + local_x * math.cos(radians) - local_y * math.sin(radians),
+        origin_y + local_x * math.sin(radians) + local_y * math.cos(radians),
     )
 
 

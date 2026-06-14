@@ -13,7 +13,7 @@ from .constraints import (
     LayoutConstraints,
 )
 from .hierarchy import PlacementGroup
-from .roles import DECAP_VALUE_RE, GND_NET_RE, POWER_NET_RE
+from .roles import DECAP_VALUE_RE, GND_NET_RE, POWER_NET_RE, is_ui_grid_part
 from .spatial import SpatialGrid
 from .writer import PlacedPart
 
@@ -484,6 +484,13 @@ def _apply_soft_constraints(
     group_by_ref = {part.ref: group for part, group in all_parts}
     fixed_refs = {fp.ref for fp in (constraints.fixed or [])}
     fixed_refs.update(anchor.ref for anchor in (constraints.edge_anchors or []))
+    axis_locks: dict[str, dict[str, float]] = {}
+
+    def _lock_axis(ref: str, axis: str, value: float) -> None:
+        part = part_by_ref.get(ref)
+        if part is None or not is_ui_grid_part(part):
+            return
+        axis_locks.setdefault(ref, {})[axis] = value
 
     def _occupied_without(ref: str) -> list[tuple]:
         occupied = _occupied_from_keepouts(constraints.keepouts)
@@ -498,6 +505,80 @@ def _apply_soft_constraints(
             occupied.append((pp.x_mm, pp.y_mm, w, h))
         return occupied
 
+    def _apply_axis_locks(ref: str, x: float, y: float) -> tuple[float, float]:
+        locks = axis_locks.get(ref, {})
+        if "x" in locks:
+            x = locks["x"]
+        if "y" in locks:
+            y = locks["y"]
+        return x, y
+
+    def _find_clear_position_with_locks(
+        ref: str,
+        target_x: float,
+        target_y: float,
+        width: float,
+        height: float,
+        occupied,
+        bounds=None,
+        step: float = 1.0,
+        max_radius: float = 120.0,
+    ) -> tuple[float, float]:
+        locks = axis_locks.get(ref, {})
+        target_x, target_y = _apply_axis_locks(ref, target_x, target_y)
+
+        if not locks:
+            return _find_clear_position(
+                target_x,
+                target_y,
+                width,
+                height,
+                occupied,
+                bounds=bounds,
+                step=step,
+                max_radius=max_radius,
+            )
+
+        if _fits_bounds(target_x, target_y, width, height, bounds) and not _overlaps_any(
+            target_x, target_y, width, height, occupied
+        ):
+            return target_x, target_y
+
+        # Grid alignment is a mechanical/UI promise: keep locked axes fixed and
+        # search only along the free axis. If both axes are locked, validation
+        # should report the real conflict instead of silently degrading the grid.
+        if "x" in locks and "y" in locks:
+            return target_x, target_y
+
+        half_w, half_h = width / 2, height / 2
+        if "x" in locks:
+            low = bounds.y_min + half_h if bounds is not None else target_y - max_radius
+            high = bounds.y_max - half_h if bounds is not None else target_y + max_radius
+            axis_target = max(low, min(high, target_y))
+        else:
+            low = bounds.x_min + half_w if bounds is not None else target_x - max_radius
+            high = bounds.x_max - half_w if bounds is not None else target_x + max_radius
+            axis_target = max(low, min(high, target_x))
+
+        steps = max(1, int(max_radius / step))
+        candidates = [axis_target]
+        for i in range(1, steps + 1):
+            delta = i * step
+            candidates.extend((axis_target - delta, axis_target + delta))
+
+        for value in candidates:
+            if value < low or value > high:
+                continue
+            if "x" in locks:
+                x, y = target_x, value
+            else:
+                x, y = value, target_y
+            if _fits_bounds(x, y, width, height, bounds) and not _overlaps_any(
+                x, y, width, height, occupied
+            ):
+                return x, y
+        return target_x, target_y
+
     def _move(ref: str, target_x: float, target_y: float) -> None:
         if ref in fixed_refs or ref not in placed_map or ref not in part_by_ref:
             return
@@ -505,8 +586,11 @@ def _apply_soft_constraints(
         group = group_by_ref[ref]
         w, h = _bbox(part, fp_bboxes)
         bounds = _bounds_for_part(part, group, constraints)
+        target_x, target_y = _apply_axis_locks(ref, target_x, target_y)
         target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
-        x, y = _find_clear_position(
+        target_x, target_y = _apply_axis_locks(ref, target_x, target_y)
+        x, y = _find_clear_position_with_locks(
+            ref,
             target_x,
             target_y,
             w,
@@ -515,6 +599,7 @@ def _apply_soft_constraints(
             bounds=bounds,
         )
         x, y = _clamp_to_bounds(x, y, w, h, bounds)
+        x, y = _apply_axis_locks(ref, x, y)
         pp = placed_map[ref]
         placed_map[ref] = PlacedPart(
             ref=pp.ref,
@@ -537,6 +622,7 @@ def _apply_soft_constraints(
                 first = placed_map[refs[0]]
                 value = first.x_mm if axis == "x" else first.y_mm
             for ref in refs:
+                _lock_axis(ref, axis, value)
                 pp = placed_map[ref]
                 _move(
                     ref,
@@ -563,6 +649,7 @@ def _apply_soft_constraints(
         for idx, ref in enumerate(refs):
             pp = placed_map[ref]
             value = start + step * idx
+            _lock_axis(ref, axis, value)
             _move(
                 ref,
                 value if axis == "x" else pp.x_mm,

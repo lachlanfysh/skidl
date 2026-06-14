@@ -18,6 +18,7 @@ from .roles import GND_NET_RE, POWER_NET_RE, PartRole, classify_parts, pin_net_n
 
 
 CHANNEL_RE = re.compile(r"(?:^|[_/.-])(?:CH|CHAN|CHANNEL)(\d+)(?:[_/.-]|$)", re.I)
+REF_SUFFIX_RE = re.compile(r"([A-Za-z]+)(\d+)$")
 MUX_RE = re.compile(r"(mux|multiplex|tca954|pca954|switch)", re.I)
 RF_RE = re.compile(r"(antenna|rf|wifi|wi-fi|ble|bluetooth|esp32|nrf52|wroom)", re.I)
 UI_RE = re.compile(r"(button|switch|encoder|pot|display|oled|lcd|led)", re.I)
@@ -178,6 +179,39 @@ def _add_intent(
     plan.intents.setdefault(ref, []).append(
         PlacementIntent(ref=ref, kind=kind, priority=priority, reasons=[reason])
     )
+
+
+def _natural_ref_key(ref: str) -> tuple[str, int, str]:
+    match = REF_SUFFIX_RE.match(str(ref))
+    if match:
+        return (match.group(1), int(match.group(2)), str(ref))
+    return (str(ref), -1, str(ref))
+
+
+def _ref_suffix_number(ref: str) -> int | None:
+    match = REF_SUFFIX_RE.match(str(ref))
+    if match is None:
+        return None
+    return int(match.group(2))
+
+
+def _add_array_intents(
+    plan: PlacementIntentPlan,
+    refs: list[str],
+    reason: str,
+    *,
+    template_name: str | None = None,
+) -> None:
+    for ref in refs:
+        _add_intent(plan, ref, "array_subject", 78, reason)
+        if template_name is not None:
+            _add_intent(
+                plan,
+                ref,
+                "panel_template",
+                83,
+                f"corpus-derived panel template: {template_name}",
+            )
 
 
 def _edge_for_part(text: str, role: PartRole, nets: list[str]) -> str | None:
@@ -440,6 +474,9 @@ def _arrange_array_subjects(
     if len(refs) < 2:
         return
 
+    if _arrange_source_mined_panel_template(plan, groups, refs, outline):
+        return
+
     panel_like_count = sum(
         len(groups.get(kind, [])) for kind in ("control", "jack", "panel")
     )
@@ -483,14 +520,11 @@ def _arrange_array_subjects(
             if not kind_refs:
                 continue
             x = x_by_kind.get(kind, outline.x_min + outline.width_mm * 0.5)
-            for ref in kind_refs:
-                _add_intent(
-                    plan,
-                    ref,
-                    "array_subject",
-                    78,
-                    "visible repeated part on tall panel",
-                )
+            _add_array_intents(
+                plan,
+                kind_refs,
+                "visible repeated part on tall panel",
+            )
             plan.align_constraints.append(
                 AlignConstraint(refs=kind_refs, axis="x", value_mm=x)
             )
@@ -535,8 +569,7 @@ def _arrange_array_subjects(
     for row_refs, y in rows:
         if not row_refs:
             continue
-        for ref in row_refs:
-            _add_intent(plan, ref, "array_subject", 78, "visible repeated part")
+        _add_array_intents(plan, row_refs, "visible repeated part")
         plan.align_constraints.append(
             AlignConstraint(refs=row_refs, axis="y", value_mm=y)
         )
@@ -549,6 +582,155 @@ def _arrange_array_subjects(
                     end_mm=end_x,
                 )
             )
+
+
+def _arrange_source_mined_panel_template(
+    plan: PlacementIntentPlan,
+    groups: dict[str, list[str]],
+    refs: list[str],
+    outline,
+) -> bool:
+    jack_refs = sorted(groups.get("jack", []), key=_natural_ref_key)
+    if _arrange_compact_four_jack_grid(plan, jack_refs, refs, outline):
+        return True
+    if _arrange_long_panel_jack_rows(plan, groups, jack_refs, refs, outline):
+        return True
+    return False
+
+
+def _arrange_compact_four_jack_grid(
+    plan: PlacementIntentPlan,
+    jack_refs: list[str],
+    refs: list[str],
+    outline,
+) -> bool:
+    is_compact = (
+        min(outline.width_mm, outline.height_mm) <= 45.0
+        and max(outline.width_mm, outline.height_mm) <= 70.0
+    )
+    if len(jack_refs) != 4 or set(jack_refs) != set(refs) or not is_compact:
+        return False
+
+    left_x = outline.x_min + outline.width_mm * 0.25
+    right_x = outline.x_min + outline.width_mm * 0.75
+    top_y = outline.y_min + outline.height_mm * 0.34
+    bottom_y = outline.y_min + outline.height_mm * 0.66
+    top_refs = jack_refs[:2]
+    bottom_refs = jack_refs[2:]
+    left_refs = [top_refs[0], bottom_refs[0]]
+    right_refs = [top_refs[1], bottom_refs[1]]
+
+    _add_array_intents(
+        plan,
+        jack_refs,
+        "source corpus compact 2x2 panel jack grid",
+        template_name="compact_2x2_panel_jacks",
+    )
+    plan.warnings.append(
+        "selected corpus-derived compact 2x2 panel jack template"
+    )
+    for row_refs, y in ((top_refs, top_y), (bottom_refs, bottom_y)):
+        plan.align_constraints.append(
+            AlignConstraint(refs=row_refs, axis="y", value_mm=y)
+        )
+        plan.distribute_constraints.append(
+            DistributeConstraint(
+                refs=row_refs,
+                axis="x",
+                start_mm=left_x,
+                end_mm=right_x,
+            )
+        )
+    for col_refs, x in ((left_refs, left_x), (right_refs, right_x)):
+        plan.align_constraints.append(
+            AlignConstraint(refs=col_refs, axis="x", value_mm=x)
+        )
+        plan.distribute_constraints.append(
+            DistributeConstraint(
+                refs=col_refs,
+                axis="y",
+                start_mm=top_y,
+                end_mm=bottom_y,
+            )
+        )
+    return True
+
+
+def _arrange_long_panel_jack_rows(
+    plan: PlacementIntentPlan,
+    groups: dict[str, list[str]],
+    jack_refs: list[str],
+    refs: list[str],
+    outline,
+) -> bool:
+    is_long_panel = (
+        outline.width_mm >= 120.0
+        and outline.width_mm >= outline.height_mm * 4.0
+        and outline.height_mm <= 70.0
+    )
+    mostly_jacks = len(jack_refs) >= max(6, int(len(refs) * 0.7))
+    if not is_long_panel or not mostly_jacks:
+        return False
+
+    x_pad = max(8.0, min(30.0, outline.width_mm * 0.055))
+    start_x = outline.x_min + x_pad
+    end_x = outline.x_max - x_pad
+    top_y = outline.y_min + outline.height_mm * 0.35
+    bottom_y = outline.y_min + outline.height_mm * 0.65
+    split = (len(jack_refs) + 1) // 2
+    jack_rows = [jack_refs[:split], jack_refs[split:]]
+
+    _add_array_intents(
+        plan,
+        jack_refs,
+        "source corpus long two-row panel jack grid",
+        template_name="long_two_row_panel_jacks",
+    )
+    plan.warnings.append(
+        "selected corpus-derived long two-row panel jack template"
+    )
+    for row_refs, y in zip(jack_rows, (top_y, bottom_y)):
+        if len(row_refs) < 2:
+            continue
+        plan.align_constraints.append(
+            AlignConstraint(refs=row_refs, axis="y", value_mm=y)
+        )
+        plan.distribute_constraints.append(
+            DistributeConstraint(
+                refs=row_refs,
+                axis="x",
+                start_mm=start_x,
+                end_mm=end_x,
+            )
+        )
+
+    other_refs = sorted(
+        [ref for ref in refs if ref not in set(jack_refs)],
+        key=_natural_ref_key,
+    )
+    if len(other_refs) >= 2:
+        _add_array_intents(
+            plan,
+            other_refs,
+            "visible repeated part on long panel",
+            template_name="long_panel_secondary_row",
+        )
+        plan.align_constraints.append(
+            AlignConstraint(
+                refs=other_refs,
+                axis="y",
+                value_mm=outline.y_min + outline.height_mm * 0.5,
+            )
+        )
+        plan.distribute_constraints.append(
+            DistributeConstraint(
+                refs=other_refs,
+                axis="x",
+                start_mm=start_x,
+                end_mm=end_x,
+            )
+        )
+    return True
 
 
 def _add_simple_ic_passive_near_constraints(
@@ -817,6 +999,34 @@ def _infer_repeated_channels(
 
     if len(channel_refs) < 2:
         return []
+
+    initial_ref_counts: dict[str, int] = {}
+    for refs_for_ch in channel_refs.values():
+        for ref in refs_for_ch:
+            initial_ref_counts[ref] = initial_ref_counts.get(ref, 0) + 1
+    decaps_by_number = {
+        number: ref
+        for ref, role in roles.items()
+        if role.role == "decoupling_cap"
+        for number in [_ref_suffix_number(ref)]
+        if number is not None
+    }
+    channel_ref_set = {ref for refs_for_ch in channel_refs.values() for ref in refs_for_ch}
+    for refs_for_ch in channel_refs.values():
+        sensor_numbers = {
+            number
+            for ref in refs_for_ch
+            if roles.get(ref) is not None
+            and roles[ref].role == "ic"
+            and initial_ref_counts.get(ref, 0) == 1
+            for number in [_ref_suffix_number(ref)]
+            if number is not None
+        }
+        for number in sensor_numbers:
+            decap_ref = decaps_by_number.get(number)
+            if decap_ref is not None and decap_ref not in channel_ref_set:
+                refs_for_ch.add(decap_ref)
+                channel_ref_set.add(decap_ref)
 
     refs = sorted({ref for refs_for_ch in channel_refs.values() for ref in refs_for_ch})
     ref_counts: dict[str, int] = {}

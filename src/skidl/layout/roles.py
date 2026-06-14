@@ -32,6 +32,12 @@ DAISY_SEED_RE = re.compile(
     r"(electrosmith.?daisy|daisy.?seed|electrosmith_daisy_seed)",
     re.IGNORECASE,
 )
+PANEL_CONTROL_RE = re.compile(
+    r"(switch|button|potentiometer|encoder|rotary|knob|trimmer|"
+    r"alpha|bourns|songhuei)",
+    re.IGNORECASE,
+)
+LED_UI_RE = re.compile(r"(led|neopixel|ws2812|apa102)", re.IGNORECASE)
 
 
 @dataclass
@@ -83,6 +89,19 @@ def pin_net_names(part) -> list[str]:
     return names
 
 
+def is_ui_grid_part(part) -> bool:
+    """Return true for parts whose panel/front-face grid should be authoritative."""
+    prefix = _ref_prefix(part)
+    text = _part_text(part)
+    if AUDIO_JACK_RE.search(text) and not POWER_JACK_RE.search(text):
+        return True
+    if prefix in {"SW", "S", "RV", "POT"} or PANEL_CONTROL_RE.search(text):
+        return True
+    if prefix == "LED" or LED_UI_RE.search(text):
+        return True
+    return False
+
+
 def has_power_and_ground(part) -> bool:
     nets = pin_net_names(part)
     return any(POWER_NET_RE.match(n) for n in nets) and any(
@@ -120,17 +139,7 @@ def classify_part(part) -> PartRole:
         reasons.append("mechanical mounting-hole reference or footprint")
         return PartRole(ref, "mounting_hole", 0.95, reasons)
 
-    if prefix in {"SW", "S", "RV", "POT"} or any(
-        term in text
-        for term in (
-            "switch",
-            "button",
-            "potentiometer",
-            "pot ",
-            "trimmer",
-            "encoder",
-        )
-    ):
+    if prefix in {"SW", "S", "RV", "POT"} or PANEL_CONTROL_RE.search(text):
         reasons.append("panel/user-control reference or metadata")
         return PartRole(ref, "control", 0.85, reasons)
 

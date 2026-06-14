@@ -322,6 +322,13 @@ def _with_module_socket_zone(
     return zoned
 
 
+def _with_panel_template(
+    constraints: LayoutConstraints,
+    intent_plan: PlacementIntentPlan | None,
+) -> LayoutConstraints:
+    return _merge_inferred_edge_anchors(constraints, intent_plan)
+
+
 def _channel_slot_refs(channel: RepeatedChannelIntent) -> list[str]:
     ref_counts: dict[str, int] = {}
     for refs in channel.refs_by_channel.values():
@@ -538,6 +545,18 @@ def generate_placement_candidates(
         power_topology,
         fp_geometries,
     )
+    if intent_plan is not None and intent_plan.refs_with_kind("panel_template"):
+        _append_candidate(
+            candidates,
+            "panel_template_grid",
+            groups,
+            _with_panel_template(constraints, intent_plan),
+            fp_bboxes,
+            ["corpus-derived panel/UI grid constraints applied"],
+            intent_plan,
+            power_topology,
+            fp_geometries,
+        )
     _append_candidate(
         candidates,
         "power_first",

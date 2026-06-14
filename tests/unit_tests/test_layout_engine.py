@@ -3,11 +3,13 @@ from __future__ import annotations
 import pytest
 
 from skidl.layout.constraints import (
+    AlignConstraint,
     BoardOutline,
     DistributeConstraint,
     EdgeAnchor,
     FixedPosition,
     LayoutConstraints,
+    NearConstraint,
 )
 from skidl.layout.engine import LayoutResult, _footprint_names, plan_layout
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
@@ -461,6 +463,61 @@ def test_plan_layout_aligns_panel_jacks_without_edge_anchoring():
     xs = [placed[ref].x_mm for ref in ("J1", "J2", "J3")]
     assert max(ys) - min(ys) <= 1.0
     assert max(xs) - min(xs) >= 30.0
+
+
+def test_panel_grid_constraints_resist_proximity_optimization():
+    outline = BoardOutline(40.0, 120.0)
+    gnd = _Net("GND")
+    sig1 = _Net("IN_1")
+    sig2 = _Net("IN_2")
+    sig3 = _Net("OUT_1")
+    u1 = _Part(
+        "U1",
+        name="op amp",
+        footprint="Package_QFP:MCU",
+        nets=[gnd, sig1, sig2, sig3],
+        pins=4,
+    )
+    jacks = [
+        _Part(
+            f"J{idx}",
+            name="Thonkiconn PJ398SM panel jack",
+            footprint="Connector_Audio:Thonkiconn_PJ398SM",
+            nets=[net, gnd],
+        )
+        for idx, net in enumerate((sig1, sig2, sig3), start=1)
+    ]
+    circuit = _Circuit([u1, *jacks], [gnd, sig1, sig2, sig3])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=outline,
+            align=[AlignConstraint(refs=["J1", "J2", "J3"], axis="x", value_mm=20.0)],
+            distribute=[
+                DistributeConstraint(
+                    refs=["J1", "J2", "J3"],
+                    axis="y",
+                    start_mm=24.0,
+                    end_mm=96.0,
+                ),
+            ],
+            near=[
+                NearConstraint("J1", "U1", distance_mm=2.0),
+                NearConstraint("J2", "U1", distance_mm=2.0),
+                NearConstraint("J3", "U1", distance_mm=2.0),
+            ],
+        ),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    assert placed["J1"].x_mm == pytest.approx(20.0)
+    assert placed["J2"].x_mm == pytest.approx(20.0)
+    assert placed["J3"].x_mm == pytest.approx(20.0)
+    assert placed["J1"].y_mm == pytest.approx(24.0)
+    assert placed["J2"].y_mm == pytest.approx(60.0)
+    assert placed["J3"].y_mm == pytest.approx(96.0)
 
 
 def test_plan_layout_keeps_horizontal_audio_jack_row_on_edge():

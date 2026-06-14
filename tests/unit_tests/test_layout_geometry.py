@@ -44,5 +44,5 @@ def test_footprint_geometry_transforms_bounds_and_pad_centers():
     assert geometry.transformed_bounds(placed) == pytest.approx(
         (9.0, 17.0, 11.0, 23.0)
     )
-    assert geometry.pad_world_centers(placed)["1"] == pytest.approx((10.0, 22.0))
-    assert geometry.pad_world_centers(placed)["2"] == pytest.approx((10.0, 18.0))
+    assert geometry.pad_world_centers(placed)["1"] == pytest.approx((10.0, 18.0))
+    assert geometry.pad_world_centers(placed)["2"] == pytest.approx((10.0, 22.0))

@@ -298,6 +298,8 @@ def _outline_oversize_penalty(
     """Return a score penalty for sparse placements on generous outlines."""
     if outline is None:
         return 0.0
+    if len(placed_parts) < 4:
+        return 0.0
     envelope = _placement_envelope(placed_parts, fp_bboxes)
     if envelope is None:
         return 0.0

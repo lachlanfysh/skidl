@@ -7,7 +7,7 @@ from .candidates import PlacementCandidate
 from .constraints import LayoutConstraints
 from .geometry import FootprintGeometry
 from .placer import _find_clear_position
-from .roles import GND_NET_RE, POWER_NET_RE, classify_parts
+from .roles import GND_NET_RE, POWER_NET_RE, classify_parts, is_ui_grid_part
 from .scoring import LayoutScore, score_placement
 from .validator import validate
 from .writer import PlacedPart
@@ -142,11 +142,27 @@ def _clamp_to_bounds(
     )
 
 
-def _locked_position_refs(constraints: LayoutConstraints | None) -> set[str]:
+def _locked_position_refs(constraints: LayoutConstraints | None, circuit=None) -> set[str]:
     if constraints is None:
         return set()
     locked = {fixed.ref for fixed in constraints.fixed or []}
     locked.update(anchor.ref for anchor in constraints.edge_anchors or [])
+    part_by_ref = {
+        getattr(part, "ref", ""): part
+        for part in (getattr(circuit, "parts", []) or [])
+    }
+    for constraint in constraints.align or []:
+        locked.update(
+            ref
+            for ref in (constraint.refs or [])
+            if ref in part_by_ref and is_ui_grid_part(part_by_ref[ref])
+        )
+    for constraint in constraints.distribute or []:
+        locked.update(
+            ref
+            for ref in (constraint.refs or [])
+            if ref in part_by_ref and is_ui_grid_part(part_by_ref[ref])
+        )
     return locked
 
 
@@ -502,7 +518,7 @@ def refine_placement(
         board_layers,
     )
     start_score = current_score.score
-    position_locked = _locked_position_refs(constraints)
+    position_locked = _locked_position_refs(constraints, circuit)
     position_locked.update(_decap_refs(circuit))
     rotation_locked = _locked_rotation_refs(constraints)
     accepted_moves = 0
