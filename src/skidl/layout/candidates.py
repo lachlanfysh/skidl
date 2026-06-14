@@ -38,7 +38,33 @@ def copy_constraints(constraints: LayoutConstraints | None) -> LayoutConstraints
         far=list(constraints.far or []),
         face_edges=list(constraints.face_edges or []),
         outline=constraints.outline,
+        form_factor=constraints.form_factor,
     )
+
+
+def _explicit_position_refs(constraints: LayoutConstraints) -> set[str]:
+    """Refs whose placement was specified by the caller, not inferred intent."""
+    refs = {fixed.ref for fixed in constraints.fixed or []}
+    refs.update(anchor.ref for anchor in constraints.edge_anchors or [])
+    refs.update(face.ref for face in constraints.face_edges or [])
+    for zone in constraints.zones or []:
+        refs.update(zone.refs or [])
+    for constraint in constraints.align or []:
+        refs.update(constraint.refs or [])
+    for constraint in constraints.distribute or []:
+        refs.update(constraint.refs or [])
+    return refs
+
+
+def _explicit_floorplan_refs(constraints: LayoutConstraints) -> set[str]:
+    refs = _explicit_position_refs(constraints)
+    for constraint in constraints.near or []:
+        refs.add(constraint.ref)
+        refs.add(constraint.target_ref)
+    for constraint in constraints.far or []:
+        refs.add(constraint.ref)
+        refs.add(constraint.target_ref)
+    return refs
 
 
 def _merge_inferred_edge_anchors(
@@ -49,15 +75,24 @@ def _merge_inferred_edge_anchors(
     if intent_plan is None:
         return merged
 
+    explicit_position_refs = _explicit_position_refs(constraints)
+    explicit_floorplan_refs = _explicit_floorplan_refs(constraints)
+
     explicit_refs = {anchor.ref for anchor in merged.edge_anchors}
     for anchor in intent_plan.edge_anchors:
-        if anchor.ref not in explicit_refs:
+        if (
+            anchor.ref not in explicit_refs
+            and anchor.ref not in explicit_position_refs
+        ):
             merged.edge_anchors.append(anchor)
             explicit_refs.add(anchor.ref)
 
     explicit_face_refs = {face.ref for face in merged.face_edges}
     for face_edge in intent_plan.face_edges:
-        if face_edge.ref not in explicit_face_refs:
+        if (
+            face_edge.ref not in explicit_face_refs
+            and face_edge.ref not in explicit_position_refs
+        ):
             merged.face_edges.append(face_edge)
             explicit_face_refs.add(face_edge.ref)
 
@@ -70,6 +105,15 @@ def _merge_inferred_edge_anchors(
         if key not in explicit_keepouts:
             merged.keepouts.append(keepout)
             explicit_keepouts.add(key)
+
+    explicit_fixed_refs = {fixed.ref for fixed in merged.fixed}
+    for fixed in intent_plan.fixed_positions:
+        if (
+            fixed.ref not in explicit_fixed_refs
+            and fixed.ref not in explicit_position_refs
+        ):
+            merged.fixed.append(fixed)
+            explicit_fixed_refs.add(fixed.ref)
 
     # Merge near/far constraints from RF path inference and other intent
     # sources.  Avoid duplicates by (ref, target_ref) pair.
@@ -87,6 +131,69 @@ def _merge_inferred_edge_anchors(
             merged.far.append(fc)
             existing_far.add(key)
 
+    existing_align = {
+        (tuple(constraint.refs), constraint.axis, constraint.value_mm)
+        for constraint in merged.align
+    }
+    for constraint in intent_plan.align_constraints:
+        refs = [ref for ref in constraint.refs if ref not in explicit_floorplan_refs]
+        if len(refs) < 2:
+            continue
+        constraint = AlignConstraint(
+            refs=refs,
+            axis=constraint.axis,
+            value_mm=constraint.value_mm,
+        )
+        key = (tuple(constraint.refs), constraint.axis, constraint.value_mm)
+        if key not in existing_align:
+            merged.align.append(constraint)
+            existing_align.add(key)
+
+    existing_distribute = {
+        (
+            tuple(constraint.refs),
+            constraint.axis,
+            constraint.start_mm,
+            constraint.end_mm,
+        )
+        for constraint in merged.distribute
+    }
+    for constraint in intent_plan.distribute_constraints:
+        refs = [ref for ref in constraint.refs if ref not in explicit_floorplan_refs]
+        if len(refs) < 2:
+            continue
+        constraint = DistributeConstraint(
+            refs=refs,
+            axis=constraint.axis,
+            start_mm=constraint.start_mm,
+            end_mm=constraint.end_mm,
+        )
+        key = (
+            tuple(constraint.refs),
+            constraint.axis,
+            constraint.start_mm,
+            constraint.end_mm,
+        )
+        if key not in existing_distribute:
+            merged.distribute.append(constraint)
+            existing_distribute.add(key)
+
+    return merged
+
+
+def _merge_inferred_fixed_positions(
+    constraints: LayoutConstraints,
+    intent_plan: PlacementIntentPlan | None,
+) -> LayoutConstraints:
+    merged = copy_constraints(constraints)
+    if intent_plan is None:
+        return merged
+
+    explicit_fixed_refs = {fixed.ref for fixed in merged.fixed}
+    for fixed in intent_plan.fixed_positions:
+        if fixed.ref not in explicit_fixed_refs:
+            merged.fixed.append(fixed)
+            explicit_fixed_refs.add(fixed.ref)
     return merged
 
 
@@ -376,9 +483,9 @@ def generate_placement_candidates(
         candidates,
         "baseline",
         groups,
-        copy_constraints(constraints),
+        _merge_inferred_fixed_positions(constraints, intent_plan),
         fp_bboxes,
-        ["explicit constraints and default placement order"],
+        ["explicit constraints, fixed mechanics, and default placement order"],
         intent_plan,
         power_topology,
         fp_geometries,

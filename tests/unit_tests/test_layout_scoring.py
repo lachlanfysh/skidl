@@ -66,6 +66,28 @@ def test_score_connector_warns_when_far_from_edge():
     assert score.score < 100.0
 
 
+def test_score_warns_when_outline_is_much_larger_than_placed_envelope():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    ic = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd])
+    cap = _Part("C1", value="1uF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    circuit = _Circuit([ic, cap], [vcc, gnd])
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("C1", 28.0, 20.0, 0.0, "Capacitor:C_0805"),
+    ]
+
+    score = score_placement(
+        placed,
+        circuit,
+        BBOXES,
+        outline=BoardOutline(80.0, 50.0),
+    )
+
+    assert any("outline is" in warning for warning in score.warnings)
+    assert score.score < 100.0
+
+
 def test_score_decoupling_cap_warns_when_far_from_parent():
     vcc = _Net("VCC")
     gnd = _Net("GND")

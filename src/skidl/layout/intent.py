@@ -4,7 +4,16 @@ import re
 from dataclasses import dataclass, field
 
 from .backends import OptionalBackendStatus, optional_backend_status
-from .constraints import AlignConstraint, EdgeAnchor, FaceEdgeConstraint, FarConstraint, KeepOut, NearConstraint
+from .constraints import (
+    AlignConstraint,
+    DistributeConstraint,
+    EdgeAnchor,
+    FaceEdgeConstraint,
+    FarConstraint,
+    FixedPosition,
+    KeepOut,
+    NearConstraint,
+)
 from .roles import GND_NET_RE, POWER_NET_RE, PartRole, classify_parts, pin_net_names
 
 
@@ -14,10 +23,15 @@ RF_RE = re.compile(r"(antenna|rf|wifi|wi-fi|ble|bluetooth|esp32|nrf52|wroom)", r
 UI_RE = re.compile(r"(button|switch|encoder|pot|display|oled|lcd|led)", re.I)
 DEBUG_RE = re.compile(r"(swd|jtag|icsp|debug|program|uart|serial)", re.I)
 POWER_INPUT_RE = re.compile(r"(usb|barrel|battery|batt|jst|terminal|power)", re.I)
+EURORACK_POWER_RE = re.compile(r"(eurorack|doepfer|box.?header|idc|shrouded)", re.I)
 BARREL_RE = re.compile(r"(barrel|dc jack|power jack)", re.I)
 JST_RE = re.compile(r"\b(jst|battery|batt|lipo|li-po)\b", re.I)
 FFC_RE = re.compile(r"\b(ffc|fpc|flat flex|ribbon)\b", re.I)
 HEADER_RE = re.compile(r"\b(header|pinheader|pin header|tagconnect|swd|jtag)\b", re.I)
+INTERNAL_HEADER_RE = re.compile(
+    r"\b(oled|lcd|display|tft|screen|daughter|mezzanine|board.?to.?board|b2b|module|socket)\b",
+    re.I,
+)
 BUTTON_RE = re.compile(r"\b(button|pushbutton|tact|switch)\b", re.I)
 LED_RE = re.compile(r"\b(led|neopixel|indicator)\b", re.I)
 DISPLAY_RE = re.compile(r"\b(display|oled|lcd|screen)\b", re.I)
@@ -78,9 +92,11 @@ class PlacementIntentPlan:
     edge_anchors: list[EdgeAnchor] = field(default_factory=list)
     face_edges: list[FaceEdgeConstraint] = field(default_factory=list)
     keepouts: list[KeepOut] = field(default_factory=list)
+    fixed_positions: list[FixedPosition] = field(default_factory=list)
     near_constraints: list[NearConstraint] = field(default_factory=list)
     far_constraints: list[FarConstraint] = field(default_factory=list)
     align_constraints: list[AlignConstraint] = field(default_factory=list)
+    distribute_constraints: list[DistributeConstraint] = field(default_factory=list)
     repeated_channels: list[RepeatedChannelIntent] = field(default_factory=list)
     mating_intents: list[MatingIntent] = field(default_factory=list)
     backend_status: OptionalBackendStatus = field(default_factory=optional_backend_status)
@@ -112,12 +128,18 @@ class PlacementIntentPlan:
             lines.append(f"  inferred edge anchors: {len(self.edge_anchors)}")
         if self.face_edges:
             lines.append(f"  inferred face-edge constraints: {len(self.face_edges)}")
+        if self.fixed_positions:
+            lines.append(f"  inferred fixed positions: {len(self.fixed_positions)}")
         if self.near_constraints:
             lines.append(f"  near constraints: {len(self.near_constraints)}")
         if self.far_constraints:
             lines.append(f"  far constraints: {len(self.far_constraints)}")
         if self.align_constraints:
             lines.append(f"  align constraints: {len(self.align_constraints)}")
+        if self.distribute_constraints:
+            lines.append(
+                f"  distribute constraints: {len(self.distribute_constraints)}"
+            )
         if self.mating_intents:
             lines.append(f"  mating intents: {len(self.mating_intents)}")
         if self.repeated_channels:
@@ -154,10 +176,14 @@ def _add_intent(
 
 
 def _edge_for_part(text: str, role: PartRole, nets: list[str]) -> str | None:
+    if role.role in {"panel_jack", "display_connector", "internal_connector"}:
+        return None
     if "usb" in text:
         return "bottom"
     if DEBUG_RE.search(text):
         return "right"
+    if INTERNAL_HEADER_RE.search(text) or any(DISPLAY_NET_RE.search(n) for n in nets):
+        return None
     if UI_RE.search(text) and role.role == "connector":
         return "right"
     if POWER_INPUT_RE.search(text) or any(
@@ -176,6 +202,36 @@ def _mating_intent_for_part(
     nets: list[str],
 ) -> MatingIntent | None:
     role_name = role.role if role is not None else ""
+    has_eurorack_supply = {net.upper() for net in nets} & {
+        "+12V",
+        "-12V",
+        "EURORACK_+12V",
+        "EURORACK_-12V",
+    }
+    if (
+        role_name == "connector"
+        and (EURORACK_POWER_RE.search(text) or has_eurorack_supply)
+        and any(GND_NET_RE.match(net) for net in nets)
+    ):
+        return MatingIntent(
+            ref=ref,
+            kind="eurorack_power",
+            edge_preference="bottom",
+            mating_side="internal_power_cable",
+            allowed_rotations=(0.0, 180.0),
+            confidence=0.85,
+            reasons=["Eurorack/internal power connector metadata"],
+        )
+    if role_name == "panel_jack":
+        return MatingIntent(
+            ref=ref,
+            kind="panel_jack",
+            edge_preference=None,
+            mating_side="front_panel",
+            allowed_rotations=(0.0, 180.0),
+            confidence=0.9,
+            reasons=["panel/audio jack metadata"],
+        )
     if "usb" in text:
         return MatingIntent(
             ref=ref,
@@ -226,6 +282,18 @@ def _mating_intent_for_part(
             allowed_rotations=(0.0, 180.0),
             confidence=0.85,
             reasons=["FFC/FPC connector metadata"],
+        )
+    if (HEADER_RE.search(text) or role_name == "connector") and (
+        INTERNAL_HEADER_RE.search(text) or any(DISPLAY_NET_RE.search(n) for n in nets)
+    ):
+        return MatingIntent(
+            ref=ref,
+            kind="internal_header",
+            edge_preference=None,
+            mating_side="daughterboard_or_display",
+            allowed_rotations=(0.0, 90.0, 180.0, 270.0),
+            confidence=0.75,
+            reasons=["internal/display/daughterboard header metadata"],
         )
     if HEADER_RE.search(text) or role_name == "connector":
         edge = _edge_for_part(text, role or PartRole(ref, "connector", 0.5), nets)
@@ -283,6 +351,107 @@ def _mating_intent_for_part(
             reasons=["LED/indicator metadata"],
         )
     return None
+
+
+def _is_panel_subject(ref: str, roles: dict[str, PartRole], plan: PlacementIntentPlan) -> bool:
+    role = roles.get(ref)
+    if role is not None and role.role in {"panel_jack", "control"}:
+        return True
+    return any(
+        intent.kind in {"panel_control", "panel_jack", "front_panel_subject"}
+        for intent in plan.intents_for(ref)
+    )
+
+
+def _array_subject_kind(
+    ref: str,
+    roles: dict[str, PartRole],
+    mating_by_ref: dict[str, MatingIntent],
+) -> str | None:
+    role = roles.get(ref)
+    if role is not None:
+        if role.role == "panel_jack":
+            return "jack"
+        if role.role == "control":
+            return "control"
+
+    mating = mating_by_ref.get(ref)
+    if mating is None:
+        return None
+    if mating.kind == "led":
+        return "led"
+    if mating.kind == "panel_jack":
+        return "jack"
+    if mating.kind in {"button", "encoder", "pot", "nav_control"}:
+        return "control"
+    return None
+
+
+def _arrange_array_subjects(
+    plan: PlacementIntentPlan,
+    roles: dict[str, PartRole],
+    outline=None,
+) -> None:
+    if outline is None:
+        return
+    mating_by_ref = {intent.ref: intent for intent in plan.mating_intents}
+    groups: dict[str, list[str]] = {}
+    for ref in sorted(plan.intents):
+        kind = _array_subject_kind(ref, roles, mating_by_ref)
+        if kind is None and _is_panel_subject(ref, roles, plan):
+            kind = "panel"
+        if kind is None:
+            continue
+        groups.setdefault(kind, []).append(ref)
+
+    refs = [ref for refs_for_kind in groups.values() for ref in refs_for_kind]
+    if len(refs) < 2:
+        return
+
+    x_pad = max(4.0, outline.width_mm * 0.14)
+    start_x = outline.x_min + x_pad
+    end_x = outline.x_max - x_pad
+    if start_x >= end_x:
+        start_x = outline.x_min + outline.width_mm * 0.2
+        end_x = outline.x_max - outline.width_mm * 0.2
+
+    row_refs: list[list[str]] = []
+    for kind in ("control", "led", "jack", "panel"):
+        kind_refs = groups.get(kind, [])
+        if not kind_refs:
+            continue
+        if len(kind_refs) <= 4:
+            row_refs.append(kind_refs)
+            continue
+        split = (len(kind_refs) + 1) // 2
+        row_refs.extend([kind_refs[:split], kind_refs[split:]])
+
+    if len(row_refs) == 1:
+        y_values = [outline.y_min + outline.height_mm * 0.42]
+    else:
+        y_start = outline.y_min + outline.height_mm * 0.32
+        y_end = outline.y_min + outline.height_mm * 0.64
+        step = (y_end - y_start) / max(1, len(row_refs) - 1)
+        y_values = [y_start + idx * step for idx in range(len(row_refs))]
+
+    rows = list(zip(row_refs, y_values))
+    for row_refs, y in rows:
+        if not row_refs:
+            continue
+        for ref in row_refs:
+            _add_intent(plan, ref, "array_subject", 78, "visible repeated part")
+        plan.align_constraints.append(
+            AlignConstraint(refs=row_refs, axis="y", value_mm=y)
+        )
+        if len(row_refs) > 1:
+            plan.distribute_constraints.append(
+                DistributeConstraint(
+                    refs=row_refs,
+                    axis="x",
+                    start_mm=start_x,
+                    end_mm=end_x,
+                )
+            )
 
 
 def _is_coax_connector(part) -> bool:
@@ -607,6 +776,39 @@ def _colocate_display_and_controls(
     )
 
 
+def _place_opposing_header_pair(plan: PlacementIntentPlan) -> None:
+    """Put two generic pin-access headers on opposing board edges."""
+    pin_headers = [
+        intent
+        for intent in plan.mating_intents
+        if intent.kind in {"header", "generic_connector"}
+        and intent.mating_side == "pin_access"
+        and intent.edge_preference is not None
+    ]
+    if len(pin_headers) != 2:
+        return
+
+    refs = sorted(intent.ref for intent in pin_headers)
+    existing = {
+        anchor.ref: anchor
+        for anchor in plan.edge_anchors
+        if anchor.ref in refs
+    }
+    if set(existing) != set(refs):
+        return
+
+    for ref, edge in zip(refs, ("left", "right")):
+        existing[ref].edge = edge
+        existing[ref].offset_mm = None
+        for face_edge in plan.face_edges:
+            if face_edge.ref == ref:
+                face_edge.edge = edge
+        for mating in plan.mating_intents:
+            if mating.ref == ref:
+                mating.edge_preference = edge
+    plan.align_constraints.append(AlignConstraint(refs=refs, axis="y"))
+
+
 def _spread_edge_anchor_offsets(plan: PlacementIntentPlan, outline=None) -> None:
     """Assign stable, spaced offsets to inferred edge anchors.
 
@@ -647,6 +849,41 @@ def _spread_edge_anchor_offsets(plan: PlacementIntentPlan, outline=None) -> None
             anchor.offset_mm = start + pad + step * idx
 
 
+def _place_mounting_holes(
+    plan: PlacementIntentPlan,
+    refs: list[str],
+    outline=None,
+) -> None:
+    if outline is None or not refs:
+        return
+
+    base_inset = min(3.5, max(2.0, min(outline.width_mm, outline.height_mm) * 0.08))
+    edge_set = {anchor.edge.lower() for anchor in plan.edge_anchors}
+    x_inset = base_inset + (2.5 if edge_set & {"left", "right"} else 0.0)
+    needs_bottom_row = len(refs) > 2
+    y_edge_conflict = "top" in edge_set or (needs_bottom_row and "bottom" in edge_set)
+    y_inset = base_inset + (2.5 if y_edge_conflict else 0.0)
+    x_inset = min(x_inset, max(base_inset, outline.width_mm * 0.32))
+    y_inset = min(y_inset, max(base_inset, outline.height_mm * 0.32))
+    x0 = outline.x_min + x_inset
+    x1 = outline.x_max - x_inset
+    y0 = outline.y_min + y_inset
+    y1 = outline.y_max - y_inset
+    if len(refs) == 2:
+        # With only two holes, prefer one mechanical side instead of an
+        # awkward diagonal pair.  Four-hole patterns still use all corners.
+        positions = [(x0, y0), (x1, y0)]
+    else:
+        positions = [
+            (x0, y0),
+            (x1, y1),
+            (x1, y0),
+            (x0, y1),
+        ]
+    for ref, (x, y) in zip(refs[:4], positions):
+        plan.fixed_positions.append(FixedPosition(ref=ref, x_mm=x, y_mm=y))
+
+
 def infer_placement_intents(
     circuit,
     outline=None,
@@ -657,6 +894,7 @@ def infer_placement_intents(
         backend_status=backend_status or optional_backend_status()
     )
     roles = classify_parts(circuit)
+    mounting_refs: list[str] = []
 
     for part in circuit.parts:
         ref = str(getattr(part, "ref", "") or "")
@@ -700,6 +938,10 @@ def infer_placement_intents(
         if role is not None and role.role == "decoupling_cap":
             _add_intent(plan, ref, "decoupling", 80, "decoupling capacitor")
 
+        if role is not None and role.role == "mounting_hole":
+            _add_intent(plan, ref, "mounting_hole", 82, "mechanical mounting hole")
+            mounting_refs.append(ref)
+
         if (
             MUX_RE.search(text)
             or sum(1 for net in nets if CHANNEL_RE.search(net)) >= 4
@@ -721,8 +963,28 @@ def infer_placement_intents(
         ):
             _add_intent(plan, ref, "power_input", 85, "connector on supply net")
 
+        if role is not None and role.role == "panel_jack":
+            _add_intent(plan, ref, "panel_jack", 86, "panel/audio jack")
+            _add_intent(plan, ref, "front_panel_subject", 84, "panel jack")
+
+        if role is not None and role.role == "control":
+            _add_intent(plan, ref, "panel_control", 84, "front-panel control")
+            _add_intent(plan, ref, "front_panel_subject", 82, "panel control")
+
+        if mating_intent is not None and mating_intent.kind == "internal_header":
+            _add_intent(
+                plan,
+                ref,
+                "internal_connector",
+                80,
+                "display/daughterboard/internal header",
+            )
+
     plan.repeated_channels = _infer_repeated_channels(circuit, roles)
     _infer_rf_intents(circuit, plan, outline)
     _colocate_display_and_controls(plan, outline)
+    _place_opposing_header_pair(plan)
+    _place_mounting_holes(plan, mounting_refs, outline)
+    _arrange_array_subjects(plan, roles, outline)
     _spread_edge_anchor_offsets(plan, outline)
     return plan

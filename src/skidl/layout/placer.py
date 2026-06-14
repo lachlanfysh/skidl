@@ -153,6 +153,65 @@ def _find_clear_position(
     return target_x, target_y
 
 
+def _find_clear_edge_position(
+    anchor: EdgeAnchor,
+    target_x: float,
+    target_y: float,
+    width: float,
+    height: float,
+    occupied,
+    bounds=None,
+    step: float = 1.0,
+    max_radius: float = 120.0,
+) -> tuple[float, float]:
+    """Find a clear position for an edge anchor without moving it off-edge."""
+    edge = anchor.edge.lower()
+    if edge not in {"top", "bottom", "left", "right"}:
+        return _find_clear_position(
+            target_x, target_y, width, height, occupied,
+            bounds=bounds, step=step, max_radius=max_radius,
+        )
+
+    if _fits_bounds(target_x, target_y, width, height, bounds) and not _overlaps_any(
+        target_x, target_y, width, height, occupied
+    ):
+        return target_x, target_y
+
+    half_w, half_h = width / 2, height / 2
+    if edge in {"top", "bottom"}:
+        low = bounds.x_min + half_w if bounds is not None else target_x - max_radius
+        high = bounds.x_max - half_w if bounds is not None else target_x + max_radius
+        fixed = target_y
+        axis_target = max(low, min(high, target_x))
+    else:
+        low = bounds.y_min + half_h if bounds is not None else target_y - max_radius
+        high = bounds.y_max - half_h if bounds is not None else target_y + max_radius
+        fixed = target_x
+        axis_target = max(low, min(high, target_y))
+
+    steps = max(1, int(max_radius / step))
+    candidates = [axis_target]
+    for i in range(1, steps + 1):
+        delta = i * step
+        candidates.extend((axis_target - delta, axis_target + delta))
+
+    for value in candidates:
+        if value < low or value > high:
+            continue
+        if edge in {"top", "bottom"}:
+            x, y = value, fixed
+        else:
+            x, y = fixed, value
+        if _fits_bounds(x, y, width, height, bounds) and not _overlaps_any(
+            x, y, width, height, occupied
+        ):
+            return x, y
+
+    # Staying on the requested edge is more important than silently moving a
+    # mating connector inward.  Let validation report any residual overlap.
+    return target_x, target_y
+
+
 def _find_near_parent(
     parent_x: float,
     parent_y: float,
@@ -511,6 +570,39 @@ def _apply_soft_constraints(
 
     _apply_align_constraints()
 
+    def _part_area(ref: str) -> float:
+        part = part_by_ref.get(ref)
+        if part is None:
+            pp = placed_map[ref]
+            w, h = fp_bboxes.get(pp.footprint, _DEFAULT_BBOX)
+        else:
+            w, h = _bbox(part, fp_bboxes)
+        return w * h
+
+    def _resolve_overlaps() -> None:
+        movable_refs = sorted(
+            (ref for ref in placed_map if ref not in fixed_refs),
+            key=_part_area,
+        )
+        for _ in range(2):
+            moved = False
+            for ref in movable_refs:
+                if ref not in placed_map or ref not in part_by_ref:
+                    continue
+                pp = placed_map[ref]
+                part = part_by_ref[ref]
+                w, h = _bbox(part, fp_bboxes)
+                if not _overlaps_any(pp.x_mm, pp.y_mm, w, h, _occupied_without(ref)):
+                    continue
+                before = (pp.x_mm, pp.y_mm)
+                _move(ref, pp.x_mm, pp.y_mm)
+                after = placed_map[ref]
+                moved = moved or (before != (after.x_mm, after.y_mm))
+            if not moved:
+                break
+
+    _resolve_overlaps()
+
     for constraint in constraints.near or []:
         if constraint.ref not in placed_map or constraint.target_ref not in placed_map:
             continue
@@ -527,6 +619,8 @@ def _apply_soft_constraints(
             target.x_mm + math.cos(angle) * constraint.distance_mm,
             target.y_mm + math.sin(angle) * constraint.distance_mm,
         )
+
+    _resolve_overlaps()
 
     for constraint in constraints.far or []:
         if constraint.ref not in placed_map or constraint.target_ref not in placed_map:
@@ -635,8 +729,14 @@ def place_parts(
             )
         )
         bounds = constraints.outline
-        x_center, y_center = _find_clear_position(
-            center_x, center_y, ew, eh, _grid, bounds=bounds
+        x_center, y_center = _find_clear_edge_position(
+            edge_map[part.ref],
+            center_x,
+            center_y,
+            ew,
+            eh,
+            _grid,
+            bounds=bounds,
         )
         origin_x += x_center - center_x
         origin_y += y_center - center_y
@@ -790,6 +890,7 @@ def derive_outline(
     margin_mm: float = 3.0,
     form_factor: str | None = None,
     min_area_mm2: float = 0.0,
+    max_min_area_growth: float | None = None,
 ) -> BoardOutline:
     """Return a rectangular outline enclosing placed parts plus margin.
 
@@ -797,7 +898,10 @@ def derive_outline(
     board dimensions are returned instead of auto-sizing.
 
     If *min_area_mm2* is positive and the auto-derived area is smaller,
-    the outline is expanded proportionally to meet the minimum.
+    the outline is expanded proportionally to meet the minimum. If
+    *max_min_area_growth* is positive, the minimum is capped to that
+    multiple of the placed-part envelope so density estimates cannot
+    balloon compact placements.
     """
     if form_factor and form_factor in FORM_FACTORS:
         return FORM_FACTORS[form_factor]
@@ -824,6 +928,8 @@ def derive_outline(
     width = x_max - x_min
     height = y_max - y_min
     if min_area_mm2 > 0 and width * height < min_area_mm2:
+        if max_min_area_growth is not None and max_min_area_growth > 0:
+            min_area_mm2 = min(min_area_mm2, width * height * max_min_area_growth)
         scale = math.sqrt(min_area_mm2 / (width * height))
         cx, cy = (x_min + x_max) / 2, (y_min + y_max) / 2
         width *= scale

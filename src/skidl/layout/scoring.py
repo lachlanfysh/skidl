@@ -226,11 +226,67 @@ def _pin_escape_congestion(placed_parts: list[PlacedPart], circuit) -> float:
 
 def _edge_distance(pp: PlacedPart, fp_bboxes, outline) -> float:
     w, h = fp_bboxes.get(pp.footprint, (2.0, 2.0))
+    if pp.rot_deg % 180 == 90:
+        w, h = h, w
     return min(
         abs(pp.x_mm - w / 2 - outline.x_min),
         abs(outline.x_max - (pp.x_mm + w / 2)),
         abs(pp.y_mm - h / 2 - outline.y_min),
         abs(outline.y_max - (pp.y_mm + h / 2)),
+    )
+
+
+def _placement_envelope(
+    placed_parts: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    margin_mm: float = 3.0,
+) -> tuple[float, float, float] | None:
+    if len(placed_parts) < 2:
+        return None
+
+    x_min = float("inf")
+    y_min = float("inf")
+    x_max = float("-inf")
+    y_max = float("-inf")
+    for pp in placed_parts:
+        w, h = fp_bboxes.get(pp.footprint, (2.0, 2.0))
+        if pp.rot_deg % 180 == 90:
+            w, h = h, w
+        x_min = min(x_min, pp.x_mm - w / 2)
+        y_min = min(y_min, pp.y_mm - h / 2)
+        x_max = max(x_max, pp.x_mm + w / 2)
+        y_max = max(y_max, pp.y_mm + h / 2)
+
+    width = max(0.0, x_max - x_min + 2 * margin_mm)
+    height = max(0.0, y_max - y_min + 2 * margin_mm)
+    return width, height, width * height
+
+
+def _outline_oversize_warning(
+    placed_parts: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    outline,
+) -> str | None:
+    if outline is None:
+        return None
+    envelope = _placement_envelope(placed_parts, fp_bboxes)
+    if envelope is None:
+        return None
+    envelope_w, envelope_h, envelope_area = envelope
+    outline_area = max(0.0, outline.width_mm) * max(0.0, outline.height_mm)
+    if envelope_area <= 0.0 or outline_area <= 0.0:
+        return None
+
+    area_ratio = outline_area / envelope_area
+    width_slack = outline.width_mm - envelope_w
+    height_slack = outline.height_mm - envelope_h
+    if area_ratio < 2.5 or width_slack < 10.0 or height_slack < 8.0:
+        return None
+
+    return (
+        f"board outline is {area_ratio:.1f}x larger than placed footprint "
+        f"envelope (estimated compact outline {envelope_w:.1f}x{envelope_h:.1f}mm); "
+        "consider a smaller outline or explicit mechanical constraints"
     )
 
 
@@ -252,6 +308,11 @@ def _role_warnings(
     warnings: list[str] = []
 
     if outline is not None:
+        oversize_warning = _outline_oversize_warning(
+            placed_parts, fp_bboxes, outline
+        )
+        if oversize_warning:
+            warnings.append(oversize_warning)
         for ref, role in roles.items():
             if role.role != "connector" or ref not in placed_by_ref:
                 continue
@@ -314,6 +375,26 @@ def _role_warnings(
         if distance > 10.0:
             warnings.append(
                 f"{ref}: crystal is {distance:.1f}mm from nearest IC {nearest_ref}"
+            )
+
+    panel_refs = [
+        ref
+        for ref, role in roles.items()
+        if role.role in {"panel_jack", "control"} and ref in placed_by_ref
+    ]
+    if len(panel_refs) >= 2:
+        xs = [placed_by_ref[ref].x_mm for ref in panel_refs]
+        ys = [placed_by_ref[ref].y_mm for ref in panel_refs]
+        x_span = max(xs) - min(xs)
+        y_span = max(ys) - min(ys)
+        expected_x_span = min(20.0, outline.width_mm * 0.35) if outline else 12.0
+        if len(panel_refs) <= 4 and y_span > 2.0:
+            warnings.append(
+                "panel controls/jacks are not aligned into a clean row"
+            )
+        if x_span < expected_x_span:
+            warnings.append(
+                "panel controls/jacks are bunched instead of distributed"
             )
 
     return warnings

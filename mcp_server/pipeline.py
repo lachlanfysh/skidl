@@ -50,6 +50,23 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def _first_existing_dir(*paths: str) -> str:
+    for path in paths:
+        if path and os.path.isdir(path):
+            return path
+    return next((path for path in paths if path), "")
+
+
+def _kicad_library_dir(env: dict, name: str, linux_default: str, mac_subdir: str) -> str:
+    configured = env.get(name, "")
+    return _first_existing_dir(
+        configured,
+        linux_default,
+        f"/Applications/KiCad/KiCad.app/Contents/SharedSupport/{mac_subdir}",
+        configured or linux_default,
+    )
+
+
 def _env() -> dict:
     env = os.environ.copy()
     root = str(_repo_root())
@@ -58,8 +75,12 @@ def _env() -> dict:
     env["PYTHONPATH"] = os.pathsep.join(
         [p for p in (root, src, existing) if p]
     )
-    env.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
-    env.setdefault("KICAD9_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
+    env["KICAD9_SYMBOL_DIR"] = _kicad_library_dir(
+        env, "KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols", "symbols"
+    )
+    env["KICAD9_FOOTPRINT_DIR"] = _kicad_library_dir(
+        env, "KICAD9_FOOTPRINT_DIR", "/usr/share/kicad/footprints", "footprints"
+    )
     for version in ("8", "7", "6"):
         env.setdefault(f"KICAD{version}_SYMBOL_DIR", env["KICAD9_SYMBOL_DIR"])
         env.setdefault(f"KICAD{version}_FOOTPRINT_DIR", env["KICAD9_FOOTPRINT_DIR"])
@@ -477,6 +498,7 @@ def run_pipeline_code(
     run_id: str | None = None,
     board_id: str | None = None,
     design_intent: str | None = None,
+    corner_radius_mm: float | None = None,
 ) -> DesignResponse:
     """Run SKiDL Python code through the engine pipeline in an isolated worker."""
 
@@ -492,6 +514,7 @@ def run_pipeline_code(
         "code": code,
         "board_name": board_name,
         "outline_mm": outline_mm,
+        "corner_radius_mm": corner_radius_mm,
         "marketing_text": design_intent or "",
         "route_timeout_s": route_timeout_s,
     }

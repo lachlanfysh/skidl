@@ -60,6 +60,25 @@ def test_classify_connector_from_ref_and_text():
     assert classify_part(part).role == "connector"
 
 
+def test_classify_thonkiconn_as_panel_jack_not_edge_connector():
+    part = _Part(
+        "J1",
+        name="Thonkiconn PJ398SM 3.5mm audio jack",
+        footprint="Connector_Audio:Thonkiconn_PJ398SM",
+    )
+    assert classify_part(part).role == "panel_jack"
+
+
+def test_classify_mounting_hole_before_connector_heuristics():
+    part = _Part(
+        "H1",
+        name="MountingHole",
+        footprint="MountingHole:MountingHole_2.2mm_M2",
+        pins=0,
+    )
+    assert classify_part(part).role == "mounting_hole"
+
+
 def test_classify_panel_controls_not_as_ics():
     switch = _Part("SW1", name="RotaryEncoder_Switch", pins=5)
     pot = _Part("RV1", name="Potentiometer", pins=3)

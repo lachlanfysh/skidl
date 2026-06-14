@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import math
 import os
 import uuid
 from dataclasses import dataclass
@@ -63,6 +64,8 @@ _LAYERS = [
 ]
 _BOARD_LAYER_NAMES = {str(entry[1]).strip('"') for entry in _LAYERS}
 _FOOTPRINT_LAYER_WILDCARDS = {"*.Cu", "*.Mask", "*.Paste"}
+_SILKSCREEN_LAYERS = {"F.SilkS", "B.SilkS"}
+_SILKSCREEN_TEXT_MARGIN_MM = 2.0
 
 
 @dataclass
@@ -153,6 +156,10 @@ def _find_child(sexp, key: str):
         if isinstance(child, list) and len(child) > 0 and child[0] == key:
             return child
     return None
+
+
+def _strip_quotes(value) -> str:
+    return str(value or "").strip('"')
 
 
 def footprint_bbox(fp_sexp: Sexp) -> tuple[float, float]:
@@ -353,12 +360,114 @@ def _prepare_footprint_for_board(fp: Sexp, fp_uuid: str):
     _refresh_uuids(fp, fp_uuid)
 
 
+def _text_kind(node) -> str | None:
+    if not isinstance(node, list) or len(node) < 2:
+        return None
+    if node[0] == "property":
+        return _strip_quotes(node[1])
+    if node[0] == "fp_text":
+        return _strip_quotes(node[1]).title()
+    return None
+
+
+def _is_silkscreen_text_node(node) -> bool:
+    layer = _find_child(node, "layer")
+    return layer is not None and len(layer) > 1 and _strip_quotes(layer[1]) in _SILKSCREEN_LAYERS
+
+
+def _ensure_hidden(node) -> None:
+    hidden = _find_child(node, "hide")
+    if hidden is not None:
+        if len(hidden) > 1:
+            hidden[1] = "yes"
+        else:
+            hidden.append("yes")
+        return
+    node.append(Sexp(["hide", "yes"]))
+
+
+def _is_mounting_hole(part, pp: PlacedPart) -> bool:
+    fields = [
+        pp.ref,
+        pp.footprint,
+        getattr(part, "name", ""),
+        getattr(part, "value", ""),
+        getattr(part, "description", ""),
+    ]
+    text = " ".join(str(field or "") for field in fields).lower()
+    return "mountinghole" in text or "mounting hole" in text
+
+
+def _rotate_point(x: float, y: float, rot_deg: float) -> tuple[float, float]:
+    if not rot_deg:
+        return x, y
+    angle = math.radians(rot_deg)
+    return (
+        x * math.cos(angle) - y * math.sin(angle),
+        x * math.sin(angle) + y * math.cos(angle),
+    )
+
+
+def _clamp(value: float, lo: float, hi: float) -> float:
+    if lo > hi:
+        return (lo + hi) / 2
+    return min(max(value, lo), hi)
+
+
+def _nudge_silkscreen_text_inside_outline(
+    node,
+    pp: PlacedPart,
+    outline: BoardOutline | None,
+) -> None:
+    if outline is None or not outline.vertices or not _is_silkscreen_text_node(node):
+        return
+    at = _find_child(node, "at")
+    if at is None or len(at) < 3:
+        return
+
+    local_x, local_y = float(at[1]), float(at[2])
+    dx, dy = _rotate_point(local_x, local_y, pp.rot_deg)
+    board_x = pp.x_mm + dx
+    board_y = pp.y_mm + dy
+    margin = min(
+        _SILKSCREEN_TEXT_MARGIN_MM,
+        max(0.0, outline.width_mm / 2),
+        max(0.0, outline.height_mm / 2),
+    )
+    clamped_x = _clamp(board_x, outline.x_min + margin, outline.x_max - margin)
+    clamped_y = _clamp(board_y, outline.y_min + margin, outline.y_max - margin)
+    if clamped_x == board_x and clamped_y == board_y:
+        return
+
+    inv_dx, inv_dy = _rotate_point(clamped_x - pp.x_mm, clamped_y - pp.y_mm, -pp.rot_deg)
+    at[1] = round(inv_dx, 4)
+    at[2] = round(inv_dy, 4)
+
+
+def _tidy_silkscreen_text(
+    fp: Sexp,
+    pp: PlacedPart,
+    part,
+    outline: BoardOutline | None,
+) -> None:
+    hide_mounting_hole_text = _is_mounting_hole(part, pp)
+    for node in _walk_nodes(fp):
+        kind = _text_kind(node)
+        if kind not in {"Reference", "Value"}:
+            continue
+        if hide_mounting_hole_text and _is_silkscreen_text_node(node):
+            _ensure_hidden(node)
+            continue
+        _nudge_silkscreen_text_inside_outline(node, pp, outline)
+
+
 def _place_footprint(
     fp_sexp: Sexp,
     pp: PlacedPart,
     fp_uuid: str,
     net_map: dict[str, int],
     part,
+    outline: BoardOutline = None,
 ) -> Sexp:
     fp = copy.deepcopy(fp_sexp)
     _prepare_footprint_for_board(fp, fp_uuid)
@@ -393,6 +502,8 @@ def _place_footprint(
         if net_name and net_name in net_map:
             pad.append(Sexp(["net", net_map[net_name], _q(net_name)]))
 
+    _tidy_silkscreen_text(fp, pp, part, outline)
+
     return fp
 
 
@@ -415,11 +526,55 @@ def _is_rectangular_outline(outline: BoardOutline) -> bool:
     return set(outline.vertices) == expected
 
 
+def _append_rounded_rect_outline(board: Sexp, outline: BoardOutline, radius: float):
+    x0, y0 = outline.x_min, outline.y_min
+    x1, y1 = outline.x_max, outline.y_max
+    radius = min(radius, outline.width_mm / 2, outline.height_mm / 2)
+    if radius <= 0:
+        return False
+
+    segments_per_corner = 8
+    centers = [
+        (x1 - radius, y0 + radius, -90.0, 0.0),
+        (x1 - radius, y1 - radius, 0.0, 90.0),
+        (x0 + radius, y1 - radius, 90.0, 180.0),
+        (x0 + radius, y0 + radius, 180.0, 270.0),
+    ]
+    points: list[tuple[float, float]] = [(x0 + radius, y0), (x1 - radius, y0)]
+    for cx, cy, start_deg, end_deg in centers:
+        for step in range(1, segments_per_corner + 1):
+            angle = math.radians(
+                start_deg + (end_deg - start_deg) * step / segments_per_corner
+            )
+            points.append(
+                (
+                    round(cx + radius * math.cos(angle), 4),
+                    round(cy + radius * math.sin(angle), 4),
+                )
+            )
+
+    for idx, (start, end) in enumerate(zip(points, points[1:] + points[:1])):
+        if start == end:
+            continue
+        board.append(Sexp([
+            "gr_line",
+            ["start", start[0], start[1]],
+            ["end", end[0], end[1]],
+            ["stroke", ["width", 0.1], ["type", "solid"]],
+            ["layer", _q("Edge.Cuts")],
+            ["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, f"outline:round:{idx}"))],
+        ]))
+    return True
+
+
 def _append_outline(board: Sexp, outline: BoardOutline):
     if outline is None or not outline.vertices:
         return
 
     if _is_rectangular_outline(outline):
+        radius = getattr(outline, "corner_radius_mm", 0.0)
+        if _append_rounded_rect_outline(board, outline, radius):
+            return
         board.append(Sexp([
             "gr_rect",
             ["start", outline.x_min, outline.y_min],
@@ -493,7 +648,7 @@ def write_kicad_pcb(
         part = _find_circuit_part(circuit, pp.ref)
         fp_uuid = _part_uuid(part) if part is not None else str(uuid.uuid4())
 
-        fp = _place_footprint(fp_sexp, pp, fp_uuid, net_map, part)
+        fp = _place_footprint(fp_sexp, pp, fp_uuid, net_map, part, outline)
         board.append(fp)
 
     if missing_fps:

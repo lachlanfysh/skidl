@@ -14,6 +14,11 @@ POWER_NET_RE = re.compile(
 )
 GND_NET_RE = re.compile(r"^(GND|VSS|DGND|AGND|GNDA|GNDD)$", re.IGNORECASE)
 DECAP_VALUE_RE = re.compile(r"^(100n|0\.1u)", re.IGNORECASE)
+PANEL_JACK_RE = re.compile(
+    r"(thonk|pj398|pj301|audio.?jack|3\.5\s*mm|eurorack.?jack|mono.?jack|stereo.?jack)",
+    re.IGNORECASE,
+)
+POWER_JACK_RE = re.compile(r"(dc.?jack|barrel|power.?jack)", re.IGNORECASE)
 
 
 @dataclass
@@ -92,6 +97,16 @@ def classify_part(part) -> PartRole:
                 ["2-pin capacitor on power and ground"],
             )
 
+    normalized_text = text.replace("_", " ").replace("-", " ")
+    if (
+        prefix in {"H", "MH"}
+        or "mountinghole" in text
+        or "mounting hole" in normalized_text
+        or "mountinghole" in str(getattr(part, "footprint", "") or "").lower()
+    ):
+        reasons.append("mechanical mounting-hole reference or footprint")
+        return PartRole(ref, "mounting_hole", 0.95, reasons)
+
     if prefix in {"SW", "S", "RV", "POT"} or any(
         term in text
         for term in (
@@ -105,6 +120,10 @@ def classify_part(part) -> PartRole:
     ):
         reasons.append("panel/user-control reference or metadata")
         return PartRole(ref, "control", 0.85, reasons)
+
+    if PANEL_JACK_RE.search(text) and not POWER_JACK_RE.search(text):
+        reasons.append("panel/audio jack metadata")
+        return PartRole(ref, "panel_jack", 0.9, reasons)
 
     if prefix in {"J", "P", "CON", "CN"} or any(
         term in text for term in ("connector", "header", "usb", "jack", "terminal")

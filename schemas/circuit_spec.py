@@ -94,7 +94,15 @@ class BoardSpec(BaseModel):
     name: str = Field(description="Board name — used for output file naming")
     form_factor: Optional[str] = Field(default=None, description="Standard form factor: feather, qt_py, metro, metro_mini, trinket, itsybitsy, shield_uno. Fixes the board outline")
     outline_hint_mm: Optional[tuple[float, float]] = Field(default=None, description="(width_mm, height_mm) outline hint when no form_factor applies")
+    corner_radius_mm: Optional[float] = Field(default=None, description="Optional rectangular outline corner radius in mm. Omit for the product-board default; set 0 for square corners.")
     layers: int = Field(default=2, description="Copper layer count (2 or 4)")
+
+    @field_validator("corner_radius_mm")
+    @classmethod
+    def _corner_radius_non_negative(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and v < 0:
+            raise ValueError("corner_radius_mm must be non-negative")
+        return v
 
     @field_validator("form_factor")
     @classmethod

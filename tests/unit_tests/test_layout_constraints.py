@@ -21,6 +21,13 @@ def test_rectangle_keyword_args():
     assert outline.height_mm == 80.0
 
 
+def test_rectangle_corner_radius_metadata():
+    outline = BoardOutline(100.0, 80.0, corner_radius_mm=2.5)
+    assert outline.corner_radius_mm == 2.5
+    assert outline.width_mm == 100.0
+    assert outline.height_mm == 80.0
+
+
 def test_polygon_vertices():
     verts = [(0, 0), (100, 0), (100, 50), (50, 80), (0, 50)]
     outline = BoardOutline(vertices=verts)

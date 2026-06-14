@@ -31,6 +31,19 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE INDEX IF NOT EXISTS idx_runs_job ON runs(job_id) WHERE job_id IS NOT NULL;
 
+-- Human visual/design feedback captured after an agent shows run artifacts.
+CREATE TABLE IF NOT EXISTS run_feedback (
+    id SERIAL PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+    artifact TEXT DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'human_via_agent',
+    feedback TEXT NOT NULL,
+    structured JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_run_feedback_run ON run_feedback(run_id);
+CREATE INDEX IF NOT EXISTS idx_run_feedback_created ON run_feedback(created_at);
+
 -- Telemetry (replaces JSONL append)
 CREATE TABLE IF NOT EXISTS telemetry (
     id SERIAL PRIMARY KEY,

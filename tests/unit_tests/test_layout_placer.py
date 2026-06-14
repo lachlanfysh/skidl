@@ -63,6 +63,7 @@ _FP_BBOXES = {
     "Package_DIP:DIP-28": (7.62, 35.56),
     "Package_QFP:QFP-48": (10.0, 10.0),
     "Connector_USB:USB_C": (10.0, 5.0),
+    "Connector_PinHeader:PinHeader_1x06_P2.54mm": (2.54, 15.24),
     "Resistor_SMD:R_0805_2012Metric": (2.0, 1.25),
     "Capacitor_SMD:C_0805_2012Metric": (2.0, 1.25),
 }
@@ -352,6 +353,38 @@ def test_edge_anchor_uses_footprint_origin_aware_geometry():
     assert bounds[2] <= outline.x_max
 
 
+def test_edge_anchor_collision_resolution_stays_on_edge():
+    outline = BoardOutline(50.0, 30.0)
+    blocker = _make_mock_part(
+        "U1", "MCU", "Package_QFP:QFP-48", num_pins=48,
+    )
+    header = _make_mock_part(
+        "J1",
+        "header",
+        "Connector_PinHeader:PinHeader_1x06_P2.54mm",
+        num_pins=6,
+    )
+    group = PlacementGroup(name="main", parts=[blocker, header], adjacency={})
+    header_w, header_h = _FP_BBOXES[header.footprint]
+    rotated_h = header_w
+    edge_y = outline.y_max - rotated_h / 2 - 0.5
+
+    result = place_parts(
+        {"main": group},
+        _simple_constraints(
+            outline=outline,
+            fixed=[FixedPosition("U1", 25.0, edge_y, 0.0)],
+            edge_anchors=[EdgeAnchor("J1", "bottom", offset_mm=25.0)],
+        ),
+        _FP_BBOXES,
+    )
+
+    j1 = next(p for p in result if p.ref == "J1")
+    assert j1.rot_deg == 90.0
+    assert j1.y_mm == pytest.approx(edge_y)
+    assert j1.x_mm != pytest.approx(25.0)
+
+
 def test_keepout_is_avoided_during_placement():
     outline = BoardOutline(50.0, 40.0)
     r1 = _make_mock_part("R1")
@@ -491,6 +524,27 @@ def test_derive_outline_single_part():
     outline = derive_outline(parts, _FP_BBOXES, margin_mm=3.0)
     assert outline.width_mm == pytest.approx(8.0, abs=0.1)
     assert outline.height_mm == pytest.approx(7.25, abs=0.1)
+
+
+def test_derive_outline_caps_density_minimum_growth():
+    parts = [
+        PlacedPart("R1", 10.0, 20.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+        PlacedPart("R2", 18.0, 20.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),
+    ]
+    base = derive_outline(parts, _FP_BBOXES, margin_mm=3.0)
+    capped = derive_outline(
+        parts,
+        _FP_BBOXES,
+        margin_mm=3.0,
+        min_area_mm2=10_000.0,
+        max_min_area_growth=1.35,
+    )
+
+    assert capped.width_mm * capped.height_mm == pytest.approx(
+        base.width_mm * base.height_mm * 1.35
+    )
+    assert capped.width_mm < base.width_mm * 2
+    assert capped.height_mm < base.height_mm * 2
 
 
 # ---------------------------------------------------------------------------

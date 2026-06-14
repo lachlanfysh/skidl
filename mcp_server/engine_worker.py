@@ -39,6 +39,66 @@ from schemas.translator import DEFAULT_FP_DIR, DEFAULT_SYM_DIR, translate
 EASYEDA_CACHE_DIR = os.path.join(
     os.path.dirname(__file__), "..", "corpus", "jlc", "easyeda_cache"
 )
+_MACOS_KICAD_CLI = "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"
+_MACOS_KICAD_SUPPORT = "/Applications/KiCad/KiCad.app/Contents/SharedSupport"
+_MACOS_KICAD_PYTHON = (
+    "/Applications/KiCad/KiCad.app/Contents/Frameworks/"
+    "Python.framework/Versions/3.9/bin/python3"
+)
+PREVIEW_BACKGROUND = "#e7e7e3"
+PREVIEW_TERRACOTTA = "#A66A53"
+PREVIEW_SILKSCREEN = "#15110F"
+PREVIEW_EDGE_CUTS = "#4D4843"
+_KICAD_PREVIEW_COLOR_MAP = {
+    "#C83434": PREVIEW_TERRACOTTA,
+    "#D864FF": PREVIEW_TERRACOTTA,
+    "#F2EDA1": PREVIEW_SILKSCREEN,
+    "#D0D2CD": PREVIEW_EDGE_CUTS,
+}
+
+
+EURORACK_CONTEXT_RE = re.compile(
+    r"\b(eurorack|doepfer|modular\s+synth|3u|[0-9]+hp|hp\s+module|"
+    r"eurorack[_\s-]*power|box\s+header|shrouded\s+header)\b",
+    re.I,
+)
+
+
+def _default_corner_radius_mm(width_mm: float, height_mm: float) -> float:
+    """Default product-board corner radius for rectangular MCP outlines."""
+    smaller = min(float(width_mm), float(height_mm))
+    if smaller <= 0:
+        return 0.0
+    return round(min(2.0, max(0.8, smaller * 0.08)), 2)
+
+
+def _looks_eurorack_context(*texts) -> bool:
+    text = " ".join(str(t or "") for t in texts)
+    return bool(EURORACK_CONTEXT_RE.search(text))
+
+
+def _corner_radius_hint(value, width_mm: float, height_mm: float, *context_texts) -> float:
+    """Return explicit radius, or a default that avoids Eurorack panel boards."""
+    if value is None:
+        if _looks_eurorack_context(*context_texts):
+            return 0.0
+        return _default_corner_radius_mm(width_mm, height_mm)
+    return max(0.0, float(value))
+
+
+def _spec_corner_context(spec: CircuitSpec) -> str:
+    fields = [spec.board.name]
+    for part in spec.parts:
+        fields.extend([
+            part.ref,
+            part.part or "",
+            part.value or "",
+            part.footprint or "",
+            part.group or "",
+        ])
+    for net in spec.nets:
+        fields.append(net.name)
+    return " ".join(fields)
 
 
 class SkidlCodeExecutionError(Exception):
@@ -70,15 +130,32 @@ def _source_line(code: str, line: int | None) -> str:
     return ""
 
 
+def _first_existing_dir(*paths: str) -> str:
+    for path in paths:
+        if path and os.path.isdir(path):
+            return path
+    return next((path for path in paths if path), "")
+
+
+def _kicad_library_dir(env_name: str, linux_default: str, mac_subdir: str) -> str:
+    configured = os.environ.get(env_name, "")
+    return _first_existing_dir(
+        configured,
+        linux_default,
+        os.path.join(_MACOS_KICAD_SUPPORT, mac_subdir),
+        configured or linux_default,
+    )
+
+
 def _configure_kicad_env() -> None:
     """Set KiCad paths broadly so SKiDL stderr keeps the useful signal."""
-    symbol_dir = os.environ.get("KICAD9_SYMBOL_DIR", DEFAULT_SYM_DIR)
-    footprint_dir = os.environ.get("KICAD9_FOOTPRINT_DIR", DEFAULT_FP_DIR)
+    symbol_dir = _kicad_library_dir("KICAD9_SYMBOL_DIR", DEFAULT_SYM_DIR, "symbols")
+    footprint_dir = _kicad_library_dir("KICAD9_FOOTPRINT_DIR", DEFAULT_FP_DIR, "footprints")
     for version in ("9", "8", "7", "6"):
-        os.environ.setdefault(f"KICAD{version}_SYMBOL_DIR", symbol_dir)
-        os.environ.setdefault(f"KICAD{version}_FOOTPRINT_DIR", footprint_dir)
-    os.environ.setdefault("KICAD_SYMBOL_DIR", symbol_dir)
-    os.environ.setdefault("KICAD_FOOTPRINT_DIR", footprint_dir)
+        os.environ[f"KICAD{version}_SYMBOL_DIR"] = symbol_dir
+        os.environ[f"KICAD{version}_FOOTPRINT_DIR"] = footprint_dir
+    os.environ["KICAD_SYMBOL_DIR"] = symbol_dir
+    os.environ["KICAD_FOOTPRINT_DIR"] = footprint_dir
 
 
 def _easyeda_fp_dirs() -> list[str]:
@@ -119,6 +196,82 @@ def _rss_mb() -> float:
     if sys.platform == "darwin":
         return rss / (1024.0 * 1024.0)
     return rss / 1024.0
+
+
+def _find_kicad_cli() -> str | None:
+    import shutil
+
+    return shutil.which("kicad-cli") or (
+        _MACOS_KICAD_CLI if os.path.isfile(_MACOS_KICAD_CLI) else None
+    )
+
+
+def _find_kicad_python() -> str | None:
+    override = os.environ.get("KICAD_PYTHON", "")
+    if override:
+        return override
+    candidates = [
+        _MACOS_KICAD_PYTHON,
+        sys.executable,
+    ]
+    return next(
+        (
+            path
+            for path in candidates
+            if path and os.path.isfile(path) and os.access(path, os.X_OK)
+        ),
+        None,
+    )
+
+
+def _freerouting_jar_path() -> str:
+    candidates = [
+        os.environ.get("FREEROUTING_JAR", ""),
+        "/opt/freerouting/freerouting-2.0.1.jar",
+        str(
+            Path(__file__).resolve().parent.parent
+            / ".cache"
+            / "freerouting"
+            / "freerouting-2.0.1.jar"
+        ),
+    ]
+    return next((path for path in candidates if path and Path(path).exists()), candidates[1])
+
+
+def _brand_preview_png(
+    png_path: Path,
+    background: str = PREVIEW_BACKGROUND,
+) -> str | None:
+    """Flatten transparent KiCad preview PNGs onto the light Fysh review surface."""
+    try:
+        from PIL import Image, ImageColor
+    except Exception as exc:
+        return f"Pillow unavailable for light preview compositing: {exc}"
+
+    try:
+        rgb = ImageColor.getrgb(background)[:3]
+        with Image.open(png_path) as image:
+            rgba = image.convert("RGBA")
+            matte = Image.new("RGBA", rgba.size, (*rgb, 255))
+            matte.alpha_composite(rgba)
+            matte.convert("RGB").save(png_path)
+    except Exception as exc:
+        return f"light preview compositing failed: {exc}"
+    return None
+
+
+def _brand_preview_svg(svg_path: Path) -> str | None:
+    """Recolor KiCad's flat SVG export for high-contrast human review."""
+    try:
+        text = svg_path.read_text(encoding="utf-8")
+        branded = text
+        for source, target in _KICAD_PREVIEW_COLOR_MAP.items():
+            branded = re.sub(re.escape(source), target, branded, flags=re.IGNORECASE)
+        if branded != text:
+            svg_path.write_text(branded, encoding="utf-8")
+    except Exception as exc:
+        return f"preview SVG recolor failed: {exc}"
+    return None
 
 
 def _footprint_pad_count(circuit, fp_dirs: list[str]) -> int:
@@ -262,15 +415,16 @@ def _run_pcbnew_child(script: str, *, timeout_s: float = 30.0):
 
     import subprocess as sp
 
+    python_bin = _find_kicad_python() or sys.executable
     return sp.run(
-        [sys.executable, "-c", script],
+        [python_bin, "-c", script],
         capture_output=True,
         text=True,
         timeout=timeout_s,
     )
 
 
-def _export_dsn_child(pcb_path: str, dsn_path: str):
+def _export_dsn_child(pcb_path: str, dsn_path: str, *, timeout_s: float = 30.0):
     script = f"""
 import pcbnew
 pcb_path = {json.dumps(pcb_path)}
@@ -279,7 +433,7 @@ board = pcbnew.LoadBoard(pcb_path)
 if not pcbnew.ExportSpecctraDSN(board, dsn_path):
     raise SystemExit(2)
 """
-    return _run_pcbnew_child(script)
+    return _run_pcbnew_child(script, timeout_s=timeout_s)
 
 
 def _write_pcb_without_footprint_zones(pcb_path: str, output_path: str) -> int:
@@ -301,17 +455,22 @@ def _write_pcb_without_footprint_zones(pcb_path: str, output_path: str) -> int:
     return removed
 
 
-def _export_dsn_with_pcbnew(pcb_path: str, dsn_path: str) -> DesignException | None:
+def _export_dsn_with_pcbnew(
+    pcb_path: str,
+    dsn_path: str,
+    *,
+    timeout_s: float = 30.0,
+) -> DesignException | None:
     import subprocess as sp
 
     try:
-        result = _export_dsn_child(pcb_path, dsn_path)
+        result = _export_dsn_child(pcb_path, dsn_path, timeout_s=timeout_s)
     except sp.TimeoutExpired:
         return _route_tool_exception(
             id="e-route-dsn-timeout",
             message="DSN export timed out",
             stage="dsn_export",
-            subject={"timeout_s": 30},
+            subject={"timeout_s": timeout_s},
         )
     except OSError as exc:
         return _route_tool_exception(
@@ -339,7 +498,11 @@ def _export_dsn_with_pcbnew(pcb_path: str, dsn_path: str) -> DesignException | N
             if removed:
                 sanitized_subject["sanitized_footprint_zones_removed"] = removed
                 try:
-                    retry = _export_dsn_child(sanitized_path, dsn_path)
+                    retry = _export_dsn_child(
+                        sanitized_path,
+                        dsn_path,
+                        timeout_s=timeout_s,
+                    )
                 except Exception as exc:
                     sanitized_subject["sanitized_retry_error"] = str(exc)
                 else:
@@ -371,7 +534,12 @@ def _export_dsn_with_pcbnew(pcb_path: str, dsn_path: str) -> DesignException | N
     return None
 
 
-def _import_ses_with_pcbnew(pcb_path: str, ses_path: str) -> DesignException | None:
+def _import_ses_with_pcbnew(
+    pcb_path: str,
+    ses_path: str,
+    *,
+    timeout_s: float = 30.0,
+) -> DesignException | None:
     import subprocess as sp
 
     script = f"""
@@ -383,13 +551,13 @@ pcbnew.ImportSpecctraSES(board, ses_path)
 pcbnew.SaveBoard(pcb_path, board)
 """
     try:
-        result = _run_pcbnew_child(script)
+        result = _run_pcbnew_child(script, timeout_s=timeout_s)
     except sp.TimeoutExpired:
         return _route_tool_exception(
             id="e-route-import-timeout",
             message="SES import timed out",
             stage="ses_import",
-            subject={"timeout_s": 30},
+            subject={"timeout_s": timeout_s},
         )
     except OSError as exc:
         return _route_tool_exception(
@@ -424,7 +592,7 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
     )
 
     java_bin = shutil.which("java")
-    jar_path = "/opt/freerouting/freerouting-2.0.1.jar"
+    jar_path = _freerouting_jar_path()
     if not java_bin or not Path(jar_path).exists():
         return [DesignException(
             id="e-route-unavailable",
@@ -439,7 +607,7 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
     dsn_path = str(Path(pcb_path).with_suffix(".dsn"))
     ses_path = str(Path(pcb_path).with_suffix(".ses"))
 
-    dsn_exception = _export_dsn_with_pcbnew(pcb_path, dsn_path)
+    dsn_exception = _export_dsn_with_pcbnew(pcb_path, dsn_path, timeout_s=timeout_s)
     if dsn_exception:
         return [dsn_exception]
 
@@ -510,7 +678,11 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
             ],
         )]
 
-    import_exception = _import_ses_with_pcbnew(pcb_path, ses_path)
+    import_exception = _import_ses_with_pcbnew(
+        pcb_path,
+        ses_path,
+        timeout_s=timeout_s,
+    )
     if import_exception:
         return [import_exception]
 
@@ -542,13 +714,12 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
 
 def _run_drc(pcb_path: str) -> list:
     """Run kicad-cli DRC and parse the JSON report. Returns list of DesignException."""
-    import shutil
     import subprocess as sp
     from schemas.exceptions import (
         ActionType, Candidate, DesignException, ExcCode, Severity,
     )
 
-    kicad_cli = shutil.which("kicad-cli")
+    kicad_cli = _find_kicad_cli()
     if not kicad_cli:
         return [DesignException(
             id="e-drc-unavailable",
@@ -807,10 +978,9 @@ def _drc_to_exceptions(report: dict) -> list:
 
 def _export_gerbers(pcb_path: str, out_dir: Path) -> dict:
     """Export Gerber + drill files via kicad-cli."""
-    import shutil
     import subprocess as sp
 
-    kicad_cli = shutil.which("kicad-cli")
+    kicad_cli = _find_kicad_cli()
     gerber_dir = out_dir / "gerbers"
     result = {
         "ok": False,
@@ -860,6 +1030,192 @@ def _export_gerbers(pcb_path: str, out_dir: Path) -> dict:
     if not has_drill:
         result["errors"].append("no .drl drill file generated")
     result["ok"] = has_gerber and has_drill and not result["errors"]
+    return result
+
+
+def _rasterize_svg_preview(svg_path: Path, png_path: Path, width_px: int = 1600) -> str | None:
+    """Rasterize a KiCad SVG export into a flat review PNG when possible."""
+    import shutil
+    import subprocess as sp
+
+    rsvg = shutil.which("rsvg-convert")
+    if rsvg:
+        try:
+            proc = sp.run(
+                [
+                    rsvg,
+                    "--width",
+                    str(width_px),
+                    "--output",
+                    str(png_path),
+                    str(svg_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if proc.returncode == 0 and png_path.exists() and png_path.stat().st_size:
+                return None
+            return f"rsvg-convert exited {proc.returncode}: {proc.stderr[-500:]}"
+        except (OSError, sp.TimeoutExpired) as exc:
+            return f"rsvg-convert failed: {exc}"
+
+    sips = shutil.which("sips")
+    if sips:
+        try:
+            proc = sp.run(
+                [
+                    sips,
+                    "-s",
+                    "format",
+                    "png",
+                    "-Z",
+                    str(width_px),
+                    str(svg_path),
+                    "--out",
+                    str(png_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if proc.returncode == 0 and png_path.exists() and png_path.stat().st_size:
+                return None
+            return f"sips exited {proc.returncode}: {proc.stderr[-500:]}"
+        except (OSError, sp.TimeoutExpired) as exc:
+            return f"sips failed: {exc}"
+
+    magick = shutil.which("magick") or shutil.which("convert")
+    if magick:
+        cmd = [
+            magick,
+            str(svg_path),
+            "-resize",
+            f"{width_px}x",
+            str(png_path),
+        ]
+        try:
+            proc = sp.run(cmd, capture_output=True, text=True, timeout=30)
+            if proc.returncode == 0 and png_path.exists() and png_path.stat().st_size:
+                return None
+            return f"{Path(magick).name} exited {proc.returncode}: {proc.stderr[-500:]}"
+        except (OSError, sp.TimeoutExpired) as exc:
+            return f"{Path(magick).name} failed: {exc}"
+
+    try:
+        import cairosvg  # type: ignore
+
+        cairosvg.svg2png(
+            url=str(svg_path),
+            write_to=str(png_path),
+            output_width=width_px,
+        )
+        if png_path.exists() and png_path.stat().st_size:
+            return None
+        return "cairosvg did not produce a PNG"
+    except Exception as exc:
+        return f"no SVG rasterizer available: {exc}"
+
+
+def _generate_board_previews(pcb_path: str, out_dir: Path) -> dict:
+    """Generate human-reviewable PCB preview artifacts.
+
+    KiCad's SVG export is the deterministic 2D path. The 3D renderer is useful
+    context when it works, but may fail on headless servers.
+    """
+    import subprocess as sp
+
+    kicad_cli = _find_kicad_cli()
+    result = {"files": [], "errors": [], "warnings": []}
+    if not kicad_cli:
+        result["errors"].append("kicad-cli not found")
+        result["ok"] = False
+        return result
+
+    pcb = Path(pcb_path)
+    flat_png_path = out_dir / "preview_2d_top.png"
+    png_path = out_dir / "preview_top.png"
+    svg_path = out_dir / "preview_top.svg"
+
+    try:
+        svg = sp.run(
+            [
+                kicad_cli,
+                "pcb",
+                "export",
+                "svg",
+                "--output",
+                str(svg_path),
+                "--mode-single",
+                "--page-size-mode",
+                "2",
+                "--exclude-drawing-sheet",
+                "--layers",
+                "F.Cu,F.Mask,F.Silkscreen,Edge.Cuts",
+                str(pcb),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if svg.returncode == 0 and svg_path.exists() and svg_path.stat().st_size:
+            brand_svg_warning = _brand_preview_svg(svg_path)
+            if brand_svg_warning is not None:
+                result["warnings"].append(brand_svg_warning)
+            result["files"].append(svg_path.name)
+            raster_warning = _rasterize_svg_preview(svg_path, flat_png_path)
+            if raster_warning is None:
+                result["files"].append(flat_png_path.name)
+                brand_warning = _brand_preview_png(flat_png_path)
+                if brand_warning is not None:
+                    result["warnings"].append(brand_warning)
+            else:
+                result["warnings"].append(raster_warning)
+        else:
+            result["errors"].append(
+                f"pcb export svg exited {svg.returncode}: {svg.stderr[-500:]}"
+            )
+    except sp.TimeoutExpired:
+        result["errors"].append("pcb export svg timed out")
+    except OSError as exc:
+        result["errors"].append(f"pcb export svg failed: {exc}")
+
+    try:
+        render = sp.run(
+            [
+                kicad_cli,
+                "pcb",
+                "render",
+                "--output",
+                str(png_path),
+                "--width",
+                "1600",
+                "--height",
+                "1000",
+                "--side",
+                "top",
+                "--background",
+                "opaque",
+                "--quality",
+                "high",
+                str(pcb),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if render.returncode == 0 and png_path.exists() and png_path.stat().st_size:
+            result["files"].append(png_path.name)
+        else:
+            result["errors"].append(
+                f"pcb render exited {render.returncode}: {render.stderr[-500:]}"
+            )
+    except sp.TimeoutExpired:
+        result["errors"].append("pcb render timed out")
+    except OSError as exc:
+        result["errors"].append(f"pcb render failed: {exc}")
+
+    result["ok"] = bool(result["files"])
     return result
 
 
@@ -1630,6 +1986,12 @@ def _run_skidl_code(envelope: dict) -> dict:
     code = envelope.get("code", "")
     board_name = _safe_name(envelope.get("board_name", "board"))
     outline_mm = envelope.get("outline_mm")
+    radius_context = (
+        board_name,
+        envelope.get("marketing_text", ""),
+        envelope.get("design_intent", ""),
+        code,
+    )
     run_id = str(envelope.get("run_id") or uuid.uuid4().hex[:12])
     out_dir = Path(
         envelope.get("out_dir") or Path("artifacts") / "runs" / run_id
@@ -1719,11 +2081,29 @@ def _run_skidl_code(envelope: dict) -> dict:
         LayoutConstraints, BoardOutline, plan_layout, write_kicad_pcb,
     )
 
-    outline = BoardOutline(*outline_mm) if outline_mm else None
+    outline = (
+        BoardOutline(
+            *outline_mm,
+            corner_radius_mm=_corner_radius_hint(
+                envelope.get("corner_radius_mm"),
+                outline_mm[0],
+                outline_mm[1],
+                *radius_context,
+            ),
+        )
+        if outline_mm else None
+    )
     constraints = LayoutConstraints(outline=outline)
     layout_result = plan_layout(
         circuit, fp_lib_dirs=fp_dirs, constraints=constraints,
     )
+    if outline_mm is None and layout_result.outline is not None:
+        layout_result.outline.corner_radius_mm = _corner_radius_hint(
+            envelope.get("corner_radius_mm"),
+            layout_result.outline.width_mm,
+            layout_result.outline.height_mm,
+            *radius_context,
+        )
 
     try:
         write_kicad_pcb(
@@ -1782,6 +2162,8 @@ def _run_skidl_code(envelope: dict) -> dict:
                 else:
                     manufacturable = True
 
+    previews = _generate_board_previews(str(pcb_path), out_dir)
+
     outputs = {
         "run_dir": str(out_dir),
         "schematic": str(schematic_path),
@@ -1790,6 +2172,8 @@ def _run_skidl_code(envelope: dict) -> dict:
 
     if mfg:
         outputs["manufacturing"] = mfg
+    if previews.get("files"):
+        outputs["previews"] = previews
 
     layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
@@ -1816,7 +2200,16 @@ def _outline_for_spec(spec: CircuitSpec):
 
     if spec.board.outline_hint_mm:
         w, h = spec.board.outline_hint_mm
-        return BoardOutline(w, h)
+        return BoardOutline(
+            w,
+            h,
+            corner_radius_mm=_corner_radius_hint(
+                spec.board.corner_radius_mm,
+                w,
+                h,
+                _spec_corner_context(spec),
+            ),
+        )
     return None
 
 
@@ -1907,6 +2300,17 @@ def run(envelope: dict) -> dict:
         constraints=constraints,
         board_layers=spec.board.layers,
     )
+    if (
+        spec.board.outline_hint_mm is None
+        and spec.board.form_factor is None
+        and layout_result.outline is not None
+    ):
+        layout_result.outline.corner_radius_mm = _corner_radius_hint(
+            spec.board.corner_radius_mm,
+            layout_result.outline.width_mm,
+            layout_result.outline.height_mm,
+            _spec_corner_context(spec),
+        )
     try:
         write_kicad_pcb(
             layout_result.placed_parts,
@@ -1964,6 +2368,8 @@ def run(envelope: dict) -> dict:
                 else:
                     manufacturable = True
 
+    previews = _generate_board_previews(str(pcb_path), out_dir)
+
     outputs = {
         "run_dir": str(out_dir),
         "schematic": str(schematic_path),
@@ -1972,6 +2378,8 @@ def run(envelope: dict) -> dict:
 
     if mfg:
         outputs["manufacturing"] = mfg
+    if previews.get("files"):
+        outputs["previews"] = previews
 
     layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)

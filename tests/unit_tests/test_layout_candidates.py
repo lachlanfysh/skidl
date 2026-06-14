@@ -4,7 +4,9 @@ import pytest
 
 from skidl.layout.candidates import generate_placement_candidates
 from skidl.layout.constraints import (
+    AlignConstraint,
     BoardOutline,
+    DistributeConstraint,
     EdgeAnchor,
     FaceEdgeConstraint,
     LayoutConstraints,
@@ -99,6 +101,46 @@ def test_repeated_channel_candidate_distributes_channel_refs():
     assert "placement zone" in "; ".join(array_candidate.ref_reasons["U2"])
     assert "channel slot: CH0" in "; ".join(array_candidate.ref_reasons["U2"])
     assert any(zone.refs == ["U2"] for zone in array_candidate.constraints.zones)
+
+
+def test_inferred_grid_constraints_do_not_override_explicit_floorplan_refs():
+    leds = [_Part(f"D{idx}", "LED_SMD:LED_0805", pins=2) for idx in range(1, 4)]
+    group = PlacementGroup(name="", parts=leds, adjacency={})
+    explicit_align = AlignConstraint(
+        refs=["D1", "D2", "D3"],
+        axis="y",
+        value_mm=8.0,
+    )
+    constraints = LayoutConstraints(
+        outline=BoardOutline(60.0, 30.0),
+        align=[explicit_align],
+    )
+    intent = PlacementIntentPlan(
+        align_constraints=[
+            AlignConstraint(refs=["D1", "D2", "D3"], axis="y", value_mm=20.0)
+        ],
+        distribute_constraints=[
+            DistributeConstraint(
+                refs=["D1", "D2", "D3"],
+                axis="x",
+                start_mm=10.0,
+                end_mm=50.0,
+            )
+        ],
+    )
+
+    candidates = generate_placement_candidates(
+        {None: group},
+        constraints,
+        {"LED_SMD:LED_0805": (2.0, 1.25)},
+        intent_plan=intent,
+    )
+    edge_candidate = next(
+        candidate for candidate in candidates if candidate.name == "connector_edge_first"
+    )
+
+    assert edge_candidate.constraints.align == [explicit_align]
+    assert edge_candidate.constraints.distribute == []
 
 
 def test_power_topology_candidate_adds_chain_constraints_and_reasons():

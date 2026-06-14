@@ -121,6 +121,20 @@ def test_offset_outline_bounds_used_for_validation():
     assert result.outline_violations == ["R2"]
 
 
+def test_rotated_bbox_used_for_outline_validation():
+    outline = BoardOutline(20.0, 10.0)
+    parts = [PlacedPart("J1", 10.0, 8.25, 90.0, "Connector:PinHeader_1x06")]
+
+    result = validate(
+        parts,
+        None,
+        {"Connector:PinHeader_1x06": (2.5, 15.0)},
+        outline=outline,
+    )
+
+    assert result.outline_violations == []
+
+
 def test_no_outline_no_violations():
     parts = [PlacedPart("R1", 999.0, 999.0, 0.0, "Resistor_SMD:R_0805")]
     result = validate(parts, None, BBOXES_0805)

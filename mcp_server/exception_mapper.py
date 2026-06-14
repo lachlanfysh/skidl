@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Iterable
 
 from schemas.circuit_spec import CircuitSpec
@@ -388,6 +389,49 @@ def layout_exceptions(layout_result) -> list[DesignException]:
             )
 
         for idx, warning in enumerate(getattr(score, "warnings", []) or [], start=1):
+            if "larger than placed footprint envelope" in warning.lower():
+                candidates = [
+                    _candidate(
+                        "c2",
+                        ActionType.ACCEPT_ADVISORY,
+                        {},
+                        "keep this board outline because it reflects real mechanical constraints",
+                    )
+                ]
+                match = re.search(
+                    r"estimated compact outline ([0-9.]+)x([0-9.]+)mm",
+                    warning,
+                )
+                if match:
+                    w_mm = float(match.group(1))
+                    h_mm = float(match.group(2))
+                    candidates.insert(
+                        0,
+                        _candidate(
+                            "c1",
+                            ActionType.SET_OUTLINE,
+                            {"w_mm": w_mm, "h_mm": h_mm},
+                            f"shrink outline to about {w_mm:.1f}mm x {h_mm:.1f}mm and re-run",
+                            "cheap",
+                        ),
+                    )
+                out.append(
+                    DesignException(
+                        id=f"e-layout-oversized-{idx}",
+                        code=ExcCode.LAYOUT_OVERSIZED,
+                        severity=Severity.ADVISORY,
+                        message=warning,
+                        subject={"warning": warning},
+                        candidates=candidates,
+                        retry_hint=(
+                            "If the outline was just an agent guess, choose the "
+                            "smaller outline candidate. If it reflects an "
+                            "enclosure, panel, mounting, or keepout constraint, "
+                            "accept the advisory and preserve the outline."
+                        ),
+                    )
+                )
+                continue
             if "power" not in warning.lower() and "decoupling" not in warning.lower():
                 continue
             out.append(

@@ -38,8 +38,11 @@ mcp = FastMCP(
         "part names, and footprints. Write SKiDL Python code and submit via "
         "submit_skidl_code(). The server handles schematic generation, PCB "
         "layout, autorouting, and DRC. Poll get_job() until done, then "
-        "get_run() for artifacts. If a run returns exceptions, edit the "
-        "SKiDL code using the structured exception details and resubmit. "
+        "get_run() for artifacts. Show preview_2d_top.png to the human when "
+        "available; if they give visual/design feedback, record it with "
+        "submit_human_feedback() before editing and resubmitting. If a run "
+        "returns exceptions, edit the SKiDL code using the structured "
+        "exception details and resubmit. "
         "Do all design submissions through submit_skidl_code(); read "
         "eda://guide/skidl for conventions."
     ),
@@ -173,6 +176,7 @@ async def submit_skidl_code(
     code: str,
     board_name: str = "board",
     outline_mm: list[float] | None = None,
+    corner_radius_mm: float | None = None,
     kicad_version: str = "9",
     design_intent: str = "",
     run_options: dict | None = None,
@@ -233,6 +237,10 @@ async def submit_skidl_code(
     code: Python source defining a SKiDL circuit.
     board_name: name for output files (default "board").
     outline_mm: [width, height] in mm. Omit to auto-size from parts.
+    corner_radius_mm: optional rectangular outline corner radius in mm. Omit
+      to use the engine's product-board default. Set 0 for square corners.
+      For Eurorack/panel/mechanical boards, ask or infer deliberately; obvious
+      Eurorack context defaults square unless this is explicit.
     kicad_version: target KiCad version for output format ("9" or "10").
     design_intent: optional original user/design request. Include it so the
       server can warn when the code appears to omit requested features such as
@@ -252,6 +260,7 @@ async def submit_skidl_code(
         "code": code,
         "board_name": board_name or "board",
         "outline_mm": outline_mm,
+        "corner_radius_mm": corner_radius_mm,
         "design_intent": design_intent or "",
         "kicad_version": kicad_version or "9",
     }
@@ -709,10 +718,13 @@ async def apply_correction(run_id: str, corrections: list[dict]) -> dict:
 
 @mcp.tool()
 async def get_run(run_id: str) -> dict:
-    """Fetch full run data: spec, exceptions, response, and KiCad artifacts.
+    """Fetch full run data: spec, exceptions, response, feedback, and artifacts.
 
-    artifacts contains .kicad_sch and .kicad_pcb file contents. When the
-    board passes routing, DRC, and manufacturing export, files also include:
+    artifacts contains .kicad_sch and .kicad_pcb file contents. It may also
+    contain preview_2d_top.png (base64 flat 2D board preview for human review),
+    preview_top.svg (2D vector source), and preview_top.png (base64 KiCad 3D
+    render when available). When the board passes routing, DRC, and
+    manufacturing export, files also include:
     bom.csv (JLCPCB BOM with LCSC part numbers), cpl.csv (pick-and-place),
     and Gerber/drill files in the zip.
 
@@ -722,15 +734,34 @@ async def get_run(run_id: str) -> dict:
     file, Gerbers, drill files, BOM, and CPL. Upload the gerbers/ folder
     directly to JLCPCB for ordering.
 
+    Human review loop: when preview_2d_top.png is present, show it to the
+    human. If they say what should change, call submit_human_feedback() with
+    their comments before editing/resubmitting. Prior feedback for this run is
+    returned in the feedback field.
+
     Note: run data expires ~48h after completion.
     """
     run_data = await db.load_run(run_id)
+    run_data["feedback"] = await db.list_run_feedback(run_data["run_id"])
     artifacts = run_data.get("artifacts") or {}
     file_types = [k.rsplit(".", 1)[-1] for k in artifacts if "." in k and not k.startswith("_")]
     has_zip = "_board.zip" in artifacts
     has_mfg = "bom.csv" in artifacts or any(
         k.endswith(".gbr") for k in artifacts
     )
+    has_preview = any(
+        name in artifacts
+        for name in ("preview_2d_top.png", "preview_top.svg", "preview_top.png")
+    )
+    preview_note = ""
+    if has_preview:
+        preview_note = (
+            " Human-review previews are included: show preview_2d_top.png first "
+            "for the flat 2D board view, use preview_top.svg as the vector "
+            "source, or preview_top.png for the KiCad 3D render when present. "
+            "After the human reviews the image, call submit_human_feedback() "
+            "before revising and resubmitting."
+        )
     if artifacts:
         if has_zip:
             mfg_note = ""
@@ -744,18 +775,124 @@ async def get_run(run_id: str) -> dict:
                 f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
                 f"Use the _board.zip artifact (base64-encoded) for a "
                 f"self-contained KiCad project — includes schematic sheets, "
-                f"custom libraries, 3D models, and project config.{mfg_note}"
+                f"custom libraries, 3D models, and project config.{preview_note}{mfg_note}"
             )
         else:
             run_data["hint"] = (
                 f"Run data retrieved with {len(artifacts)} artifact(s) "
                 f"({', '.join(f'.{t}' for t in sorted(set(file_types)))}). "
                 f"Write these files to disk — they're complete KiCad files "
-                f"you can open directly."
+                f"you can open directly.{preview_note}"
             )
     else:
         run_data["hint"] = "Run data retrieved but no artifacts were generated."
     return run_data
+
+
+def _clean_feedback_labels(labels: list[str] | None) -> list[str]:
+    if not labels:
+        return []
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for label in labels:
+        text = re.sub(r"[^a-z0-9_.:-]+", "-", str(label).strip().lower()).strip("-")
+        if not text or text in seen:
+            continue
+        cleaned.append(text[:64])
+        seen.add(text)
+        if len(cleaned) >= 12:
+            break
+    return cleaned
+
+
+@mcp.tool()
+async def submit_human_feedback(
+    run_id: str,
+    feedback: str,
+    target_artifact: str = "preview_2d_top.png",
+    labels: list[str] | None = None,
+    suggested_action: str = "",
+    source: str = "human_via_agent",
+    metadata: dict | None = None,
+) -> dict:
+    """Record human review feedback for a generated PCB run.
+
+    Use this after get_run() and after showing the human preview_2d_top.png
+    (preferred), preview_top.svg, or preview_top.png. This is the ask-human
+    turn: preserve what the human said before you revise SKiDL code and
+    resubmit a new run.
+
+    Examples of good feedback:
+    - "Header should be centered on the bottom edge and rotated 180 degrees."
+    - "Mounting holes should be in the corners; this board is much too large."
+    - "For Eurorack, keep jacks in two aligned rows and do not round corners."
+
+    Parameters:
+    - run_id: run being reviewed, from get_job()/get_run().
+    - feedback: human's natural-language visual/design feedback.
+    - target_artifact: artifact shown to the human, usually preview_2d_top.png.
+    - labels: optional short tags such as ["placement", "silkscreen", "outline"].
+    - suggested_action: optional agent interpretation of the next edit.
+    - metadata: optional small structured context; do not include secrets.
+
+    Returns the stored feedback and a next-step hint. This tool records review
+    data; it does not automatically modify the design.
+    """
+    text = str(feedback or "").strip()
+    if not text:
+        raise ValueError("feedback must be non-empty.")
+    if len(text) > 4000:
+        raise ValueError("feedback must be 4000 characters or fewer.")
+
+    run_data = await db.load_run(run_id)
+    artifacts = run_data.get("artifacts") or {}
+    artifact = str(target_artifact or "").strip() or "preview_2d_top.png"
+    cleaned_labels = _clean_feedback_labels(labels)
+    action = str(suggested_action or "").strip()
+    if len(action) > 1000:
+        raise ValueError("suggested_action must be 1000 characters or fewer.")
+
+    structured = {
+        "labels": cleaned_labels,
+        "suggested_action": action,
+        "artifact_exists": artifact in artifacts,
+        "available_preview_artifacts": [
+            name for name in ("preview_2d_top.png", "preview_top.svg", "preview_top.png")
+            if name in artifacts
+        ],
+    }
+    if isinstance(metadata, dict) and metadata:
+        structured["metadata"] = _trim_agent_value(
+            metadata,
+            max_str=500,
+            max_items=20,
+        )
+
+    entry = await db.add_run_feedback(
+        run_data["run_id"],
+        feedback=text,
+        artifact=artifact,
+        source=str(source or "human_via_agent").strip() or "human_via_agent",
+        structured=structured,
+    )
+
+    warning = None
+    if artifact not in artifacts:
+        warning = (
+            f"Artifact {artifact!r} is not present on this run. "
+            "Feedback was still recorded; verify the run/artifact pairing."
+        )
+
+    return {
+        "status": "recorded",
+        "feedback": entry,
+        "warning": warning,
+        "next_step": (
+            "Use this human feedback to edit the SKiDL source or run options, "
+            "then submit a new job with submit_skidl_code(). Keep the previous "
+            "run_id in your own notes so the before/after loop is traceable."
+        ),
+    }
 
 
 # ── Library search ────────────────────────────────────────────────────
@@ -1429,12 +1566,18 @@ parts, electrical connections, and board metadata.
 | name | str, required | used for output file naming |
 | form_factor | str | ONLY these exact values: `feather`, `qt_py`, `metro`, `metro_mini`, `trinket`, `itsybitsy`, `shield_uno`. Omit for custom boards |
 | outline_hint_mm | [w, h] | board size in mm when form_factor is omitted. **Use this for most boards** — form_factor is only for Adafruit-compatible dev boards |
+| corner_radius_mm | number | optional corner radius for rectangular outlines. Omit for the product-board default, set `0` for square corners |
 | layers | int | copper layers, 2 (default) or 4. Use 4 for dense boards |
 
 **Choosing board size:** Most boards should omit `form_factor` and set
 `outline_hint_mm` instead. A "compact" sensor breakout might be `[25, 20]`,
 a medium MCU board `[50, 40]`. Do NOT use descriptive words like "compact"
 or "small" — these are not valid form_factor values.
+
+**Corner radius:** Most product boards should use modest rounded corners,
+especially when mounting holes are present. Eurorack/front-panel modules are a
+special mechanical/aesthetic case: ask the user or set `corner_radius_mm: 0`
+unless the panel/PCB should explicitly be rounded.
 
 ## parts
 
@@ -1744,6 +1887,11 @@ is a routed board when routing succeeds.
 
 - LAYOUT_OVERLAP, LAYOUT_OUTLINE_VIOLATION, and HIGH_CONGESTION are usually
   placement/constraint feedback, not schematic failures.
+- When `get_run()` returns `preview_2d_top.png`, show it to the human before
+  claiming the board is visually acceptable. If they give feedback, immediately
+  call `submit_human_feedback(run_id, feedback, target_artifact="preview_2d_top.png")`
+  to record the review turn, then edit the SKiDL source or run options and
+  resubmit.
 - Before blindly enlarging the board, edit the SKiDL source so related parts
   are in the same `@subcircuit`, decoupling caps sit with their IC, connector
   footprint style matches the product, and panel/edge parts are deliberate.

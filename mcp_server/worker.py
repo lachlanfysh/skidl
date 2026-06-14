@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import re
@@ -308,6 +309,7 @@ def _execute_skidl_job(job: dict) -> dict:
             code=raw["code"],
             board_name=raw.get("board_name", "board"),
             outline_mm=raw.get("outline_mm"),
+            corner_radius_mm=raw.get("corner_radius_mm"),
             out_dir=tmpdir,
             timeout_s=timeout_s,
             route_timeout_s=route_timeout_s,
@@ -365,9 +367,12 @@ def _find_artifacts(run_dir: Path) -> dict[str, str]:
     Also collects manufacturing files (Gerbers, drills, BOM, CPL) when present.
     """
     artifacts = {}
-    for ext in ("*.kicad_pcb", "*.kicad_sch"):
+    for ext in ("*.kicad_pcb", "*.kicad_sch", "*.svg"):
         for path in run_dir.rglob(ext):
             artifacts[path.name] = path.read_text(errors="replace")
+
+    for path in run_dir.rglob("*.png"):
+        artifacts[path.name] = base64.b64encode(path.read_bytes()).decode("ascii")
 
     # BOM and CPL CSVs
     for csv_name in ("bom.csv", "cpl.csv"):
@@ -389,7 +394,9 @@ def _find_artifacts(run_dir: Path) -> dict[str, str]:
     # Check if any converted LCSC libraries are referenced
     easyeda_cache = Path(__file__).resolve().parent.parent / "corpus" / "jlc" / "easyeda_cache"
     used_libs: set[str] = set()
-    for content in artifacts.values():
+    for name, content in artifacts.items():
+        if name.lower().endswith(".png"):
+            continue
         for lcsc_dir in (easyeda_cache.iterdir() if easyeda_cache.is_dir() else []):
             if lcsc_dir.name in content:
                 used_libs.add(lcsc_dir.name)
@@ -412,7 +419,6 @@ def _build_zip(
     gerber_files: dict[str, str] | None = None,
 ) -> str:
     """Build a self-contained zip with board files, custom libs, manufacturing output, and kicad_pro."""
-    import base64
     import zipfile
     from io import BytesIO
 
@@ -422,7 +428,10 @@ def _build_zip(
         for name, content in artifacts.items():
             if name.startswith("_"):
                 continue
-            zf.writestr(name, content)
+            if name.lower().endswith(".png"):
+                zf.writestr(name, base64.b64decode(content.encode("ascii")))
+            else:
+                zf.writestr(name, content)
 
         # Manufacturing files (Gerbers + drills)
         for name, content in (gerber_files or {}).items():

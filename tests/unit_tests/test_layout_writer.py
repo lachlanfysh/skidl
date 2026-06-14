@@ -229,6 +229,88 @@ def test_write_minimal_pcb_with_outline(tmp_path):
     assert float(end[2]) == pytest.approx(80.0)
 
 
+def test_write_hides_mounting_hole_silkscreen_reference(tmp_path):
+    lib_dir = tmp_path / "MountingHole.pretty"
+    lib_dir.mkdir()
+    (lib_dir / "M2.kicad_mod").write_text(
+        '(footprint "M2"\n'
+        '  (layer "F.Cu")\n'
+        '  (property "Reference" "REF**" (at 0 -3.15 0) (layer "F.SilkS"))\n'
+        '  (pad "" thru_hole circle (at 0 0) (size 2.2 2.2) (drill 2.2) (layers "*.Cu" "*.Mask"))\n'
+        ")\n"
+    )
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(
+            ref="H1",
+            x_mm=3.0,
+            y_mm=3.0,
+            rot_deg=0.0,
+            footprint="MountingHole:M2",
+        )
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [str(tmp_path)], out, outline=BoardOutline(20, 20))
+
+    board = Sexp(open(out).read())
+    ref = next(
+        prop
+        for prop in board.search("property")
+        if len(prop) > 2 and str(prop[1]).strip('"') == "Reference"
+    )
+    assert ["hide", "yes"] in ref
+
+
+def test_write_nudges_silkscreen_reference_inside_outline(tmp_path):
+    lib_root = _make_minimal_fp_lib(tmp_path)
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(
+            ref="R1",
+            x_mm=5.0,
+            y_mm=0.4,
+            rot_deg=0.0,
+            footprint="TestLib:R_Test",
+        )
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [lib_root], out, outline=BoardOutline(10, 10))
+
+    board = Sexp(open(out).read())
+    ref = next(
+        prop
+        for prop in board.search("property")
+        if len(prop) > 2 and str(prop[1]).strip('"') == "Reference"
+    )
+    at = next(child for child in ref if isinstance(child, list) and child[0] == "at")
+    assert float(at[1]) == pytest.approx(0.0)
+    assert float(at[2]) == pytest.approx(1.6)
+
+
+def test_write_rounded_rect_outline_as_edge_lines(tmp_path):
+    lib_root = _make_minimal_fp_lib(tmp_path)
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(ref="R1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint="TestLib:R_Test")
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+    write_kicad_pcb(
+        parts,
+        circuit,
+        [lib_root],
+        out,
+        outline=BoardOutline(100.0, 80.0, corner_radius_mm=3.0),
+    )
+
+    with open(out) as f:
+        board = Sexp(f.read())
+
+    assert list(board.search("gr_rect")) == []
+    assert len(list(board.search("gr_line"))) > 8
+
+
 def test_write_missing_footprint_skipped(tmp_path):
     circuit = _MockCircuit()
     parts = [

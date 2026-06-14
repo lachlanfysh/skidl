@@ -85,11 +85,17 @@ def test_infers_edge_connector_power_and_debug_intent():
 def test_spreads_multiple_connectors_on_same_edge():
     sig = _Net("SIG")
     gnd = _Net("GND")
-    jacks = [
-        _Part(f"J{i}", name="3.5mm audio jack", footprint="Connector_Audio:Jack", nets=[sig, gnd], pins=3)
+    headers = [
+        _Part(
+            f"J{i}",
+            name="GPIO pin header",
+            footprint="Connector:PinHeader_1x04",
+            nets=[sig, gnd],
+            pins=4,
+        )
         for i in range(1, 4)
     ]
-    circuit = _Circuit(jacks, [sig, gnd])
+    circuit = _Circuit(headers, [sig, gnd])
 
     plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 60.0))
 
@@ -124,6 +130,45 @@ def test_infers_board_ui_mating_intent():
     assert mating["D1"].mating_side == "visible_face"
     assert any(face.ref == "SW1" and face.edge == "right" for face in plan.face_edges)
     assert any(face.ref == "D1" and face.edge == "right" for face in plan.face_edges)
+
+
+def test_repeated_visible_parts_get_kind_grouped_array_constraints():
+    gnd = _Net("GND")
+    signal = _Net("SIG")
+    leds = [
+        _Part(
+            f"D{idx}",
+            name="status LED",
+            footprint="LED_SMD:LED_0805",
+            nets=[signal, gnd],
+        )
+        for idx in range(1, 4)
+    ]
+    switches = [
+        _Part(
+            f"SW{idx}",
+            name="user switch",
+            footprint="Button_Switch_SMD:SW_SPST",
+            nets=[signal, gnd],
+        )
+        for idx in range(1, 4)
+    ]
+    circuit = _Circuit([*leds, *switches], [signal, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+
+    led_refs = frozenset({"D1", "D2", "D3"})
+    switch_refs = frozenset({"SW1", "SW2", "SW3"})
+    align_by_refs = {frozenset(c.refs): c for c in plan.align_constraints}
+    distribute_by_refs = {frozenset(c.refs): c for c in plan.distribute_constraints}
+
+    assert led_refs in align_by_refs
+    assert switch_refs in align_by_refs
+    assert led_refs in distribute_by_refs
+    assert switch_refs in distribute_by_refs
+    assert align_by_refs[led_refs].value_mm != align_by_refs[switch_refs].value_mm
+    for ref in set(led_refs) | set(switch_refs):
+        assert "array_subject" in _kinds(plan, ref)
 
 
 def test_infers_mux_and_repeated_channel_intent():

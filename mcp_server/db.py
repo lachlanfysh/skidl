@@ -238,6 +238,42 @@ class DB:
             "artifacts": json.loads(row["artifacts"]) if row["artifacts"] else {},
         }
 
+    async def add_run_feedback(
+        self,
+        run_id: str,
+        *,
+        feedback: str,
+        artifact: str = "",
+        source: str = "human_via_agent",
+        structured: dict | None = None,
+    ) -> dict:
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """INSERT INTO run_feedback
+                   (run_id, artifact, source, feedback, structured)
+                   VALUES ($1, $2, $3, $4, $5)
+                   RETURNING id, run_id, artifact, source, feedback, structured, created_at""",
+                run_id,
+                artifact.strip(),
+                source.strip() or "human_via_agent",
+                feedback.strip(),
+                json.dumps(structured or {}),
+            )
+        return _feedback_row_to_dict(row)
+
+    async def list_run_feedback(self, run_id: str, limit: int = 20) -> list[dict]:
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT id, run_id, artifact, source, feedback, structured, created_at
+                   FROM run_feedback
+                   WHERE run_id = $1
+                   ORDER BY created_at DESC
+                   LIMIT $2""",
+                run_id,
+                limit,
+            )
+        return [_feedback_row_to_dict(row) for row in rows]
+
     # ── Telemetry ─────────────────────────────────────────────────────
 
     async def append_telemetry(self, record: dict) -> None:
@@ -475,6 +511,18 @@ def _beta_signup_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
         "created": bool(row["created"]),
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
         "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+    }
+
+
+def _feedback_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "run_id": row["run_id"],
+        "artifact": row["artifact"] or "",
+        "source": row["source"],
+        "feedback": row["feedback"],
+        "structured": json.loads(row["structured"]) if row["structured"] else {},
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
     }
 
 

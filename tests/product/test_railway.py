@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import tempfile
+import zipfile
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -202,6 +205,30 @@ class TestDB:
         assert run["spec"]["board"]["name"] == "test-board"
         assert len(run["exceptions"]) == 1
         assert run["artifacts"]["board.kicad_pcb"].startswith("(kicad_pcb")
+
+    @pytest.mark.asyncio
+    async def test_run_feedback_round_trip(self, db):
+        await db.save_run(
+            "test-feedback-run",
+            None,
+            SIMPLE_SPEC,
+            [],
+            {"ok": True, "run_id": "test-feedback-run"},
+            artifacts={"preview_2d_top.png": "base64-png"},
+        )
+
+        entry = await db.add_run_feedback(
+            "test-feedback-run",
+            artifact="preview_2d_top.png",
+            feedback="Move the header to the bottom edge.",
+            structured={"labels": ["placement"], "artifact_exists": True},
+        )
+        feedback = await db.list_run_feedback("test-feedback-run")
+
+        assert entry["id"]
+        assert feedback[0]["feedback"] == "Move the header to the bottom edge."
+        assert feedback[0]["artifact"] == "preview_2d_top.png"
+        assert feedback[0]["structured"]["labels"] == ["placement"]
 
     @pytest.mark.asyncio
     async def test_save_run_upsert(self, db):
@@ -465,6 +492,21 @@ class TestFindArtifacts:
             arts = _find_artifacts(p)
             assert "deep.kicad_pcb" in arts
 
+    def test_collects_preview_artifacts(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td)
+            png_bytes = b"\x89PNG\r\n\x1a\npreview"
+            flat_png_bytes = b"\x89PNG\r\n\x1a\nflat-preview"
+            (p / "preview_top.svg").write_text("<svg><text>pcb</text></svg>")
+            (p / "preview_top.png").write_bytes(png_bytes)
+            (p / "preview_2d_top.png").write_bytes(flat_png_bytes)
+
+            arts = _find_artifacts(p)
+
+            assert arts["preview_top.svg"] == "<svg><text>pcb</text></svg>"
+            assert base64.b64decode(arts["preview_top.png"]) == png_bytes
+            assert base64.b64decode(arts["preview_2d_top.png"]) == flat_png_bytes
+
     def test_empty_dir(self):
         with tempfile.TemporaryDirectory() as td:
             arts = _find_artifacts(Path(td))
@@ -475,6 +517,11 @@ class TestFindArtifacts:
             p = Path(td)
             (p / "board.kicad_pcb").write_text("(kicad_pcb content)")
             (p / "board.kicad_sch").write_text("(kicad_sch content)")
+            png_bytes = b"\x89PNG\r\n\x1a\npreview"
+            flat_png_bytes = b"\x89PNG\r\n\x1a\nflat-preview"
+            (p / "preview_top.svg").write_text("<svg><text>pcb</text></svg>")
+            (p / "preview_top.png").write_bytes(png_bytes)
+            (p / "preview_2d_top.png").write_bytes(flat_png_bytes)
             (p / "bom.csv").write_text("Comment,Designator,Footprint,LCSC\nR,R1,0603,C1\n")
             (p / "cpl.csv").write_text("Designator,Mid X,Mid Y,Layer,Rotation\nR1,1,1,Top,0\n")
             gerbers = p / "gerbers"
@@ -487,6 +534,11 @@ class TestFindArtifacts:
             assert "bom.csv" in arts
             assert "cpl.csv" in arts
             assert "_board.zip" in arts
+
+            with zipfile.ZipFile(BytesIO(base64.b64decode(arts["_board.zip"]))) as zf:
+                assert zf.read("preview_top.svg").decode() == "<svg><text>pcb</text></svg>"
+                assert zf.read("preview_top.png") == png_bytes
+                assert zf.read("preview_2d_top.png") == flat_png_bytes
 
 
 # ── Worker loop integration ───────────────────────────────────────────
@@ -1101,6 +1153,51 @@ class TestHTTPToolsIntegration:
         await db.save_run("http-test-run", None, SIMPLE_SPEC, [], {"ok": True})
         run = await get_run("http-test-run")
         assert run["run_id"] == "http-test-run"
+        assert run["feedback"] == []
+
+    @pytest.mark.asyncio
+    async def test_submit_human_feedback_records_review_turn(self, db):
+        from mcp_server.server_http import get_run, submit_human_feedback
+
+        await db.save_run(
+            "http-feedback-run",
+            None,
+            SIMPLE_SPEC,
+            [],
+            {"ok": True, "run_id": "http-feedback-run"},
+            artifacts={"preview_2d_top.png": "base64-png"},
+        )
+
+        result = await submit_human_feedback(
+            "http-feedback-run",
+            "Mounting holes should be closer to the corners.",
+            labels=["Placement", "mounting holes"],
+            suggested_action="Move holes outward and preserve clearance.",
+        )
+        run = await get_run("http-feedback-run")
+
+        assert result["status"] == "recorded"
+        assert result["warning"] is None
+        assert result["feedback"]["structured"]["labels"] == [
+            "placement",
+            "mounting-holes",
+        ]
+        assert run["feedback"][0]["feedback"].startswith("Mounting holes")
+
+    @pytest.mark.asyncio
+    async def test_submit_human_feedback_warns_for_missing_artifact(self, db):
+        from mcp_server.server_http import submit_human_feedback
+
+        await db.save_run("http-feedback-missing-artifact", None, SIMPLE_SPEC, [], {"ok": True})
+
+        result = await submit_human_feedback(
+            "http-feedback-missing-artifact",
+            "I reviewed a screenshot from outside the artifact bundle.",
+            target_artifact="external-screenshot.png",
+        )
+
+        assert result["status"] == "recorded"
+        assert "not present" in result["warning"]
 
     @pytest.mark.asyncio
     async def test_apply_correction_creates_child_job(self, db):
@@ -1292,7 +1389,7 @@ class TestAgentUX:
         names = {t.name for t in tools}
         assert names == {
             "submit_skidl_code", "get_job", "get_run",
-            "search_kicad", "convert_lcsc",
+            "submit_human_feedback", "search_kicad", "convert_lcsc",
         }
         for tool in tools:
             assert tool.description and len(tool.description) > 100, (
@@ -1311,6 +1408,21 @@ class TestAgentUX:
             "timeout_s", "route_timeout_s", "LCSC", "manufacturing",
         ):
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
+
+    @pytest.mark.asyncio
+    async def test_submit_human_feedback_teaches_review_turn(self):
+        from mcp_server.server_http import mcp
+        tools = {t.name: t for t in await mcp.list_tools()}
+        desc = tools["submit_human_feedback"].description
+
+        for needle in (
+            "preview_2d_top.png",
+            "ask-human",
+            "record",
+            "revise SKiDL code",
+            "does not automatically modify",
+        ):
+            assert needle in desc, f"submit_human_feedback description missing {needle!r}"
 
     @pytest.mark.asyncio
     async def test_search_kicad_detail_returns_pin_details_for_multiple_symbols(

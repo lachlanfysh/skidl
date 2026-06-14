@@ -83,7 +83,9 @@ class BoardOutline:
         width_mm: float = 0.0,
         height_mm: float = 0.0,
         vertices=None,
+        corner_radius_mm: float = 0.0,
     ):
+        self.corner_radius_mm = max(0.0, float(corner_radius_mm or 0.0))
         if vertices is not None:
             self.vertices = [(float(x), float(y)) for x, y in vertices]
         elif width_mm > 0 and height_mm > 0:

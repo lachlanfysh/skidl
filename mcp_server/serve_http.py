@@ -405,14 +405,14 @@ def _signup_html(
     :root {{
       color-scheme: light;
       --ink: #0f0e12;
-      --paper: #eee8df;
-      --panel: #fffaf3;
-      --field: #ddd6cc;
-      --line: #cfc5b8;
+      --paper: #e7e7e3;
+      --panel: #f7f7f3;
+      --field: #d8d8d3;
+      --line: #c4c3be;
       --muted: #767676;
       --blue: #0071bb;
-      --terra: #b9654c;
-      --terra-soft: #d7a08d;
+      --terra: #a66a53;
+      --terra-soft: #cfa494;
       --warn: #c0262c;
       --ok: #006837;
     }}
@@ -523,12 +523,12 @@ def _signup_html(
     }}
     .specs {{
       display: grid;
-      grid-template-rows: repeat(3, 1fr);
+      grid-template-rows: repeat(4, 1fr);
       gap: 1px;
       background: var(--terra);
     }}
     .spec {{
-      padding: 16px;
+      padding: 14px 16px;
       background: var(--panel);
     }}
     .spec b {{
@@ -538,7 +538,12 @@ def _signup_html(
       font-weight: 300;
       color: var(--muted);
     }}
-    .spec span {{ display: block; max-width: 16ch; }}
+    .spec span {{
+      display: block;
+      max-width: 24ch;
+      font-size: 13px;
+      line-height: 1.28;
+    }}
     .form-panel {{
       padding: 0;
       background: transparent;
@@ -657,7 +662,7 @@ def _signup_html(
       <p class="kicker">open beta / access request</p>
       <h1>eda mcp</h1>
       <p class="intro">
-        skidl to schematic, layout, routing and design feedback for coding agents.
+        describe a board; your agent writes skidl python; eda mcp keeps schematic, layout and routing honest with cad feedback.
       </p>
       <div class="product" aria-hidden="true">
         <div class="plate">
@@ -666,15 +671,16 @@ def _signup_html(
           </div>
         </div>
         <div class="specs">
-          <div class="spec"><b>01</b><span>skidl code in</span></div>
-          <div class="spec"><b>02</b><span>cad feedback loop</span></div>
-          <div class="spec"><b>03</b><span>personal beta tokens</span></div>
+          <div class="spec"><b>describe</b><span>tell your agent the board you want</span></div>
+          <div class="spec"><b>interpret</b><span>the agent turns intent into skidl python</span></div>
+          <div class="spec"><b>iterate</b><span>schematic, pcb and routing attempts return corrections</span></div>
+          <div class="spec"><b>finish</b><span>routed board, or kicad handoff with noted gaps</span></div>
         </div>
       </div>
     </section>
     <section class="form-panel" aria-label="Open beta signup form">
       <h2>request access</h2>
-      <p>access is opening gradually while worker capacity, usage tracking and the manufacturing path settle.</p>
+      <p>free in open beta for testing. future pricing will vary by board complexity, with cents-per-call estimates intended mostly to cover hosting, improvements and bug fixes.</p>
       {error_html}
       {submitted_html}
       <form method="post" action="/signup">
@@ -719,12 +725,12 @@ def _admin_login_html(error: str = "") -> str:
   <style>
     :root {{
       --ink: #0f0e12;
-      --paper: #eee8df;
-      --panel: #fffaf3;
-      --field: #ddd6cc;
-      --line: #cfc5b8;
+      --paper: #e7e7e3;
+      --panel: #f7f7f3;
+      --field: #d8d8d3;
+      --line: #c4c3be;
       --muted: #767676;
-      --terra: #b9654c;
+      --terra: #a66a53;
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -960,11 +966,11 @@ def _admin_shell(title: str, body: str) -> str:
     :root {{
       --ink: #0f0e12;
       --muted: #767676;
-      --line: #cfc5b8;
-      --paper: #eee8df;
-      --panel: #fffaf3;
-      --field: #ddd6cc;
-      --terra: #b9654c;
+      --line: #c4c3be;
+      --paper: #e7e7e3;
+      --panel: #f7f7f3;
+      --field: #d8d8d3;
+      --terra: #a66a53;
     }}
     * {{ box-sizing: border-box; }}
     body {{

@@ -64,6 +64,8 @@ def _fallback_bounds(
     fp_bboxes: dict[str, tuple[float, float]],
 ) -> tuple[float, float, float, float]:
     w, h = fp_bboxes.get(pp.footprint, (2.0, 2.0))
+    if pp.rot_deg % 180 == 90:
+        w, h = h, w
     return pp.x_mm - w / 2, pp.y_mm - h / 2, pp.x_mm + w / 2, pp.y_mm + h / 2
 
 

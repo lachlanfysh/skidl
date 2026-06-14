@@ -310,6 +310,12 @@ class TestCorrections:
         out = apply_candidate(spec, self._exc(), cand)
         assert out.board.outline_hint_mm == (60.0, 30.0)
 
+    def test_negative_corner_radius_rejected(self):
+        with pytest.raises(ValueError, match="corner_radius_mm"):
+            CircuitSpec.model_validate(
+                {"board": {"name": "b", "corner_radius_mm": -1.0}, "parts": [], "nets": []}
+            )
+
     def test_accept_advisory_sets_waiver(self):
         cand = Candidate(id="c1", action=ActionType.ACCEPT_ADVISORY,
                          params={}, human_summary="")

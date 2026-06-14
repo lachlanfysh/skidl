@@ -11,6 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
+import mcp_server.engine_worker as engine_worker_mod
+import mcp_server.pipeline as pipeline_mod
 from mcp_server.exception_mapper import (
     crash_exception,
     layout_exceptions,
@@ -18,17 +20,25 @@ from mcp_server.exception_mapper import (
     suppress_waived,
 )
 from mcp_server.engine_worker import (
+    PREVIEW_BACKGROUND,
+    _brand_preview_png,
+    _brand_preview_svg,
     _code_exception_from_exec,
     _code_exception_from_syntax,
     _circuit_to_spec_dict,
     _drc_to_exceptions,
     _exec_skidl,
     _export_dsn_with_pcbnew,
+    _find_kicad_python,
     _footprint_missing_exception,
+    _freerouting_jar_path,
+    _generate_board_previews,
     _import_ses_with_pcbnew,
     _manufacturing_output_exception,
     _missing_manufacturing_outputs,
+    _outline_for_spec,
     _route_pcb,
+    _run_pcbnew_child,
 )
 from mcp_server.pipeline import (
     _enrich_code_exceptions,
@@ -124,6 +134,163 @@ class TestRunStore:
         assert (tmp_path / "run-1" / "response.json").exists()
 
 
+class TestBoardPreviews:
+    def test_brand_preview_svg_uses_review_palette(self, tmp_path):
+        svg_path = tmp_path / "preview_top.svg"
+        svg_path.write_text(
+            '<svg><g style="fill:#F2EDA1;stroke:#C83434"/>'
+            '<path style="fill:#D864FF;stroke:#D0D2CD"/></svg>',
+            encoding="utf-8",
+        )
+
+        warning = _brand_preview_svg(svg_path)
+
+        assert warning is None
+        branded = svg_path.read_text(encoding="utf-8")
+        assert "#F2EDA1" not in branded
+        assert "#C83434" not in branded
+        assert "#D864FF" not in branded
+        assert "#D0D2CD" not in branded
+        assert "#15110F" in branded
+        assert "#A66A53" in branded
+
+    def test_brand_preview_png_flattens_transparency_to_light_surface(self, tmp_path):
+        Image = pytest.importorskip("PIL.Image")
+
+        png_path = tmp_path / "preview_2d_top.png"
+        image = Image.new("RGBA", (2, 1), (0, 0, 0, 0))
+        image.putpixel((1, 0), (185, 101, 76, 128))
+        image.save(png_path)
+
+        warning = _brand_preview_png(png_path, PREVIEW_BACKGROUND)
+
+        assert warning is None
+        flattened = Image.open(png_path)
+        assert flattened.mode == "RGB"
+        assert flattened.getpixel((0, 0)) == (231, 231, 227)
+        assert flattened.getpixel((1, 0)) != (185, 101, 76)
+
+    def test_generate_board_previews_writes_png_and_svg(self, monkeypatch, tmp_path):
+        pcb_path = tmp_path / "board.kicad_pcb"
+        pcb_path.write_text("(kicad_pcb)")
+
+        monkeypatch.setattr(
+            "mcp_server.engine_worker._find_kicad_cli",
+            lambda: "kicad-cli",
+        )
+
+        def fake_rasterize(svg_path, png_path, width_px=1600):
+            png_path.write_bytes(b"\x89PNG\r\n\x1a\nflat-preview")
+            return None
+
+        monkeypatch.setattr(
+            "mcp_server.engine_worker._rasterize_svg_preview",
+            fake_rasterize,
+        )
+        monkeypatch.setattr(
+            "mcp_server.engine_worker._brand_preview_png",
+            lambda png_path: None,
+        )
+
+        def fake_run(cmd, **kwargs):
+            out_path = Path(cmd[cmd.index("--output") + 1])
+            if cmd[2] == "render":
+                out_path.write_bytes(b"\x89PNG\r\n\x1a\npreview")
+            elif cmd[2:4] == ["export", "svg"]:
+                out_path.write_text("<svg><text>pcb</text></svg>")
+            else:
+                raise AssertionError(f"unexpected command: {cmd}")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        previews = _generate_board_previews(str(pcb_path), tmp_path)
+
+        assert previews["ok"] is True
+        assert set(previews["files"]) == {
+            "preview_2d_top.png",
+            "preview_top.png",
+            "preview_top.svg",
+        }
+        assert (tmp_path / "preview_2d_top.png").read_bytes().startswith(b"\x89PNG")
+        assert (tmp_path / "preview_top.png").read_bytes().startswith(b"\x89PNG")
+        assert (tmp_path / "preview_top.svg").read_text().startswith("<svg")
+
+    def test_generate_board_previews_without_kicad_is_nonfatal(self, monkeypatch, tmp_path):
+        pcb_path = tmp_path / "board.kicad_pcb"
+        pcb_path.write_text("(kicad_pcb)")
+        monkeypatch.setattr(
+            "mcp_server.engine_worker._find_kicad_cli",
+            lambda: None,
+        )
+
+        previews = _generate_board_previews(str(pcb_path), tmp_path)
+
+        assert previews == {
+            "files": [],
+            "errors": ["kicad-cli not found"],
+            "warnings": [],
+            "ok": False,
+        }
+
+
+class TestKiCadEnv:
+    def test_find_kicad_python_honors_configured_env(self, monkeypatch, tmp_path):
+        python_bin = tmp_path / "python3"
+        python_bin.write_text("#!/bin/sh\n", encoding="utf-8")
+        python_bin.chmod(0o755)
+
+        monkeypatch.setenv("KICAD_PYTHON", str(python_bin))
+
+        assert _find_kicad_python() == str(python_bin)
+
+    def test_freerouting_jar_path_honors_configured_env(self, monkeypatch, tmp_path):
+        jar = tmp_path / "freerouting.jar"
+        jar.write_bytes(b"jar")
+
+        monkeypatch.setenv("FREEROUTING_JAR", str(jar))
+
+        assert _freerouting_jar_path() == str(jar)
+
+    def test_pipeline_env_falls_back_to_kicad_app_libraries(self, monkeypatch):
+        mac_symbols = "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols"
+        mac_footprints = "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints"
+        existing = {mac_symbols, mac_footprints}
+
+        monkeypatch.setenv("KICAD9_SYMBOL_DIR", "/missing/symbols")
+        monkeypatch.setenv("KICAD9_FOOTPRINT_DIR", "/missing/footprints")
+        monkeypatch.setattr(
+            pipeline_mod.os.path,
+            "isdir",
+            lambda path: str(path) in existing,
+        )
+
+        env = pipeline_mod._env()
+
+        assert env["KICAD9_SYMBOL_DIR"] == mac_symbols
+        assert env["KICAD9_FOOTPRINT_DIR"] == mac_footprints
+
+    def test_worker_configure_kicad_env_replaces_invalid_paths(self, monkeypatch):
+        mac_symbols = "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols"
+        mac_footprints = "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints"
+        existing = {mac_symbols, mac_footprints}
+
+        monkeypatch.setenv("KICAD9_SYMBOL_DIR", "/missing/symbols")
+        monkeypatch.setenv("KICAD9_FOOTPRINT_DIR", "/missing/footprints")
+        monkeypatch.setattr(
+            engine_worker_mod.os.path,
+            "isdir",
+            lambda path: str(path) in existing,
+        )
+
+        engine_worker_mod._configure_kicad_env()
+
+        assert os.environ["KICAD9_SYMBOL_DIR"] == mac_symbols
+        assert os.environ["KICAD9_FOOTPRINT_DIR"] == mac_footprints
+        assert os.environ["KICAD_SYMBOL_DIR"] == mac_symbols
+        assert os.environ["KICAD_FOOTPRINT_DIR"] == mac_footprints
+
+
 class TestExceptionMapper:
     def test_waived_advisory_suppressed(self):
         spec = CircuitSpec.model_validate(trivial_spec())
@@ -197,6 +364,64 @@ class TestExceptionMapper:
         assert exceptions[0].candidates[0].action == ActionType.SCALE_OUTLINE
         assert "@subcircuit" in exceptions[0].retry_hint
         assert "larger outline_mm" in exceptions[0].retry_hint
+
+    def test_layout_oversized_warning_maps_to_outline_advisory(self):
+        class Validation:
+            overlaps = []
+            outline_violations = []
+            keepout_violations = []
+            missing_refs = []
+
+        class Score:
+            congestion_score = 0.0
+            warnings = [
+                "board outline is 3.4x larger than placed footprint envelope "
+                "(estimated compact outline 22.0x14.0mm); consider a smaller outline "
+                "or explicit mechanical constraints"
+            ]
+
+        class Result:
+            validation = Validation()
+            score = Score()
+            outline = None
+
+        exceptions = layout_exceptions(Result())
+
+        assert exceptions[0].code == ExcCode.LAYOUT_OVERSIZED
+        assert exceptions[0].severity == Severity.ADVISORY
+        assert exceptions[0].candidates[0].action == ActionType.SET_OUTLINE
+        assert exceptions[0].candidates[0].params == {"w_mm": 22.0, "h_mm": 14.0}
+        assert exceptions[0].candidates[1].action == ActionType.ACCEPT_ADVISORY
+        assert "enclosure" in exceptions[0].retry_hint
+
+    def test_outline_for_spec_defaults_to_rounded_product_corners(self):
+        spec = CircuitSpec.model_validate(trivial_spec())
+
+        outline = _outline_for_spec(spec)
+
+        assert outline is not None
+        assert outline.corner_radius_mm == 1.6
+
+    def test_outline_for_spec_defaults_eurorack_to_square_corners(self):
+        spec_dict = trivial_spec()
+        spec_dict["board"]["name"] = "eurorack-vco"
+        spec = CircuitSpec.model_validate(spec_dict)
+
+        outline = _outline_for_spec(spec)
+
+        assert outline is not None
+        assert outline.corner_radius_mm == 0.0
+
+    def test_outline_for_spec_respects_explicit_corner_radius(self):
+        spec_dict = trivial_spec()
+        spec_dict["board"]["name"] = "eurorack-vco"
+        spec_dict["board"]["corner_radius_mm"] = 1.5
+        spec = CircuitSpec.model_validate(spec_dict)
+
+        outline = _outline_for_spec(spec)
+
+        assert outline is not None
+        assert outline.corner_radius_mm == 1.5
 
 
 class TestHelpfulFailures:
@@ -758,6 +983,21 @@ class TestHelpfulFailures:
 
 
 class TestRoutingExceptions:
+    def test_pcbnew_child_can_use_kicad_python_env(self, monkeypatch):
+        seen = {}
+
+        def fake_run(cmd, **kwargs):
+            seen["cmd"] = cmd
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setenv("KICAD_PYTHON", "/opt/kicad-python")
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        _run_pcbnew_child("print('ok')")
+
+        assert seen["cmd"][:2] == ["/opt/kicad-python", "-c"]
+        assert seen["cmd"][2] == "print('ok')"
+
     def test_drc_unconnected_includes_examples_refs_and_retry_hint(self):
         report = {
             "unconnected_items": [
@@ -857,20 +1097,22 @@ class TestRoutingExceptions:
 
     def test_route_timeout_suggests_router_budget_retry(self, monkeypatch, tmp_path):
         original_exists = Path.exists
+        jar_path = tmp_path / "freerouting.jar"
 
         def fake_exists(path: Path) -> bool:
-            if str(path) == "/opt/freerouting/freerouting-2.0.1.jar":
+            if str(path) == str(jar_path):
                 return True
             return original_exists(path)
 
         def fake_run(cmd, **kwargs):
-            if cmd[0] == sys.executable:
+            if len(cmd) >= 3 and "ExportSpecctraDSN" in cmd[2]:
                 (tmp_path / "timeout.dsn").write_text("(dsn)")
                 return subprocess.CompletedProcess(cmd, 0, "", "")
             assert kwargs["timeout"] == 120
             raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
 
         monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/java")
+        monkeypatch.setenv("FREEROUTING_JAR", str(jar_path))
         monkeypatch.setattr(Path, "exists", fake_exists)
         monkeypatch.setattr("subprocess.run", fake_run)
 
@@ -961,24 +1203,26 @@ class TestRoutingExceptions:
         pcb_path = tmp_path / "import-crash.kicad_pcb"
         dsn_path = tmp_path / "import-crash.dsn"
         ses_path = tmp_path / "import-crash.ses"
+        jar_path = tmp_path / "freerouting.jar"
 
         def fake_exists(path: Path) -> bool:
-            if str(path) == "/opt/freerouting/freerouting-2.0.1.jar":
+            if str(path) == str(jar_path):
                 return True
             return original_exists(path)
 
         def fake_run(cmd, **kwargs):
-            if cmd[0] == sys.executable and "ExportSpecctraDSN" in cmd[2]:
+            if len(cmd) >= 3 and "ExportSpecctraDSN" in cmd[2]:
                 dsn_path.write_text("(dsn)")
                 return subprocess.CompletedProcess(cmd, 0, "", "")
             if cmd[0] == "/usr/bin/java":
                 ses_path.write_text("(ses)")
                 return subprocess.CompletedProcess(cmd, 0, "0 unrouted", "")
-            if cmd[0] == sys.executable and "ImportSpecctraSES" in cmd[2]:
+            if len(cmd) >= 3 and "ImportSpecctraSES" in cmd[2]:
                 return subprocess.CompletedProcess(cmd, -11, "", "segmentation fault")
             raise AssertionError(cmd)
 
         monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/java")
+        monkeypatch.setenv("FREEROUTING_JAR", str(jar_path))
         monkeypatch.setattr(Path, "exists", fake_exists)
         monkeypatch.setattr("subprocess.run", fake_run)
 
