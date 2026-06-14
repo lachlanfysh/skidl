@@ -132,6 +132,31 @@ def test_infers_board_ui_mating_intent():
     assert any(face.ref == "D1" and face.edge == "right" for face in plan.face_edges)
 
 
+def test_horizontal_35mm_audio_jack_is_edge_connector():
+    sig = _Net("AUDIO_OUT")
+    gnd = _Net("GND")
+    jack = _Part(
+        "J1",
+        name="3.5mm stereo headphone jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    circuit = _Circuit([jack], [sig, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+
+    assert "edge_connector" in _kinds(plan, "J1")
+    assert "panel_jack" not in _kinds(plan, "J1")
+    anchor = next(anchor for anchor in plan.edge_anchors if anchor.ref == "J1")
+    assert anchor.edge == "right"
+    mating = next(mating for mating in plan.mating_intents if mating.ref == "J1")
+    assert mating.kind == "audio_jack"
+    assert mating.edge_preference == "right"
+    assert mating.mating_side == "outside_board"
+    assert any(face.ref == "J1" and face.edge == "right" for face in plan.face_edges)
+
+
 def test_repeated_visible_parts_get_kind_grouped_array_constraints():
     gnd = _Net("GND")
     signal = _Net("SIG")

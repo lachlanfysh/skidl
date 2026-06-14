@@ -14,8 +14,17 @@ POWER_NET_RE = re.compile(
 )
 GND_NET_RE = re.compile(r"^(GND|VSS|DGND|AGND|GNDA|GNDD)$", re.IGNORECASE)
 DECAP_VALUE_RE = re.compile(r"^(100n|0\.1u)", re.IGNORECASE)
+AUDIO_JACK_RE = re.compile(
+    r"(audio.?jack|audio.?plug|3\.5\s*mm|3\.5mm|mono.?jack|"
+    r"stereo.?jack|trs|trrs|pj320|pj398|pj301|thonk)",
+    re.IGNORECASE,
+)
 PANEL_JACK_RE = re.compile(
-    r"(thonk|pj398|pj301|audio.?jack|3\.5\s*mm|eurorack.?jack|mono.?jack|stereo.?jack)",
+    r"(thonk|pj398|pj301|eurorack.?jack|vertical)",
+    re.IGNORECASE,
+)
+EDGE_AUDIO_JACK_RE = re.compile(
+    r"(horizontal|right.?angle|edge.?mount|side.?entry|pj-?320|pj320d)",
     re.IGNORECASE,
 )
 POWER_JACK_RE = re.compile(r"(dc.?jack|barrel|power.?jack)", re.IGNORECASE)
@@ -125,9 +134,12 @@ def classify_part(part) -> PartRole:
         reasons.append("panel/user-control reference or metadata")
         return PartRole(ref, "control", 0.85, reasons)
 
-    if PANEL_JACK_RE.search(text) and not POWER_JACK_RE.search(text):
-        reasons.append("panel/audio jack metadata")
-        return PartRole(ref, "panel_jack", 0.9, reasons)
+    if AUDIO_JACK_RE.search(text) and not POWER_JACK_RE.search(text):
+        if PANEL_JACK_RE.search(text) and not EDGE_AUDIO_JACK_RE.search(text):
+            reasons.append("panel/audio jack metadata")
+            return PartRole(ref, "panel_jack", 0.9, reasons)
+        reasons.append("edge/audio jack metadata")
+        return PartRole(ref, "connector", 0.9, reasons)
 
     if DAISY_SEED_RE.search(text):
         reasons.append("Daisy Seed plug-in module/socket metadata")

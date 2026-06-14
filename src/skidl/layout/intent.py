@@ -28,6 +28,11 @@ BARREL_RE = re.compile(r"(barrel|dc jack|power jack)", re.I)
 JST_RE = re.compile(r"\b(jst|battery|batt|lipo|li-po)\b", re.I)
 FFC_RE = re.compile(r"\b(ffc|fpc|flat flex|ribbon)\b", re.I)
 HEADER_RE = re.compile(r"\b(header|pinheader|pin header|tagconnect|swd|jtag)\b", re.I)
+AUDIO_JACK_RE = re.compile(
+    r"(audio.?jack|audio.?plug|3\.5\s*mm|3\.5mm|mono.?jack|"
+    r"stereo.?jack|trs|trrs|pj320)",
+    re.I,
+)
 INTERNAL_HEADER_RE = re.compile(
     r"\b(oled|lcd|display|tft|screen|daughter|mezzanine|board.?to.?board|b2b|module|socket)\b",
     re.I,
@@ -310,6 +315,17 @@ def _mating_intent_for_part(
             allowed_rotations=(0.0, 90.0, 180.0, 270.0),
             confidence=0.75,
             reasons=["internal/display/daughterboard header metadata"],
+        )
+    if role_name == "connector" and AUDIO_JACK_RE.search(text):
+        edge = _edge_for_part(text, role or PartRole(ref, "connector", 0.5), nets)
+        return MatingIntent(
+            ref=ref,
+            kind="audio_jack",
+            edge_preference=edge,
+            mating_side="outside_board",
+            allowed_rotations=(0.0, 90.0, 180.0, 270.0),
+            confidence=0.82,
+            reasons=["edge-mount audio jack metadata"],
         )
     if HEADER_RE.search(text) or role_name == "connector":
         edge = _edge_for_part(text, role or PartRole(ref, "connector", 0.5), nets)
