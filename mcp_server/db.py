@@ -295,6 +295,148 @@ class DB:
             for r in rows
         ]
 
+    # ── Beta signups ─────────────────────────────────────────────────
+
+    async def create_beta_signup(
+        self,
+        *,
+        email: str,
+        name: str = "",
+        organization: str = "",
+        use_case: str = "",
+        source: str = "",
+        metadata: dict | None = None,
+    ) -> dict:
+        email_normalized = email.strip().lower()
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """INSERT INTO beta_signups
+                   (email, email_normalized, name, organization, use_case, source, metadata)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7)
+                   ON CONFLICT (email_normalized) DO UPDATE
+                   SET email = EXCLUDED.email,
+                       name = EXCLUDED.name,
+                       organization = EXCLUDED.organization,
+                       use_case = EXCLUDED.use_case,
+                       source = EXCLUDED.source,
+                       metadata = beta_signups.metadata || EXCLUDED.metadata,
+                       updated_at = NOW()
+                   RETURNING id, email, name, organization, use_case, source, status,
+                             created_at, updated_at, (xmax = 0) AS created""",
+                email.strip(),
+                email_normalized,
+                name.strip(),
+                organization.strip(),
+                use_case.strip(),
+                source.strip(),
+                json.dumps(metadata or {}),
+            )
+        return _beta_signup_row_to_dict(row)
+
+    async def list_beta_signups(self, limit: int = 100) -> list[dict]:
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT id, email, name, organization, use_case, source, status,
+                          created_at, updated_at, false AS created
+                   FROM beta_signups
+                   ORDER BY created_at DESC
+                   LIMIT $1""",
+                limit,
+            )
+        return [_beta_signup_row_to_dict(row) for row in rows]
+
+    async def approve_beta_signup(
+        self,
+        signup_id: int,
+        *,
+        token_prefix: str,
+        token_hash: str,
+        key_name: str = "default",
+    ) -> dict:
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                signup = await conn.fetchrow(
+                    """SELECT id, email, email_normalized, name, organization,
+                              use_case, source, status, created_at, updated_at,
+                              false AS created
+                       FROM beta_signups
+                       WHERE id = $1
+                       FOR UPDATE""",
+                    signup_id,
+                )
+                if signup is None:
+                    raise KeyError(f"beta signup {signup_id!r} not found")
+                if signup["status"] != "pending":
+                    raise ValueError(f"beta signup {signup_id!r} is {signup['status']}")
+
+                user = await conn.fetchrow(
+                    """INSERT INTO users (email, email_normalized, name, organization)
+                       VALUES ($1, $2, $3, $4)
+                       ON CONFLICT (email_normalized) DO UPDATE
+                       SET email = EXCLUDED.email,
+                           name = EXCLUDED.name,
+                           organization = EXCLUDED.organization,
+                           status = 'active',
+                           updated_at = NOW()
+                       RETURNING id, email, email_normalized, name, organization,
+                                 status, created_at, updated_at""",
+                    signup["email"],
+                    signup["email_normalized"],
+                    signup["name"] or "",
+                    signup["organization"] or "",
+                )
+                key = await conn.fetchrow(
+                    """INSERT INTO api_keys
+                       (user_id, name, token_prefix, token_hash)
+                       VALUES ($1, $2, $3, $4)
+                       RETURNING id, user_id, name, token_prefix, status, created_at,
+                                 last_used_at""",
+                    user["id"],
+                    key_name,
+                    token_prefix,
+                    token_hash,
+                )
+                updated_signup = await conn.fetchrow(
+                    """UPDATE beta_signups
+                       SET status = 'approved', updated_at = NOW()
+                       WHERE id = $1
+                       RETURNING id, email, name, organization, use_case, source,
+                                 status, created_at, updated_at, false AS created""",
+                    signup_id,
+                )
+
+        return {
+            "signup": _beta_signup_row_to_dict(updated_signup),
+            "user": _user_row_to_dict(user),
+            "api_key": _api_key_row_to_dict(key),
+        }
+
+    async def authenticate_api_key(self, token_hash: str) -> dict | None:
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """UPDATE api_keys
+                   SET last_used_at = NOW()
+                   WHERE token_hash = $1 AND status = 'active'
+                   RETURNING id, user_id, name, token_prefix, status, created_at,
+                             last_used_at""",
+                token_hash,
+            )
+            if row is None:
+                return None
+            user = await conn.fetchrow(
+                """SELECT id, email, email_normalized, name, organization, status,
+                          created_at, updated_at
+                   FROM users
+                   WHERE id = $1 AND status = 'active'""",
+                row["user_id"],
+            )
+        if user is None:
+            return None
+        return {
+            "api_key": _api_key_row_to_dict(row),
+            "user": _user_row_to_dict(user),
+        }
+
     # ── Housekeeping ──────────────────────────────────────────────────
 
     async def expire_old_jobs(self, hours: int = 48) -> int:
@@ -319,3 +461,43 @@ def _job_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
         ts = row[key]
         d[key] = ts.isoformat() if ts else None
     return d
+
+
+def _beta_signup_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "email": row["email"],
+        "name": row["name"] or "",
+        "organization": row["organization"] or "",
+        "use_case": row["use_case"] or "",
+        "source": row["source"] or "",
+        "status": row["status"],
+        "created": bool(row["created"]),
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+        "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+    }
+
+
+def _user_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "email": row["email"],
+        "email_normalized": row["email_normalized"],
+        "name": row["name"] or "",
+        "organization": row["organization"] or "",
+        "status": row["status"],
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+        "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+    }
+
+
+def _api_key_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "user_id": row["user_id"],
+        "name": row["name"],
+        "token_prefix": row["token_prefix"],
+        "status": row["status"],
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+        "last_used_at": row["last_used_at"].isoformat() if row["last_used_at"] else None,
+    }

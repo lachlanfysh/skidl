@@ -52,6 +52,49 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_board ON telemetry(board_id);
 CREATE INDEX IF NOT EXISTS idx_telemetry_status ON telemetry(status);
 CREATE INDEX IF NOT EXISTS idx_telemetry_created ON telemetry(created_at);
 
+-- Open beta signup requests.
+CREATE TABLE IF NOT EXISTS beta_signups (
+    id SERIAL PRIMARY KEY,
+    email TEXT NOT NULL,
+    email_normalized TEXT NOT NULL UNIQUE,
+    name TEXT DEFAULT '',
+    organization TEXT DEFAULT '',
+    use_case TEXT DEFAULT '',
+    source TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_beta_signups_status ON beta_signups(status);
+CREATE INDEX IF NOT EXISTS idx_beta_signups_created ON beta_signups(created_at);
+
+-- Beta users and per-user MCP API keys.
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email TEXT NOT NULL,
+    email_normalized TEXT NOT NULL UNIQUE,
+    name TEXT DEFAULT '',
+    organization TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    name TEXT NOT NULL DEFAULT 'default',
+    token_prefix TEXT NOT NULL UNIQUE,
+    token_hash TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(status);
+
 -- Converted LCSC parts (easyeda2kicad cache)
 CREATE TABLE IF NOT EXISTS converted_parts (
     lcsc TEXT PRIMARY KEY,

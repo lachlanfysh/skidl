@@ -592,6 +592,14 @@ class TestAuthMiddleware:
         with TestClient(app) as client:
             yield client
 
+    @pytest.fixture(autouse=True)
+    def reset_auth_test_state(self, client):
+        import mcp_server.serve_http as mod
+
+        mod._SIGNUP_ATTEMPTS.clear()
+        mod._ADMIN_LOGIN_ATTEMPTS.clear()
+        client.cookies.clear()
+
     def test_health_no_auth_required(self, client):
         resp = client.get("/health")
         assert resp.status_code == 200
@@ -640,6 +648,366 @@ class TestAuthMiddleware:
     def test_auth_passes_with_correct_token(self, client):
         resp = client.get("/mcp", headers={"Authorization": "Bearer test-token-123"})
         assert resp.status_code != 401
+
+    def test_signup_page_is_public(self, client):
+        resp = client.get("/signup")
+        assert resp.status_code == 200
+        assert "EDA-MCP" in resp.text
+        assert "Open beta" in resp.text
+        assert "Request beta access" in resp.text
+
+    def test_signup_submit_validates_email(self, client):
+        resp = client.post(
+            "/signup",
+            data={
+                "email": "not-an-email",
+                "name": "Ada",
+                "use_case": "Trying agentic PCB layout",
+            },
+        )
+        assert resp.status_code == 400
+        assert "Enter a valid email address" in resp.text
+
+    def test_signup_submit_requires_storage(self, client):
+        resp = client.post(
+            "/signup",
+            data={
+                "email": "ada@example.com",
+                "name": "Ada",
+                "use_case": "Trying agentic PCB layout",
+            },
+        )
+        assert resp.status_code == 503
+        assert "Signup storage is not connected" in resp.text
+
+    def test_signup_api_records_beta_request(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def create_beta_signup(self, **kwargs):
+                self.last_signup = kwargs
+                return {
+                    "id": 1,
+                    "email": kwargs["email"],
+                    "name": kwargs["name"],
+                    "organization": kwargs["organization"],
+                    "use_case": kwargs["use_case"],
+                    "source": kwargs["source"],
+                    "status": "pending",
+                    "created": True,
+                    "created_at": "2026-06-14T00:00:00+00:00",
+                    "updated_at": "2026-06-14T00:00:00+00:00",
+                }
+
+        fake = FakeDB()
+        monkeypatch.setattr(mod, "db", fake)
+
+        resp = client.post(
+            "/api/beta-signup",
+            json={
+                "email": "Ada@Example.com",
+                "name": "Ada",
+                "organization": "Analytical Engines",
+                "use_case": "Agentic PCB layout for small sensor boards",
+                "source": "test",
+            },
+        )
+
+        assert resp.status_code == 201
+        assert resp.json()["ok"] is True
+        assert resp.json()["signup"]["email"] == "Ada@Example.com"
+        assert fake.last_signup["email"] == "Ada@Example.com"
+        assert fake.last_signup["metadata"]["user_agent"]
+
+    def test_signup_honeypot_returns_success_without_storing(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def create_beta_signup(self, **kwargs):
+                raise AssertionError("honeypot signup should not be stored")
+
+        monkeypatch.setattr(mod, "db", FakeDB())
+
+        resp = client.post(
+            "/api/beta-signup",
+            json={
+                "email": "bot@example.com",
+                "use_case": "bot text",
+                "website": "https://spam.example",
+            },
+        )
+
+        assert resp.status_code == 201
+        assert resp.json()["ok"] is True
+        assert "bot_filtered" not in resp.text
+
+    def test_signup_rate_limit_is_per_ip(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def create_beta_signup(self, **kwargs):
+                return {
+                    "id": 1,
+                    "email": kwargs["email"],
+                    "name": "",
+                    "organization": "",
+                    "use_case": kwargs["use_case"],
+                    "source": "test",
+                    "status": "pending",
+                    "created": True,
+                    "created_at": "2026-06-14T00:00:00+00:00",
+                    "updated_at": "2026-06-14T00:00:00+00:00",
+                }
+
+        monkeypatch.setattr(mod, "db", FakeDB())
+        monkeypatch.setenv("SIGNUP_RATE_LIMIT_PER_HOUR", "1")
+        mod._SIGNUP_ATTEMPTS.clear()
+        headers = {"X-Forwarded-For": "203.0.113.7"}
+
+        first = client.post(
+            "/api/beta-signup",
+            json={"email": "one@example.com", "use_case": "first"},
+            headers=headers,
+        )
+        second = client.post(
+            "/api/beta-signup",
+            json={"email": "two@example.com", "use_case": "second"},
+            headers=headers,
+        )
+
+        assert first.status_code == 201
+        assert second.status_code == 429
+
+    def test_signup_rejects_oversized_body(self, client):
+        resp = client.post(
+            "/api/beta-signup",
+            json={"email": "huge@example.com", "use_case": "x" * 25_000},
+        )
+
+        assert resp.status_code == 413
+
+    def test_user_api_key_can_access_mcp_but_not_admin(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def authenticate_api_key(self, token_hash):
+                assert token_hash == mod._hash_token("user-token")
+                return {
+                    "user": {
+                        "id": 1,
+                        "email": "ada@example.com",
+                        "name": "Ada",
+                        "organization": "",
+                        "status": "active",
+                    },
+                    "api_key": {
+                        "id": 1,
+                        "user_id": 1,
+                        "name": "open-beta",
+                        "token_prefix": "abcd1234",
+                        "status": "active",
+                    },
+                }
+
+        monkeypatch.setattr(mod, "db", FakeDB())
+
+        mcp_resp = client.get("/mcp", headers={"Authorization": "Bearer user-token"})
+        assert mcp_resp.status_code != 401
+        assert mcp_resp.status_code != 403
+
+        admin_resp = client.get(
+            "/beta-signups",
+            headers={"Authorization": "Bearer user-token"},
+        )
+        assert admin_resp.status_code == 403
+
+    def test_beta_signup_list_requires_auth(self, client):
+        resp = client.get("/beta-signups")
+        assert resp.status_code == 401
+
+    def test_admin_browser_login_sets_cookie_and_opens_admin(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def list_beta_signups(self, limit=100):
+                return []
+
+        monkeypatch.setattr(mod, "db", FakeDB())
+
+        unauth = client.get("/admin/beta-signups", follow_redirects=False)
+        assert unauth.status_code == 303
+        assert unauth.headers["location"] == "/admin/login"
+
+        login = client.post(
+            "/admin/login",
+            data={"token": "test-token-123"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 303
+        assert login.headers["location"] == "/admin/beta-signups"
+        assert "HttpOnly" in login.headers["set-cookie"]
+        assert "SameSite=strict" in login.headers["set-cookie"]
+
+        admin = client.get("/admin/beta-signups")
+        assert admin.status_code == 200
+        assert admin.headers["cache-control"] == "no-store"
+        assert admin.headers["x-frame-options"] == "DENY"
+        assert "No beta requests yet" in admin.text
+
+    def test_admin_login_rate_limit_blocks_repeated_attempts(self, client, monkeypatch):
+        monkeypatch.setenv("ADMIN_LOGIN_RATE_LIMIT_PER_HOUR", "1")
+
+        first = client.post("/admin/login", data={"token": "wrong"})
+        second = client.post("/admin/login", data={"token": "wrong"})
+
+        assert first.status_code == 401
+        assert second.status_code == 429
+        assert "Too many login attempts" in second.text
+
+    def test_beta_signup_list_is_protected_by_bearer_token(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def list_beta_signups(self, limit=100):
+                return [
+                    {
+                        "id": 1,
+                        "email": "ada@example.com",
+                        "name": "Ada",
+                        "organization": "",
+                        "use_case": "Agentic PCB layout",
+                        "source": "test",
+                        "status": "pending",
+                        "created": False,
+                        "created_at": "2026-06-14T00:00:00+00:00",
+                        "updated_at": "2026-06-14T00:00:00+00:00",
+                    }
+                ]
+
+        monkeypatch.setattr(mod, "db", FakeDB())
+
+        resp = client.get(
+            "/beta-signups",
+            headers={"Authorization": "Bearer test-token-123"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()[0]["email"] == "ada@example.com"
+
+    def test_admin_approve_beta_signup_mints_user_token(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def approve_beta_signup(self, signup_id, *, token_prefix, token_hash, key_name):
+                assert signup_id == 7
+                assert key_name == "open-beta"
+                assert len(token_prefix) == 8
+                assert len(token_hash) == 64
+                self.token_prefix = token_prefix
+                self.token_hash = token_hash
+                return {
+                    "signup": {
+                        "id": 7,
+                        "email": "ada@example.com",
+                        "name": "Ada",
+                        "organization": "Analytical Engines",
+                        "use_case": "Agentic PCB layout",
+                        "source": "test",
+                        "status": "approved",
+                        "created": False,
+                        "created_at": "2026-06-14T00:00:00+00:00",
+                        "updated_at": "2026-06-14T00:00:00+00:00",
+                    },
+                    "user": {
+                        "id": 3,
+                        "email": "ada@example.com",
+                        "email_normalized": "ada@example.com",
+                        "name": "Ada",
+                        "organization": "Analytical Engines",
+                        "status": "active",
+                    },
+                    "api_key": {
+                        "id": 9,
+                        "user_id": 3,
+                        "name": "open-beta",
+                        "token_prefix": token_prefix,
+                        "status": "active",
+                    },
+                }
+
+        fake = FakeDB()
+        monkeypatch.setattr(mod, "db", fake)
+
+        resp = client.post(
+            "/api/beta-signups/7/approve",
+            headers={"Authorization": "Bearer test-token-123"},
+        )
+
+        assert resp.status_code == 201
+        approval = resp.json()["approval"]
+        assert approval["token"].startswith(f"eda_live_{fake.token_prefix}_")
+        assert mod._hash_token(approval["token"]) == fake.token_hash
+        assert "token_hash" not in approval["api_key"]
+        assert approval["email_sent"] is False
+
+    def test_admin_approve_rejects_already_handled_signup(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def approve_beta_signup(self, *args, **kwargs):
+                raise ValueError("beta signup 7 is approved")
+
+        monkeypatch.setattr(mod, "db", FakeDB())
+
+        resp = client.post(
+            "/api/beta-signups/7/approve",
+            headers={"Authorization": "Bearer test-token-123"},
+        )
+
+        assert resp.status_code == 409
+        assert resp.json()["ok"] is False
+
+    def test_admin_approve_page_requires_owner_token(self, client):
+        resp = client.post("/admin/beta-signups/7/approve")
+        assert resp.status_code == 401
+
+    def test_cookie_admin_post_rejects_cross_origin(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def approve_beta_signup(self, *args, **kwargs):
+                raise AssertionError("cross-origin approval must not execute")
+
+        monkeypatch.setattr(mod, "db", FakeDB())
+        login = client.post(
+            "/admin/login",
+            data={"token": "test-token-123"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 303
+
+        resp = client.post(
+            "/admin/beta-signups/7/approve",
+            headers={"Origin": "https://evil.example"},
+        )
+        assert resp.status_code == 403
 
     def test_no_oauth_discovery_headers(self, client):
         """Server must NOT return WWW-Authenticate with OAuth metadata."""
