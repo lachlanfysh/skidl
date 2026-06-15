@@ -417,6 +417,30 @@ class TestExceptionMapper:
         assert exc.candidates[1].confidence < 0.5
         assert "do not keep scaling" in exc.retry_hint
 
+    def test_layout_outline_violation_warns_against_fixed_edge_connectors(self):
+        class Validation:
+            overlaps = []
+            outline_violations = ["J1"]
+            keepout_violations = []
+            missing_refs = []
+
+        class Score:
+            congestion_score = 0.0
+            warnings = []
+
+        class Result:
+            validation = Validation()
+            score = Score()
+            outline = SimpleNamespace(width_mm=40.0, height_mm=25.0)
+
+        exc = layout_exceptions(Result())[0]
+
+        assert exc.code == ExcCode.LAYOUT_OUTLINE_VIOLATION
+        assert "edge_preference" in exc.retry_hint
+        assert "edge_anchors" in exc.retry_hint
+        assert "fixed_positions" in exc.retry_hint
+        assert "footprint origins" in exc.retry_hint
+
     def test_layout_oversized_warning_maps_to_outline_advisory(self):
         class Validation:
             overlaps = []

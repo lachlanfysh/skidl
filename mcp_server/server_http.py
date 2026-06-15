@@ -312,6 +312,12 @@ async def submit_skidl_code(
       side; optional `part.edge_offset_mm` sets the along-edge position and
       `part.edge_rot_deg` fixes connector-mouth orientation after preview
       feedback.
+      Prefer `part.edge_preference` or `EDA_FLOORPLAN["edge_anchors"]` for
+      USB, Qwiic/JST, pin headers, jacks, barrels, and other board-edge
+      connectors. Do not hard-code these as `fixed_positions` unless the human
+      gave exact mechanical coordinates; KiCad footprint origins are not always
+      at the footprint center, so guessed fixed connector coordinates often
+      overhang the board.
       For explicit human/mechanical floorplans, define a global
       `EDA_FLOORPLAN` dict in the submitted Python after refs exist:
       `EDA_FLOORPLAN = {"fixed_positions": [{"ref": "U1", "x_mm": 20,
@@ -319,8 +325,9 @@ async def submit_skidl_code(
       "edge": "bottom"}], "keepouts": [{"x_min": 0, "y_min": 0,
       "x_max": 120, "y_max": 132, "label": "film aperture"}]}`.
       Use fixed_positions for real user floorplans such as sensor grids,
-      displays, batteries, USB sockets, and large modules; do not strip them
-      merely because the hosted service owns generation/layout.
+      displays, batteries, mounting holes, panel controls, and large modules;
+      do not strip them merely because the hosted service owns
+      generation/layout.
       For custom project footprints that Railway does not have installed,
       embed KiCad footprint text in a global `EDA_FOOTPRINTS` dict:
       `EDA_FOOTPRINTS = {"MyLib:MyFootprint": "(footprint ...)"}`. The
@@ -1879,6 +1886,11 @@ Mechanical placement hints:
 - `part.edge_preference = "left" | "right" | "top" | "bottom"` for
   enclosure-facing connectors such as pedal input/output/power or desktop
   instrument I/O. Optional `part.edge_offset_mm` sets the along-edge position.
+- Prefer `part.edge_preference` or `EDA_FLOORPLAN["edge_anchors"]` for
+  USB, Qwiic/JST, pin headers, jacks, barrels, and other edge connectors.
+  Do not use `fixed_positions` for guessed connector coordinates; KiCad
+  footprint origins vary and fixed connector origins can place the real
+  footprint outside the board.
 - If a jack, USB, JST/Qwiic, or barrel connector is on the correct edge but
   faces the wrong way in preview, set `part.edge_rot_deg = 0 | 90 | 180 | 270`
   on the next submission. Do not accept a board where connector openings point
