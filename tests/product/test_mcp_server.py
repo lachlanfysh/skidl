@@ -830,6 +830,61 @@ class TestHelpfulFailures:
         assert "T1/T2" in exc.retry_hint
         assert "simpler AudioPlug/AudioJack" in exc.retry_hint
 
+    def test_pin_reindex_error_explains_single_pin_lookup(self):
+        jack = SimpleNamespace(
+            ref="J1",
+            name="AudioJack3",
+            pins=[
+                SimpleNamespace(name="~", num="T1"),
+                SimpleNamespace(name="~", num="R1"),
+                SimpleNamespace(name="~", num="S1"),
+            ],
+        )
+
+        class FakeExecError:
+            original = ValueError("Can't use a non-zero index for a pin.")
+            line = 42
+            line_text = 'gnd += jack["S1"][1]'
+            namespace = {"jack": jack}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.code == ExcCode.CODE_EXEC_ERROR
+        assert exc.subject["pin"] == "S1"
+        assert "lookup returned a single SKiDL Pin" in exc.retry_hint
+        assert "not `jack['T1'][1]`" in exc.retry_hint
+        assert "search_kicad" in exc.retry_hint
+
+    def test_multi_unit_pin_error_explains_exact_unit_pins(self):
+        unit_b = SimpleNamespace(
+            pins=[
+                SimpleNamespace(name="~", num="5"),
+                SimpleNamespace(name="~", num="6"),
+                SimpleNamespace(name="~", num="7"),
+            ],
+        )
+        opamp = SimpleNamespace(
+            ref="U1",
+            name="TL072",
+            value="TL072",
+            uB=unit_b,
+        )
+
+        class FakeExecError:
+            original = TypeError("'NoneType' object is not iterable")
+            line = 51
+            line_text = "feedback += opamp.uB[3]"
+            namespace = {"opamp": opamp}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.code == ExcCode.CODE_EXEC_ERROR
+        assert exc.subject["unit"] == "uB"
+        assert exc.subject["pin"] == "3"
+        assert exc.subject["available_pins"] == ["5", "6", "7"]
+        assert "guessed multi-unit symbol pin access" in exc.retry_hint
+        assert "B-side pin numbers" in exc.retry_hint
+
     def test_rgb_led_pin_error_explains_channel_pins(self):
         led = SimpleNamespace(
             ref="D1",

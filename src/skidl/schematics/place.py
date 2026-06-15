@@ -81,6 +81,14 @@ def is_net_terminal(part):
     return isinstance(part, NetTerminal)
 
 
+def _connected_net(pin):
+    """Return the connected net for real Pin or pin-like objects."""
+    is_connected = getattr(pin, "is_connected", None)
+    if callable(is_connected) and not is_connected():
+        return None
+    return getattr(pin, "net", None)
+
+
 def get_snap_pt(part_or_blk):
     """Get the point for snapping the Part or PartBlock to the grid.
 
@@ -150,8 +158,8 @@ def add_placement_bboxes(parts, **options):
         # checks fail.
         padding = {"U": 1, "D": 1, "L": 1, "R": 1}  # Min padding of 1 channel per side.
         for pin in part:
-            if pin.stub is False and pin.is_connected():
-                net = pin.net
+            net = _connected_net(pin)
+            if getattr(pin, "stub", False) is False and net is not None:
                 if getattr(net, "_deferred_stub", False):
                     continue
                 padding[pin.orientation] += 1
@@ -1624,9 +1632,9 @@ class Placer:
 
         for part in node.parts:
             for pin in part:
-                if not pin.is_connected():
+                net = _connected_net(pin)
+                if net is None:
                     continue
-                net = pin.net
                 if getattr(net, "_stub_explicit", False) or getattr(
                     net, "stub", False
                 ):

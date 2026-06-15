@@ -801,6 +801,41 @@ class TestBoundaryNets:
         assert node.get_internal_nets() == [net]
         assert node.get_boundary_nets() == []
 
+    def test_schematic_helpers_tolerate_pin_like_object_without_is_connected(self):
+        """Placement/routing/export helpers accept pin-like objects with .net."""
+        from skidl.schematics.place import _connected_net as place_connected_net
+        from skidl.schematics.route import _connected_net as route_connected_net
+        from skidl.tools.kicad9.sexp_schematic import _connected_net as sexp_connected_net
+
+        class MockNet:
+            pass
+
+        class MockPin:
+            def __init__(self, net=None):
+                if net is not None:
+                    self.net = net
+
+        net = MockNet()
+        connected = MockPin(net)
+        unconnected = MockPin()
+
+        assert place_connected_net(connected) is net
+        assert route_connected_net(connected) is net
+        assert sexp_connected_net(connected) is net
+        assert place_connected_net(unconnected) is None
+        assert route_connected_net(unconnected) is None
+        assert sexp_connected_net(unconnected) is None
+
+    def test_part_similarity_ignores_non_pin_objects_in_pin_list(self):
+        """Malformed pin lists should not crash schematic floating placement."""
+        from skidl import Net, Part
+
+        r1 = Part("Device", "R", dest="TEMPLATE")
+        r2 = Part("Device", "R", dest="TEMPLATE")
+        r1.pins.append(Net("ACCIDENTAL_NET"))
+
+        assert r1.similarity(r2) > 0
+
 
 class TestHierarchicalLabels:
     """Tests for hierarchical label generation."""

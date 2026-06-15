@@ -147,6 +147,36 @@ class TestCalcSheetTx:
         assert abs(tx.d - (-MILS_TO_MM)) < 1e-10
 
 
+class TestPartToSexp:
+    """Tests for symbol instance S-expression generation."""
+
+    def test_part_to_sexp_skips_pin_like_objects_without_num(self):
+        """Malformed pin lists should not crash KiCad schematic export."""
+        part_to_sexp = sexp_schematic.part_to_sexp
+
+        class FakePart:
+            ref = "U1"
+            ref_prefix = "U"
+            name = "Fake"
+            value = "Fake"
+            footprint = ""
+            datasheet = "~"
+            description = ""
+            fields = {}
+            pins = [
+                type("Pin", (), {"num": "1"})(),
+                type("PinLike", (), {})(),
+            ]
+            hiername = "U1"
+            num = 1
+
+        sexp = part_to_sexp(FakePart(), "/")
+        text = sexp.to_str()
+
+        assert 'pin "1"' in text
+        assert "PinLike" not in text
+
+
 class TestTitleBlock:
     """Tests for title block S-expression."""
 

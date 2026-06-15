@@ -695,7 +695,9 @@ class PinMixin():
             >>> for pin in part.ordered_pins:
             ...     print(f"Pin {pin.num}: {pin.name}")
         """
-        return sorted(self)
+        from skidl.pin import Pin
+
+        return sorted(pin for pin in self if isinstance(pin, Pin))
 
     @property
     def match_pin_regex(self):

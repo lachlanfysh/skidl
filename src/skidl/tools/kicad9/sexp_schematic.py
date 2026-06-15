@@ -33,6 +33,15 @@ from skidl.utilities import export_to_all
 
 logger = logging.getLogger(__name__)
 
+
+def _connected_net(pin):
+    """Return the connected net for real Pin or pin-like objects."""
+    is_connected = getattr(pin, "is_connected", None)
+    if callable(is_connected) and not is_connected():
+        return None
+    return getattr(pin, "net", None)
+
+
 # UUID namespace — same as gen_netlist.py so UUIDs are cross-referenceable.
 _NAMESPACE_UUID = uuid.UUID("7026fcc6-e1a0-409e-aaf4-6a17ea82654f")
 
@@ -429,7 +438,10 @@ def part_to_sexp(part, uuid_path, tx=Tx()):
 
     # Pin entries (required by KiCad 8/9 for connectivity tracking).
     for pin in part.pins:
-        pin_num = str(pin.num)
+        pin_num = getattr(pin, "num", None)
+        if pin_num is None:
+            continue
+        pin_num = str(pin_num)
         pin_uuid = _gen_uuid(f"{part.hiername}_pin_{pin_num}")
         symbol.append(Sexp(["pin", f'"{pin_num}"', ["uuid", pin_uuid]]))
 
@@ -715,14 +727,15 @@ def net_label_to_sexp(pin, tx=Tx(), force=False):
     Returns:
         Sexp or None: Label/power symbol S-expression, or None if no label needed.
     """
-    if not force and (not pin.stub or not pin.is_connected()):
+    net = _connected_net(pin)
+    if not force and (not getattr(pin, "stub", False) or net is None):
         return None
     
     # Check if this net matches a known KiCad power symbol.
     # If so, emit a power symbol instance instead of a global_label.
     # This eliminates power_pin_not_driven ERC errors.
-    if pin.is_connected() and pin.net.name in pwr_symbol_names:
-        pwr = _power_symbol_to_sexp(pin, pin.net.name, tx)
+    if net is not None and net.name in pwr_symbol_names:
+        pwr = _power_symbol_to_sexp(pin, net.name, tx)
         if pwr:
             return pwr
 
@@ -1049,8 +1062,9 @@ def node_to_sexp_schematic(node, uuid_path, sheet_tx=Tx(), version=20230409):
         if isinstance(part, NetTerminal):
             continue
         for pin in part:
-            if pin.is_connected() and pin.net.name in pwr_symbol_names:
-                pwr_name = pin.net.name
+            net = _connected_net(pin)
+            if net is not None and net.name in pwr_symbol_names:
+                pwr_name = net.name
                 _used_power_symbols.add(pwr_name)
                 pwr_symbols[f"power:{pwr_name}"] = pwr_name
 

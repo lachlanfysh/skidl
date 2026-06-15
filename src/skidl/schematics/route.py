@@ -22,6 +22,14 @@ from skidl.geometry import BBox, Point, Segment, Tx, Vector, tx_rot_90
 __all__ = ["RoutingFailure", "GlobalRoutingFailure", "SwitchboxRoutingFailure"]
 
 
+def _connected_net(pin):
+    """Return the connected net for real Pin or pin-like objects."""
+    is_connected = getattr(pin, "is_connected", None)
+    if callable(is_connected) and not is_connected():
+        return None
+    return getattr(pin, "net", None)
+
+
 ###################################################################
 #
 # OVERVIEW OF SCHEMATIC AUTOROUTER
@@ -3187,9 +3195,9 @@ class Router:
             seen = set()
             for part in child.parts:
                 for pin in part:
-                    if pin.stub or not pin.is_connected():
+                    net = _connected_net(pin)
+                    if getattr(pin, "stub", False) or net is None:
                         continue
-                    net = pin.net
                     if id(net) in seen:
                         continue
                     seen.add(id(net))

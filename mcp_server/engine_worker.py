@@ -2163,6 +2163,35 @@ def _infer_pin_lookup(error: SkidlCodeExecutionError) -> dict:
     return {}
 
 
+def _infer_unit_pin_lookup(error: SkidlCodeExecutionError) -> dict:
+    """Infer diagnostics for multi-unit access like opamp.uB[3]."""
+    if not error.line_text:
+        return {}
+    lookups = re.findall(
+        r"([A-Za-z_]\w*)\.([A-Za-z_]\w*)\s*\[\s*['\"]?([^'\"\]\s]+)['\"]?\s*\]",
+        error.line_text,
+    )
+    for var_name, unit_name, pin_name in lookups:
+        obj = error.namespace.get(var_name)
+        unit = getattr(obj, unit_name, None) if obj is not None else None
+        if unit is None or not hasattr(unit, "pins"):
+            continue
+        available = _available_part_pins(unit)
+        ref = str(getattr(obj, "ref", var_name))
+        part_name = str(getattr(obj, "name", "") or getattr(obj, "value", "") or "")
+        subject = {
+            "ref": ref,
+            "part": part_name,
+            "variable": var_name,
+            "unit": unit_name,
+            "pin": pin_name,
+            "available_pins": available[:80],
+            "suggested_pins": _close(pin_name, available, 8),
+        }
+        return subject
+    return {}
+
+
 def _close(token: str, pool: list[str], n: int = 6) -> list[str]:
     import difflib
 
@@ -2452,6 +2481,22 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
             subject=subject,
         )
 
+    if "Can't use a non-zero index for a pin" in str(original):
+        if pin_subject:
+            subject.update(pin_subject)
+        return _code_exception(
+            original_text,
+            (
+                "A Part[...] lookup returned a single SKiDL Pin, then the code "
+                "indexed that Pin again. Remove the extra [n] indexing and wire "
+                "the pin directly, e.g. `net += jack['T1']`, not "
+                "`jack['T1'][1]`. For audio jacks and switched connectors, "
+                "use search_kicad(..., detail=true) and choose the exact "
+                "T/R/S or T1/R1/S1 pin names the symbol exposes."
+            ),
+            subject=subject,
+        )
+
     if pin_subject:
         subject.update(pin_subject)
         pin = pin_subject["pin"]
@@ -2484,6 +2529,26 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
         return _code_exception(
             f"pin {pin!r} not found on {ref} ({part}) while executing SKiDL code{suffix}",
             hint,
+            subject=subject,
+        )
+
+    unit_subject = _infer_unit_pin_lookup(error)
+    if unit_subject and "NoneType" in str(original):
+        subject.update(unit_subject)
+        suggestions = unit_subject.get("suggested_pins") or []
+        suffix = f" Close valid pins: {', '.join(suggestions[:5])}." if suggestions else ""
+        return _code_exception(
+            original_text,
+            (
+                "This looks like a guessed multi-unit symbol pin access "
+                f"({unit_subject['variable']}.{unit_subject['unit']}[...]). "
+                "Multi-unit op-amp/comparator symbols expose only the pins "
+                "listed by their selected unit, and the B-side pin numbers are "
+                "often not the same as the A-side. Use "
+                "search_kicad(part_name, detail=true) or "
+                "subject.available_pins, then wire the exact pin on the exact "
+                "unit before resubmitting." + suffix
+            ),
             subject=subject,
         )
 
