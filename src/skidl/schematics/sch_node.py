@@ -17,6 +17,14 @@ Node subclass used for generating schematics.
 """
 
 
+def _connected_net(pin):
+    """Return the connected net for pin-like objects, or None."""
+    is_connected = getattr(pin, "is_connected", None)
+    if callable(is_connected) and not is_connected():
+        return None
+    return getattr(pin, "net", None)
+
+
 @export_to_all
 # class SchNode(Node, Placer, Router):
 class SchNode(Placer, Router):
@@ -214,14 +222,13 @@ class SchNode(Placer, Router):
         for part in self.parts:
             for part_pin in part:
                 # No explicit wire for pins connected to labeled stub nets.
-                if part_pin.stub:
+                if getattr(part_pin, "stub", False):
                     continue
 
                 # No explicit wires if the pin is not connected to anything.
-                if not part_pin.is_connected():
+                net = _connected_net(part_pin)
+                if net is None:
                     continue
-
-                net = part_pin.net
 
                 # Skip nets that have already been processed.
                 if net in processed_nets:
@@ -274,9 +281,9 @@ class SchNode(Placer, Router):
         seen = set()
         for part in self.parts:
             for pin in part:
-                if not pin.is_connected():
+                net = _connected_net(pin)
+                if net is None:
                     continue
-                net = pin.net
                 if id(net) in seen:
                     continue
                 seen.add(id(net))

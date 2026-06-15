@@ -766,6 +766,41 @@ class TestBoundaryNets:
         node = SchNode()
         assert node.get_boundary_nets() == []
 
+    def test_internal_nets_tolerates_pin_like_object_without_is_connected(self):
+        """Pin-like objects from schematic helpers should not crash net walks."""
+        from skidl.schematics.sch_node import SchNode
+
+        class MockNet:
+            stub = False
+
+        class MockPin:
+            stub = False
+
+            def __init__(self, part=None, net=None):
+                self.part = part
+                if net is not None:
+                    self.net = net
+
+        class MockPart:
+            def __init__(self, pins):
+                self._pins = pins
+
+            def __iter__(self):
+                return iter(self._pins)
+
+        net = MockNet()
+        part = MockPart([])
+        connected = MockPin(part=part, net=net)
+        unconnected = MockPin(part=part)
+        part._pins = [connected, unconnected]
+        net.pins = [connected]
+
+        node = SchNode()
+        node.parts = [part]
+
+        assert node.get_internal_nets() == [net]
+        assert node.get_boundary_nets() == []
+
 
 class TestHierarchicalLabels:
     """Tests for hierarchical label generation."""
