@@ -222,6 +222,47 @@ class TestMissingSource:
         assert len(missing) == 1
         assert missing[0].rail == "VCC"
 
+    def test_config_pin_tied_high_is_not_a_power_load(self):
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+
+        adc = _make_part("U1", "ADS1115", pins_spec=[
+            (1, "ADDR", "3V3", pin_types.INPUT),
+            (2, "ALERT", "ALERT", pin_types.OUTPUT),
+            (3, "SDA", "SDA", pin_types.BIDIR),
+            (4, "SCL", "SCL", pin_types.INPUT),
+            (5, "GND", "GND", pin_types.PWRIN),
+        ])
+        ckt = _make_circuit([adc])
+
+        report = analyze_power_tree(circuit=ckt)
+
+        rail = next(r for r in report.rails if r.name == "3V3")
+        assert "U1" not in rail.loads
+        assert not any(
+            f.category == "missing_source" and f.rail == "3V3"
+            for f in report.findings
+        )
+
+    def test_power_named_pin_tied_to_supply_is_a_power_load(self):
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+
+        adc = _make_part("U1", "ADS1115", pins_spec=[
+            (1, "VDD", "3V3", pin_types.INPUT),
+            (2, "GND", "GND", pin_types.PWRIN),
+        ])
+        ckt = _make_circuit([adc])
+
+        report = analyze_power_tree(circuit=ckt)
+
+        rail = next(r for r in report.rails if r.name == "3V3")
+        assert "U1" in rail.loads
+        assert any(
+            f.category == "missing_source" and f.rail == "3V3"
+            for f in report.findings
+        )
+
 
 # ---------------------------------------------------------------------------
 # Regulator cap recommendations

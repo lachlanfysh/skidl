@@ -393,10 +393,13 @@ async def get_job(job_id: str) -> dict:
     """Poll a submitted job. Returns status and a compact finished result.
 
     status values: "queued" (waiting for a worker), "running",
-    "succeeded", "succeeded_with_warnings", "failed", "timeout", "crashed".
+    "succeeded", "succeeded_with_warnings", "failed", "timeout", "crashed",
+    or "not_found" if the supplied job_id is unknown to the queue.
     Poll every 5-15s while queued/running. A submit response with
     status="queued" is not a design result; keep polling get_job(job_id) until
     one of the terminal statuses above appears, then inspect result/run_id.
+    If status is "not_found", do not rewrite the circuit; verify you used the
+    exact job_id returned by submit_skidl_code() and retry the lookup once.
 
     When finished, the "result" field contains:
     - run_id: pass to get_run() for artifacts
@@ -413,7 +416,20 @@ async def get_job(job_id: str) -> dict:
     succeeded_with_warnings status is a usable result with advisories; call
     get_run(result.run_id) for previews/artifacts before final judgement.
     """
-    job = deepcopy(await db.get_job(job_id))
+    try:
+        job = deepcopy(await db.get_job(job_id))
+    except KeyError:
+        return {
+            "job_id": job_id,
+            "status": "not_found",
+            "result": None,
+            "hint": (
+                "No queued/running/finished job exists for this job_id. This is "
+                "a job lookup/control-plane problem, not circuit feedback. "
+                "Verify the exact job_id returned by submit_skidl_code(), then "
+                "retry get_job once before resubmitting."
+            ),
+        }
 
     # Trim response size — full spec and verbose layout are available via get_run.
     result = job.get("result")

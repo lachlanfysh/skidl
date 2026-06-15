@@ -1143,10 +1143,13 @@ class TestHTTPToolsIntegration:
         assert job["status"] == "queued"
 
     @pytest.mark.asyncio
-    async def test_get_job_missing_raises(self, db):
+    async def test_get_job_missing_returns_structured_status(self, db):
         from mcp_server.server_http import get_job
-        with pytest.raises(KeyError):
-            await get_job("nonexistent")
+        job = await get_job("nonexistent")
+        assert job["job_id"] == "nonexistent"
+        assert job["status"] == "not_found"
+        assert job["result"] is None
+        assert "not circuit feedback" in job["hint"]
 
     @pytest.mark.asyncio
     async def test_estimate_complexity_sync(self, db):
@@ -1609,7 +1612,7 @@ class TestAgentUX:
         desc = tools["get_job"].description
         for status in (
             "queued", "running", "succeeded", "succeeded_with_warnings",
-            "failed", "timeout", "crashed",
+            "failed", "timeout", "crashed", "not_found",
         ):
             assert status in desc
         assert "run_id" in desc and "exceptions" in desc
@@ -1617,6 +1620,23 @@ class TestAgentUX:
         assert "edit the SKiDL code" in desc
         assert "apply_correction" not in desc
         assert "CircuitSpec" not in desc
+
+    @pytest.mark.asyncio
+    async def test_get_job_not_found_is_agent_readable(self, monkeypatch):
+        from mcp_server import server_http
+
+        class FakeDB:
+            async def get_job(self, job_id):
+                raise KeyError(job_id)
+
+        monkeypatch.setattr(server_http, "db", FakeDB())
+
+        result = await server_http.get_job("missing-job")
+
+        assert result["job_id"] == "missing-job"
+        assert result["status"] == "not_found"
+        assert result["result"] is None
+        assert "not circuit feedback" in result["hint"]
 
     @pytest.mark.asyncio
     async def test_apply_correction_is_hidden_from_public_mcp_surface(self):

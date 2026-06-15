@@ -2770,13 +2770,33 @@ def _run_skidl_code(envelope: dict) -> dict:
     schematic_path = out_dir / f"{board_name}.kicad_sch"
     pcb_path = out_dir / f"{board_name}.kicad_pcb"
 
-    circuit.generate_schematic(
-        filepath=str(out_dir),
-        top_name=board_name,
-        auto_stub=True,
-        auto_stub_fanout=3,
-        erc_max_iterations=8,
-    )
+    try:
+        circuit.generate_schematic(
+            filepath=str(out_dir),
+            top_name=board_name,
+            auto_stub=True,
+            auto_stub_fanout=3,
+            erc_max_iterations=8,
+        )
+    except Exception as exc:
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="schematic_generation",
+            exceptions=[
+                crash_exception(
+                    f"{type(exc).__name__}: {exc}",
+                    stderr=traceback.format_exc(),
+                    stage="schematic_generation",
+                )
+            ] + review_exceptions,
+            outputs={"run_dir": str(out_dir)},
+            metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
+            summary=(
+                "schematic generation failed; preserve the SKiDL circuit and "
+                "treat repeated TerminalClashException results as renderer feedback"
+            ),
+        )
 
     from skidl.layout import (
         LayoutConstraints, BoardOutline, plan_layout, write_kicad_pcb,
@@ -3022,13 +3042,34 @@ def run(envelope: dict) -> dict:
     schematic_path = out_dir / f"{board_name}.kicad_sch"
     pcb_path = out_dir / f"{board_name}.kicad_pcb"
 
-    circuit.generate_schematic(
-        filepath=str(out_dir),
-        top_name=board_name,
-        auto_stub=True,
-        auto_stub_fanout=3,
-        erc_max_iterations=8,
-    )
+    try:
+        circuit.generate_schematic(
+            filepath=str(out_dir),
+            top_name=board_name,
+            auto_stub=True,
+            auto_stub_fanout=3,
+            erc_max_iterations=8,
+        )
+    except Exception as exc:
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="schematic_generation",
+            spec=spec,
+            exceptions=[
+                crash_exception(
+                    f"{type(exc).__name__}: {exc}",
+                    stderr=traceback.format_exc(),
+                    stage="schematic_generation",
+                )
+            ] + review_exceptions,
+            outputs={"run_dir": str(out_dir)},
+            metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
+            summary=(
+                "schematic generation failed; preserve the circuit and treat "
+                "repeated TerminalClashException results as renderer feedback"
+            ),
+        )
 
     from skidl.layout import LayoutConstraints, plan_layout, write_kicad_pcb
 

@@ -368,6 +368,8 @@ def test_plan_layout_stamps_eurorack_front_back_sides_on_placements():
     assert placed["J10"].side == "back"
     assert sides["J1"] == "front"
     assert sides["J10"] == "back"
+    assert any("Thonkiconn/PJ398" in warning for warning in result.report.warnings)
+    assert any("Thonkiconn/PJ398" in risk for risk in result.report.top_risks())
     assert all(anchor.ref != "J10" for anchor in result.intent_plan.edge_anchors)
     j10_bounds = _placed_bounds(placed["J10"], BBOXES, result.fp_geometries)
     assert j10_bounds[0] >= result.outline.x_min

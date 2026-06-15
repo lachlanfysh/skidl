@@ -552,6 +552,26 @@ def _find_circuit_part(circuit, ref: str):
     return None
 
 
+def _is_schematic_only_power_marker(part) -> bool:
+    """Return true for symbols that should never become PCB footprints."""
+    if part is None:
+        return False
+    footprint = str(getattr(part, "footprint", "") or "").strip()
+    if footprint:
+        return False
+    fields = {
+        str(getattr(part, attr, "") or "").strip().upper()
+        for attr in ("name", "value", "part")
+    }
+    lib = str(getattr(part, "lib", "") or getattr(part, "libname", "") or "").lower()
+    ref = str(getattr(part, "ref", "") or "").upper()
+    return (
+        "PWR_FLAG" in fields
+        or ref.startswith("#FLG")
+        or (lib == "power" and any(value.startswith("#PWR") for value in fields | {ref}))
+    )
+
+
 def _is_rectangular_outline(outline: BoardOutline) -> bool:
     if len(outline.vertices) != 4:
         return False
@@ -672,6 +692,10 @@ def write_kicad_pcb(
 
     missing_fps = []
     for pp in placed_parts:
+        part = _find_circuit_part(circuit, pp.ref)
+        if _is_schematic_only_power_marker(part):
+            logger.debug("Skipping schematic-only power marker %s in PCB writer", pp.ref)
+            continue
         try:
             fp_sexp = load_footprint(pp.footprint, fp_lib_dirs, lib_table)
         except FileNotFoundError:
@@ -683,7 +707,6 @@ def write_kicad_pcb(
             )
             continue
 
-        part = _find_circuit_part(circuit, pp.ref)
         fp_uuid = _part_uuid(part) if part is not None else str(uuid.uuid4())
 
         fp = _place_footprint(fp_sexp, pp, fp_uuid, net_map, part, outline)

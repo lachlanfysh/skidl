@@ -1797,6 +1797,47 @@ class TestInlineFootprintBundle:
             )
 
 
+def test_skidl_worker_schematic_terminal_clash_returns_stage_result(tmp_path, monkeypatch):
+    from skidl.schematics.route import TerminalClashException
+
+    class FakeCircuit:
+        parts = [SimpleNamespace(ref="U1", footprint="", pins=[])]
+
+        def generate_schematic(self, *args, **kwargs):
+            raise TerminalClashException()
+
+    monkeypatch.setattr(
+        engine_worker_mod,
+        "_exec_skidl_with_namespace",
+        lambda code: (FakeCircuit(), {}),
+    )
+    monkeypatch.setattr(engine_worker_mod, "_circuit_to_spec_dict", lambda circuit: {})
+    monkeypatch.setattr(
+        engine_worker_mod,
+        "enrich_blocks",
+        lambda spec, marketing: (spec, []),
+    )
+    monkeypatch.setattr(engine_worker_mod, "enrich_spec", lambda spec: (spec, []))
+    monkeypatch.setattr(engine_worker_mod, "design_review_exceptions", lambda *a, **k: [])
+    monkeypatch.setattr(engine_worker_mod, "_preflight_footprints", lambda *a, **k: None)
+
+    result = _run_skidl_code({
+        "_mode": "skidl_python",
+        "code": "# fake circuit from monkeypatch",
+        "board_name": "schematic-clash",
+        "outline_mm": [25.0, 20.0],
+        "out_dir": str(tmp_path),
+        "run_id": "schematic-clash",
+    })
+
+    assert result["run_id"] == "schematic-clash"
+    assert result["stage"] == "schematic_generation"
+    assert result["status"] == "failed"
+    assert result["exceptions"][0]["code"] == ExcCode.SCH_ROUTING_FAILURE.value
+    assert result["exceptions"][0]["subject"]["exception"] == "TerminalClashException"
+    assert result["outputs"]["run_dir"] == str(tmp_path.resolve())
+
+
 @needs_kicad
 class TestSkidlPythonDesignReview:
     def test_python_mode_blocks_missing_connector(self, tmp_path):

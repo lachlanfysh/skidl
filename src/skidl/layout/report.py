@@ -327,6 +327,13 @@ def _append_unique(values: list[str], value: str) -> None:
         values.append(value)
 
 
+def _dedupe(values: list[str]) -> list[str]:
+    unique: list[str] = []
+    for value in values:
+        _append_unique(unique, value)
+    return unique
+
+
 def _hpwl_action(name: str, hpwl: float, refs: list[str]) -> str:
     if len(refs) >= 2:
         return (
@@ -342,7 +349,9 @@ def build_placement_report(
     candidate_validations: dict[str, ValidationResult],
     power_plan: PowerRoutePlan,
     routability: RoutabilityFeedback | None = None,
+    intent_warnings: list[str] | None = None,
 ) -> PlacementReport:
+    intent_warnings = list(intent_warnings or [])
     candidate_reports: list[CandidateReport] = []
     for candidate in sorted(
         candidate_scores,
@@ -367,7 +376,7 @@ def build_placement_report(
                     if candidate == selected.name
                     else []
                 ),
-                warnings=list(score.warnings[:10]),
+                warnings=_dedupe([*intent_warnings, *score.warnings])[:10],
             )
         )
 
@@ -447,7 +456,13 @@ def build_placement_report(
         power_topology=power_topology,
         part_reasons=dict(selected.ref_reasons),
         net_explanations=net_explanations,
-        warnings=list(selected_score.warnings[:20]) + list(power_plan.warnings[:20]),
+        warnings=_dedupe(
+            [
+                *intent_warnings,
+                *selected_score.warnings[:20],
+                *power_plan.warnings[:20],
+            ]
+        ),
         reasons=reasons,
         routability=routability,
     )

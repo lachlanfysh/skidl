@@ -1752,6 +1752,7 @@ def plan_layout(
         candidate_validations,
         power_plan,
         routability=routability,
+        intent_warnings=intent_plan.warnings if intent_plan is not None else None,
     )
 
     return LayoutResult(

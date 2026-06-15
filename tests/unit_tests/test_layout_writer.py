@@ -40,6 +40,16 @@ class _MockCircuit:
         return self._nets
 
 
+class _MockPart:
+    def __init__(self, ref, name="", value="", footprint="", lib=""):
+        self.ref = ref
+        self.hiername = ref
+        self.name = name
+        self.value = value
+        self.footprint = footprint
+        self.lib = lib
+
+
 # ---------------------------------------------------------------------------
 # load_footprint
 # ---------------------------------------------------------------------------
@@ -380,6 +390,40 @@ def test_write_missing_footprint_raises_by_default(tmp_path):
         write_kicad_pcb(parts, circuit, [], out)
 
     assert not os.path.exists(out)
+
+
+def test_write_skips_schematic_only_power_flags(tmp_path):
+    lib_root = _make_minimal_fp_lib(tmp_path)
+    circuit = _MockCircuit()
+    circuit.parts = [
+        _MockPart("R1", name="R", footprint="TestLib:R_Test"),
+        _MockPart("PF1", name="PWR_FLAG", footprint="", lib="power"),
+    ]
+    parts = [
+        PlacedPart(ref="R1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint="TestLib:R_Test"),
+        PlacedPart(ref="PF1", x_mm=8.0, y_mm=5.0, rot_deg=0.0, footprint=""),
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [lib_root], out)
+
+    board = Sexp(open(out).read())
+    footprints = list(board.search("footprint"))
+    assert len(footprints) == 1
+    assert '"R1"' in open(out).read()
+    assert "PF1" not in open(out).read()
+
+
+def test_write_empty_footprint_still_fails_for_physical_parts(tmp_path):
+    circuit = _MockCircuit()
+    circuit.parts = [_MockPart("U1", name="MCU", footprint="")]
+    parts = [
+        PlacedPart(ref="U1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint=""),
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    with pytest.raises(FileNotFoundError, match="INCOMPLETE PCB"):
+        write_kicad_pcb(parts, circuit, [], out)
 
 
 def test_write_polygon_outline_as_edge_lines(tmp_path):

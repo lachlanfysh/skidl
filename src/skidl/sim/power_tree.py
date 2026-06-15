@@ -23,6 +23,11 @@ POWER_NET_RE = re.compile(
     re.IGNORECASE,
 )
 GND_NET_RE = re.compile(r"^(GND|VSS|DGND|AGND|GNDA|GNDD|0)$", re.IGNORECASE)
+POWER_PIN_RE = re.compile(
+    r"^(V[+-]|[-+]?VS|V(CC|DD|DDA|SSA|SS|IN|BAT|REF|BUS)|"
+    r"A?V(CC|DD)|D?V(CC|DD)|IOV(DD))$",
+    re.IGNORECASE,
+)
 
 _REGULATOR_RE = re.compile(
     r"(regulator|ldo|buck|boost|dcdc|dc-dc|converter|linear)",
@@ -94,6 +99,20 @@ def _pin_net_name(pin) -> str:
     if net is None:
         return ""
     return _net_name(net)
+
+
+def _pin_name(pin) -> str:
+    return str(getattr(pin, "name", "") or "")
+
+
+def _is_power_load_pin(pin) -> bool:
+    net = _pin_net_name(pin)
+    if not net or not _is_power_net(net) or _is_ground_net(net):
+        return False
+    func = getattr(pin, "func", None)
+    if func == pin_types.PWRIN:
+        return True
+    return bool(POWER_PIN_RE.match(_pin_name(pin)))
 
 
 def _is_power_net(name: str) -> bool:
@@ -250,6 +269,7 @@ def analyze_power_tree(circuit=None) -> PowerTreeReport:
 
         # Discover which rails this part touches
         part_power_nets = set()
+        part_load_power_nets = set()
         part_gnd_nets = set()
         for pin in pins:
             net = _pin_net_name(pin)
@@ -257,6 +277,8 @@ def analyze_power_tree(circuit=None) -> PowerTreeReport:
                 part_power_nets.add(net)
                 if net not in rails:
                     rails[net] = RailInfo(name=net)
+                if _is_power_load_pin(pin):
+                    part_load_power_nets.add(net)
             if _is_ground_net(net):
                 part_gnd_nets.add(net)
 
@@ -310,8 +332,8 @@ def analyze_power_tree(circuit=None) -> PowerTreeReport:
             if prefix == "C" and len(pins) == 2:
                 for net in part_power_nets:
                     rails[net].caps.append(part.ref)
-            elif part_power_nets and prefix not in {"R", "L", "D"}:
-                for net in part_power_nets:
+            elif part_load_power_nets and prefix not in {"R", "L", "D"}:
+                for net in part_load_power_nets:
                     if part.ref not in rails[net].sources:
                         rails[net].loads.append(part.ref)
 
