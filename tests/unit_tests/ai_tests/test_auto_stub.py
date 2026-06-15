@@ -565,6 +565,51 @@ class TestSelectiveRouting:
         """_classify_and_stub_complex_nets is importable."""
         assert callable(_classify_and_stub_complex_nets)
 
+    def test_classify_uses_place_pt_without_requiring_pin_xy(self):
+        """Pins with place_pt should not crash when x/y attributes are absent."""
+        from skidl.geometry import Point
+
+        class MockPart:
+            pass
+
+        class MockPin:
+            def __init__(self, part, x, y):
+                self.part = part
+                self.place_pt = Point(x, y)
+                self.stub = False
+
+        class MockNet:
+            _stub = False
+            _stub_explicit = False
+
+            def __init__(self, pins):
+                self.pins = pins
+
+            def get_pins(self):
+                return self.pins
+
+        class MockNode:
+            def __init__(self, parts, nets):
+                self.parts = parts
+                self._nets = nets
+
+            def get_internal_nets(self):
+                return self._nets
+
+        part = MockPart()
+        pins = [MockPin(part, 0, 0), MockPin(part, 10, 0)]
+        net = MockNet(pins)
+
+        _classify_and_stub_complex_nets(
+            None,
+            MockNode([part], [net]),
+            auto_stub_max_wire_pins=3,
+            auto_stub_max_wire_dist=1000,
+        )
+
+        assert net._stub is False
+        assert [pin.stub for pin in pins] == [False, False]
+
     @requires_kicad_libs
     def test_simple_nets_stay_wired(self, output_dir):
         """2-pin short-distance nets should remain as wires, not labels."""

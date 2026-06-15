@@ -287,9 +287,18 @@ def _classify_and_stub_complex_nets(circuit, node, **options):
 
         # Pins too far apart → label.
         if len(pins) >= 2:
+            def _pin_point(pin):
+                pin_pt = getattr(pin, "place_pt", None)
+                if pin_pt is not None:
+                    return pin_pt
+                pin_pt = getattr(pin, "pt", None)
+                if pin_pt is not None:
+                    return pin_pt
+                return Point(pin.x, pin.y)
+
             pts = []
             for p in pins:
-                pin_pt = getattr(p, "place_pt", getattr(p, "pt", Point(p.x, p.y)))
+                pin_pt = _pin_point(p)
                 part_tx = getattr(p.part, "tx", None)
                 if part_tx:
                     pts.append(pin_pt * part_tx)
