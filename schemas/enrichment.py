@@ -193,7 +193,7 @@ def _is_supply_net_for_ref(net: dict, ref: str) -> bool:
     name = str(net.get("name", "") or "")
     if SIGNAL_NET_RE.match(name):
         return False
-    return _is_named_supply_rail(name) or _net_has_power_pin_for_ref(net, ref)
+    return _net_has_power_pin_for_ref(net, ref)
 
 
 def _get_power_nets_for_ref(nets: list[dict], ref: str) -> tuple[set[str], set[str]]:

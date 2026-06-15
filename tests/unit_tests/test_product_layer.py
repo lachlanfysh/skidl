@@ -257,6 +257,34 @@ class TestDesignReviewExceptions:
         assert not (bulk_nets & {"SDA", "SCL", "ADDR", "ALERT", "AIN0"})
         assert "3V3" not in bulk_nets
 
+    def test_named_supply_without_ic_power_pin_does_not_trigger_ic_bulk_review(self):
+        spec = {
+            "board": {"name": "pullup-only-supply"},
+            "parts": [
+                {"ref": "U1", "lib": "Analog_ADC", "part": "ADS1115",
+                 "footprint": "Package_SO:TSSOP-10_3x3mm_P0.5mm"},
+                {"ref": "R1", "lib": "Device", "part": "R", "value": "4.7K",
+                 "footprint": "Resistor_SMD:R_0603_1608Metric"},
+                {"ref": "R2", "lib": "Device", "part": "R", "value": "4.7K",
+                 "footprint": "Resistor_SMD:R_0603_1608Metric"},
+            ],
+            "nets": [
+                {"name": "3V3", "power": True, "pins": ["R1.1", "R2.1"]},
+                {"name": "GND", "power": True, "pins": ["U1.GND"]},
+                {"name": "SDA", "pins": ["U1.SDA", "R1.2"]},
+                {"name": "SCL", "pins": ["U1.SCL", "R2.2"]},
+            ],
+        }
+
+        exceptions = design_review_exceptions(spec)
+        bulk_nets = {
+            e.subject.get("net")
+            for e in exceptions
+            if e.code == ExcCode.DESIGN_MISSING_BULK_CAP
+        }
+
+        assert "3V3" not in bulk_nets
+
     def test_enrichment_does_not_treat_signal_power_flags_as_supply_rails(self):
         spec = {
             "board": {"name": "signal-power-flags-enrich"},
