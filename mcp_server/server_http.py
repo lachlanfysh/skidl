@@ -1995,6 +1995,10 @@ Common libraries — use search_kicad() for anything not listed here:
 - Decoupling caps: value="100nF" wired power-to-ground = auto-placed near parent IC.
 - Standard power names: VCC, VDD, 3V3, 5V, VBUS, VBAT, GND, AGND.
 - Pin names on ICs may differ — use `search_kicad("part", detail=true)` to check.
+- Multi-unit op-amps/comparators: inspect the exact unit pins before wiring.
+  Do not assume B/C/D units reuse A-side package pin numbers. For TL07x-style
+  symbols, use unit-local pins such as `op.uB["+"]`, `op.uB["-"]`, and the
+  listed output pin from `search_kicad("TL074", detail=true)`.
 - Use @subcircuit for functional blocks:
 
 ```python

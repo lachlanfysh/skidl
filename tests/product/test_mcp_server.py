@@ -595,6 +595,33 @@ class TestHelpfulFailures:
         assert "ads1115_part['A0']" in exc.subject["line_text"]
         assert "search_kicad" in exc.retry_hint
 
+    def test_code_exec_error_gets_multi_unit_pin_context_from_stderr(self):
+        exc = DesignException(
+            id="e-code",
+            code=ExcCode.CODE_EXEC_ERROR,
+            severity=Severity.FATAL,
+            message="ValueError: No pins found using TL074:U1.uB[('3',)]",
+        )
+        code = "\n".join([
+            "from skidl import *",
+            "op = Part('Amplifier_Operational', 'TL074')",
+            "feedback = Net('FB'); feedback += op.uB[3]",
+        ])
+        stderr = (
+            "ERROR: No pins found using TL074:U1.uB[('3',)] "
+            "@ [/app/mcp_server/engine_worker.py:627=>/tmp/run/<string>:3]"
+        )
+
+        _enrich_code_exceptions([exc], stderr=stderr, code=code)
+
+        assert exc.message == "pin '3' not found on U1.uB (TL074) while executing SKiDL code"
+        assert exc.subject["ref"] == "U1"
+        assert exc.subject["unit"] == "uB"
+        assert exc.subject["pin"] == "3"
+        assert exc.subject["multi_unit_pin_access"] is True
+        assert "multi-unit symbol pin lookup" in exc.retry_hint
+        assert "Do not reuse A-side package pin numbers" in exc.retry_hint
+
     def test_stderr_pin_context_adds_rgb_led_family_hint(self):
         exc = DesignException(
             id="e-code",
@@ -858,6 +885,8 @@ class TestHelpfulFailures:
     def test_multi_unit_pin_error_explains_exact_unit_pins(self):
         unit_b = SimpleNamespace(
             pins=[
+                SimpleNamespace(name="+", num="5"),
+                SimpleNamespace(name="-", num="6"),
                 SimpleNamespace(name="~", num="5"),
                 SimpleNamespace(name="~", num="6"),
                 SimpleNamespace(name="~", num="7"),
@@ -881,9 +910,40 @@ class TestHelpfulFailures:
         assert exc.code == ExcCode.CODE_EXEC_ERROR
         assert exc.subject["unit"] == "uB"
         assert exc.subject["pin"] == "3"
-        assert exc.subject["available_pins"] == ["5", "6", "7"]
+        assert exc.subject["available_pins"] == ["+", "-", "5", "6", "7"]
         assert "guessed multi-unit symbol pin access" in exc.retry_hint
-        assert "B-side pin numbers" in exc.retry_hint
+        assert "Do not reuse A-side package pin numbers" in exc.retry_hint
+        assert "`op.uB['+']`" in exc.retry_hint
+
+    def test_multi_unit_pin_not_found_error_explains_exact_unit_pins(self):
+        unit_b = SimpleNamespace(
+            pins=[
+                SimpleNamespace(name="+", num="5"),
+                SimpleNamespace(name="-", num="6"),
+                SimpleNamespace(name="~", num="7"),
+            ],
+        )
+        opamp = SimpleNamespace(
+            ref="U1",
+            name="TL074",
+            value="TL074",
+            uB=unit_b,
+        )
+
+        class FakeExecError:
+            original = ValueError("No pins found using TL074:U1.uB[('3',)]")
+            line = 51
+            line_text = "feedback += opamp.uB[3]"
+            namespace = {"opamp": opamp}
+
+        exc = _code_exception_from_exec(FakeExecError())
+
+        assert exc.code == ExcCode.CODE_EXEC_ERROR
+        assert exc.message == "pin '3' not found on U1.uB (TL074)"
+        assert exc.subject["available_pins"] == ["+", "-", "5", "6", "7"]
+        assert "guessed multi-unit symbol pin access" in exc.retry_hint
+        assert "`op.uB['+']`" in exc.retry_hint
+        assert "`op.uB['-']`" in exc.retry_hint
 
     def test_rgb_led_pin_error_explains_channel_pins(self):
         led = SimpleNamespace(

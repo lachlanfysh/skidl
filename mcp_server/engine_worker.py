@@ -2287,6 +2287,25 @@ def _pin_suggestions_hint(subject: dict) -> str:
     return ""
 
 
+def _multi_unit_pin_hint(unit_subject: dict) -> str:
+    suggestions = unit_subject.get("suggested_pins") or []
+    suffix = f" Close valid pins: {', '.join(suggestions[:5])}." if suggestions else ""
+    available_hint = _pin_suggestions_hint(unit_subject)
+    return (
+        "This looks like a guessed multi-unit symbol pin access "
+        f"({unit_subject['variable']}.{unit_subject['unit']}[...]). "
+        "Multi-unit op-amp/comparator symbols expose only the pins listed by "
+        "their selected unit. Do not reuse A-side package pin numbers on B/C/D "
+        "units unless subject.available_pins lists them. Use "
+        "search_kicad(part_name, detail=true) or subject.available_pins, then "
+        "wire the exact pin on the exact unit before resubmitting; for TL07x "
+        "style op-amps this often means `op.uB['+']`, `op.uB['-']`, and the "
+        "unit's listed output pin."
+        + available_hint
+        + suffix
+    )
+
+
 def _symbol_part_suggestions(part_name: str, library: str = "", limit: int = 5) -> list[dict]:
     """Return exact Part() usages for a missing symbol part name."""
     try:
@@ -2539,22 +2558,17 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
         )
 
     unit_subject = _infer_unit_pin_lookup(error)
-    if unit_subject and "NoneType" in str(original):
+    if unit_subject and (
+        "NoneType" in str(original)
+        or "No pins found" in str(original)
+        or "not iterable" in str(original)
+    ):
         subject.update(unit_subject)
-        suggestions = unit_subject.get("suggested_pins") or []
-        suffix = f" Close valid pins: {', '.join(suggestions[:5])}." if suggestions else ""
         return _code_exception(
-            original_text,
-            (
-                "This looks like a guessed multi-unit symbol pin access "
-                f"({unit_subject['variable']}.{unit_subject['unit']}[...]). "
-                "Multi-unit op-amp/comparator symbols expose only the pins "
-                "listed by their selected unit, and the B-side pin numbers are "
-                "often not the same as the A-side. Use "
-                "search_kicad(part_name, detail=true) or "
-                "subject.available_pins, then wire the exact pin on the exact "
-                "unit before resubmitting." + suffix
-            ),
+            f"pin {unit_subject['pin']!r} not found on "
+            f"{unit_subject['ref']}.{unit_subject['unit']} "
+            f"({unit_subject.get('part') or 'multi-unit symbol'})",
+            _multi_unit_pin_hint(unit_subject),
             subject=subject,
         )
 

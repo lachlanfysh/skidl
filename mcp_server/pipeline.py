@@ -161,6 +161,12 @@ _PIN_ERROR_RE = re.compile(
     r"\[\((?:'(?P<pin_quoted>[^']+)'|\"(?P<pin_dquoted>[^\"]+)\"|"
     r"(?P<pin_raw>[^,\)\]]+))(?:,)?\)\]"
 )
+_UNIT_PIN_ERROR_RE = re.compile(
+    r"No pins found using\s+(?P<part>[^:\s]+):"
+    r"(?P<ref>[A-Za-z_]\w*)\.(?P<unit>[A-Za-z_]\w*)"
+    r"\[\((?:'(?P<pin_quoted>[^']+)'|\"(?P<pin_dquoted>[^\"]+)\"|"
+    r"(?P<pin_raw>[^,\)\]]+))(?:,)?\)\]"
+)
 
 
 def _code_line(code: str, line: int | None) -> str:
@@ -232,6 +238,7 @@ def _enrich_code_exceptions(
     if not exceptions:
         return exceptions
     stderr_tail = stderr[-4000:] if stderr else ""
+    unit_pin_match = _UNIT_PIN_ERROR_RE.search(stderr_tail)
     pin_match = _PIN_ERROR_RE.search(stderr_tail)
     line_match = _STRING_LINE_RE.search(stderr_tail)
     line = int(line_match.group("line")) if line_match else None
@@ -245,6 +252,36 @@ def _enrich_code_exceptions(
         if line is not None:
             subject.setdefault("line", line)
             subject.setdefault("line_text", _code_line(code, line))
+        if unit_pin_match:
+            pin = (
+                unit_pin_match.group("pin_quoted")
+                or unit_pin_match.group("pin_dquoted")
+                or unit_pin_match.group("pin_raw")
+                or ""
+            ).strip()
+            ref = unit_pin_match.group("ref")
+            unit = unit_pin_match.group("unit")
+            part = unit_pin_match.group("part")
+            subject["ref"] = ref
+            subject["unit"] = unit
+            subject["pin"] = pin
+            subject["part"] = part
+            subject["multi_unit_pin_access"] = True
+            exc.message = (
+                f"pin {pin!r} not found on {ref}.{unit} ({part}) while "
+                "executing SKiDL code"
+            )
+            exc.retry_hint = (
+                "This is a multi-unit symbol pin lookup. Do not reuse A-side "
+                "package pin numbers on B/C/D units. Use "
+                "search_kicad(part_name, detail=true) or subject.available_pins "
+                "to inspect that exact unit, then wire the listed pins before "
+                "resubmitting with submit_skidl_code(); for TL07x-style op-amps "
+                "this often means the unit-local '+', '-', and listed output pin."
+            )
+            exc.retry_hint += _pin_suggestions_hint(subject)
+            exc.subject = subject
+            continue
         if pin_match:
             pin = (
                 pin_match.group("pin_quoted")
