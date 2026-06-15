@@ -31,7 +31,7 @@ from typing import Literal
 # ---------------------------------------------------------------------------
 
 POWER_PIN_RE = re.compile(
-    r"^(V(CC|DD|DDIO|DDA|SSA|SS|IN|OUT|BAT|REF|BUS)|"
+    r"^(V[+-]|[-+]?VS|V(CC|DD|DDIO|DDA|SSA|SS|IN|OUT|BAT|REF|BUS)|"
     r"A?V(CC|DD)|D?V(CC|DD)|IOV(DD))$",
     re.IGNORECASE,
 )
@@ -131,6 +131,15 @@ def _part_on_net(net: dict, ref: str) -> bool:
     return any(p.startswith(f"{ref}.") for p in net.get("pins", []))
 
 
+def _pin_names_on_net_for_ref(net: dict, ref: str) -> list[str]:
+    prefix = f"{ref}."
+    return [
+        str(pin_ref[len(prefix):])
+        for pin_ref in net.get("pins", [])
+        if str(pin_ref).startswith(prefix)
+    ]
+
+
 def _refs_on_net(net: dict) -> list[str]:
     return list({p.split(".")[0] for p in net.get("pins", []) if "." in p})
 
@@ -165,7 +174,26 @@ def _is_named_supply_rail(name: str) -> bool:
     names look like real supply rails.
     """
     text = str(name or "")
-    return bool(POWER_NET_RE.match(text)) and not bool(GROUND_NET_RE.match(text))
+    return (
+        bool(POWER_NET_RE.match(text))
+        and not bool(GROUND_NET_RE.match(text))
+        and not bool(SIGNAL_NET_RE.match(text))
+    )
+
+
+def _net_has_power_pin_for_ref(net: dict, ref: str) -> bool:
+    return any(POWER_PIN_RE.match(pin) for pin in _pin_names_on_net_for_ref(net, ref))
+
+
+def _net_has_ground_pin_for_ref(net: dict, ref: str) -> bool:
+    return any(GROUND_PIN_RE.match(pin) for pin in _pin_names_on_net_for_ref(net, ref))
+
+
+def _is_supply_net_for_ref(net: dict, ref: str) -> bool:
+    name = str(net.get("name", "") or "")
+    if SIGNAL_NET_RE.match(name):
+        return False
+    return _is_named_supply_rail(name) or _net_has_power_pin_for_ref(net, ref)
 
 
 def _get_power_nets_for_ref(nets: list[dict], ref: str) -> tuple[set[str], set[str]]:
@@ -175,9 +203,9 @@ def _get_power_nets_for_ref(nets: list[dict], ref: str) -> tuple[set[str], set[s
         if not _part_on_net(net, ref):
             continue
         name = net.get("name", "")
-        if _is_ground_net(net):
+        if _is_ground_net(net) or _net_has_ground_pin_for_ref(net, ref):
             ground_nets.add(name)
-        elif _is_power_net(net):
+        elif _is_supply_net_for_ref(net, ref):
             power_nets.add(name)
     return power_nets, ground_nets
 
@@ -186,7 +214,7 @@ def _get_named_supply_rails_for_ref(nets: list[dict], ref: str) -> set[str]:
     return {
         str(net.get("name", ""))
         for net in nets
-        if _part_on_net(net, ref) and _is_named_supply_rail(str(net.get("name", "")))
+        if _part_on_net(net, ref) and _is_supply_net_for_ref(net, ref)
     }
 
 

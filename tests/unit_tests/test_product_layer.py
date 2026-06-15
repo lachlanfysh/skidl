@@ -287,6 +287,50 @@ class TestDesignReviewExceptions:
         assert signal_cap_nets == set()
         assert any(action.get("rule") == "A1" for action in actions)
 
+    def test_enrichment_accepts_nonstandard_net_with_power_pin_evidence(self):
+        spec = {
+            "board": {"name": "power-pin-evidence"},
+            "parts": [
+                {"ref": "U1", "lib": "Analog_ADC", "part": "ADS1115",
+                 "footprint": "Package_SO:TSSOP-10_3x3mm_P0.5mm"},
+            ],
+            "nets": [
+                {"name": "SENSOR_SUPPLY", "pins": ["U1.VDD"]},
+                {"name": "RETURN", "pins": ["U1.GND"]},
+            ],
+        }
+
+        enriched, actions = enrich(spec)
+        cap_refs = {p["ref"] for p in enriched["parts"] if p["ref"].startswith("C")}
+        supply = next(n for n in enriched["nets"] if n["name"] == "SENSOR_SUPPLY")
+        ground = next(n for n in enriched["nets"] if n["name"] == "RETURN")
+
+        assert any(pin.split(".", 1)[0] in cap_refs for pin in supply["pins"])
+        assert any(pin.split(".", 1)[0] in cap_refs for pin in ground["pins"])
+        assert any(action.get("rule") == "A1" for action in actions)
+
+    def test_bulk_review_accepts_nonstandard_net_with_power_pin_evidence(self):
+        spec = {
+            "board": {"name": "bulk-power-pin-evidence"},
+            "parts": [
+                {"ref": "U1", "lib": "Analog_ADC", "part": "ADS1115",
+                 "footprint": "Package_SO:TSSOP-10_3x3mm_P0.5mm"},
+            ],
+            "nets": [
+                {"name": "SENSOR_SUPPLY", "pins": ["U1.VDD"]},
+                {"name": "RETURN", "pins": ["U1.GND"]},
+            ],
+        }
+
+        exceptions = design_review_exceptions(spec)
+        bulk_nets = {
+            e.subject.get("net")
+            for e in exceptions
+            if e.code == ExcCode.DESIGN_MISSING_BULK_CAP
+        }
+
+        assert "SENSOR_SUPPLY" in bulk_nets
+
     def test_negative_voltage_rail_is_power_for_review(self):
         spec = {
             "board": {"name": "eurorack-negative-rail"},
