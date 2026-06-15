@@ -1740,6 +1740,82 @@ def _preflight_footprints(circuit, fp_dirs: list[str]) -> DesignException | None
     return _missing_footprint_exception_for_circuit(circuit, missing)
 
 
+_FOOTPRINT_NAME_RE = re.compile(r"^[A-Za-z0-9_. +@#-]+$")
+
+
+def _safe_footprint_component(value: object, field: str) -> str:
+    text = str(value or "").strip()
+    if (
+        not text
+        or "/" in text
+        or "\\" in text
+        or ".." in text
+        or not _FOOTPRINT_NAME_RE.match(text)
+    ):
+        raise ValueError(f"invalid footprint {field}: {text!r}")
+    return text[:-7] if text.endswith(".pretty") else text
+
+
+def _inline_footprint_items(raw) -> list[tuple[str, str, str]]:
+    """Normalize submitted EDA_FOOTPRINTS into (library, name, content)."""
+    if not raw:
+        return []
+    items: list[tuple[str, str, str]] = []
+    if isinstance(raw, dict):
+        for key, content in raw.items():
+            if isinstance(content, dict):
+                lib = content.get("library") or content.get("lib")
+                name = content.get("name") or content.get("footprint")
+                text = content.get("content") or content.get("kicad_mod")
+            else:
+                if ":" not in str(key):
+                    raise ValueError(
+                        "EDA_FOOTPRINTS dict keys must be 'Library:Footprint'"
+                    )
+                lib, name = str(key).split(":", 1)
+                text = content
+            items.append((
+                _safe_footprint_component(lib, "library"),
+                _safe_footprint_component(name, "name"),
+                str(text or ""),
+            ))
+    elif isinstance(raw, list):
+        for entry in raw:
+            if not isinstance(entry, dict):
+                raise ValueError("EDA_FOOTPRINTS list entries must be dicts")
+            items.append((
+                _safe_footprint_component(entry.get("library") or entry.get("lib"), "library"),
+                _safe_footprint_component(entry.get("name") or entry.get("footprint"), "name"),
+                str(entry.get("content") or entry.get("kicad_mod") or ""),
+            ))
+    else:
+        raise ValueError("EDA_FOOTPRINTS must be a dict or list")
+
+    for lib, name, content in items:
+        if "(footprint" not in content:
+            raise ValueError(
+                f"EDA_FOOTPRINTS entry {lib}:{name} is not KiCad footprint text"
+            )
+    return items
+
+
+def _write_inline_footprints(raw, out_dir: Path) -> tuple[str | None, dict]:
+    """Write submitted custom footprints into a temporary KiCad library root."""
+    items = _inline_footprint_items(raw)
+    if not items:
+        return None, {"count": 0}
+
+    root = out_dir / "_inline_footprints"
+    root.mkdir(parents=True, exist_ok=True)
+    refs: list[str] = []
+    for lib, name, content in items:
+        lib_dir = root / f"{lib}.pretty"
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        (lib_dir / f"{name}.kicad_mod").write_text(content, encoding="utf-8")
+        refs.append(f"{lib}:{name}")
+    return str(root), {"count": len(items), "footprints": refs}
+
+
 def _normalize_pipeline_goal(value) -> str:
     text = str(value or "manufacturing").strip().lower().replace("-", "_")
     aliases = {
@@ -2433,6 +2509,22 @@ def _run_skidl_code(envelope: dict) -> dict:
             metrics=_metrics(),
         )
 
+    try:
+        inline_fp_root, inline_fp_meta = _write_inline_footprints(
+            namespace.get("EDA_FOOTPRINTS"),
+            out_dir,
+        )
+        if inline_fp_root:
+            fp_dirs.insert(0, inline_fp_root)
+    except ValueError as exc:
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="footprint_bundle",
+            exceptions=[_code_exception(str(exc))],
+            metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
+        )
+
     # Server-side enrichment: add missing passives and functional blocks
     try:
         orig_spec = _circuit_to_spec_dict(circuit)
@@ -2622,6 +2714,8 @@ def _run_skidl_code(envelope: dict) -> dict:
     layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
     if floorplan_meta:
         layout_dict["floorplan"] = floorplan_meta
+    if inline_fp_meta.get("count"):
+        layout_dict["inline_footprints"] = inline_fp_meta
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
     metrics["manufacturable"] = manufacturable
     metrics["manufacturing_complete"] = manufacturable

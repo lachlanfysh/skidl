@@ -40,6 +40,7 @@ from mcp_server.engine_worker import (
     _route_pcb,
     _run_skidl_code,
     _run_pcbnew_child,
+    _write_inline_footprints,
     _write_layout_mockup_svg,
 )
 from mcp_server.pipeline import (
@@ -1451,6 +1452,35 @@ class TestWorkerAndPipeline:
         if response.ok:
             assert os.path.exists(response.outputs["pcb"])
             assert os.path.exists(response.artifacts["pcb"])
+
+
+class TestInlineFootprintBundle:
+    def test_inline_footprints_write_temporary_preflight_library(self, tmp_path):
+        content = (
+            '(footprint "R_Test" '
+            '(pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu")))'
+        )
+
+        root, meta = _write_inline_footprints(
+            {"TestLib:R_Test": content},
+            tmp_path,
+        )
+
+        assert root == str(tmp_path / "_inline_footprints")
+        assert meta == {"count": 1, "footprints": ["TestLib:R_Test"]}
+        assert (
+            tmp_path
+            / "_inline_footprints"
+            / "TestLib.pretty"
+            / "R_Test.kicad_mod"
+        ).read_text() == content
+
+    def test_inline_footprints_reject_path_traversal(self, tmp_path):
+        with pytest.raises(ValueError, match="invalid footprint"):
+            _write_inline_footprints(
+                {"../Bad:R_Test": '(footprint "R_Test")'},
+                tmp_path,
+            )
 
 
 @needs_kicad

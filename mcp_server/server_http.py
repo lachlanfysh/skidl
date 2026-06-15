@@ -321,6 +321,11 @@ async def submit_skidl_code(
       Use fixed_positions for real user floorplans such as sensor grids,
       displays, batteries, USB sockets, and large modules; do not strip them
       merely because the hosted service owns generation/layout.
+      For custom project footprints that Railway does not have installed,
+      embed KiCad footprint text in a global `EDA_FOOTPRINTS` dict:
+      `EDA_FOOTPRINTS = {"MyLib:MyFootprint": "(footprint ...)"}`. The
+      server writes these into a temporary `MyLib.pretty/MyFootprint.kicad_mod`
+      library for this run before footprint preflight/layout.
       For layout overlap/outline/congestion feedback, prefer improving
       grouping, connector choices, and outline_mm before resubmitting.
 
@@ -1894,6 +1899,26 @@ EDA_FLOORPLAN = {
 Preserve explicit sensor grids, controls, displays, batteries, modules, and
 mounting/mechanical intent this way. Do not strip a floorplan just because the
 hosted service owns schematic/layout/routing.
+
+If the user has custom project footprints that Railway does not have installed,
+embed the KiCad `.kicad_mod` text in `EDA_FOOTPRINTS`:
+
+```python
+EDA_FOOTPRINTS = {
+    "Daughterboards:USB_C_Breakout_6pin": '''
+(footprint "USB_C_Breakout_6pin"
+  ...
+)
+''',
+}
+```
+
+The key must match the `Part(..., footprint="Library:Name")` string. The
+server writes these as temporary `Library.pretty/Name.kicad_mod` files before
+footprint preflight, layout, and PCB writing. Use this for placement review or
+manufacturing when the human's local project library is required. The agent
+must read the `.kicad_mod` file locally and paste its text into this dict; the
+hosted worker cannot open arbitrary paths on the agent's machine.
 
 ## KiCad library names (NOT manufacturer names)
 

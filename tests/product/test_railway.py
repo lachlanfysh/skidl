@@ -1416,6 +1416,7 @@ class TestAgentUX:
             "timeout_s", "route_timeout_s", "assembly_policy", "pipeline_goal",
             "assembly_side", "edge_preference", "edge_rot_deg", "LCSC",
             "manufacturing", "placement_review", "EDA_FLOORPLAN",
+            "EDA_FOOTPRINTS",
         ):
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
 
@@ -1635,6 +1636,7 @@ class TestAgentUX:
         assert "eda://guide/parts" in SKIDL_GUIDE
         assert 'pipeline_goal="placement_review"' in SKIDL_GUIDE
         assert "EDA_FLOORPLAN" in SKIDL_GUIDE
+        assert "EDA_FOOTPRINTS" in SKIDL_GUIDE
 
     def test_circuit_spec_reference_is_legacy_not_public_resource(self):
         from mcp_server.server_http import CIRCUIT_SPEC_GUIDE
