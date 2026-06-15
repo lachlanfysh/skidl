@@ -367,6 +367,12 @@ def test_plan_layout_stamps_eurorack_front_back_sides_on_placements():
     assert placed["J10"].side == "back"
     assert sides["J1"] == "front"
     assert sides["J10"] == "back"
+    assert all(anchor.ref != "J10" for anchor in result.intent_plan.edge_anchors)
+    j10_bounds = _placed_bounds(placed["J10"], BBOXES, result.fp_geometries)
+    assert j10_bounds[0] >= result.outline.x_min
+    assert j10_bounds[1] >= result.outline.y_min
+    assert j10_bounds[2] <= result.outline.x_max
+    assert j10_bounds[3] <= result.outline.y_max
     assert layout["intent_plan"]["assembly_sides"]["J10"] == "back"
 
 
@@ -695,6 +701,69 @@ def test_legalize_small_parts_nudges_passives_clear_of_mounting_holes():
     assert placed["H1"].x_mm == pytest.approx(4.0)
 
 
+def test_legalize_small_parts_nudges_connectors_clear_of_mounting_holes():
+    outline = BoardOutline(40.0, 28.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    sda = _Net("SDA")
+    scl = _Net("SCL")
+    j100 = _Part(
+        "J100",
+        name="Qwiic STEMMA QT JST SH connector",
+        footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+        nets=[gnd, vcc, sda, scl],
+        pins=4,
+    )
+    h1 = _Part("H1", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    circuit = _Circuit([j100, h1, u1], [vcc, gnd, sda, scl])
+    intent_plan = PlacementIntentPlan()
+    intent_plan.intents["H1"] = [
+        PlacementIntent("H1", "mounting_hole", 90, ["test mounting hole"])
+    ]
+    placed_parts = [
+        PlacedPart("H1", x_mm=4.0, y_mm=4.0, rot_deg=0.0, footprint="MountingHole:M2"),
+        PlacedPart(
+            "J100",
+            x_mm=8.5,
+            y_mm=4.0,
+            rot_deg=0.0,
+            footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+        ),
+        PlacedPart("U1", x_mm=24.0, y_mm=14.0, rot_deg=0.0, footprint="Package_QFP:MCU"),
+    ]
+
+    legalized, moved = _legalize_small_parts_from_outline(
+        placed_parts,
+        circuit,
+        outline,
+        intent_plan,
+        LayoutConstraints(outline=outline),
+        BBOXES,
+        None,
+        clearance_mm=0.5,
+    )
+
+    placed = {part.ref: part for part in legalized}
+    hole_bounds = _placed_bounds(placed["H1"], BBOXES)
+    connector_bounds = _placed_bounds(placed["J100"], BBOXES)
+    halo = (
+        hole_bounds[0] - 2.0,
+        hole_bounds[1] - 2.0,
+        hole_bounds[2] + 2.0,
+        hole_bounds[3] + 2.0,
+    )
+
+    assert moved == ["J100"]
+    assert not (
+        connector_bounds[0] < halo[2]
+        and connector_bounds[2] > halo[0]
+        and connector_bounds[1] < halo[3]
+        and connector_bounds[3] > halo[1]
+    )
+    assert placed["H1"].x_mm == pytest.approx(4.0)
+
+
 def test_plan_layout_does_not_edge_anchor_oled_daughterboard_header():
     outline = BoardOutline(60.0, 40.0)
     vcc = _Net("3V3")
@@ -915,6 +984,47 @@ def test_soft_constraints_do_not_move_edge_anchored_connectors():
 
     assert placed["J1"].x_mm + rotated_width / 2 == pytest.approx(outline.x_max - 0.5)
     assert placed["J2"].x_mm + rotated_width / 2 == pytest.approx(outline.x_max - 0.5)
+
+
+def test_edge_parallel_warning_is_limited_to_pin_access_headers():
+    outline = BoardOutline(40.0, 30.0)
+    gnd = _Net("GND")
+    audio_jack = _Part(
+        "J1",
+        name="horizontal 3.5mm audio jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+        nets=[gnd],
+        pins=2,
+    )
+    header = _Part(
+        "J2",
+        name="pin header connector",
+        footprint="Connector:PinHeader_1x06",
+        nets=[gnd],
+        pins=6,
+    )
+    circuit = _Circuit([audio_jack, header], [gnd])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=outline,
+            edge_anchors=[
+                EdgeAnchor("J1", "bottom", offset_mm=10.0, rot_deg=90.0),
+                EdgeAnchor("J2", "top", offset_mm=30.0, rot_deg=0.0),
+            ],
+        ),
+    )
+
+    assert not any(
+        warning.startswith("J1: connector row is not parallel")
+        for warning in result.score.warnings
+    )
+    assert any(
+        warning.startswith("J2: connector row is not parallel")
+        for warning in result.score.warnings
+    )
 
 
 def test_plan_layout_reports_power_topology_chain():

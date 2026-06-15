@@ -1701,9 +1701,13 @@ def _footprint_missing_exception(exc: FileNotFoundError, circuit=None) -> Design
         retry_hint=(
             "One or more Part(..., footprint=...) values are not available in "
             "the configured KiCad footprint libraries. Use the candidates or "
-            "subject.suggested_footprints when present; otherwise call "
-            "search_kicad() for the affected part or footprint, update the "
-            "SKiDL code, and resubmit with submit_skidl_code()."
+            "subject.suggested_footprints when present only if they preserve "
+            "the user's product intent. If this is a project-local or custom "
+            "footprint, read the matching .kicad_mod text and embed it in "
+            "EDA_FOOTPRINTS using the same Library:Footprint name instead of "
+            "downgrading the part just to satisfy hosted preflight. Otherwise "
+            "call search_kicad() for the affected part or footprint, update "
+            "the SKiDL code, and resubmit with submit_skidl_code()."
         ),
     )
 

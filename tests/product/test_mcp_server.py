@@ -910,6 +910,8 @@ class TestHelpfulFailures:
             "new": "Connector_USB:USB_Micro-B_Molex-105017-0001",
         }
         assert "subject.suggested_footprints" in exc.retry_hint
+        assert "preserve the user's product intent" in exc.retry_hint
+        assert "EDA_FOOTPRINTS" in exc.retry_hint
 
     def test_crash_stage_infers_partial_artifacts(self, tmp_path):
         (tmp_path / "amp.kicad_sch").write_text("(schematic)")

@@ -283,7 +283,8 @@ def test_eurorack_power_treats_audio_jacks_as_panel_subjects_with_single_sided_d
     assert jack_mating.kind == "panel_jack"
     assert jack_mating.mating_side == "front_panel"
     assert power_mating.kind == "eurorack_power"
-    assert any(anchor.ref == "J10" and anchor.edge == "bottom" for anchor in plan.edge_anchors)
+    assert power_mating.edge_preference == "bottom"
+    assert all(anchor.ref != "J10" for anchor in plan.edge_anchors)
     assert any("Thonkiconn/PJ398" in warning for warning in plan.warnings)
     assert plan.assembly_policy == "single_sided"
     assert plan.assembly_sides["J1"] == "front"

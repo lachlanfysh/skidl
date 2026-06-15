@@ -235,6 +235,20 @@ def _edge_distance(
     return None
 
 
+def _edge_parallel_required_refs(
+    intent_plan: PlacementIntentPlan | None,
+) -> set[str]:
+    """Refs where the physical connector row should run parallel to an edge."""
+    if intent_plan is None:
+        return set()
+    return {
+        intent.ref
+        for intent in intent_plan.mating_intents
+        if intent.kind in {"header", "generic_connector"}
+        and intent.mating_side == "pin_access"
+    }
+
+
 def _apply_edge_intent_score(
     score: LayoutScore,
     placed_parts: list[PlacedPart],
@@ -255,6 +269,7 @@ def _apply_edge_intent_score(
     placed_by_ref = {placed.ref: placed for placed in placed_parts}
     warnings = list(score.warnings)
     penalty = 0.0
+    parallel_required = _edge_parallel_required_refs(intent_plan)
     for ref, anchor in sorted(anchors.items()):
         placed = placed_by_ref.get(ref)
         if placed is None:
@@ -268,7 +283,7 @@ def _apply_edge_intent_score(
                 f"by {distance:.1f}mm"
             )
             penalty += 30.0 + min(distance * 2.0, 20.0)
-        if not _edge_parallel(edge, bounds):
+        if ref in parallel_required and not _edge_parallel(edge, bounds):
             warnings.append(
                 f"{ref}: connector row is not parallel to the {edge} edge"
             )
@@ -821,7 +836,7 @@ def _legalize_small_parts_from_outline(
     fp_geometries: dict[str, FootprintGeometry] | None,
     clearance_mm: float,
 ) -> tuple[list[PlacedPart], list[str]]:
-    """Keep small non-mechanical parts from hugging the board edge."""
+    """Keep movable parts clear of board edges and mounting-hole halos."""
     if outline is None or circuit is None:
         return placed_parts, []
 
@@ -923,17 +938,20 @@ def _legalize_small_parts_from_outline(
         if ref in protected_refs:
             continue
         role = roles.get(ref)
-        if role is None or role.role not in small_roles:
-            continue
+        is_small = role is not None and role.role in small_roles
 
         placed = placed_by_ref[ref]
         bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
+        halo_overlap = bool(_overlapping_mounting_halos(bounds))
+        if not is_small and not halo_overlap:
+            continue
+        outline_clearance = interior_clearance if is_small else clearance_mm
         base_dx, base_dy = _clamp_delta_to_outline(
             bounds,
             0.0,
             0.0,
             outline,
-            interior_clearance,
+            outline_clearance,
         )
         hole_dx, hole_dy = _mounting_hole_escape_delta(
             _translated_bounds(bounds, base_dx, base_dy)
@@ -945,12 +963,12 @@ def _legalize_small_parts_from_outline(
             base_dx,
             base_dy,
             outline,
-            interior_clearance,
+            outline_clearance,
         )
         if (
             abs(base_dx) <= 1e-6
             and abs(base_dy) <= 1e-6
-            and not _overlapping_mounting_halos(bounds)
+            and not halo_overlap
         ):
             continue
 

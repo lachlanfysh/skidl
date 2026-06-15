@@ -423,6 +423,25 @@ def _add_array_intents(
             )
 
 
+def _is_eurorack_power_connector(
+    text: str,
+    role: PartRole | None,
+    nets: list[str],
+) -> bool:
+    role_name = role.role if role is not None else ""
+    has_eurorack_supply = {net.upper() for net in nets} & {
+        "+12V",
+        "-12V",
+        "EURORACK_+12V",
+        "EURORACK_-12V",
+    }
+    return (
+        role_name == "connector"
+        and (EURORACK_POWER_RE.search(text) or has_eurorack_supply)
+        and any(GND_NET_RE.match(net) for net in nets)
+    )
+
+
 def _edge_for_part(text: str, role: PartRole, nets: list[str]) -> str | None:
     if role.role in {
         "panel_jack",
@@ -430,6 +449,8 @@ def _edge_for_part(text: str, role: PartRole, nets: list[str]) -> str | None:
         "internal_connector",
         "module_socket",
     }:
+        return None
+    if _is_eurorack_power_connector(text, role, nets):
         return None
     if "usb" in text:
         return "bottom"
@@ -466,17 +487,7 @@ def _mating_intent_for_part(
             reasons=["plug-in module/socket metadata"],
         )
 
-    has_eurorack_supply = {net.upper() for net in nets} & {
-        "+12V",
-        "-12V",
-        "EURORACK_+12V",
-        "EURORACK_-12V",
-    }
-    if (
-        role_name == "connector"
-        and (EURORACK_POWER_RE.search(text) or has_eurorack_supply)
-        and any(GND_NET_RE.match(net) for net in nets)
-    ):
+    if _is_eurorack_power_connector(text, role, nets):
         return MatingIntent(
             ref=ref,
             kind="eurorack_power",
