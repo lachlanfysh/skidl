@@ -392,6 +392,8 @@ class TestExceptionMapper:
         assert exceptions[0].candidates[0].action == ActionType.SCALE_OUTLINE
         assert "@subcircuit" in exceptions[0].retry_hint
         assert "larger outline_mm" in exceptions[0].retry_hint
+        assert "subject.pairs" in exceptions[0].retry_hint
+        assert "fixed_positions" in exceptions[0].retry_hint
 
     def test_layout_overlap_on_spacious_board_does_not_scale_first(self):
         class Validation:

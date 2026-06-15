@@ -289,7 +289,12 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                         "footprints, and put user-facing connectors on "
                         "sensible board edges. If the board is already large "
                         "or sparse, do not keep scaling; fix floorplan intent, "
-                        "connector style, or footprint choice first. If the "
+                        "connector style, or footprint choice first. If you "
+                        "used EDA_FLOORPLAN fixed_positions for a panel grid "
+                        "or explicit mechanical layout, increase the pitch "
+                        "between the overlapping refs in subject.pairs using "
+                        "the actual KiCad footprint/courtyard size rather than "
+                        "guessing coordinates. If the "
                         "board is genuinely too dense, resubmit with a larger "
                         "outline_mm."
                     ),
