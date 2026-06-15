@@ -396,6 +396,80 @@ def _pin_count(circuit) -> int:
     return sum(len(getattr(part, "pins", []) or []) for part in circuit.parts)
 
 
+def _power_analysis_metrics(circuit) -> dict:
+    """Return compact non-blocking power/simulation summaries for agents."""
+    if circuit is None:
+        return {"available": False}
+    try:
+        from skidl.sim.power_tree import analyze_power_tree
+        from skidl.sim.rail_sanity import analyze_rail_sanity
+
+        power_tree = analyze_power_tree(circuit=circuit)
+        rail_sanity = analyze_rail_sanity(circuit=circuit)
+
+        source_count = sum(
+            1 for node in power_tree.nodes if getattr(node, "node_type", "") == "source"
+        )
+        regulator_count = sum(
+            1 for node in power_tree.nodes if getattr(node, "node_type", "") == "regulator"
+        )
+        known_rails = [
+            rail for rail in rail_sanity.rails if getattr(rail, "voltage", None) is not None
+        ]
+        unknown_rails = [
+            rail for rail in rail_sanity.rails if getattr(rail, "voltage", None) is None
+        ]
+
+        return {
+            "available": True,
+            "power_tree": {
+                "rail_count": len(power_tree.rails),
+                "source_count": source_count,
+                "regulator_count": regulator_count,
+                "edge_count": len(power_tree.edges),
+                "findings": [
+                    {
+                        "severity": finding.severity,
+                        "category": finding.category,
+                        "rail": finding.rail,
+                        "ref": finding.ref,
+                        "message": finding.message,
+                    }
+                    for finding in power_tree.findings[:12]
+                ],
+            },
+            "rail_sanity": {
+                "known_rail_count": len(known_rails),
+                "unknown_rail_count": len(unknown_rails),
+                "resistors_checked": rail_sanity.resistors_checked,
+                "resistors_skipped": rail_sanity.resistors_skipped,
+                "assertions_passed": rail_sanity.assertions_passed,
+                "assertions_failed": rail_sanity.assertions_failed,
+                "assertions_skipped": rail_sanity.assertions_skipped,
+                "unknown_rails": [
+                    {
+                        "net": rail.net_name,
+                        "reason": rail.skipped_reason,
+                    }
+                    for rail in unknown_rails[:12]
+                ],
+                "findings": [
+                    {
+                        "severity": finding.severity.value
+                        if hasattr(finding.severity, "value")
+                        else str(finding.severity),
+                        "category": finding.category,
+                        "message": finding.message,
+                        "nets": list(getattr(finding, "nets", []) or []),
+                    }
+                    for finding in rail_sanity.findings[:12]
+                ],
+            },
+        }
+    except Exception as exc:
+        return {"available": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
 def _metrics(
     layout_result=None,
     circuit=None,
@@ -414,6 +488,7 @@ def _metrics(
     }
     if circuit is not None:
         metrics["pad_count"] = _footprint_pad_count(circuit, fp_dirs or [])
+        metrics["power_analysis"] = _power_analysis_metrics(circuit)
     if layout_result is not None:
         metrics["candidates_scored"] = len(getattr(layout_result, "candidates", []) or [])
         outline = getattr(layout_result, "outline", None)

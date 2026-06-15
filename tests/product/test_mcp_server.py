@@ -36,6 +36,7 @@ from mcp_server.engine_worker import (
     _generate_board_previews,
     _import_ses_with_pcbnew,
     _manufacturing_output_exception,
+    _metrics,
     _missing_manufacturing_outputs,
     _outline_for_spec,
     _route_pcb,
@@ -1208,6 +1209,115 @@ class TestHelpfulFailures:
         assert exc.subject["line"] == 11
         assert "does not provide a global connect() helper" in exc.retry_hint
         assert "vcc += u1['VCC'], c1[1]" in exc.retry_hint
+
+
+class TestPowerAnalysisMetrics:
+    @staticmethod
+    def _part(ref, value="", pins=(), name="", description=""):
+        from skidl.pin import pin_types
+
+        class NetObj:
+            def __init__(self, net_name):
+                self.name = net_name
+
+        class PinObj:
+            def __init__(self, num, pin_name, net_name, func):
+                self.num = str(num)
+                self.name = pin_name
+                self.net = NetObj(net_name) if net_name else None
+                self.func = func if func is not None else pin_types.PASSIVE
+
+        return SimpleNamespace(
+            ref=ref,
+            value=value,
+            name=name or ref,
+            description=description,
+            footprint="",
+            pins=[
+                PinObj(num, pin_name, net_name, func)
+                for num, pin_name, net_name, func in pins
+            ],
+        )
+
+    @staticmethod
+    def _circuit(parts):
+        class CircuitObj:
+            def __init__(self, parts):
+                self.parts = parts
+
+            def get_nets(self):
+                nets = {}
+                for part in self.parts:
+                    for pin in getattr(part, "pins", []):
+                        net = getattr(pin, "net", None)
+                        if net is not None:
+                            nets.setdefault(net.name, net)
+                return list(nets.values())
+
+        return CircuitObj(parts)
+
+    def test_metrics_include_power_tree_and_rail_sanity(self):
+        from skidl.pin import pin_types
+
+        circuit = self._circuit([
+            self._part("BT1", "3xAAA", pins=[
+                (1, "+", "VBAT", pin_types.PASSIVE),
+                (2, "-", "GND", pin_types.PASSIVE),
+            ]),
+            self._part("U1", "AP2112K", description="linear regulator", pins=[
+                (1, "VIN", "VBAT", pin_types.PWRIN),
+                (2, "GND", "GND", pin_types.PWRIN),
+                (5, "VOUT", "3V3", pin_types.PWROUT),
+            ]),
+            self._part("U2", "MCU", pins=[
+                (1, "VDD", "3V3", pin_types.PWRIN),
+                (2, "GND", "GND", pin_types.PWRIN),
+            ]),
+            self._part("C1", "10uF", pins=[
+                (1, "1", "VBAT", None),
+                (2, "2", "GND", None),
+            ]),
+            self._part("C2", "10uF", pins=[
+                (1, "1", "3V3", None),
+                (2, "2", "GND", None),
+            ]),
+        ])
+
+        metrics = _metrics(circuit=circuit)
+        analysis = metrics["power_analysis"]
+
+        assert analysis["available"] is True
+        assert analysis["power_tree"]["source_count"] == 1
+        assert analysis["power_tree"]["regulator_count"] == 1
+        assert analysis["power_tree"]["rail_count"] >= 2
+        assert analysis["rail_sanity"]["unknown_rail_count"] >= 1
+
+    def test_pullup_only_named_supply_has_no_ic_load_in_power_tree(self):
+        from skidl.pin import pin_types
+
+        circuit = self._circuit([
+            self._part("U1", "ADS1115", pins=[
+                (1, "GND", "GND", pin_types.PWRIN),
+                (2, "SDA", "SDA", pin_types.BIDIR),
+                (3, "SCL", "SCL", pin_types.BIDIR),
+            ]),
+            self._part("R1", "4.7k", pins=[
+                (1, "1", "3V3", None),
+                (2, "2", "SDA", None),
+            ]),
+            self._part("R2", "4.7k", pins=[
+                (1, "1", "3V3", None),
+                (2, "2", "SCL", None),
+            ]),
+        ])
+
+        metrics = _metrics(circuit=circuit)
+        findings = metrics["power_analysis"]["power_tree"]["findings"]
+
+        assert not any(
+            finding["category"] == "missing_source" and finding["rail"] == "3V3"
+            for finding in findings
+        )
 
 
 class TestRoutingExceptions:
