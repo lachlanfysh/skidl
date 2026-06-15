@@ -464,7 +464,10 @@ def preprocess_circuit(circuit, **options):
             part_unit.lbl_bbox.add(bare_bbox)
             for pin in part_unit:
                 if pin.stub:
-                    hlbl_bbox = calc_hier_label_bbox(pin.net.name, pin.orientation)
+                    net_name = getattr(getattr(pin, "net", None), "name", "")
+                    if not net_name:
+                        continue
+                    hlbl_bbox = calc_hier_label_bbox(net_name, pin.orientation)
                     hlbl_bbox *= Tx().move(pin.pt)
                     part_unit.lbl_bbox.add(hlbl_bbox)
 

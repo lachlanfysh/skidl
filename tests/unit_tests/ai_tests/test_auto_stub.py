@@ -610,6 +610,46 @@ class TestSelectiveRouting:
         assert net._stub is False
         assert [pin.stub for pin in pins] == [False, False]
 
+    def test_preprocess_skips_stub_label_bbox_for_unconnected_stub_pin(
+        self, monkeypatch
+    ):
+        """Stub flags on unconnected pins should not crash bbox preparation."""
+        from skidl.geometry import BBox, Point
+
+        class MockPin:
+            stub = True
+            orientation = "R"
+            x = 0
+            y = 0
+
+        class MockPart:
+            unit = {}
+            symtx = ""
+
+            def __init__(self):
+                self.pins = [MockPin()]
+
+            def __len__(self):
+                return len(self.pins)
+
+            def __iter__(self):
+                return iter(self.pins)
+
+            def grab_pins(self):
+                return None
+
+        class MockCircuit:
+            def __init__(self):
+                self.parts = [MockPart()]
+
+        monkeypatch.setattr(
+            gen_schematic,
+            "calc_symbol_bbox",
+            lambda part: [None, BBox(Point(0, 0), Point(200, 200))],
+        )
+
+        gen_schematic.preprocess_circuit(MockCircuit())
+
     @requires_kicad_libs
     def test_simple_nets_stay_wired(self, output_dir):
         """2-pin short-distance nets should remain as wires, not labels."""
