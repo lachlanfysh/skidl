@@ -129,6 +129,7 @@ def test_explicit_edge_preference_overrides_generic_connector_inference():
     )
     power.edge_preference = "top"
     power.edge_offset_mm = 20.0
+    power.edge_rot_deg = 180
     output.edge_preference = "right"
     circuit = _Circuit([power, output], [sig, gnd])
 
@@ -137,10 +138,14 @@ def test_explicit_edge_preference_overrides_generic_connector_inference():
     anchors = {anchor.ref: anchor for anchor in plan.edge_anchors}
     assert anchors["J1"].edge == "top"
     assert anchors["J1"].offset_mm == 20.0
+    assert anchors["J1"].rot_deg == 180.0
     assert anchors["J2"].edge == "right"
     assert "explicit_edge_anchor" in _kinds(plan, "J1")
     assert "explicit_edge_anchor" in _kinds(plan, "J2")
-    assert any(face.ref == "J1" and face.edge == "top" for face in plan.face_edges)
+    assert any(
+        face.ref == "J1" and face.edge == "top" and face.rot_deg == 180.0
+        for face in plan.face_edges
+    )
 
 
 def test_explicit_edges_prevent_opposing_header_pair_rewrite():

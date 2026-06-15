@@ -205,6 +205,34 @@ def test_plan_layout_returns_candidates_report_and_preserves_edge_anchors():
     assert j1.rot_deg == 180.0
 
 
+def test_plan_layout_honors_explicit_part_edge_rotation():
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    jack = _Part(
+        "J1",
+        name="right edge audio jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    jack.edge_preference = "right"
+    jack.edge_rot_deg = 270
+    circuit = _Circuit([jack], [sig, gnd])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=BoardOutline(60.0, 30.0)),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    assert placed["J1"].rot_deg == pytest.approx(270.0)
+    assert result.intent_plan is not None
+    anchor = next(anchor for anchor in result.intent_plan.edge_anchors if anchor.ref == "J1")
+    assert anchor.edge == "right"
+    assert anchor.rot_deg == pytest.approx(270.0)
+
+
 def test_plan_layout_keeps_inferred_pin_header_on_auto_outline_edge():
     vcc = _Net("3V3")
     gnd = _Net("GND")

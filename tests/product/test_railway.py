@@ -1412,7 +1412,8 @@ class TestAgentUX:
             "get_job", "job_id", "Part()", "Net()", "footprint",
             "Library:Name", "POWER", "100nF", "eda://guide/skidl",
             "timeout_s", "route_timeout_s", "assembly_policy",
-            "assembly_side", "edge_preference", "LCSC", "manufacturing",
+            "assembly_side", "edge_preference", "edge_rot_deg", "LCSC",
+            "manufacturing",
         ):
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
 

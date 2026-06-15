@@ -261,7 +261,7 @@ def _explicit_part_assembly_side(part) -> str | None:
     return None
 
 
-def _explicit_part_edge_anchor(part) -> tuple[str, float | None] | None:
+def _explicit_part_edge_anchor(part) -> tuple[str, float | None, float | None] | None:
     for attr in (
         "edge_preference",
         "edge_anchor",
@@ -282,7 +282,22 @@ def _explicit_part_edge_anchor(part) -> tuple[str, float | None] | None:
             except (TypeError, ValueError):
                 offset = None
             break
-        return edge, offset
+        rot = None
+        for rot_attr in (
+            "edge_rot_deg",
+            "edge_rotation_deg",
+            "mating_rot_deg",
+            "mating_rotation_deg",
+        ):
+            raw = getattr(part, rot_attr, None)
+            if raw is None:
+                continue
+            try:
+                rot = float(raw) % 360.0
+            except (TypeError, ValueError):
+                rot = None
+            break
+        return edge, offset, rot
     return None
 
 
@@ -1563,7 +1578,7 @@ def infer_placement_intents(
                 )
 
         if explicit_edge is not None:
-            edge, offset = explicit_edge
+            edge, offset, rot = explicit_edge
             if offset is None and outline is not None:
                 if edge in {"top", "bottom"}:
                     offset = (outline.x_min + outline.x_max) / 2
@@ -1575,8 +1590,10 @@ def infer_placement_intents(
             plan.face_edges = [
                 face_edge for face_edge in plan.face_edges if face_edge.ref != ref
             ]
-            plan.edge_anchors.append(EdgeAnchor(ref=ref, edge=edge, offset_mm=offset))
-            plan.face_edges.append(FaceEdgeConstraint(ref=ref, edge=edge))
+            plan.edge_anchors.append(
+                EdgeAnchor(ref=ref, edge=edge, offset_mm=offset, rot_deg=rot)
+            )
+            plan.face_edges.append(FaceEdgeConstraint(ref=ref, edge=edge, rot_deg=rot))
             for mating in plan.mating_intents:
                 if mating.ref == ref:
                     mating.edge_preference = edge

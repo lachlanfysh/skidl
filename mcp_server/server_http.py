@@ -279,7 +279,9 @@ async def submit_skidl_code(
       as a squeezing/autorouting escape hatch.
       For enclosure semantics, set `part.edge_preference = "left"`, "right",
       "top", or "bottom" on connectors/headers that must face a specific
-      side; optional `part.edge_offset_mm` sets the along-edge position.
+      side; optional `part.edge_offset_mm` sets the along-edge position and
+      `part.edge_rot_deg` fixes connector-mouth orientation after preview
+      feedback.
       For layout overlap/outline/congestion feedback, prefer improving
       grouping, connector choices, and outline_mm before resubmitting.
 
@@ -1824,6 +1826,10 @@ Mechanical placement hints:
 - `part.edge_preference = "left" | "right" | "top" | "bottom"` for
   enclosure-facing connectors such as pedal input/output/power or desktop
   instrument I/O. Optional `part.edge_offset_mm` sets the along-edge position.
+- If a jack, USB, JST/Qwiic, or barrel connector is on the correct edge but
+  faces the wrong way in preview, set `part.edge_rot_deg = 0 | 90 | 180 | 270`
+  on the next submission. Do not accept a board where connector openings point
+  inward or sideways when the product needs outward cable access.
 
 ## KiCad library names (NOT manufacturer names)
 
@@ -1994,7 +2000,9 @@ human or product implies a specific side. This is important for enclosure and
 panel work: guitar pedals usually want input left, output right, power top, and
 footswitch bottom; desktop instruments often want audio/MIDI on rear/side
 edges and controls on the front panel. Optional `part.edge_offset_mm` sets the
-position along that edge in mm.
+position along that edge in mm. Optional `part.edge_rot_deg` fixes orientation
+when preview shows a jack/USB/JST/barrel connector on the correct edge but
+facing the wrong direction.
 
 ## Layout feedback
 
