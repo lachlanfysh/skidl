@@ -2654,6 +2654,74 @@ def _code_exception_from_exec(error: SkidlCodeExecutionError) -> DesignException
     )
 
 
+def _skidl_layout_intent_advisories(
+    *,
+    code: str,
+    layout_result,
+    floorplan_meta: dict | None,
+    circuit,
+) -> list[DesignException]:
+    """Return code-shape advisories when layout fails for lack of intent."""
+
+    validation = getattr(layout_result, "validation", None)
+    score = getattr(layout_result, "score", None)
+    overlap_count = len(getattr(validation, "overlaps", []) or [])
+    congestion = float(getattr(score, "congestion_score", 0.0) or 0.0)
+    part_count = len(getattr(circuit, "parts", []) or [])
+    if part_count < 20 and overlap_count < 8 and congestion < 120.0:
+        return []
+
+    markers = {
+        "subcircuits": "@subcircuit" in code,
+        "floorplan": bool(floorplan_meta) or "EDA_FLOORPLAN" in code,
+        "edge_preferences": "edge_preference" in code,
+        "simulation_sources": "sim_source" in code,
+    }
+    missing = [name for name, present in markers.items() if not present]
+    if not missing:
+        return []
+
+    return [
+        DesignException(
+            id="a-skidl-layout-intent",
+            code=ExcCode.DESIGN_MISSING_FEATURE,
+            severity=Severity.ADVISORY,
+            message=(
+                "Complex SKiDL submission lacks enough placement/power intent "
+                "for the current layout failure"
+            ),
+            subject={
+                "feature": "SKiDL layout intent",
+                "missing": missing,
+                "part_count": part_count,
+                "overlap_count": overlap_count,
+                "congestion_score": round(congestion, 1),
+            },
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.ACCEPT_ADVISORY,
+                    params={},
+                    human_summary=(
+                        "accept this layout-intent advisory for the current run"
+                    ),
+                    cost_hint="free",
+                    confidence=0.7,
+                )
+            ],
+            retry_hint=(
+                "Before resubmitting a dense board, add @subcircuit blocks for "
+                "functional groups such as power, MCU/module, sensors, and I/O; "
+                "add EDA_FLOORPLAN or part.edge_preference for large modules, "
+                "mounting holes, and board-edge connectors; keep decoupling "
+                "parts in the same group as their IC; and declare external "
+                "power assumptions with sim_source() when the board is powered "
+                "from USB, JST, barrel, or another connector."
+            ),
+        )
+    ]
+
+
 def _run_skidl_code(envelope: dict) -> dict:
     """Execute SKiDL Python code and run the generation pipeline."""
     code = envelope.get("code", "")
@@ -2857,7 +2925,17 @@ def _run_skidl_code(envelope: dict) -> dict:
             summary=layout_result.summary(),
         )
 
-    all_exceptions = layout_exceptions(layout_result) + review_exceptions
+    layout_intent_advisories = _skidl_layout_intent_advisories(
+        code=code,
+        layout_result=layout_result,
+        floorplan_meta=floorplan_meta,
+        circuit=circuit,
+    )
+    all_exceptions = (
+        layout_exceptions(layout_result)
+        + layout_intent_advisories
+        + review_exceptions
+    )
 
     layout_errors = [
         e for e in all_exceptions

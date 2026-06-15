@@ -435,6 +435,11 @@ def _final_report_block_reason(
         status = last_result.get("status")
         if status and not _terminal_status(status):
             return f"last job status is {status}; poll get_job() until terminal"
+    if submissions <= 0:
+        return (
+            "no submit_skidl_code call has completed; use the MCP tools to "
+            "submit a design before writing a FINAL REPORT"
+        )
     if submissions < max_submissions:
         for job_id, result in sorted(job_results.items()):
             if _needs_resubmission(result):

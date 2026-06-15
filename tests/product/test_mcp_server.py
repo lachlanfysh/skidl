@@ -42,6 +42,7 @@ from mcp_server.engine_worker import (
     _route_pcb,
     _run_skidl_code,
     _run_pcbnew_child,
+    _skidl_layout_intent_advisories,
     _write_inline_footprints,
     _write_layout_mockup_svg,
 )
@@ -1912,6 +1913,58 @@ gnd += j1[2], r1[2]
         assert not response.ok
         assert any(exc.code == ExcCode.FOOTPRINT_MISSING for exc in response.exceptions)
         assert not any(exc.code == ExcCode.ENGINE_CRASH for exc in response.exceptions)
+
+    def test_python_mode_layout_intent_advisory_for_flat_complex_overlap(self):
+        layout_result = SimpleNamespace(
+            validation=SimpleNamespace(overlaps=[("U1", "R1")] * 10),
+            score=SimpleNamespace(congestion_score=250.0),
+        )
+        circuit = SimpleNamespace(parts=[SimpleNamespace(ref=f"R{i}") for i in range(24)])
+
+        advisories = _skidl_layout_intent_advisories(
+            code="from skidl import *\n# flat generated board\n",
+            layout_result=layout_result,
+            floorplan_meta={},
+            circuit=circuit,
+        )
+
+        assert len(advisories) == 1
+        assert advisories[0].code == ExcCode.DESIGN_MISSING_FEATURE
+        assert advisories[0].severity == Severity.ADVISORY
+        assert advisories[0].subject["feature"] == "SKiDL layout intent"
+        assert set(advisories[0].subject["missing"]) == {
+            "subcircuits",
+            "floorplan",
+            "edge_preferences",
+            "simulation_sources",
+        }
+        assert "@subcircuit" in advisories[0].retry_hint
+        assert "sim_source()" in advisories[0].retry_hint
+
+    def test_python_mode_layout_intent_advisory_respects_present_markers(self):
+        layout_result = SimpleNamespace(
+            validation=SimpleNamespace(overlaps=[("U1", "R1")] * 10),
+            score=SimpleNamespace(congestion_score=250.0),
+        )
+        circuit = SimpleNamespace(parts=[SimpleNamespace(ref=f"R{i}") for i in range(24)])
+        code = """
+from skidl import *
+from skidl.sim import sim_source
+@subcircuit
+def power_block():
+    pass
+j1.edge_preference = "left"
+sim_source("VBUS", 5.0, provenance="USB input")
+"""
+
+        advisories = _skidl_layout_intent_advisories(
+            code=code,
+            layout_result=layout_result,
+            floorplan_meta={"edge_anchors": 1},
+            circuit=circuit,
+        )
+
+        assert advisories == []
 
     def test_python_mode_placement_review_skips_routing(self, tmp_path, monkeypatch):
         code = """

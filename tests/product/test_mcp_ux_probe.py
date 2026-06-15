@@ -87,6 +87,12 @@ def test_final_report_blocked_after_failed_job_when_submissions_remain():
     assert "2 submit_skidl_code attempt(s) remain" in reason
 
 
+def test_final_report_blocked_before_any_submission():
+    reason = _final_report_block_reason({}, None, submissions=0, max_submissions=5)
+
+    assert "no submit_skidl_code call has completed" in reason
+
+
 def test_final_report_allowed_after_failed_job_at_submission_cap():
     reason = _final_report_block_reason(
         {"job-1": {"status": "failed", "ok": False}},

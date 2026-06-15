@@ -156,6 +156,62 @@ class TestUsbVbusRegulator:
         assert any(n.ref == "U1" for n in regs)
         assert ("VBUS", "VCC") in report.edges
 
+    def test_plain_signal_header_is_not_assumed_to_source_rail(self):
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+
+        header = _make_part("J1", "Conn_01x04", pins_spec=[
+            (1, "VCC", "VCC", pin_types.PASSIVE),
+            (2, "GND", "GND", pin_types.PASSIVE),
+            (3, "SDA", "SDA", pin_types.BIDIR),
+            (4, "SCL", "SCL", pin_types.INPUT),
+        ])
+        sensor = _make_part("U1", "MCP9808", pins_spec=[
+            (1, "VDD", "VCC", pin_types.PWRIN),
+            (2, "GND", "GND", pin_types.PWRIN),
+            (3, "SDA", "SDA", pin_types.BIDIR),
+            (4, "SCL", "SCL", pin_types.INPUT),
+        ])
+        ckt = _make_circuit([header, sensor])
+
+        report = analyze_power_tree(circuit=ckt)
+
+        sources = [n for n in report.nodes if n.node_type == "source"]
+        assert not any(n.ref == "J1" for n in sources)
+        missing = [f for f in report.findings if f.category == "missing_source"]
+        assert len(missing) == 1
+        assert missing[0].rail == "VCC"
+
+    def test_eurorack_power_header_sources_bipolar_rails(self):
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+
+        header = _make_part("J1", "Eurorack_Power", pins_spec=[
+            (1, "-12V", "-12V", pin_types.PASSIVE),
+            (2, "GND", "GND", pin_types.PASSIVE),
+            (3, "GND", "GND", pin_types.PASSIVE),
+            (4, "+12V", "+12V", pin_types.PASSIVE),
+        ], description="Doepfer Eurorack IDC power header")
+        opamp = _make_part("U1", "TL072", pins_spec=[
+            (4, "V-", "-12V", pin_types.PWRIN),
+            (8, "V+", "+12V", pin_types.PWRIN),
+            (1, "OUTA", "OUT", pin_types.OUTPUT),
+        ])
+        ckt = _make_circuit([header, opamp])
+
+        report = analyze_power_tree(circuit=ckt)
+
+        sources = [n for n in report.nodes if n.node_type == "source"]
+        assert any(n.ref == "J1" for n in sources)
+        plus = next(r for r in report.rails if r.name == "+12V")
+        minus = next(r for r in report.rails if r.name == "-12V")
+        assert plus.sources == ["J1"]
+        assert minus.sources == ["J1"]
+        assert not any(
+            f.category == "missing_source" and f.rail in {"+12V", "-12V"}
+            for f in report.findings
+        )
+
 
 # ---------------------------------------------------------------------------
 # Isolated analog rail through ferrite

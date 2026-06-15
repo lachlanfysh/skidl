@@ -35,6 +35,10 @@ _REGULATOR_RE = re.compile(
 )
 _FERRITE_RE = re.compile(r"(ferrite|bead)", re.IGNORECASE)
 _FUSE_RE = re.compile(r"(fuse|ptc|polyfuse)", re.IGNORECASE)
+_EXTERNAL_POWER_CONNECTOR_RE = re.compile(
+    r"(eurorack|doepfer)",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -138,6 +142,22 @@ def _part_text(part) -> str:
     return " ".join(str(c or "") for c in chunks).lower()
 
 
+def _looks_like_external_power_connector(part) -> bool:
+    prefix = _ref_prefix(part.ref)
+    if prefix not in {"J", "JP", "P", "PL"}:
+        return False
+    text = _part_text(part)
+    if not _EXTERNAL_POWER_CONNECTOR_RE.search(text):
+        return False
+    pins = getattr(part, "pins", [])
+    has_power = any(
+        _is_power_net(_pin_net_name(pin)) and not _is_ground_net(_pin_net_name(pin))
+        for pin in pins
+    )
+    has_ground = any(_is_ground_net(_pin_net_name(pin)) for pin in pins)
+    return has_power and has_ground
+
+
 def _classify_power_role(part) -> str:
     """Classify a part's role in the power tree."""
     prefix = _ref_prefix(part.ref)
@@ -145,6 +165,9 @@ def _classify_power_role(part) -> str:
     pins = getattr(part, "pins", [])
 
     if prefix in {"BT", "BAT"}:
+        return "source"
+
+    if _looks_like_external_power_connector(part):
         return "source"
 
     if _REGULATOR_RE.search(text):
