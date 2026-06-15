@@ -44,8 +44,8 @@ GROUND_PIN_RE = re.compile(
 POWER_NET_RE = re.compile(
     r"^(V(CC|DD|DDA|DDIO|SS|IN|OUT|BAT|REF|BUS)|"
     r"A?V(CC|DD)|D?V(CC|DD)|IOV(DD)|"
-    r"\+?\d+(\.\d+)?V(\d+)?|\+?\d+V\d+|"
-    r"\+3\.?3V?|\+5V?)$",
+    r"[-+]?\d+(\.\d+)?V(\d+)?|[-+]?\d+V\d+|"
+    r"[-+]?3\.?3V?|[-+]?5V?)$",
     re.IGNORECASE,
 )
 
@@ -64,6 +64,16 @@ OPEN_DRAIN_RE = re.compile(
 ADDR_PIN_RE = re.compile(r"^(ADDR|A[0-2]|ADD[0-1]|ADR[0-2])$", re.IGNORECASE)
 USB_DATA_RE = re.compile(r"^(D[+-]|DP|DM|USB_D[PM]|USB_DP|USB_DM)$", re.IGNORECASE)
 USB_CC_RE = re.compile(r"^CC[12]$", re.IGNORECASE)
+SIGNAL_NET_RE = re.compile(
+    r"^("
+    r"SDA\d*|SCL\d*|ADDR|A[0-9]|ADD[0-9]|ADR[0-9]|ALERT|INT|IRQ|DRDY|"
+    r"AIN\d*|AOUT\d*|ADC\d*|DAC\d*|"
+    r"MOSI|MISO|SCK|SCLK|CS|CSB|NSS|SS|"
+    r"D[+-]|DP|DM|USB_D[PM]|USB_DP|USB_DM|CC[12]|"
+    r"TX|RX|TXD|RXD|GPIO\d*|PWM\d*|CV\d*|GATE\d*|TRIG\d*"
+    r")$",
+    re.IGNORECASE,
+)
 DECAP_VALUE_RE = re.compile(r"^(100n|0\.1u)", re.IGNORECASE)
 BULK_CAP_RE = re.compile(r"^(1[0-9]u|2[2-9]u|[3-9]\du|[1-9]\d\du|10u|22u|47u|100u)", re.IGNORECASE)
 
@@ -137,11 +147,25 @@ def _find_nets_for_ref(nets: list[dict], ref: str) -> list[dict]:
 
 
 def _is_power_net(net: dict) -> bool:
+    if SIGNAL_NET_RE.match(str(net.get("name", "") or "")):
+        return False
     return net.get("power", False) or bool(POWER_NET_RE.match(net.get("name", "")))
 
 
 def _is_ground_net(net: dict) -> bool:
     return bool(GROUND_NET_RE.match(net.get("name", "")))
+
+
+def _is_named_supply_rail(name: str) -> bool:
+    """True for nets that should be treated as supply rails in review output.
+
+    SKiDL/Python submissions can accidentally set drive=POWER on ordinary
+    signal nets. Routing may still use that drive strength, but design-review
+    advisories such as "add a bulk capacitor" should only fire for nets whose
+    names look like real supply rails.
+    """
+    text = str(name or "")
+    return bool(POWER_NET_RE.match(text)) and not bool(GROUND_NET_RE.match(text))
 
 
 def _get_power_nets_for_ref(nets: list[dict], ref: str) -> tuple[set[str], set[str]]:
@@ -156,6 +180,14 @@ def _get_power_nets_for_ref(nets: list[dict], ref: str) -> tuple[set[str], set[s
         elif _is_power_net(net):
             power_nets.add(name)
     return power_nets, ground_nets
+
+
+def _get_named_supply_rails_for_ref(nets: list[dict], ref: str) -> set[str]:
+    return {
+        str(net.get("name", ""))
+        for net in nets
+        if _part_on_net(net, ref) and _is_named_supply_rail(str(net.get("name", "")))
+    }
 
 
 def _has_cap_on_net_pair(parts: list[dict], nets: list[dict],
@@ -1082,8 +1114,7 @@ def _design_review_bulk_caps(parts, nets, exceptions, eid_counter):
         ref = p.get("ref", "")
         if _is_passive(ref):
             continue
-        power_nets, _ = _get_power_nets_for_ref(nets, ref)
-        ic_power_nets.update(power_nets)
+        ic_power_nets.update(_get_named_supply_rails_for_ref(nets, ref))
 
     for pn in sorted(ic_power_nets):
         if _has_cap_on_net_pair(parts, nets, pn, gnd_name, BULK_CAP_RE):

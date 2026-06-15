@@ -225,6 +225,92 @@ class TestDesignReviewExceptions:
         bulk = [e for e in exceptions if e.code == ExcCode.DESIGN_MISSING_BULK_CAP]
         assert len(bulk) == 0
 
+    def test_bulk_cap_review_ignores_signal_nets_marked_power(self):
+        spec = {
+            "board": {"name": "signal-power-flags"},
+            "parts": [
+                {"ref": "U1", "lib": "Analog_ADC", "part": "ADS1115",
+                 "footprint": "Package_SO:TSSOP-10_3x3mm_P0.5mm"},
+                {"ref": "J1", "lib": "Connector_Generic", "part": "Conn_01x08",
+                 "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical"},
+                {"ref": "C1", "lib": "Device", "part": "C", "value": "10uF",
+                 "footprint": "Capacitor_SMD:C_0805_2012Metric"},
+            ],
+            "nets": [
+                {"name": "3V3", "power": True, "pins": ["U1.VDD", "J1.1", "C1.1"]},
+                {"name": "GND", "power": True, "pins": ["U1.GND", "J1.2", "C1.2"]},
+                {"name": "SDA", "power": True, "pins": ["U1.SDA", "J1.3"]},
+                {"name": "SCL", "power": True, "pins": ["U1.SCL", "J1.4"]},
+                {"name": "ADDR", "power": True, "pins": ["U1.ADDR", "J1.5"]},
+                {"name": "ALERT", "power": True, "pins": ["U1.ALERT", "J1.6"]},
+                {"name": "AIN0", "power": True, "pins": ["U1.AIN0", "J1.7"]},
+            ],
+        }
+
+        exceptions = design_review_exceptions(spec)
+        bulk_nets = {
+            e.subject.get("net")
+            for e in exceptions
+            if e.code == ExcCode.DESIGN_MISSING_BULK_CAP
+        }
+
+        assert not (bulk_nets & {"SDA", "SCL", "ADDR", "ALERT", "AIN0"})
+        assert "3V3" not in bulk_nets
+
+    def test_enrichment_does_not_treat_signal_power_flags_as_supply_rails(self):
+        spec = {
+            "board": {"name": "signal-power-flags-enrich"},
+            "parts": [
+                {"ref": "U1", "lib": "Analog_ADC", "part": "ADS1115",
+                 "footprint": "Package_SO:TSSOP-10_3x3mm_P0.5mm"},
+            ],
+            "nets": [
+                {"name": "3V3", "power": True, "pins": ["U1.VDD"]},
+                {"name": "GND", "power": True, "pins": ["U1.GND"]},
+                {"name": "SDA", "power": True, "pins": ["U1.SDA"]},
+                {"name": "SCL", "power": True, "pins": ["U1.SCL"]},
+                {"name": "ADDR", "power": True, "pins": ["U1.ADDR"]},
+                {"name": "ALERT", "power": True, "pins": ["U1.ALERT"]},
+                {"name": "AIN0", "power": True, "pins": ["U1.AIN0"]},
+            ],
+        }
+
+        enriched, actions = enrich(spec)
+        cap_refs = {p["ref"] for p in enriched["parts"] if p["ref"].startswith("C")}
+        signal_cap_nets = {
+            n["name"]
+            for n in enriched["nets"]
+            if n["name"] in {"SDA", "SCL", "ADDR", "ALERT", "AIN0"}
+            and any(pin.split(".", 1)[0] in cap_refs for pin in n.get("pins", []))
+        }
+
+        assert signal_cap_nets == set()
+        assert any(action.get("rule") == "A1" for action in actions)
+
+    def test_negative_voltage_rail_is_power_for_review(self):
+        spec = {
+            "board": {"name": "eurorack-negative-rail"},
+            "parts": [
+                {"ref": "U1", "lib": "Amplifier_Operational", "part": "TL072",
+                 "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"},
+            ],
+            "nets": [
+                {"name": "+12V", "power": True, "pins": ["U1.V+"]},
+                {"name": "-12V", "power": True, "pins": ["U1.V-"]},
+                {"name": "GND", "power": True, "pins": ["U1.GND"]},
+            ],
+        }
+
+        exceptions = design_review_exceptions(spec)
+        bulk_nets = {
+            e.subject.get("net")
+            for e in exceptions
+            if e.code == ExcCode.DESIGN_MISSING_BULK_CAP
+        }
+
+        assert "+12V" in bulk_nets
+        assert "-12V" in bulk_nets
+
     def test_no_connector_error(self):
         spec = {
             "parts": [{"ref": "U1", "lib": "Device", "part": "R", "value": "10K",
