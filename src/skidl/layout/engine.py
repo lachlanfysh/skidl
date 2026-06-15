@@ -837,9 +837,26 @@ def _legalize_small_parts_from_outline(
     placed_by_ref = {placed.ref: placed for placed in placed_parts}
     moved_refs: set[str] = set()
     interior_clearance = max(clearance_mm, 1.5)
+    mounting_halo_clearance = max(clearance_mm, 2.0)
 
     def _bounds_for(ref: str) -> tuple[float, float, float, float]:
         return _placed_bounds(placed_by_ref[ref], fp_bboxes, fp_geometries)
+
+    mounting_halos: list[tuple[str, tuple[float, float, float, float]]] = []
+    for ref in intent_plan.refs_with_kind("mounting_hole") if intent_plan else []:
+        placed = placed_by_ref.get(ref)
+        if placed is None:
+            continue
+        bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
+        mounting_halos.append((
+            ref,
+            (
+                bounds[0] - mounting_halo_clearance,
+                bounds[1] - mounting_halo_clearance,
+                bounds[2] + mounting_halo_clearance,
+                bounds[3] + mounting_halo_clearance,
+            ),
+        ))
 
     def _overlaps_others(
         ref: str,
@@ -851,6 +868,35 @@ def _legalize_small_parts_from_outline(
             if _bounds_overlap(bounds, _bounds_for(other_ref), clearance_mm):
                 return True
         return False
+
+    def _overlapping_mounting_halos(
+        bounds: tuple[float, float, float, float],
+    ) -> list[tuple[str, tuple[float, float, float, float]]]:
+        return [
+            (hole_ref, halo)
+            for hole_ref, halo in mounting_halos
+            if _bounds_overlap(bounds, halo, 0.0)
+        ]
+
+    def _mounting_hole_escape_delta(
+        bounds: tuple[float, float, float, float],
+    ) -> tuple[float, float]:
+        dx = dy = 0.0
+        for _hole_ref, halo in _overlapping_mounting_halos(bounds):
+            options = [
+                (halo[0] - bounds[2], 0.0),
+                (halo[2] - bounds[0], 0.0),
+                (0.0, halo[1] - bounds[3]),
+                (0.0, halo[3] - bounds[1]),
+            ]
+            move_x, move_y = min(
+                options,
+                key=lambda pair: abs(pair[0]) + abs(pair[1]),
+            )
+            dx += move_x
+            dy += move_y
+            bounds = _translated_bounds(bounds, move_x, move_y)
+        return dx, dy
 
     def _candidate_deltas(
         bounds: tuple[float, float, float, float],
@@ -889,7 +935,23 @@ def _legalize_small_parts_from_outline(
             outline,
             interior_clearance,
         )
-        if abs(base_dx) <= 1e-6 and abs(base_dy) <= 1e-6:
+        hole_dx, hole_dy = _mounting_hole_escape_delta(
+            _translated_bounds(bounds, base_dx, base_dy)
+        )
+        base_dx += hole_dx
+        base_dy += hole_dy
+        base_dx, base_dy = _clamp_delta_to_outline(
+            bounds,
+            base_dx,
+            base_dy,
+            outline,
+            interior_clearance,
+        )
+        if (
+            abs(base_dx) <= 1e-6
+            and abs(base_dy) <= 1e-6
+            and not _overlapping_mounting_halos(bounds)
+        ):
             continue
 
         best: tuple[float, float] | None = None
@@ -901,6 +963,8 @@ def _legalize_small_parts_from_outline(
                 continue
             seen.add(key)
             candidate_bounds = _translated_bounds(bounds, dx, dy)
+            if _overlapping_mounting_halos(candidate_bounds):
+                continue
             if _overlaps_others(ref, candidate_bounds):
                 continue
             distance = math.hypot(dx, dy)

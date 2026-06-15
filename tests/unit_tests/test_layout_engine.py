@@ -19,6 +19,7 @@ from skidl.layout.engine import (
     plan_layout,
 )
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
+from skidl.layout.intent import PlacementIntent, PlacementIntentPlan
 from skidl.layout.placer import derive_outline
 from skidl.layout.writer import PlacedPart
 
@@ -643,6 +644,55 @@ def test_legalize_small_parts_nudges_passives_clear_of_outline():
     assert moved == ["R1"]
     assert bounds[0] >= outline.x_min + 1.5
     assert placed["U1"].x_mm == pytest.approx(16.0)
+
+
+def test_legalize_small_parts_nudges_passives_clear_of_mounting_holes():
+    outline = BoardOutline(40.0, 28.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    r1 = _Part("R1", value="10K", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    h1 = _Part("H1", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    circuit = _Circuit([r1, h1, u1], [vcc, gnd])
+    intent_plan = PlacementIntentPlan()
+    intent_plan.intents["H1"] = [
+        PlacementIntent("H1", "mounting_hole", 90, ["test mounting hole"])
+    ]
+    placed_parts = [
+        PlacedPart("H1", x_mm=4.0, y_mm=4.0, rot_deg=0.0, footprint="MountingHole:M2"),
+        PlacedPart("R1", x_mm=7.2, y_mm=4.0, rot_deg=0.0, footprint="Capacitor:C_0805"),
+        PlacedPart("U1", x_mm=22.0, y_mm=14.0, rot_deg=0.0, footprint="Package_QFP:MCU"),
+    ]
+
+    legalized, moved = _legalize_small_parts_from_outline(
+        placed_parts,
+        circuit,
+        outline,
+        intent_plan,
+        LayoutConstraints(outline=outline),
+        BBOXES,
+        None,
+        clearance_mm=0.5,
+    )
+
+    placed = {part.ref: part for part in legalized}
+    hole_bounds = _placed_bounds(placed["H1"], BBOXES)
+    passive_bounds = _placed_bounds(placed["R1"], BBOXES)
+    halo = (
+        hole_bounds[0] - 2.0,
+        hole_bounds[1] - 2.0,
+        hole_bounds[2] + 2.0,
+        hole_bounds[3] + 2.0,
+    )
+
+    assert moved == ["R1"]
+    assert not (
+        passive_bounds[0] < halo[2]
+        and passive_bounds[2] > halo[0]
+        and passive_bounds[1] < halo[3]
+        and passive_bounds[3] > halo[1]
+    )
+    assert placed["H1"].x_mm == pytest.approx(4.0)
 
 
 def test_plan_layout_does_not_edge_anchor_oled_daughterboard_header():
