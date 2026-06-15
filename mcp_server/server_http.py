@@ -224,6 +224,7 @@ async def submit_skidl_code(
     corner_radius_mm: float | None = None,
     kicad_version: str = "9",
     design_intent: str = "",
+    custom_footprints: dict | list | None = None,
     run_options: dict | None = None,
 ) -> dict:
     """Submit SKiDL Python code to generate a PCB design.
@@ -329,10 +330,14 @@ async def submit_skidl_code(
       do not strip them merely because the hosted service owns
       generation/layout.
       For custom project footprints that Railway does not have installed,
-      embed KiCad footprint text in a global `EDA_FOOTPRINTS` dict:
-      `EDA_FOOTPRINTS = {"MyLib:MyFootprint": "(footprint ...)"}`. The
-      server writes these into a temporary `MyLib.pretty/MyFootprint.kicad_mod`
-      library for this run before footprint preflight/layout.
+      pass the KiCad `.kicad_mod` text via custom_footprints:
+      `custom_footprints={"MyLib:MyFootprint": "(footprint ...)"}`. The
+      key must exactly match `Part(..., footprint="MyLib:MyFootprint")`.
+      You may also define a global `EDA_FOOTPRINTS` dict in code for
+      compatibility, but prefer custom_footprints so the code stays readable.
+      The server writes these into a temporary
+      `MyLib.pretty/MyFootprint.kicad_mod` library for this run before
+      footprint preflight/layout.
       For layout overlap/outline/congestion feedback, prefer improving
       grouping, connector choices, and outline_mm before resubmitting.
 
@@ -355,6 +360,7 @@ async def submit_skidl_code(
         "assembly_policy": assembly_policy,
         "pipeline_goal": pipeline_goal,
         "design_intent": design_intent or "",
+        "custom_footprints": custom_footprints,
         "kicad_version": kicad_version or "9",
     }
     job_id = await db.create_job(job_spec, opts)
@@ -1913,24 +1919,29 @@ mounting/mechanical intent this way. Do not strip a floorplan just because the
 hosted service owns schematic/layout/routing.
 
 If the user has custom project footprints that Railway does not have installed,
-embed the KiCad `.kicad_mod` text in `EDA_FOOTPRINTS`:
+pass the KiCad `.kicad_mod` text to `submit_skidl_code(custom_footprints=...)`:
 
 ```python
-EDA_FOOTPRINTS = {
+submit_skidl_code(
+    code=code,
+    custom_footprints={
     "Daughterboards:USB_C_Breakout_6pin": '''
 (footprint "USB_C_Breakout_6pin"
   ...
 )
 ''',
-}
+    },
+)
 ```
 
 The key must match the `Part(..., footprint="Library:Name")` string. The
 server writes these as temporary `Library.pretty/Name.kicad_mod` files before
 footprint preflight, layout, and PCB writing. Use this for placement review or
 manufacturing when the human's local project library is required. The agent
-must read the `.kicad_mod` file locally and paste its text into this dict; the
-hosted worker cannot open arbitrary paths on the agent's machine.
+must read the `.kicad_mod` file locally and pass its text; the hosted worker
+cannot open arbitrary paths on the agent's machine. A global `EDA_FOOTPRINTS`
+dict inside submitted code is still accepted for compatibility, but prefer the
+tool parameter so the SKiDL source stays readable.
 
 ## KiCad library names (NOT manufacturer names)
 

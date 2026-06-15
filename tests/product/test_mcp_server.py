@@ -1591,6 +1591,34 @@ class TestInlineFootprintBundle:
             / "R_Test.kicad_mod"
         ).read_text() == content
 
+    def test_inline_footprints_merge_code_and_tool_parameter_bundles(self, tmp_path):
+        code_content = '(footprint "From_Code" (layer "F.Cu"))'
+        param_content = '(footprint "From_Param" (layer "F.Cu"))'
+
+        root, meta = _write_inline_footprints(
+            {"CodeLib:From_Code": code_content},
+            tmp_path,
+            extra_raw={"ParamLib:From_Param": param_content},
+        )
+
+        assert root == str(tmp_path / "_inline_footprints")
+        assert meta == {
+            "count": 2,
+            "footprints": ["CodeLib:From_Code", "ParamLib:From_Param"],
+        }
+        assert (
+            tmp_path
+            / "_inline_footprints"
+            / "CodeLib.pretty"
+            / "From_Code.kicad_mod"
+        ).read_text() == code_content
+        assert (
+            tmp_path
+            / "_inline_footprints"
+            / "ParamLib.pretty"
+            / "From_Param.kicad_mod"
+        ).read_text() == param_content
+
     def test_inline_footprints_reject_path_traversal(self, tmp_path):
         with pytest.raises(ValueError, match="invalid footprint"):
             _write_inline_footprints(

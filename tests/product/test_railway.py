@@ -1416,7 +1416,7 @@ class TestAgentUX:
             "timeout_s", "route_timeout_s", "assembly_policy", "pipeline_goal",
             "assembly_side", "edge_preference", "edge_rot_deg", "LCSC",
             "manufacturing", "placement_review", "EDA_FLOORPLAN",
-            "EDA_FOOTPRINTS",
+            "custom_footprints", "EDA_FOOTPRINTS",
         ):
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
 
@@ -1444,6 +1444,28 @@ class TestAgentUX:
         assert seen["spec"]["pipeline_goal"] == "manufacturing"
         assert seen["options"]["assembly_policy"] == "single_sided"
         assert seen["options"]["pipeline_goal"] == "manufacturing"
+
+    @pytest.mark.asyncio
+    async def test_submit_skidl_code_stores_custom_footprints(self, monkeypatch):
+        from mcp_server import server_http
+
+        seen = {}
+
+        async def fake_create_job(spec, options, parent_job_id=None):
+            seen["spec"] = spec
+            return "job-custom-footprints"
+
+        monkeypatch.setattr(server_http.db, "create_job", fake_create_job)
+
+        footprint = '(footprint "Tiny_2Pad" (layer "F.Cu"))'
+        result = await server_http.submit_skidl_code(
+            "from skidl import *",
+            board_name="custom-fp-board",
+            custom_footprints={"MyLib:Tiny_2Pad": footprint},
+        )
+
+        assert result["job_id"] == "job-custom-footprints"
+        assert seen["spec"]["custom_footprints"] == {"MyLib:Tiny_2Pad": footprint}
 
     @pytest.mark.asyncio
     async def test_submit_human_feedback_teaches_review_turn(self):
@@ -1636,6 +1658,7 @@ class TestAgentUX:
         assert "eda://guide/parts" in SKIDL_GUIDE
         assert 'pipeline_goal="placement_review"' in SKIDL_GUIDE
         assert "EDA_FLOORPLAN" in SKIDL_GUIDE
+        assert "custom_footprints" in SKIDL_GUIDE
         assert "EDA_FOOTPRINTS" in SKIDL_GUIDE
 
     def test_circuit_spec_reference_is_legacy_not_public_resource(self):

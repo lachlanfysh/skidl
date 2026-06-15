@@ -319,6 +319,7 @@ def _execute_skidl_job(job: dict) -> dict:
             design_intent=raw.get("design_intent") or raw.get("marketing_text"),
             assembly_policy=assembly_policy,
             pipeline_goal=pipeline_goal,
+            custom_footprints=raw.get("custom_footprints"),
         )
 
         result = response.model_dump(mode="json")

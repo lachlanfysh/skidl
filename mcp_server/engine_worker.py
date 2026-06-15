@@ -1838,9 +1838,15 @@ def _inline_footprint_items(raw) -> list[tuple[str, str, str]]:
     return items
 
 
-def _write_inline_footprints(raw, out_dir: Path) -> tuple[str | None, dict]:
+def _write_inline_footprints(
+    raw,
+    out_dir: Path,
+    *,
+    extra_raw=None,
+) -> tuple[str | None, dict]:
     """Write submitted custom footprints into a temporary KiCad library root."""
     items = _inline_footprint_items(raw)
+    items.extend(_inline_footprint_items(extra_raw))
     if not items:
         return None, {"count": 0}
 
@@ -2617,6 +2623,7 @@ def _run_skidl_code(envelope: dict) -> dict:
         inline_fp_root, inline_fp_meta = _write_inline_footprints(
             namespace.get("EDA_FOOTPRINTS"),
             out_dir,
+            extra_raw=envelope.get("custom_footprints"),
         )
         if inline_fp_root:
             fp_dirs.insert(0, inline_fp_root)
