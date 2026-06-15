@@ -26,7 +26,7 @@ from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
 from .refinement import refine_candidate_placement
 from .report import PlacementReport, build_placement_report
-from .roles import GND_NET_RE, POWER_NET_RE
+from .roles import GND_NET_RE, POWER_NET_RE, classify_parts
 from .routability import RoutabilityFeedback
 from .scoring import LayoutScore, score_placement, score_placement_quick
 from .validator import ValidationResult, validate
@@ -811,6 +811,125 @@ def _legalize_edge_anchor_neighbors(
     return [placed_by_ref[placed.ref] for placed in placed_parts], sorted(moved_refs)
 
 
+def _legalize_small_parts_from_outline(
+    placed_parts: list[PlacedPart],
+    circuit,
+    outline: BoardOutline | None,
+    intent_plan: PlacementIntentPlan | None,
+    constraints: LayoutConstraints | None,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    clearance_mm: float,
+) -> tuple[list[PlacedPart], list[str]]:
+    """Keep small non-mechanical parts from hugging the board edge."""
+    if outline is None or circuit is None:
+        return placed_parts, []
+
+    roles = classify_parts(circuit)
+    small_roles = {"decoupling_cap", "signal_passive", "crystal", "diode", "inductor"}
+    anchors = _edge_anchor_map(intent_plan, constraints)
+    protected_refs = set(anchors)
+    protected_refs.update(
+        intent_plan.refs_with_kind("mounting_hole") if intent_plan else []
+    )
+    protected_refs.update(_constraint_floorplan_refs(constraints))
+
+    placed_by_ref = {placed.ref: placed for placed in placed_parts}
+    moved_refs: set[str] = set()
+    interior_clearance = max(clearance_mm, 1.5)
+
+    def _bounds_for(ref: str) -> tuple[float, float, float, float]:
+        return _placed_bounds(placed_by_ref[ref], fp_bboxes, fp_geometries)
+
+    def _overlaps_others(
+        ref: str,
+        bounds: tuple[float, float, float, float],
+    ) -> bool:
+        for other_ref in placed_by_ref:
+            if other_ref == ref:
+                continue
+            if _bounds_overlap(bounds, _bounds_for(other_ref), clearance_mm):
+                return True
+        return False
+
+    def _candidate_deltas(
+        bounds: tuple[float, float, float, float],
+        base_dx: float,
+        base_dy: float,
+    ) -> list[tuple[float, float]]:
+        candidates = [(base_dx, base_dy)]
+        for radius in (0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0):
+            for angle in range(0, 360, 45):
+                dx = base_dx + radius * math.cos(math.radians(angle))
+                dy = base_dy + radius * math.sin(math.radians(angle))
+                candidates.append(
+                    _clamp_delta_to_outline(
+                        bounds,
+                        dx,
+                        dy,
+                        outline,
+                        interior_clearance,
+                    )
+                )
+        return candidates
+
+    for ref in sorted(placed_by_ref, key=_natural_ref_key):
+        if ref in protected_refs:
+            continue
+        role = roles.get(ref)
+        if role is None or role.role not in small_roles:
+            continue
+
+        placed = placed_by_ref[ref]
+        bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
+        base_dx, base_dy = _clamp_delta_to_outline(
+            bounds,
+            0.0,
+            0.0,
+            outline,
+            interior_clearance,
+        )
+        if abs(base_dx) <= 1e-6 and abs(base_dy) <= 1e-6:
+            continue
+
+        best: tuple[float, float] | None = None
+        best_distance = float("inf")
+        seen: set[tuple[float, float]] = set()
+        for dx, dy in _candidate_deltas(bounds, base_dx, base_dy):
+            key = (round(dx, 6), round(dy, 6))
+            if key in seen:
+                continue
+            seen.add(key)
+            candidate_bounds = _translated_bounds(bounds, dx, dy)
+            if _overlaps_others(ref, candidate_bounds):
+                continue
+            distance = math.hypot(dx, dy)
+            if distance < best_distance:
+                best = (dx, dy)
+                best_distance = distance
+                if abs(dx - base_dx) <= 1e-6 and abs(dy - base_dy) <= 1e-6:
+                    break
+
+        if best is None:
+            continue
+        dx, dy = best
+        if abs(dx) <= 1e-6 and abs(dy) <= 1e-6:
+            continue
+        placed_by_ref[ref] = PlacedPart(
+            ref=placed.ref,
+            x_mm=placed.x_mm + dx,
+            y_mm=placed.y_mm + dy,
+            rot_deg=placed.rot_deg,
+            footprint=placed.footprint,
+            side=getattr(placed, "side", "front"),
+        )
+        moved_refs.add(ref)
+
+    if not moved_refs:
+        return placed_parts, []
+    return [placed_by_ref[placed.ref] for placed in placed_parts], sorted(moved_refs)
+
+
 def _natural_ref_key(ref: str) -> tuple[str, int, str]:
     match = re.match(r"([A-Za-z]+)(\d+)", str(ref))
     if match:
@@ -1353,6 +1472,25 @@ def plan_layout(
                 selected_candidate.ref_reasons.setdefault(ref, []).append(
                     "snapped to final auto-outline corner"
                 )
+        placed_parts, moved_interior_refs = _legalize_small_parts_from_outline(
+            placed_parts,
+            circuit,
+            resolved_outline,
+            intent_plan,
+            resolved_constraints,
+            resolved_bboxes,
+            fp_geometries,
+            clearance_mm,
+        )
+        if moved_interior_refs:
+            selected_candidate.placed_parts = placed_parts
+            selected_candidate.reasons.append(
+                "small passive parts nudged away from board outline"
+            )
+            for ref in moved_interior_refs:
+                selected_candidate.ref_reasons.setdefault(ref, []).append(
+                    "nudged away from board outline"
+                )
     elif resolved_outline is None and derive_outline_if_missing:
         min_area = 0.0
         if not form_factor:
@@ -1404,6 +1542,25 @@ def plan_layout(
             for ref in moved_neighbor_refs:
                 selected_candidate.ref_reasons.setdefault(ref, []).append(
                     "nudged clear of fixed-outline edge connector"
+                )
+        placed_parts, moved_interior_refs = _legalize_small_parts_from_outline(
+            placed_parts,
+            circuit,
+            resolved_outline,
+            intent_plan,
+            resolved_constraints,
+            resolved_bboxes,
+            fp_geometries,
+            clearance_mm,
+        )
+        if moved_interior_refs:
+            selected_candidate.placed_parts = placed_parts
+            selected_candidate.reasons.append(
+                "small passive parts nudged away from fixed board outline"
+            )
+            for ref in moved_interior_refs:
+                selected_candidate.ref_reasons.setdefault(ref, []).append(
+                    "nudged away from fixed board outline"
                 )
 
     placed_parts = _apply_assembly_sides(placed_parts, intent_plan)

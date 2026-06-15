@@ -1577,7 +1577,44 @@ def _place_mounting_holes(
         plan.fixed_positions.append(FixedPosition(ref=ref, x_mm=x, y_mm=y))
 
 
-def _center_single_connector_between_two_mounting_holes(
+def _edge_opposite(edge: str) -> str:
+    return {
+        "top": "bottom",
+        "bottom": "top",
+        "left": "right",
+        "right": "left",
+    }.get(edge, edge)
+
+
+def _set_edge_anchor(
+    plan: PlacementIntentPlan,
+    anchor: EdgeAnchor,
+    *,
+    edge: str,
+    offset: float,
+    part,
+    mating: MatingIntent | None,
+) -> None:
+    text = _part_text(part) if part is not None else ""
+    anchor.edge = edge
+    anchor.offset_mm = offset
+    anchor.inset_mm = _default_edge_inset_for_part(text, mating.kind if mating else None)
+    anchor.rot_deg = _default_edge_rotation_for_part(
+        part,
+        text,
+        mating.kind if mating else None,
+        edge,
+    )
+
+    for face_edge in plan.face_edges:
+        if face_edge.ref == anchor.ref:
+            face_edge.edge = edge
+            face_edge.rot_deg = anchor.rot_deg
+    if mating is not None:
+        mating.edge_preference = edge
+
+
+def _center_breakout_connectors_with_two_mounting_holes(
     plan: PlacementIntentPlan,
     mounting_refs: list[str],
     part_by_ref: dict[str, object],
@@ -1596,7 +1633,7 @@ def _center_single_connector_between_two_mounting_holes(
         and (mating := mating_by_ref.get(anchor.ref)) is not None
         and mating.kind in eligible_kinds
     ]
-    if len(eligible) != 1:
+    if not eligible:
         return
 
     holes = {
@@ -1626,33 +1663,91 @@ def _center_single_connector_between_two_mounting_holes(
     if edge is None or offset is None:
         return
 
-    anchor = eligible[0]
-    part = part_by_ref.get(anchor.ref)
-    text = _part_text(part) if part is not None else ""
-    mating = mating_by_ref.get(anchor.ref)
-    anchor.edge = edge
-    anchor.offset_mm = offset
-    anchor.inset_mm = _default_edge_inset_for_part(text, mating.kind if mating else None)
-    anchor.rot_deg = _default_edge_rotation_for_part(
-        part,
-        text,
-        mating.kind if mating else None,
-        edge,
-    )
+    if len(eligible) == 1:
+        anchor = eligible[0]
+        mating = mating_by_ref.get(anchor.ref)
+        _set_edge_anchor(
+            plan,
+            anchor,
+            edge=edge,
+            offset=offset,
+            part=part_by_ref.get(anchor.ref),
+            mating=mating,
+        )
+        _add_intent(
+            plan,
+            anchor.ref,
+            "connector_between_mounting_holes",
+            86,
+            "single main connector centered between two mounting holes",
+        )
+        return
 
-    for face_edge in plan.face_edges:
-        if face_edge.ref == anchor.ref:
-            face_edge.edge = edge
-            face_edge.rot_deg = anchor.rot_deg
-    if mating is not None:
-        mating.edge_preference = edge
-    _add_intent(
-        plan,
-        anchor.ref,
-        "connector_between_mounting_holes",
-        86,
-        "single main connector centered between two mounting holes",
-    )
+    headers = [
+        anchor
+        for anchor in eligible
+        if (mating_by_ref.get(anchor.ref) is not None)
+        and mating_by_ref[anchor.ref].kind in {"header", "generic_connector"}
+    ]
+    cable_connectors = [
+        anchor
+        for anchor in eligible
+        if (mating_by_ref.get(anchor.ref) is not None)
+        and mating_by_ref[anchor.ref].kind in {"jst"}
+    ]
+
+    if len(headers) == 1:
+        header = headers[0]
+        _set_edge_anchor(
+            plan,
+            header,
+            edge=edge,
+            offset=offset,
+            part=part_by_ref.get(header.ref),
+            mating=mating_by_ref.get(header.ref),
+        )
+        _add_intent(
+            plan,
+            header.ref,
+            "connector_between_mounting_holes",
+            86,
+            "breakout header centered between two mounting holes",
+        )
+
+    if cable_connectors:
+        cable_edge = _edge_opposite(edge)
+        count = len(cable_connectors)
+        if cable_edge in {"top", "bottom"}:
+            span = outline.width_mm
+            start = outline.x_min + span * 0.5
+        else:
+            span = outline.height_mm
+            start = outline.y_min + span * 0.5
+        if count == 1:
+            offsets = [start]
+        else:
+            spread = min(span * 0.28, max(4.0, span / max(2, count + 1)))
+            first = start - spread * (count - 1) / 2
+            offsets = [first + spread * idx for idx in range(count)]
+        for anchor, cable_offset in zip(
+            sorted(cable_connectors, key=lambda item: item.ref),
+            offsets,
+        ):
+            _set_edge_anchor(
+                plan,
+                anchor,
+                edge=cable_edge,
+                offset=cable_offset,
+                part=part_by_ref.get(anchor.ref),
+                mating=mating_by_ref.get(anchor.ref),
+            )
+            _add_intent(
+                plan,
+                anchor.ref,
+                "connector_opposite_mounting_hole_header",
+                82,
+                "cable connector centered on edge opposite two-hole breakout header",
+            )
 
 
 def infer_placement_intents(
@@ -1853,7 +1948,7 @@ def infer_placement_intents(
     _colocate_display_and_controls(plan, outline)
     _place_opposing_header_pair(plan)
     _place_mounting_holes(plan, mounting_refs, outline)
-    _center_single_connector_between_two_mounting_holes(
+    _center_breakout_connectors_with_two_mounting_holes(
         plan,
         mounting_refs,
         part_by_ref,

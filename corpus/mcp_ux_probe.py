@@ -20,6 +20,8 @@ artifacts/ (any fetched board files), summary.json (machine-readable outcome).
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 from contextlib import contextmanager
 import json
 import os
@@ -67,6 +69,15 @@ DEFAULT_MAX_WALL_S = 900.0
 DEFAULT_MAX_SUBMISSIONS = 5
 POLL_SPACING_S = 5.0
 FINAL_REPORT_RE = re.compile(r"^[\s#>*_`-]*FINAL\s+REPORT\b", re.IGNORECASE)
+BINARY_ARTIFACT_EXTS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp",
+    ".gif",
+    ".zip",
+    ".pdf",
+}
 
 
 class ProbeWallClockExceeded(TimeoutError):
@@ -294,6 +305,23 @@ def _json_dump_for_model(data: dict, *, original_text_len: int) -> str:
     return json.dumps(summary, indent=1)
 
 
+def _spool_artifact(path: Path, content: str) -> str:
+    suffix = path.suffix.lower()
+    if suffix in BINARY_ARTIFACT_EXTS:
+        try:
+            decoded = base64.b64decode(content, validate=True)
+        except (binascii.Error, ValueError):
+            path.write_text(content)
+            return f"<file saved to disk, {len(content)} text bytes>"
+        path.write_bytes(decoded)
+        return (
+            f"<file saved to disk, decoded base64 "
+            f"{len(content)} chars -> {len(decoded)} bytes>"
+        )
+    path.write_text(content)
+    return f"<file saved to disk, {len(content)} bytes>"
+
+
 def shrink_result(name: str, text: str, artifacts_dir: Path) -> str:
     """Keep tool results model-sized; spool artifact file bodies to disk."""
     if name in ("get_run", "get_job"):
@@ -313,8 +341,10 @@ def shrink_result(name: str, text: str, artifacts_dir: Path) -> str:
                     spooled = {}
                     for fname, content in arts.items():
                         if isinstance(content, str) and len(content) > 500:
-                            (artifacts_dir / fname).write_text(content)
-                            spooled[fname] = f"<file saved to disk, {len(content)} bytes>"
+                            spooled[fname] = _spool_artifact(
+                                artifacts_dir / fname,
+                                content,
+                            )
                         else:
                             spooled[fname] = content
                     container[arts_key] = spooled

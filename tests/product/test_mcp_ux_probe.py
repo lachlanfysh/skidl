@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import time
 from io import StringIO
@@ -163,6 +164,23 @@ def test_shrink_result_keeps_large_get_run_valid_json(tmp_path):
     assert "code_excerpt" in compact["spec"]
     assert compact["artifacts"]["board.kicad_pcb"].startswith("<file saved")
     assert (tmp_path / "board.kicad_pcb").exists()
+
+
+def test_shrink_result_decodes_base64_binary_artifacts(tmp_path):
+    png_bytes = b"\x89PNG\r\n\x1a\nfake-preview" * 60
+    payload = {
+        "run_id": "run-1",
+        "response": {"run_id": "run-1", "status": "failed"},
+        "artifacts": {
+            "preview_top.png": base64.b64encode(png_bytes).decode(),
+        },
+    }
+
+    text = shrink_result("get_run", json.dumps(payload), tmp_path)
+    compact = json.loads(text)
+
+    assert "decoded base64" in compact["artifacts"]["preview_top.png"]
+    assert (tmp_path / "preview_top.png").read_bytes().startswith(b"\x89PNG")
 
 
 def test_harvest_outstanding_jobs_polls_terminal_and_fetches_artifacts(tmp_path):

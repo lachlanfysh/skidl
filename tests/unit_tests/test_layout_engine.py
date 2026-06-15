@@ -11,9 +11,16 @@ from skidl.layout.constraints import (
     LayoutConstraints,
     NearConstraint,
 )
-from skidl.layout.engine import LayoutResult, _footprint_names, _placed_bounds, plan_layout
+from skidl.layout.engine import (
+    LayoutResult,
+    _footprint_names,
+    _legalize_small_parts_from_outline,
+    _placed_bounds,
+    plan_layout,
+)
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
 from skidl.layout.placer import derive_outline
+from skidl.layout.writer import PlacedPart
 
 
 class _Net:
@@ -549,6 +556,93 @@ def test_plan_layout_centers_single_qwiic_between_two_mounting_holes():
     assert "connector_between_mounting_holes" in {
         intent.kind for intent in result.intent_plan.intents_for("J100")
     }
+
+
+def test_plan_layout_splits_qwiic_and_header_on_two_hole_breakout():
+    outline = BoardOutline(40.0, 28.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    sda = _Net("SDA")
+    scl = _Net("SCL")
+    alert = _Net("ALERT")
+    u1 = _Part(
+        "U1",
+        name="MCP9808 temperature sensor",
+        footprint="Package_QFP:MCU",
+        nets=[vcc, gnd, sda, scl, alert],
+        pins=8,
+    )
+    j100 = _Part(
+        "J100",
+        name="Qwiic STEMMA QT JST SH connector",
+        footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+        nets=[gnd, vcc, sda, scl],
+        pins=4,
+    )
+    j1 = _Part(
+        "J1",
+        name="0.1 inch pin header",
+        footprint="Connector:PinHeader_1x06",
+        nets=[vcc, gnd, sda, scl, alert],
+        pins=6,
+    )
+    h1 = _Part("H1", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    h2 = _Part("H2", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    circuit = _Circuit([u1, j100, j1, h1, h2], [vcc, gnd, sda, scl, alert])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+
+    anchors = {anchor.ref: anchor for anchor in result.intent_plan.edge_anchors}
+    placed = {part.ref: part for part in result.placed_parts}
+
+    assert anchors["J1"].edge == "top"
+    assert anchors["J1"].offset_mm == pytest.approx(outline.width_mm / 2)
+    assert anchors["J100"].edge == "bottom"
+    assert anchors["J100"].offset_mm == pytest.approx(outline.width_mm / 2)
+    assert result.validation.overlaps == []
+    assert placed["H1"].x_mm < placed["J1"].x_mm < placed["H2"].x_mm
+    assert placed["J100"].x_mm == pytest.approx(outline.width_mm / 2)
+    assert "connector_between_mounting_holes" in {
+        intent.kind for intent in result.intent_plan.intents_for("J1")
+    }
+    assert "connector_opposite_mounting_hole_header" in {
+        intent.kind for intent in result.intent_plan.intents_for("J100")
+    }
+
+
+def test_legalize_small_parts_nudges_passives_clear_of_outline():
+    outline = BoardOutline(30.0, 20.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    r1 = _Part("R1", value="10K", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    circuit = _Circuit([r1, u1], [vcc, gnd])
+    placed_parts = [
+        PlacedPart("R1", x_mm=0.7, y_mm=10.0, rot_deg=0.0, footprint="Capacitor:C_0805"),
+        PlacedPart("U1", x_mm=16.0, y_mm=10.0, rot_deg=0.0, footprint="Package_QFP:MCU"),
+    ]
+
+    legalized, moved = _legalize_small_parts_from_outline(
+        placed_parts,
+        circuit,
+        outline,
+        None,
+        LayoutConstraints(outline=outline),
+        BBOXES,
+        None,
+        clearance_mm=0.5,
+    )
+
+    placed = {part.ref: part for part in legalized}
+    bounds = _placed_bounds(placed["R1"], BBOXES)
+
+    assert moved == ["R1"]
+    assert bounds[0] >= outline.x_min + 1.5
+    assert placed["U1"].x_mm == pytest.approx(16.0)
 
 
 def test_plan_layout_does_not_edge_anchor_oled_daughterboard_header():
