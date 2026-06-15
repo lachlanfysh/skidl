@@ -173,6 +173,35 @@ class TestBlockEnrichment:
         enriched, actions = enrich_blocks(spec, "Board with LiPo charging")
         assert len(actions) == 0
 
+    def test_stemma_qt_block_not_duplicated_by_existing_i2c_connector(self):
+        spec = {
+            "parts": [
+                {"ref": "U1", "lib": "Sensor", "part": "BME280",
+                 "value": "BME280", "footprint": "Package_LGA:BME280"},
+                {"ref": "J1", "lib": "Connector_Generic", "part": "Conn_01x04",
+                 "value": "I2C connector",
+                 "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"},
+            ],
+            "nets": [
+                {"name": "GND", "power": True, "pins": ["U1.GND", "J1.1"]},
+                {"name": "+3V3", "power": True, "pins": ["U1.VDD", "J1.2"]},
+                {"name": "SDA", "pins": ["U1.SDA", "J1.3"]},
+                {"name": "SCL", "pins": ["U1.SCL", "J1.4"]},
+            ],
+        }
+
+        enriched, actions = enrich_blocks(spec, "BME280 breakout with Qwiic")
+
+        assert not any(
+            action["rule"] == "block:stemma_qt"
+            for action in actions
+        )
+        assert [part["ref"] for part in enriched["parts"]].count("J1") == 1
+        assert not any(
+            str(part.get("value", "") or "").upper() == "STEMMA_QT"
+            for part in enriched["parts"]
+        )
+
 
 # ---------------------------------------------------------------------------
 # Design review exceptions

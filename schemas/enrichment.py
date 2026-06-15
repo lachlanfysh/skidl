@@ -781,7 +781,52 @@ def _load_block_templates() -> list[dict]:
     return templates
 
 
-def _block_already_present(template: dict, parts: list[dict]) -> bool:
+def _part_net_names(nets: list[dict], ref: str) -> set[str]:
+    names: set[str] = set()
+    for net in nets:
+        if _part_on_net(net, ref):
+            names.add(str(net.get("name", "") or "").upper())
+    return names
+
+
+def _looks_like_connector_part(part: dict) -> bool:
+    text = " ".join(
+        str(part.get(field, "") or "")
+        for field in ("ref", "lib", "part", "value", "footprint")
+    ).upper()
+    return any(
+        hint in text
+        for hint in (
+            "CONN",
+            "CONNECTOR",
+            "HEADER",
+            "JST",
+            "STEMMA",
+            "QWIIC",
+        )
+    )
+
+
+def _has_qwiic_like_i2c_connector(parts: list[dict], nets: list[dict]) -> bool:
+    """Return True when a connector already exposes GND, power, SDA and SCL."""
+    for part in parts:
+        if not _looks_like_connector_part(part):
+            continue
+        net_names = _part_net_names(nets, str(part.get("ref", "") or ""))
+        if not {"SDA", "SCL"}.issubset(net_names):
+            continue
+        has_ground = any(GROUND_NET_RE.match(name) for name in net_names)
+        has_power = any(POWER_NET_RE.match(name) for name in net_names)
+        if has_ground and has_power:
+            return True
+    return False
+
+
+def _block_already_present(
+    template: dict,
+    parts: list[dict],
+    nets: list[dict] | None = None,
+) -> bool:
     """Check if the block's key component is already in the spec.
 
     Checks both the detection.ic_present list AND the template's own
@@ -789,6 +834,11 @@ def _block_already_present(template: dict, parts: list[dict]) -> bool:
     """
     detection = template.get("detection", {})
     ic_names = detection.get("ic_present", [])
+    tid = template.get("id")
+
+    if tid == "stemma_qt" and nets is not None:
+        if _has_qwiic_like_i2c_connector(parts, nets):
+            return True
 
     # Check explicit IC names
     for ic_name in ic_names:
@@ -931,7 +981,7 @@ def enrich_blocks(
         from_spec = _block_implied_by_spec(template, parts, nets)
         if not from_keywords and not from_spec:
             continue
-        if _block_already_present(template, parts):
+        if _block_already_present(template, parts, nets):
             continue
         if not _block_needs_regulator(template, parts, nets):
             continue
