@@ -304,6 +304,7 @@ def _execute_skidl_job(job: dict) -> dict:
     timeout_s = float(opts.get("timeout_s", 300))
     route_timeout_s = float(opts.get("route_timeout_s", 120))
     assembly_policy = opts.get("assembly_policy") or raw.get("assembly_policy")
+    pipeline_goal = opts.get("pipeline_goal") or raw.get("pipeline_goal")
 
     with tempfile.TemporaryDirectory(prefix="eda-run-") as tmpdir:
         response = run_pipeline_code(
@@ -317,6 +318,7 @@ def _execute_skidl_job(job: dict) -> dict:
             board_id=opts.get("board_id"),
             design_intent=raw.get("design_intent") or raw.get("marketing_text"),
             assembly_policy=assembly_policy,
+            pipeline_goal=pipeline_goal,
         )
 
         result = response.model_dump(mode="json")

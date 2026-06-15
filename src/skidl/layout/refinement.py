@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 from .candidates import PlacementCandidate
 from .constraints import LayoutConstraints
-from .geometry import FootprintGeometry
+from .geometry import FootprintGeometry, PadGeometry, transform_point
 from .placer import _find_clear_position
 from .roles import GND_NET_RE, POWER_NET_RE, classify_parts, is_ui_grid_part
 from .scoring import LayoutScore, score_placement
@@ -184,6 +184,183 @@ def _decap_refs(circuit) -> set[str]:
     }
 
 
+def _pin_number(pin, index: int) -> str:
+    for attr in ("num", "number", "pin_number", "name"):
+        value = getattr(pin, attr, None)
+        if value not in (None, ""):
+            return str(value).strip('"')
+    return str(index + 1)
+
+
+def _pin_net_name(pin) -> str | None:
+    net = getattr(pin, "net", None)
+    name = getattr(net, "name", None)
+    return str(name) if name else None
+
+
+def _part_pin_nets_by_number(part) -> dict[str, str]:
+    pin_nets: dict[str, str] = {}
+    for index, pin in enumerate(getattr(part, "pins", []) or []):
+        net_name = _pin_net_name(pin)
+        if net_name:
+            pin_nets[_pin_number(pin, index)] = net_name
+    return pin_nets
+
+
+def _pad_net_name(
+    pad: PadGeometry,
+    pin_nets: dict[str, str],
+) -> str | None:
+    return pad.net_name or pin_nets.get(pad.number)
+
+
+def _pads_for_net(
+    part,
+    geometry: FootprintGeometry,
+    net_name: str,
+) -> list[PadGeometry]:
+    pin_nets = _part_pin_nets_by_number(part)
+    return [
+        pad
+        for pad in geometry.pads
+        if _pad_net_name(pad, pin_nets) == net_name
+    ]
+
+
+def _pad_world_xy(
+    pad: PadGeometry,
+    placed: PlacedPart,
+) -> tuple[float, float]:
+    return transform_point(
+        placed.x_mm,
+        placed.y_mm,
+        placed.rot_deg,
+        pad.x_mm,
+        pad.y_mm,
+    )
+
+
+def _ref_center_from_geometry(
+    placed: PlacedPart,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> tuple[float, float]:
+    geometry = (fp_geometries or {}).get(placed.footprint)
+    if geometry is None:
+        return placed.x_mm, placed.y_mm
+    x_min, y_min, x_max, y_max = geometry.transformed_bounds(placed)
+    return (x_min + x_max) / 2, (y_min + y_max) / 2
+
+
+def _target_pad_candidates_for_net(
+    net_name: str,
+    skip_ref: str,
+    circuit,
+    placed_by_ref: dict[str, PlacedPart],
+    fp_geometries: dict[str, FootprintGeometry],
+    roles: dict,
+) -> list[tuple[float, tuple[float, float], str]]:
+    candidates: list[tuple[float, tuple[float, float], str]] = []
+    for part in getattr(circuit, "parts", []) or []:
+        ref = getattr(part, "ref", None)
+        if not ref or ref == skip_ref or ref not in placed_by_ref:
+            continue
+        role = roles.get(ref)
+        role_name = role.role if role is not None else "unknown"
+        if role_name in {"decoupling_cap", "signal_passive"}:
+            continue
+        placed = placed_by_ref[ref]
+        geometry = fp_geometries.get(placed.footprint)
+        if geometry is None:
+            continue
+        pads = _pads_for_net(part, geometry, net_name)
+        if not pads:
+            continue
+        role_weight = {
+            "ic": 5.0,
+            "regulator": 5.0,
+            "module_socket": 4.0,
+            "connector": 2.2,
+            "control": 2.0,
+            "panel_jack": 2.0,
+        }.get(role_name, 1.0)
+        center = _ref_center_from_geometry(placed, fp_geometries)
+        for pad in pads:
+            pad_xy = _pad_world_xy(pad, placed)
+            distance_from_center = math.hypot(
+                pad_xy[0] - center[0],
+                pad_xy[1] - center[1],
+            )
+            candidates.append(
+                (
+                    -role_weight,
+                    pad_xy,
+                    (
+                        f"{ref}.{pad.number} on {net_name} "
+                        f"({role_name}, pad offset {distance_from_center:.1f}mm)"
+                    ),
+                )
+            )
+    return sorted(candidates, key=lambda item: (item[0], item[2]))
+
+
+def _passive_pin_gravity_target(
+    ref: str,
+    placed_by_ref: dict[str, PlacedPart],
+    circuit,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    roles: dict,
+) -> tuple[tuple[float, float], str] | None:
+    if circuit is None or not fp_geometries:
+        return None
+    part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
+    part = part_by_ref.get(ref)
+    placed = placed_by_ref.get(ref)
+    if part is None or placed is None:
+        return None
+    geometry = fp_geometries.get(placed.footprint)
+    if geometry is None or not geometry.pads:
+        return None
+    role = roles.get(ref)
+    role_name = role.role if role is not None else "unknown"
+    if role_name not in {"signal_passive", "diode", "inductor", "crystal"}:
+        return None
+
+    target_points: list[tuple[float, float]] = []
+    reasons: list[str] = []
+    for net_name in sorted(set(_part_pin_nets_by_number(part).values())):
+        if GND_NET_RE.match(net_name) or POWER_NET_RE.match(net_name):
+            # Rails are useful context but terrible global attractors. Let the
+            # signal-side pad decide where the passive belongs unless this is
+            # the only information available.
+            net_weight = 0.35
+        else:
+            net_weight = 1.0
+        candidates = _target_pad_candidates_for_net(
+            net_name,
+            ref,
+            circuit,
+            placed_by_ref,
+            fp_geometries,
+            roles,
+        )
+        if not candidates:
+            continue
+        _, pad_xy, reason = candidates[0]
+        repeat = max(1, round(net_weight * 4))
+        target_points.extend([pad_xy] * repeat)
+        reasons.append(reason)
+
+    if not target_points:
+        return None
+    return (
+        (
+            sum(point[0] for point in target_points) / len(target_points),
+            sum(point[1] for point in target_points) / len(target_points),
+        ),
+        "; ".join(reasons[:3]),
+    )
+
+
 def _net_weight(name: str) -> float:
     if GND_NET_RE.match(name):
         return 2.0
@@ -299,6 +476,67 @@ def _move_trials(
                     footprint=placed.footprint,
                 )
             )
+    return trials
+
+
+def _targeted_clear_move_trials(
+    placed_parts: list[PlacedPart],
+    placed: PlacedPart,
+    target: tuple[float, float],
+    width_mm: float,
+    height_mm: float,
+    bounds,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    constraints: LayoutConstraints | None,
+) -> list[PlacedPart]:
+    """Return direct clear-position trials around a pin-gravity target."""
+    occupied = _occupied_without_ref(
+        placed_parts,
+        placed.ref,
+        fp_bboxes,
+        fp_geometries,
+        constraints,
+    )
+    target_x, target_y = _clamp_to_bounds(
+        target[0],
+        target[1],
+        width_mm,
+        height_mm,
+        bounds,
+    )
+    x_mm, y_mm = _find_clear_position(
+        target_x,
+        target_y,
+        width_mm,
+        height_mm,
+        occupied,
+        bounds=bounds,
+        step=0.5,
+        max_radius=18.0,
+    )
+    x_mm, y_mm = _clamp_to_bounds(x_mm, y_mm, width_mm, height_mm, bounds)
+
+    trials: list[PlacedPart] = []
+    seen = {(round(placed.x_mm, 4), round(placed.y_mm, 4))}
+    for x, y in (
+        (x_mm, y_mm),
+        ((placed.x_mm + x_mm) / 2, (placed.y_mm + y_mm) / 2),
+        ((target_x + x_mm) / 2, (target_y + y_mm) / 2),
+    ):
+        key = (round(x, 4), round(y, 4))
+        if key in seen:
+            continue
+        seen.add(key)
+        trials.append(
+            PlacedPart(
+                ref=placed.ref,
+                x_mm=x,
+                y_mm=y,
+                rot_deg=placed.rot_deg,
+                footprint=placed.footprint,
+            )
+        )
     return trials
 
 
@@ -521,6 +759,7 @@ def refine_placement(
     position_locked = _locked_position_refs(constraints, circuit)
     position_locked.update(_decap_refs(circuit))
     rotation_locked = _locked_rotation_refs(constraints)
+    roles = classify_parts(circuit) if circuit is not None else {}
     accepted_moves = 0
     accepted_rotations = 0
     accepted_swaps = 0
@@ -544,6 +783,61 @@ def refine_placement(
                 fp_bboxes,
                 fp_geometries,
             )
+            pin_target = _passive_pin_gravity_target(
+                ref,
+                placed_by_ref,
+                circuit,
+                fp_geometries,
+                roles,
+            )
+            if pin_target is not None:
+                target_xy, target_reason = pin_target
+                bounds = _bounds_for_ref(ref, constraints)
+                move_trials = _targeted_clear_move_trials(
+                    current_parts,
+                    placed,
+                    target_xy,
+                    width_mm,
+                    height_mm,
+                    bounds,
+                    fp_bboxes,
+                    fp_geometries,
+                    constraints,
+                )
+                move_trials.extend(
+                    _move_trials(
+                        placed,
+                        target_xy,
+                        width_mm,
+                        height_mm,
+                        bounds,
+                    )
+                )
+                best = _best_single_ref_trial(
+                    current_parts,
+                    current_score,
+                    ref,
+                    move_trials,
+                    circuit,
+                    fp_bboxes,
+                    constraints,
+                    fp_geometries,
+                    clearance_mm,
+                    board_layers,
+                )
+                if best is not None:
+                    current_parts, current_score, trial = best
+                    accepted_moves += 1
+                    changed = True
+                    ref_reasons.setdefault(ref, []).append(
+                        (
+                            "locally moved by passive pin gravity toward "
+                            f"({target_xy[0]:.1f},{target_xy[1]:.1f}); "
+                            f"{target_reason}"
+                        )
+                    )
+                    placed = trial
+
             centroid = _neighbor_centroid(ref, neighbors, placed_by_ref)
             if centroid is not None:
                 move_trials = _move_trials(

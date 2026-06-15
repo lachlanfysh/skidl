@@ -4,7 +4,7 @@ import pytest
 
 from skidl.layout.candidates import PlacementCandidate
 from skidl.layout.constraints import BoardOutline, EdgeAnchor, FixedPosition, LayoutConstraints
-from skidl.layout.geometry import FootprintGeometry
+from skidl.layout.geometry import FootprintGeometry, PadGeometry
 from skidl.layout.refinement import _is_better, refine_candidate_placement, refine_placement
 from skidl.layout.scoring import LayoutScore, score_placement
 from skidl.layout.writer import PlacedPart
@@ -55,6 +55,7 @@ BBOXES = {
     "Package_QFP:MCU": (8.0, 8.0),
     "Connector:USB": (10.0, 5.0),
     "Package:Long": (16.0, 4.0),
+    "Resistor_SMD:R_0603": (1.6, 0.8),
 }
 
 
@@ -137,6 +138,55 @@ def test_refinement_preserves_edge_anchor_positions():
     assert by_ref["J1"].x_mm == pytest.approx(50.0)
     assert by_ref["J1"].y_mm == pytest.approx(57.5)
     assert by_ref["J1"].rot_deg == pytest.approx(180.0)
+
+
+def test_refinement_uses_pad_aware_pin_gravity_for_signal_passive():
+    sig = _Net("GPIO1")
+    vcc = _Net("3V3")
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[sig, vcc], pins=8)
+    r1 = _Part("R1", "Resistor_SMD:R_0603", nets=[sig, vcc], pins=2)
+    circuit = _Circuit([u1, r1], [sig, vcc])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(80.0, 40.0),
+        fixed=[FixedPosition("U1", 20.0, 20.0)],
+    )
+    geometries = {
+        "Package_QFP:MCU": FootprintGeometry(
+            footprint="Package_QFP:MCU",
+            courtyard_bounds=(-4.0, -4.0, 4.0, 4.0),
+            pads=[
+                PadGeometry("1", 4.0, -1.0, 0.5, 0.5),
+                PadGeometry("2", 4.0, 1.0, 0.5, 0.5),
+            ],
+        ),
+        "Resistor_SMD:R_0603": FootprintGeometry(
+            footprint="Resistor_SMD:R_0603",
+            courtyard_bounds=(-0.8, -0.4, 0.8, 0.4),
+            pads=[
+                PadGeometry("1", -0.45, 0.0, 0.4, 0.5),
+                PadGeometry("2", 0.45, 0.0, 0.4, 0.5),
+            ],
+        ),
+    }
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("R1", 70.0, 30.0, 0.0, "Resistor_SMD:R_0603"),
+    ]
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=geometries,
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+
+    assert result.accepted_moves >= 1
+    assert by_ref["U1"].x_mm == pytest.approx(20.0)
+    assert by_ref["R1"].x_mm < 70.0
+    assert abs(by_ref["R1"].x_mm - 24.0) < 12.0
+    assert "passive pin gravity" in "; ".join(result.ref_reasons["R1"])
 
 
 def test_refinement_better_gate_prioritizes_hard_violations():

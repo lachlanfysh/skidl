@@ -500,6 +500,7 @@ def run_pipeline_code(
     design_intent: str | None = None,
     corner_radius_mm: float | None = None,
     assembly_policy: str | None = None,
+    pipeline_goal: str | None = None,
 ) -> DesignResponse:
     """Run SKiDL Python code through the engine pipeline in an isolated worker."""
 
@@ -517,6 +518,7 @@ def run_pipeline_code(
         "outline_mm": outline_mm,
         "corner_radius_mm": corner_radius_mm,
         "assembly_policy": assembly_policy,
+        "pipeline_goal": pipeline_goal or "manufacturing",
         "marketing_text": design_intent or "",
         "route_timeout_s": route_timeout_s,
     }
@@ -554,6 +556,7 @@ def run_pipeline_code(
                 "code": code,
                 "board_name": board_name,
                 "design_intent": design_intent or "",
+                "pipeline_goal": pipeline_goal or "manufacturing",
             },
             response.exceptions, response,
         )
@@ -623,6 +626,7 @@ def run_pipeline_code(
             "code": code,
             "board_name": board_name,
             "design_intent": design_intent or "",
+            "pipeline_goal": pipeline_goal or "manufacturing",
         },
         response.exceptions, response,
     )

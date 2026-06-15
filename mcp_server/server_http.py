@@ -37,7 +37,9 @@ mcp = FastMCP(
         "PCB design service. Use search_kicad() to find correct library names, "
         "part names, and footprints. Write SKiDL Python code and submit via "
         "submit_skidl_code(). The server handles schematic generation, PCB "
-        "layout, autorouting, and DRC. Poll get_job() until done, then "
+        "layout, autorouting, and DRC. For complex/mechanical boards, submit "
+        "first with run_options.pipeline_goal='placement_review' so the human "
+        "can inspect/finesse grouped placement before routing. Poll get_job() until done, then "
         "get_run() for artifacts. Show preview_2d_top.png to the human when "
         "available; if they give visual/design feedback, record it with "
         "submit_human_feedback() before editing and resubmitting. If a run "
@@ -70,6 +72,28 @@ def _normalize_assembly_policy(value: object | None) -> str:
     if text in {"single_sided", "double_sided"}:
         return text
     return "single_sided"
+
+
+def _normalize_pipeline_goal(value: object | None) -> str:
+    text = str(value or "manufacturing").strip().lower().replace("-", "_")
+    aliases = {
+        "place": "placement_review",
+        "placement": "placement_review",
+        "placed": "placement_review",
+        "placement_only": "placement_review",
+        "review": "placement_review",
+        "review_placement": "placement_review",
+        "preview": "placement_review",
+        "routing": "manufacturing",
+        "route": "manufacturing",
+        "route_after_review": "manufacturing",
+        "fab": "manufacturing",
+        "mfg": "manufacturing",
+    }
+    text = aliases.get(text, text)
+    if text in {"manufacturing", "placement_review"}:
+        return text
+    return "manufacturing"
 
 
 def _validate_spec(input_spec: dict | str) -> CircuitSpec:
@@ -267,13 +291,19 @@ async def submit_skidl_code(
       server can warn when the code appears to omit requested features such as
       USB-C, STEMMA/Qwiic, I2C/SPI, LiPo charging, regulators, or shunts.
     run_options: {"timeout_s": 300, "route_timeout_s": 120,
-      "assembly_policy": "single_sided"} — raise timeout_s for complex
-      boards, route_timeout_s after ROUTE_TIMEOUT. Choose assembly_policy
-      up front: "single_sided" avoids automatic rear-side SMD placement and
-      is the cost-preserving default; "double_sided" allows front-panel
-      controls with rear electronics when the human accepts the extra
-      fabrication/assembly cost. For Eurorack, ask/decide whether this is a
-      single-board dual-sided module or a two-board panel/main-board stack.
+      "assembly_policy": "single_sided", "pipeline_goal": "manufacturing"}
+      — raise timeout_s for complex boards, route_timeout_s after
+      ROUTE_TIMEOUT. Choose pipeline_goal up front:
+      "manufacturing" means schematic + layout + routing + DRC + fabrication
+      exports; "placement_review" means schematic + PCB placement + preview
+      only, with routing/DRC/manufacturing deliberately skipped so a human can
+      inspect and nudge a mechanically important floorplan in KiCad first.
+      Choose assembly_policy up front: "single_sided" avoids automatic
+      rear-side SMD placement and is the cost-preserving default;
+      "double_sided" allows front-panel controls with rear electronics when
+      the human accepts the extra fabrication/assembly cost. For Eurorack,
+      ask/decide whether this is a single-board dual-sided module or a
+      two-board panel/main-board stack.
       If double_sided is chosen, set `part.assembly_side = "front"` or
       `"back"` on parts where the side matters; do not use the back merely
       as a squeezing/autorouting escape hatch.
@@ -282,6 +312,15 @@ async def submit_skidl_code(
       side; optional `part.edge_offset_mm` sets the along-edge position and
       `part.edge_rot_deg` fixes connector-mouth orientation after preview
       feedback.
+      For explicit human/mechanical floorplans, define a global
+      `EDA_FLOORPLAN` dict in the submitted Python after refs exist:
+      `EDA_FLOORPLAN = {"fixed_positions": [{"ref": "U1", "x_mm": 20,
+      "y_mm": 30, "rotation_deg": 90}], "edge_anchors": [{"ref": "J1",
+      "edge": "bottom"}], "keepouts": [{"x_min": 0, "y_min": 0,
+      "x_max": 120, "y_max": 132, "label": "film aperture"}]}`.
+      Use fixed_positions for real user floorplans such as sensor grids,
+      displays, batteries, USB sockets, and large modules; do not strip them
+      merely because the hosted service owns generation/layout.
       For layout overlap/outline/congestion feedback, prefer improving
       grouping, connector choices, and outline_mm before resubmitting.
 
@@ -293,6 +332,8 @@ async def submit_skidl_code(
     opts = dict(run_options or {})
     assembly_policy = _normalize_assembly_policy(opts.get("assembly_policy"))
     opts["assembly_policy"] = assembly_policy
+    pipeline_goal = _normalize_pipeline_goal(opts.get("pipeline_goal"))
+    opts["pipeline_goal"] = pipeline_goal
     job_spec = {
         "_mode": "skidl_python",
         "code": code,
@@ -300,6 +341,7 @@ async def submit_skidl_code(
         "outline_mm": outline_mm,
         "corner_radius_mm": corner_radius_mm,
         "assembly_policy": assembly_policy,
+        "pipeline_goal": pipeline_goal,
         "design_intent": design_intent or "",
         "kicad_version": kicad_version or "9",
     }
@@ -1777,6 +1819,12 @@ SKIDL_GUIDE = """\
 
 Write standard SKiDL Python code. The server handles schematic generation,
 PCB layout, autorouting, and DRC — do NOT call generate_schematic() etc.
+For complex mechanical boards, control panels, Eurorack modules, dense
+instrument boards, or designs with explicit human floorplans, use
+`run_options.pipeline_goal="placement_review"` first. That produces a
+schematic, placed PCB, and previews for human/agent review without forcing
+premature autorouting. After the human is happy with placement, resubmit with
+`pipeline_goal="manufacturing"` for routing, DRC, and fabrication outputs.
 There is no global `connect()` helper.
 
 ## Step 1: Search before you code
@@ -1830,6 +1878,22 @@ Mechanical placement hints:
   faces the wrong way in preview, set `part.edge_rot_deg = 0 | 90 | 180 | 270`
   on the next submission. Do not accept a board where connector openings point
   inward or sideways when the product needs outward cable access.
+- For human/mechanical floorplans, define `EDA_FLOORPLAN` after refs exist:
+
+```python
+EDA_FLOORPLAN = {
+    "fixed_positions": [
+        {"ref": "U1", "x_mm": 60, "y_mm": 40, "rotation_deg": 0},
+        {"ref": "J1", "x_mm": 10, "y_mm": 90, "rotation_deg": 90},
+    ],
+    "edge_anchors": [{"ref": "USB1", "edge": "bottom"}],
+    "keepouts": [{"x_min": 0, "y_min": 0, "x_max": 120, "y_max": 132}],
+}
+```
+
+Preserve explicit sensor grids, controls, displays, batteries, modules, and
+mounting/mechanical intent this way. Do not strip a floorplan just because the
+hosted service owns schematic/layout/routing.
 
 ## KiCad library names (NOT manufacturer names)
 
@@ -1976,6 +2040,7 @@ is a routed board when routing succeeds.
 | timeout_s | 300 | raise to 600-1500 for dense boards or slow autorouting |
 | route_timeout_s | 120 | raise to 300-900 after ROUTE_TIMEOUT; must stay below timeout_s |
 | assembly_policy | "single_sided" | set "double_sided" only after deciding the human accepts rear-side assembly cost |
+| pipeline_goal | "manufacturing" | use "placement_review" first for complex/mechanical boards needing human visual review |
 | board_id | none | telemetry label for tracking related runs |
 
 Choose `assembly_policy` before submitting. The default `"single_sided"` keeps
@@ -2006,6 +2071,9 @@ facing the wrong direction.
 
 ## Layout feedback
 
+- For boards where mechanical layout matters, a clean `placement_review` run is
+  a valid intermediate result. Show the preview, collect human feedback, and
+  iterate placement before attempting routing.
 - LAYOUT_OVERLAP, LAYOUT_OUTLINE_VIOLATION, and HIGH_CONGESTION are usually
   placement/constraint feedback, not schematic failures.
 - When `get_run()` returns `preview_2d_top.png`, show it to the human before

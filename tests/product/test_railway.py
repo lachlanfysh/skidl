@@ -387,6 +387,7 @@ class TestWorkerOptionPassthrough:
                 "route_timeout_s": 420,
                 "board_id": "route-timeout-test",
                 "assembly_policy": "double_sided",
+                "pipeline_goal": "placement_review",
             },
             "policy": {},
         }
@@ -397,6 +398,7 @@ class TestWorkerOptionPassthrough:
         assert seen["route_timeout_s"] == 420
         assert seen["board_id"] == "route-timeout-test"
         assert seen["assembly_policy"] == "double_sided"
+        assert seen["pipeline_goal"] == "placement_review"
 
 
 @needs_kicad
@@ -1411,9 +1413,9 @@ class TestAgentUX:
         for needle in (
             "get_job", "job_id", "Part()", "Net()", "footprint",
             "Library:Name", "POWER", "100nF", "eda://guide/skidl",
-            "timeout_s", "route_timeout_s", "assembly_policy",
+            "timeout_s", "route_timeout_s", "assembly_policy", "pipeline_goal",
             "assembly_side", "edge_preference", "edge_rot_deg", "LCSC",
-            "manufacturing",
+            "manufacturing", "placement_review", "EDA_FLOORPLAN",
         ):
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
 
@@ -1438,7 +1440,9 @@ class TestAgentUX:
 
         assert result["job_id"] == "job-default-policy"
         assert seen["spec"]["assembly_policy"] == "single_sided"
+        assert seen["spec"]["pipeline_goal"] == "manufacturing"
         assert seen["options"]["assembly_policy"] == "single_sided"
+        assert seen["options"]["pipeline_goal"] == "manufacturing"
 
     @pytest.mark.asyncio
     async def test_submit_human_feedback_teaches_review_turn(self):
@@ -1629,6 +1633,8 @@ class TestAgentUX:
         assert "Custom MCU board vs dev board" in SKIDL_GUIDE
         assert "convert_lcsc()" in SKIDL_GUIDE
         assert "eda://guide/parts" in SKIDL_GUIDE
+        assert 'pipeline_goal="placement_review"' in SKIDL_GUIDE
+        assert "EDA_FLOORPLAN" in SKIDL_GUIDE
 
     def test_circuit_spec_reference_is_legacy_not_public_resource(self):
         from mcp_server.server_http import CIRCUIT_SPEC_GUIDE

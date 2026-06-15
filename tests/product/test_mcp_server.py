@@ -38,6 +38,7 @@ from mcp_server.engine_worker import (
     _missing_manufacturing_outputs,
     _outline_for_spec,
     _route_pcb,
+    _run_skidl_code,
     _run_pcbnew_child,
     _write_layout_mockup_svg,
 )
@@ -1502,7 +1503,7 @@ gnd += j1[2]
             for exc in response.exceptions
         )
 
-    def test_python_mode_missing_pcb_footprint_is_structured_error(self, tmp_path):
+    def test_python_mode_missing_pcb_footprint_is_preflight_error(self, tmp_path):
         code = """
 from skidl import *
 vcc = Net("VCC"); vcc.drive = POWER
@@ -1522,10 +1523,87 @@ gnd += j1[2], r1[2]
             timeout_s=120,
         )
 
-        assert response.stage == "layout_write"
+        assert response.stage == "footprint_preflight"
         assert not response.ok
         assert any(exc.code == ExcCode.FOOTPRINT_MISSING for exc in response.exceptions)
         assert not any(exc.code == ExcCode.ENGINE_CRASH for exc in response.exceptions)
+
+    def test_python_mode_placement_review_skips_routing(self, tmp_path, monkeypatch):
+        code = """
+from skidl import *
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
+j1 = Part("Connector_Generic", "Conn_01x02",
+          footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+r1 = Part("Device", "R", value="10K", footprint="Resistor_SMD:R_0603_1608Metric")
+vcc += j1[1], r1[1]
+gnd += j1[2], r1[2]
+"""
+
+        def fail_route(*args, **kwargs):
+            raise AssertionError("placement_review must not call the router")
+
+        monkeypatch.setattr(engine_worker_mod, "_route_pcb", fail_route)
+
+        cwd = os.getcwd()
+        try:
+            result = _run_skidl_code({
+                "run_id": "placement-review-test",
+                "out_dir": str(tmp_path / "placement-review-test"),
+                "code": code,
+                "board_name": "placement-review",
+                "outline_mm": [35.0, 20.0],
+                "pipeline_goal": "placement_review",
+            })
+        finally:
+            os.chdir(cwd)
+
+        assert result["stage"] == "placement_review"
+        assert result["metrics"]["pipeline_goal"] == "placement_review"
+        assert result["artifacts"]["pcb"].endswith(".kicad_pcb")
+        assert any(
+            exc["code"] == "PLACEMENT_REVIEW_ONLY"
+            for exc in result["exceptions"]
+        )
+
+    def test_python_mode_preserves_eda_floorplan_fixed_positions(self, tmp_path):
+        code = """
+from skidl import *
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
+j1 = Part("Connector_Generic", "Conn_01x02",
+          footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+r1 = Part("Device", "R", value="10K", footprint="Resistor_SMD:R_0603_1608Metric")
+vcc += j1[1], r1[1]
+gnd += j1[2], r1[2]
+
+EDA_FLOORPLAN = {
+    "fixed_positions": [
+        {"ref": "J1", "x_mm": 5.0, "y_mm": 10.0, "rotation_deg": 90.0},
+        {"ref": "R1", "x_mm": 20.0, "y_mm": 10.0},
+    ]
+}
+"""
+
+        cwd = os.getcwd()
+        try:
+            result = _run_skidl_code({
+                "run_id": "floorplan-test",
+                "out_dir": str(tmp_path / "floorplan-test"),
+                "code": code,
+                "board_name": "floorplan",
+                "outline_mm": [35.0, 20.0],
+                "pipeline_goal": "placement_review",
+            })
+        finally:
+            os.chdir(cwd)
+
+        placed = {p["ref"]: p for p in result["layout"]["placed_parts"]}
+        assert placed["J1"]["x_mm"] == pytest.approx(5.0)
+        assert placed["J1"]["y_mm"] == pytest.approx(10.0)
+        assert placed["J1"]["rot_deg"] == pytest.approx(90.0)
+        assert placed["R1"]["x_mm"] == pytest.approx(20.0)
+        assert result["layout"]["floorplan"]["fixed_positions"] == 2
 
     def test_python_mode_handles_mounting_holes_and_test_points(self, tmp_path):
         code = """

@@ -1708,8 +1708,150 @@ def _footprint_missing_exception(exc: FileNotFoundError, circuit=None) -> Design
     )
 
 
+def _missing_footprint_exception_for_circuit(
+    circuit,
+    missing: set[str],
+) -> DesignException:
+    refs: list[str] = []
+    missing = {str(fp) for fp in missing if fp}
+    for part in getattr(circuit, "parts", []) or []:
+        footprint = str(getattr(part, "footprint", "") or "")
+        if footprint in missing:
+            refs.append(str(getattr(part, "ref", "") or ""))
+    message = (
+        "INCOMPLETE PCB: "
+        f"{len(refs)}/{len(getattr(circuit, 'parts', []) or [])} parts "
+        f"missing footprints: {', '.join(refs[:20])}"
+    )
+    return _footprint_missing_exception(FileNotFoundError(message), circuit)
+
+
+def _preflight_footprints(circuit, fp_dirs: list[str]) -> DesignException | None:
+    from skidl.layout.writer import validate_footprints
+
+    names = {
+        str(getattr(part, "footprint", "") or "")
+        for part in getattr(circuit, "parts", []) or []
+        if str(getattr(part, "footprint", "") or "")
+    }
+    _valid, missing = validate_footprints(names, fp_dirs)
+    if not missing:
+        return None
+    return _missing_footprint_exception_for_circuit(circuit, missing)
+
+
+def _normalize_pipeline_goal(value) -> str:
+    text = str(value or "manufacturing").strip().lower().replace("-", "_")
+    aliases = {
+        "place": "placement_review",
+        "placement": "placement_review",
+        "placement_only": "placement_review",
+        "review": "placement_review",
+        "review_placement": "placement_review",
+        "preview": "placement_review",
+    }
+    text = aliases.get(text, text)
+    if text in {"manufacturing", "placement_review"}:
+        return text
+    return "manufacturing"
+
+
+def _float_field(data: dict, *keys: str, default: float | None = None) -> float | None:
+    for key in keys:
+        if key in data and data[key] is not None:
+            return float(data[key])
+    return default
+
+
+def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
+    """Build layout constraints from a submitted EDA_FLOORPLAN dict."""
+    if not isinstance(floorplan, dict):
+        return None, {}
+
+    from skidl.layout import (
+        EdgeAnchor,
+        FixedPosition,
+        KeepOut,
+        LayoutConstraints,
+    )
+
+    fixed = []
+    edge_anchors = []
+    keepouts = []
+    warnings = []
+
+    for item in floorplan.get("fixed_positions") or []:
+        if not isinstance(item, dict) or not item.get("ref"):
+            warnings.append("ignored fixed_position without ref")
+            continue
+        try:
+            fixed.append(
+                FixedPosition(
+                    ref=str(item["ref"]),
+                    x_mm=float(item["x_mm"]),
+                    y_mm=float(item["y_mm"]),
+                    rot_deg=_float_field(item, "rotation_deg", "rot_deg", default=0.0) or 0.0,
+                )
+            )
+        except (TypeError, ValueError, KeyError) as exc:
+            warnings.append(f"ignored fixed_position for {item.get('ref')}: {exc}")
+
+    for item in floorplan.get("edge_anchors") or []:
+        if not isinstance(item, dict) or not item.get("ref") or not item.get("edge"):
+            warnings.append("ignored edge_anchor without ref/edge")
+            continue
+        try:
+            edge_anchors.append(
+                EdgeAnchor(
+                    ref=str(item["ref"]),
+                    edge=str(item["edge"]),
+                    offset_mm=_float_field(item, "offset_mm"),
+                    inset_mm=_float_field(item, "inset_mm", default=0.5) or 0.5,
+                    rot_deg=_float_field(item, "rotation_deg", "rot_deg"),
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            warnings.append(f"ignored edge_anchor for {item.get('ref')}: {exc}")
+
+    for item in floorplan.get("keepouts") or []:
+        if not isinstance(item, dict):
+            warnings.append("ignored non-dict keepout")
+            continue
+        try:
+            keepouts.append(
+                KeepOut(
+                    x_min=float(item["x_min"]),
+                    y_min=float(item["y_min"]),
+                    x_max=float(item["x_max"]),
+                    y_max=float(item["y_max"]),
+                )
+            )
+        except (TypeError, ValueError, KeyError) as exc:
+            warnings.append(f"ignored keepout: {exc}")
+
+    metadata = {
+        "fixed_positions": len(fixed),
+        "edge_anchors": len(edge_anchors),
+        "keepouts": len(keepouts),
+    }
+    if warnings:
+        metadata["warnings"] = warnings
+    constraints = LayoutConstraints(
+        fixed=fixed,
+        edge_anchors=edge_anchors,
+        keepouts=keepouts,
+    )
+    return constraints, metadata
+
+
 def _exec_skidl(code: str):
     """Execute SKiDL Python code and return the populated default circuit."""
+    circuit, _namespace = _exec_skidl_with_namespace(code)
+    return circuit
+
+
+def _exec_skidl_with_namespace(code: str):
+    """Execute SKiDL Python code and return the circuit plus globals."""
     import builtins as _bi
 
     _configure_kicad_env()
@@ -1749,7 +1891,7 @@ def _exec_skidl(code: str):
         raise
     except Exception as exc:
         raise SkidlCodeExecutionError(exc, cleaned, namespace) from exc
-    return _bi.default_circuit
+    return _bi.default_circuit, namespace
 
 
 def _circuit_to_spec_dict(circuit) -> dict:
@@ -2261,7 +2403,7 @@ def _run_skidl_code(envelope: dict) -> dict:
     fp_dirs.extend(_easyeda_fp_dirs())
 
     try:
-        circuit = _exec_skidl(code)
+        circuit, namespace = _exec_skidl_with_namespace(code)
     except SyntaxError as exc:
         return _json_result(
             run_id=run_id, ok=False, stage="exec",
@@ -2322,6 +2464,17 @@ def _run_skidl_code(envelope: dict) -> dict:
             summary=f"design review: {len(review_errors)} error(s)",
         )
 
+    footprint_exception = _preflight_footprints(circuit, fp_dirs)
+    if footprint_exception is not None:
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="footprint_preflight",
+            exceptions=[footprint_exception] + review_exceptions,
+            metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
+            summary=footprint_exception.message,
+        )
+
     schematic_path = out_dir / f"{board_name}.kicad_sch"
     pcb_path = out_dir / f"{board_name}.kicad_pcb"
 
@@ -2349,7 +2502,14 @@ def _run_skidl_code(envelope: dict) -> dict:
         )
         if outline_mm else None
     )
-    constraints = LayoutConstraints(outline=outline)
+    floorplan_constraints, floorplan_meta = _floorplan_constraints(
+        namespace.get("EDA_FLOORPLAN")
+    )
+    if floorplan_constraints is None:
+        constraints = LayoutConstraints(outline=outline)
+    else:
+        constraints = floorplan_constraints
+        constraints.outline = outline
     layout_result = plan_layout(
         circuit,
         fp_lib_dirs=fp_dirs,
@@ -2393,7 +2553,27 @@ def _run_skidl_code(envelope: dict) -> dict:
     ]
     manufacturable = False
     mfg = {}
-    if not layout_errors:
+    pipeline_goal = _normalize_pipeline_goal(envelope.get("pipeline_goal"))
+    if pipeline_goal == "placement_review":
+        all_exceptions.append(
+            DesignException(
+                id="i-placement-review",
+                code=ExcCode.PLACEMENT_REVIEW_ONLY,
+                severity=Severity.ADVISORY,
+                message=(
+                    "Placement review goal selected: routing, DRC, and "
+                    "manufacturing export were skipped deliberately."
+                ),
+                subject={"pipeline_goal": pipeline_goal},
+                candidates=[],
+                retry_hint=(
+                    "Show the PCB/preview artifact to the human. After visual "
+                    "and mechanical placement are acceptable, resubmit with "
+                    "run_options.pipeline_goal='manufacturing'."
+                ),
+            )
+        )
+    elif not layout_errors:
         route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
         route_exceptions = _route_pcb(str(pcb_path), timeout_s=route_timeout)
         all_exceptions.extend(route_exceptions)
@@ -2440,17 +2620,24 @@ def _run_skidl_code(envelope: dict) -> dict:
         outputs["previews"] = previews
 
     layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
+    if floorplan_meta:
+        layout_dict["floorplan"] = floorplan_meta
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
     metrics["manufacturable"] = manufacturable
     metrics["manufacturing_complete"] = manufacturable
+    metrics["pipeline_goal"] = pipeline_goal
 
     return _json_result(
         run_id=run_id,
-        ok=layout_result.ok and manufacturable and not any(
-            e.severity in (Severity.FATAL, Severity.ERROR)
-            for e in all_exceptions
+        ok=(
+            layout_result.ok
+            and (pipeline_goal == "placement_review" or manufacturable)
+            and not any(
+                e.severity in (Severity.FATAL, Severity.ERROR)
+                for e in all_exceptions
+            )
         ),
-        stage="complete",
+        stage="placement_review" if pipeline_goal == "placement_review" else "complete",
         exceptions=all_exceptions,
         outputs=outputs,
         layout=layout_dict,
