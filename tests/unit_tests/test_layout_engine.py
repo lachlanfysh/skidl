@@ -16,6 +16,7 @@ from skidl.layout.engine import (
     _footprint_names,
     _legalize_small_parts_from_outline,
     _placed_bounds,
+    _snap_edge_anchors_to_outline,
     plan_layout,
 )
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
@@ -762,6 +763,56 @@ def test_legalize_small_parts_nudges_connectors_clear_of_mounting_holes():
         and connector_bounds[3] > halo[1]
     )
     assert placed["H1"].x_mm == pytest.approx(4.0)
+
+
+def test_edge_anchor_snap_avoids_mounting_hole_halos():
+    outline = BoardOutline(40.0, 28.0)
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[
+            EdgeAnchor("J1", "right", offset_mm=24.0, rot_deg=90.0),
+        ]
+    )
+    intent_plan.intents["H1"] = [
+        PlacementIntent("H1", "mounting_hole", 90, ["test mounting hole"])
+    ]
+    placed_parts = [
+        PlacedPart("H1", x_mm=36.0, y_mm=24.0, rot_deg=0.0, footprint="MountingHole:M2"),
+        PlacedPart(
+            "J1",
+            x_mm=36.0,
+            y_mm=24.0,
+            rot_deg=90.0,
+            footprint="Connector:PinHeader_1x06",
+        ),
+    ]
+
+    snapped, moved = _snap_edge_anchors_to_outline(
+        placed_parts,
+        outline,
+        intent_plan,
+        LayoutConstraints(outline=outline),
+        BBOXES,
+        None,
+    )
+
+    placed = {part.ref: part for part in snapped}
+    hole_bounds = _placed_bounds(placed["H1"], BBOXES)
+    header_bounds = _placed_bounds(placed["J1"], BBOXES)
+    halo = (
+        hole_bounds[0] - 2.0,
+        hole_bounds[1] - 2.0,
+        hole_bounds[2] + 2.0,
+        hole_bounds[3] + 2.0,
+    )
+
+    assert moved == ["J1"]
+    assert header_bounds[2] == pytest.approx(outline.x_max - 0.5)
+    assert not (
+        header_bounds[0] < halo[2]
+        and header_bounds[2] > halo[0]
+        and header_bounds[1] < halo[3]
+        and header_bounds[3] > halo[1]
+    )
 
 
 def test_plan_layout_does_not_edge_anchor_oled_daughterboard_header():

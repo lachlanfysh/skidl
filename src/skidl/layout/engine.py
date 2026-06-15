@@ -9,7 +9,7 @@ from .candidates import (
     copy_constraints,
     generate_placement_candidates,
 )
-from .constraints import BoardOutline, EdgeAnchor, LayoutConstraints
+from .constraints import BoardOutline, EdgeAnchor, KeepOut, LayoutConstraints
 from .context import LayoutContext
 from .decaps import refine_candidate_decaps
 from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometries
@@ -525,6 +525,12 @@ def _snap_edge_anchors_to_outline(
 
     moved: list[str] = []
     snapped: list[PlacedPart] = []
+    mounting_keepouts = _mounting_hole_keepouts(
+        placed_parts,
+        intent_plan,
+        fp_bboxes,
+        fp_geometries,
+    )
     for placed in placed_parts:
         anchor = anchors.get(placed.ref)
         if anchor is None or placed.ref in fixed_refs:
@@ -557,7 +563,10 @@ def _snap_edge_anchors_to_outline(
             geometry=geometry,
             ref=placed.ref,
             footprint=placed.footprint,
-            keepouts=(constraints.keepouts if constraints else []) or [],
+            keepouts=[
+                *((constraints.keepouts if constraints else []) or []),
+                *mounting_keepouts,
+            ],
         )
         if (
             abs(x_mm - placed.x_mm) > 1e-6
@@ -581,6 +590,36 @@ def _snap_edge_anchors_to_outline(
     return snapped, moved
 
 
+def _mounting_hole_keepouts(
+    placed_parts: list[PlacedPart],
+    intent_plan: PlacementIntentPlan | None,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    *,
+    clearance_mm: float = 2.0,
+) -> list[KeepOut]:
+    if intent_plan is None:
+        return []
+    mounting_refs = set(intent_plan.refs_with_kind("mounting_hole"))
+    if not mounting_refs:
+        return []
+
+    keepouts: list[KeepOut] = []
+    for placed in placed_parts:
+        if placed.ref not in mounting_refs:
+            continue
+        bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
+        keepouts.append(
+            KeepOut(
+                bounds[0] - clearance_mm,
+                bounds[1] - clearance_mm,
+                bounds[2] + clearance_mm,
+                bounds[3] + clearance_mm,
+            )
+        )
+    return keepouts
+
+
 def _bounds_touch_keepout(bounds: tuple[float, float, float, float], keepout) -> bool:
     return not (
         bounds[2] <= keepout.x_min
@@ -588,6 +627,17 @@ def _bounds_touch_keepout(bounds: tuple[float, float, float, float], keepout) ->
         or bounds[3] <= keepout.y_min
         or bounds[1] >= keepout.y_max
     )
+
+
+def _bounds_keepout_overlap_area(
+    bounds: tuple[float, float, float, float],
+    keepout,
+) -> float:
+    x_overlap = min(bounds[2], keepout.x_max) - max(bounds[0], keepout.x_min)
+    y_overlap = min(bounds[3], keepout.y_max) - max(bounds[1], keepout.y_min)
+    if x_overlap <= 0.0 or y_overlap <= 0.0:
+        return 0.0
+    return x_overlap * y_overlap
 
 
 def _edge_anchor_position_avoiding_keepouts(
@@ -646,8 +696,13 @@ def _edge_anchor_position_avoiding_keepouts(
             ))
         offsets.append((outline.x_min + outline.x_max) / 2)
 
+    original_bounds = _bounds(original)
     best = original
-    best_hits = sum(_bounds_touch_keepout(_bounds(original), ko) for ko in keepouts)
+    best_key = (
+        sum(_bounds_keepout_overlap_area(original_bounds, ko) for ko in keepouts),
+        sum(_bounds_touch_keepout(original_bounds, ko) for ko in keepouts),
+        0.0,
+    )
     seen: set[float] = set()
     for offset in offsets:
         rounded = round(float(offset), 6)
@@ -670,11 +725,17 @@ def _edge_anchor_position_avoiding_keepouts(
             ref=ref,
             footprint=footprint,
         )
-        hits = sum(_bounds_touch_keepout(_bounds(candidate), ko) for ko in keepouts)
-        if hits < best_hits:
+        candidate_bounds = _bounds(candidate)
+        hits = sum(_bounds_touch_keepout(candidate_bounds, ko) for ko in keepouts)
+        overlap_area = sum(
+            _bounds_keepout_overlap_area(candidate_bounds, ko)
+            for ko in keepouts
+        )
+        candidate_key = (overlap_area, hits, abs(float(offset) - (anchor.offset_mm or 0.0)))
+        if candidate_key < best_key:
             best = candidate
-            best_hits = hits
-            if hits == 0:
+            best_key = candidate_key
+            if overlap_area <= 1e-9 and hits == 0:
                 break
     return best
 
