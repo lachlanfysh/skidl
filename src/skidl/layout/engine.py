@@ -55,6 +55,17 @@ class LayoutResult:
     def to_dict(self) -> dict:
         result = {
             "ok": self.ok,
+            "placed_parts": [
+                {
+                    "ref": placed.ref,
+                    "x_mm": placed.x_mm,
+                    "y_mm": placed.y_mm,
+                    "rot_deg": placed.rot_deg,
+                    "footprint": placed.footprint,
+                    "side": getattr(placed, "side", "front"),
+                }
+                for placed in self.placed_parts
+            ],
             "score": self.score.to_dict(),
             "validation": {
                 "ok": self.validation.ok,
@@ -70,6 +81,8 @@ class LayoutResult:
             result["report"] = self.report.to_dict()
         if self.routability is not None:
             result["routability"] = self.routability.to_dict()
+        if self.intent_plan is not None:
+            result["intent_plan"] = self.intent_plan.to_dict()
         if self.outline is not None:
             result["outline"] = {
                 "width_mm": self.outline.width_mm,
@@ -451,6 +464,7 @@ def _snap_mounting_holes_to_outline_corners(
                     y_mm=y_mm,
                     rot_deg=placed.rot_deg,
                     footprint=placed.footprint,
+                    side=getattr(placed, "side", "front"),
                 )
             )
         else:
@@ -520,7 +534,7 @@ def _snap_edge_anchors_to_outline(
             inset_mm=anchor.inset_mm,
             rot_deg=anchor.rot_deg,
         )
-        x_mm, y_mm, rot_deg, *_ = _edge_anchor_origin_position(
+        x_mm, y_mm, rot_deg, *_ = _edge_anchor_position_avoiding_keepouts(
             final_anchor,
             width,
             height,
@@ -528,6 +542,7 @@ def _snap_edge_anchors_to_outline(
             geometry=geometry,
             ref=placed.ref,
             footprint=placed.footprint,
+            keepouts=(constraints.keepouts if constraints else []) or [],
         )
         if (
             abs(x_mm - placed.x_mm) > 1e-6
@@ -542,12 +557,141 @@ def _snap_edge_anchors_to_outline(
                     y_mm=y_mm,
                     rot_deg=rot_deg,
                     footprint=placed.footprint,
+                    side=getattr(placed, "side", "front"),
                 )
             )
         else:
             snapped.append(placed)
 
     return snapped, moved
+
+
+def _bounds_touch_keepout(bounds: tuple[float, float, float, float], keepout) -> bool:
+    return not (
+        bounds[2] <= keepout.x_min
+        or bounds[0] >= keepout.x_max
+        or bounds[3] <= keepout.y_min
+        or bounds[1] >= keepout.y_max
+    )
+
+
+def _edge_anchor_position_avoiding_keepouts(
+    anchor: EdgeAnchor,
+    width: float,
+    height: float,
+    outline: BoardOutline,
+    *,
+    geometry: FootprintGeometry | None,
+    ref: str,
+    footprint: str,
+    keepouts: list | None,
+    clearance_mm: float = 0.5,
+) -> tuple[float, float, float, float, float, float, float]:
+    original = _edge_anchor_origin_position(
+        anchor,
+        width,
+        height,
+        outline,
+        geometry=geometry,
+        ref=ref,
+        footprint=footprint,
+    )
+    if not keepouts:
+        return original
+
+    def _bounds(candidate):
+        _, _, _, center_x, center_y, ew, eh = candidate
+        return (
+            center_x - ew / 2,
+            center_y - eh / 2,
+            center_x + ew / 2,
+            center_y + eh / 2,
+        )
+
+    if not any(_bounds_touch_keepout(_bounds(original), ko) for ko in keepouts):
+        return original
+
+    edge = anchor.edge.lower()
+    offsets: list[float] = []
+    if anchor.offset_mm is not None:
+        offsets.append(anchor.offset_mm)
+    _, _, _, _, _, original_w, original_h = original
+    if edge in {"left", "right"}:
+        for ko in keepouts:
+            offsets.extend((
+                ko.y_min - original_h / 2 - clearance_mm,
+                ko.y_max + original_h / 2 + clearance_mm,
+            ))
+        offsets.append((outline.y_min + outline.y_max) / 2)
+    elif edge in {"top", "bottom"}:
+        for ko in keepouts:
+            offsets.extend((
+                ko.x_min - original_w / 2 - clearance_mm,
+                ko.x_max + original_w / 2 + clearance_mm,
+            ))
+        offsets.append((outline.x_min + outline.x_max) / 2)
+
+    best = original
+    best_hits = sum(_bounds_touch_keepout(_bounds(original), ko) for ko in keepouts)
+    seen: set[float] = set()
+    for offset in offsets:
+        rounded = round(float(offset), 6)
+        if rounded in seen:
+            continue
+        seen.add(rounded)
+        candidate_anchor = EdgeAnchor(
+            ref=anchor.ref,
+            edge=anchor.edge,
+            offset_mm=float(offset),
+            inset_mm=anchor.inset_mm,
+            rot_deg=anchor.rot_deg,
+        )
+        candidate = _edge_anchor_origin_position(
+            candidate_anchor,
+            width,
+            height,
+            outline,
+            geometry=geometry,
+            ref=ref,
+            footprint=footprint,
+        )
+        hits = sum(_bounds_touch_keepout(_bounds(candidate), ko) for ko in keepouts)
+        if hits < best_hits:
+            best = candidate
+            best_hits = hits
+            if hits == 0:
+                break
+    return best
+
+
+def _apply_assembly_sides(
+    placed_parts: list[PlacedPart],
+    intent_plan: PlacementIntentPlan | None,
+) -> list[PlacedPart]:
+    sides = getattr(intent_plan, "assembly_sides", None) or {}
+    if not sides:
+        return placed_parts
+
+    result: list[PlacedPart] = []
+    for placed in placed_parts:
+        side = sides.get(placed.ref, getattr(placed, "side", "front"))
+        side = str(side or "front").lower()
+        if side not in {"front", "back", "mechanical"}:
+            side = "front"
+        if side == getattr(placed, "side", "front"):
+            result.append(placed)
+            continue
+        result.append(
+            PlacedPart(
+                ref=placed.ref,
+                x_mm=placed.x_mm,
+                y_mm=placed.y_mm,
+                rot_deg=placed.rot_deg,
+                footprint=placed.footprint,
+                side=side,
+            )
+        )
+    return result
 
 
 def _bounds_overlap(
@@ -655,6 +799,7 @@ def _legalize_edge_anchor_neighbors(
                     y_mm=placed.y_mm + dy,
                     rot_deg=placed.rot_deg,
                     footprint=placed.footprint,
+                    side=getattr(placed, "side", "front"),
                 )
                 moved_refs.add(ref)
                 changed = True
@@ -916,6 +1061,7 @@ def _arrange_passive_grid_between_opposing_headers(
                 y_mm=y_mm,
                 rot_deg=placed.rot_deg,
                 footprint=placed.footprint,
+                side=getattr(placed, "side", "front"),
             )
             moved_refs.append(ref)
 
@@ -934,6 +1080,7 @@ def plan_layout(
     clearance_mm: float = 0.5,
     derive_outline_if_missing: bool = True,
     routability: RoutabilityFeedback | None = None,
+    assembly_policy: str | None = None,
 ) -> LayoutResult:
     """Place and score a board attempt without writing copper geometry."""
     fp_geometries = _resolve_geometries(circuit, fp_lib_dirs)
@@ -963,7 +1110,11 @@ def plan_layout(
         resolved_constraints.outline = resolved_outline
 
     groups = extract_groups(circuit)
-    intent_plan = infer_placement_intents(circuit, outline=resolved_outline)
+    intent_plan = infer_placement_intents(
+        circuit,
+        outline=resolved_outline,
+        assembly_policy=assembly_policy,
+    )
     power_topology = infer_power_topology(circuit)
     candidates = generate_placement_candidates(
         groups,
@@ -994,7 +1145,43 @@ def plan_layout(
             clearance_mm=clearance_mm,
             board_layers=board_layers,
         )
+        candidate.placed_parts = _apply_assembly_sides(
+            candidate.placed_parts,
+            intent_plan,
+        )
         candidate_constraints = candidate.constraints or resolved_constraints
+        if resolved_outline is not None and not auto_outline:
+            candidate.placed_parts, moved_edge_refs = _snap_edge_anchors_to_outline(
+                candidate.placed_parts,
+                resolved_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+            )
+            if moved_edge_refs:
+                candidate.reasons.append("edge connectors snapped to outline edges")
+                for ref in moved_edge_refs:
+                    candidate.ref_reasons.setdefault(ref, []).append(
+                        "snapped to outline edge"
+                    )
+            candidate.placed_parts, moved_neighbor_refs = _legalize_edge_anchor_neighbors(
+                candidate.placed_parts,
+                resolved_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+                clearance_mm,
+            )
+            if moved_neighbor_refs:
+                candidate.reasons.append(
+                    "near-edge parts nudged clear of edge connectors"
+                )
+                for ref in moved_neighbor_refs:
+                    candidate.ref_reasons.setdefault(ref, []).append(
+                        "nudged clear of edge connector"
+                    )
         candidate_validations[candidate.name] = validate(
             candidate.placed_parts,
             circuit,
@@ -1181,6 +1368,46 @@ def plan_layout(
             min_area_mm2=min_area,
             max_min_area_growth=1.35,
         )
+
+    if resolved_outline is not None and not auto_outline:
+        placed_parts, moved_edge_refs = _snap_edge_anchors_to_outline(
+            placed_parts,
+            resolved_outline,
+            intent_plan,
+            selected_constraints,
+            resolved_bboxes,
+            fp_geometries,
+        )
+        if moved_edge_refs:
+            selected_candidate.placed_parts = placed_parts
+            selected_candidate.reasons.append(
+                "edge connectors snapped to fixed-outline edges"
+            )
+            for ref in moved_edge_refs:
+                selected_candidate.ref_reasons.setdefault(ref, []).append(
+                    "snapped to fixed-outline edge"
+                )
+        placed_parts, moved_neighbor_refs = _legalize_edge_anchor_neighbors(
+            placed_parts,
+            resolved_outline,
+            intent_plan,
+            selected_constraints,
+            resolved_bboxes,
+            fp_geometries,
+            clearance_mm,
+        )
+        if moved_neighbor_refs:
+            selected_candidate.placed_parts = placed_parts
+            selected_candidate.reasons.append(
+                "near-edge parts nudged clear of fixed-outline edge connectors"
+            )
+            for ref in moved_neighbor_refs:
+                selected_candidate.ref_reasons.setdefault(ref, []).append(
+                    "nudged clear of fixed-outline edge connector"
+                )
+
+    placed_parts = _apply_assembly_sides(placed_parts, intent_plan)
+    selected_candidate.placed_parts = placed_parts
 
     validation = validate(
         placed_parts,

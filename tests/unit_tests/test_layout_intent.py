@@ -157,6 +157,145 @@ def test_horizontal_35mm_audio_jack_is_edge_connector():
     assert any(face.ref == "J1" and face.edge == "right" for face in plan.face_edges)
 
 
+def test_eurorack_power_treats_audio_jacks_as_panel_subjects_with_single_sided_default():
+    plus12 = _Net("+12V")
+    minus12 = _Net("-12V")
+    gnd = _Net("GND")
+    sig = _Net("VCO_OUT")
+    power = _Part(
+        "J10",
+        name="Eurorack shrouded IDC power header",
+        footprint="Connector_IDC:IDC-Header_2x05_P2.54mm_Vertical",
+        nets=[plus12, minus12, gnd],
+        pins=10,
+    )
+    jack = _Part(
+        "J1",
+        name="3.5mm mono output jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    circuit = _Circuit([power, jack], [plus12, minus12, gnd, sig])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(40.0, 120.0))
+
+    assert "panel_jack" in _kinds(plan, "J1")
+    assert "front_panel_subject" in _kinds(plan, "J1")
+    assert "edge_connector" not in _kinds(plan, "J1")
+    assert all(anchor.ref != "J1" for anchor in plan.edge_anchors)
+    jack_mating = next(mating for mating in plan.mating_intents if mating.ref == "J1")
+    power_mating = next(mating for mating in plan.mating_intents if mating.ref == "J10")
+    assert jack_mating.kind == "panel_jack"
+    assert jack_mating.mating_side == "front_panel"
+    assert power_mating.kind == "eurorack_power"
+    assert any(anchor.ref == "J10" and anchor.edge == "bottom" for anchor in plan.edge_anchors)
+    assert any("Thonkiconn/PJ398" in warning for warning in plan.warnings)
+    assert plan.assembly_policy == "single_sided"
+    assert plan.assembly_sides["J1"] == "front"
+    assert plan.assembly_sides["J10"] == "front"
+    assert "front_assembly" in _kinds(plan, "J1")
+    assert "front_assembly" in _kinds(plan, "J10")
+    assert "back_assembly" not in _kinds(plan, "J10")
+    assert "assembly sides: front: 2" in plan.summary()
+    assert any("single_sided policy avoids" in warning for warning in plan.warnings)
+
+
+def test_eurorack_double_sided_policy_allows_rear_electronics():
+    plus12 = _Net("+12V")
+    minus12 = _Net("-12V")
+    gnd = _Net("GND")
+    sig = _Net("VCO_OUT")
+    power = _Part(
+        "J10",
+        name="Eurorack shrouded IDC power header",
+        footprint="Connector_IDC:IDC-Header_2x05_P2.54mm_Vertical",
+        nets=[plus12, minus12, gnd],
+        pins=10,
+    )
+    jack = _Part(
+        "J1",
+        name="3.5mm mono output jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    circuit = _Circuit([power, jack], [plus12, minus12, gnd, sig])
+
+    plan = infer_placement_intents(
+        circuit,
+        outline=BoardOutline(40.0, 120.0),
+        assembly_policy="double_sided",
+    )
+
+    assert plan.assembly_policy == "double_sided"
+    assert plan.assembly_sides["J1"] == "front"
+    assert plan.assembly_sides["J10"] == "back"
+    assert "front_assembly" in _kinds(plan, "J1")
+    assert "back_assembly" in _kinds(plan, "J10")
+    assert "assembly sides: back: 1, front: 1" in plan.summary()
+    assert not any("single_sided policy avoids" in warning for warning in plan.warnings)
+
+
+def test_explicit_part_assembly_side_requires_double_sided_policy_for_back():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    u1 = _Part(
+        "U1",
+        name="MCU",
+        footprint="Package_QFP:TQFP-32",
+        nets=[vcc, gnd],
+        pins=32,
+    )
+    u1.assembly_side = "back"
+    circuit = _Circuit([u1], [vcc, gnd])
+
+    single = infer_placement_intents(circuit, outline=BoardOutline(40.0, 30.0))
+    double = infer_placement_intents(
+        circuit,
+        outline=BoardOutline(40.0, 30.0),
+        assembly_policy="double_sided",
+    )
+
+    assert single.assembly_sides["U1"] == "front"
+    assert "front_assembly" in _kinds(single, "U1")
+    assert any("assembly_policy is single_sided" in warning for warning in single.warnings)
+    assert double.assembly_sides["U1"] == "back"
+    assert "back_assembly" in _kinds(double, "U1")
+
+
+def test_eurorack_defaults_respect_explicit_double_sided_part_side():
+    plus12 = _Net("+12V")
+    gnd = _Net("GND")
+    sig = _Net("VCO_OUT")
+    power = _Part(
+        "J10",
+        name="Eurorack power header",
+        footprint="Connector_IDC:IDC-Header_2x05_P2.54mm_Vertical",
+        nets=[plus12, gnd],
+        pins=10,
+    )
+    jack = _Part(
+        "J1",
+        name="3.5mm mono output jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ398SM_Vertical",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    jack.assembly_side = "back"
+    circuit = _Circuit([power, jack], [plus12, gnd, sig])
+
+    plan = infer_placement_intents(
+        circuit,
+        outline=BoardOutline(40.0, 120.0),
+        assembly_policy="double_sided",
+    )
+
+    assert plan.assembly_sides["J1"] == "back"
+    assert "back_assembly" in _kinds(plan, "J1")
+    assert plan.assembly_sides["J10"] == "back"
+
+
 def test_repeated_visible_parts_get_kind_grouped_array_constraints():
     gnd = _Net("GND")
     signal = _Net("SIG")

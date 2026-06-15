@@ -8,6 +8,7 @@ Output is exactly one JSON object on stdout.
 from __future__ import annotations
 
 import json
+import html
 import os
 import re
 import sys
@@ -49,6 +50,8 @@ PREVIEW_BACKGROUND = "#e7e7e3"
 PREVIEW_TERRACOTTA = "#A66A53"
 PREVIEW_SILKSCREEN = "#15110F"
 PREVIEW_EDGE_CUTS = "#4D4843"
+PREVIEW_BACK_OUTLINE = "#D8CEC8"
+PREVIEW_FRONT_FILL = "#DCC1B3"
 _KICAD_PREVIEW_COLOR_MAP = {
     "#C83434": PREVIEW_TERRACOTTA,
     "#D864FF": PREVIEW_TERRACOTTA,
@@ -271,6 +274,99 @@ def _brand_preview_svg(svg_path: Path) -> str | None:
             svg_path.write_text(branded, encoding="utf-8")
     except Exception as exc:
         return f"preview SVG recolor failed: {exc}"
+    return None
+
+
+def _part_mockup_bounds(placed, fp_bboxes: dict[str, tuple[float, float]]):
+    width, height = fp_bboxes.get(placed.footprint, (2.0, 2.0))
+    if placed.rot_deg % 180 == 90:
+        width, height = height, width
+    return (
+        placed.x_mm - width / 2,
+        placed.y_mm - height / 2,
+        width,
+        height,
+    )
+
+
+def _write_layout_mockup_svg(layout_result, out_dir: Path) -> str | None:
+    """Write a side-aware SVG placement mockup for human review."""
+    try:
+        outline = getattr(layout_result, "outline", None)
+        placed_parts = list(getattr(layout_result, "placed_parts", []) or [])
+        if outline is None or not placed_parts:
+            return "side-aware preview skipped: missing outline or placements"
+
+        fp_bboxes = getattr(layout_result, "fp_bboxes", {}) or {}
+        intent_plan = getattr(layout_result, "intent_plan", None)
+        sides = dict(getattr(intent_plan, "assembly_sides", {}) or {})
+
+        width = max(1.0, float(outline.width_mm))
+        height = max(1.0, float(outline.height_mm))
+        view_x = float(outline.x_min)
+        view_y = float(outline.y_min)
+        path = out_dir / "preview_assembly.svg"
+        lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            (
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="{width:.4f}mm" '
+                f'height="{height:.4f}mm" viewBox="{view_x:.4f} {view_y:.4f} '
+                f'{width:.4f} {height:.4f}">'
+            ),
+            "<title>Side-aware PCB assembly mockup</title>",
+            (
+                f'<rect x="{view_x:.4f}" y="{view_y:.4f}" width="{width:.4f}" '
+                f'height="{height:.4f}" rx="{getattr(outline, "corner_radius_mm", 0.0):.4f}" '
+                f'fill="{PREVIEW_BACKGROUND}" stroke="{PREVIEW_EDGE_CUTS}" '
+                'stroke-width="0.35"/>'
+            ),
+        ]
+
+        for placed in sorted(placed_parts, key=lambda p: str(p.ref)):
+            x, y, w, h = _part_mockup_bounds(placed, fp_bboxes)
+            ref = html.escape(str(placed.ref))
+            side = str(
+                sides.get(str(placed.ref), getattr(placed, "side", "front"))
+                or "front"
+            ).lower()
+            if side == "back":
+                fill = "none"
+                stroke = PREVIEW_BACK_OUTLINE
+                stroke_width = "0.45"
+                dash = ' stroke-dasharray="1.4 0.9"'
+                text_fill = PREVIEW_TERRACOTTA
+                text_opacity = "0.78"
+            elif side == "mechanical":
+                fill = "none"
+                stroke = PREVIEW_EDGE_CUTS
+                stroke_width = "0.35"
+                dash = ""
+                text_fill = PREVIEW_EDGE_CUTS
+                text_opacity = "0.48"
+            else:
+                fill = PREVIEW_FRONT_FILL
+                stroke = PREVIEW_TERRACOTTA
+                stroke_width = "0.42"
+                dash = ""
+                text_fill = PREVIEW_SILKSCREEN
+                text_opacity = "0.92"
+
+            lines.append(
+                f'<g data-ref="{ref}" data-side="{html.escape(side)}">'
+                f'<rect x="{x:.4f}" y="{y:.4f}" width="{w:.4f}" height="{h:.4f}" '
+                f'rx="{min(w, h, 1.2) * 0.16:.4f}" fill="{fill}" '
+                f'stroke="{stroke}" stroke-width="{stroke_width}"{dash}/>'
+                f'<text x="{placed.x_mm:.4f}" y="{placed.y_mm:.4f}" '
+                f'font-family="Arial, Helvetica, sans-serif" font-size="1.75" '
+                f'text-anchor="middle" dominant-baseline="central" '
+                f'fill="{text_fill}" opacity="{text_opacity}">{ref}</text>'
+                "</g>"
+            )
+
+        lines.append("</svg>")
+        path.write_text("\n".join(lines), encoding="utf-8")
+    except Exception as exc:
+        return f"side-aware preview failed: {exc}"
     return None
 
 
@@ -2255,7 +2351,10 @@ def _run_skidl_code(envelope: dict) -> dict:
     )
     constraints = LayoutConstraints(outline=outline)
     layout_result = plan_layout(
-        circuit, fp_lib_dirs=fp_dirs, constraints=constraints,
+        circuit,
+        fp_lib_dirs=fp_dirs,
+        constraints=constraints,
+        assembly_policy=envelope.get("assembly_policy"),
     )
     if outline_mm is None and layout_result.outline is not None:
         layout_result.outline.corner_radius_mm = _corner_radius_hint(
@@ -2323,6 +2422,11 @@ def _run_skidl_code(envelope: dict) -> dict:
                     manufacturable = True
 
     previews = _generate_board_previews(str(pcb_path), out_dir)
+    side_preview_warning = _write_layout_mockup_svg(layout_result, out_dir)
+    if side_preview_warning is None:
+        previews.setdefault("files", []).append("preview_assembly.svg")
+    else:
+        previews.setdefault("warnings", []).append(side_preview_warning)
 
     outputs = {
         "run_dir": str(out_dir),
@@ -2459,6 +2563,7 @@ def run(envelope: dict) -> dict:
         fp_lib_dirs=fp_dirs,
         constraints=constraints,
         board_layers=spec.board.layers,
+        assembly_policy=envelope.get("assembly_policy"),
     )
     if (
         spec.board.outline_hint_mm is None
@@ -2529,6 +2634,11 @@ def run(envelope: dict) -> dict:
                     manufacturable = True
 
     previews = _generate_board_previews(str(pcb_path), out_dir)
+    side_preview_warning = _write_layout_mockup_svg(layout_result, out_dir)
+    if side_preview_warning is None:
+        previews.setdefault("files", []).append("preview_assembly.svg")
+    else:
+        previews.setdefault("warnings", []).append(side_preview_warning)
 
     outputs = {
         "run_dir": str(out_dir),

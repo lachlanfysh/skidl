@@ -386,6 +386,7 @@ class TestWorkerOptionPassthrough:
                 "timeout_s": 600,
                 "route_timeout_s": 420,
                 "board_id": "route-timeout-test",
+                "assembly_policy": "double_sided",
             },
             "policy": {},
         }
@@ -395,6 +396,7 @@ class TestWorkerOptionPassthrough:
         assert seen["timeout_s"] == 600
         assert seen["route_timeout_s"] == 420
         assert seen["board_id"] == "route-timeout-test"
+        assert seen["assembly_policy"] == "double_sided"
 
 
 @needs_kicad
@@ -498,12 +500,14 @@ class TestFindArtifacts:
             png_bytes = b"\x89PNG\r\n\x1a\npreview"
             flat_png_bytes = b"\x89PNG\r\n\x1a\nflat-preview"
             (p / "preview_top.svg").write_text("<svg><text>pcb</text></svg>")
+            (p / "preview_assembly.svg").write_text("<svg><text>assembly</text></svg>")
             (p / "preview_top.png").write_bytes(png_bytes)
             (p / "preview_2d_top.png").write_bytes(flat_png_bytes)
 
             arts = _find_artifacts(p)
 
             assert arts["preview_top.svg"] == "<svg><text>pcb</text></svg>"
+            assert arts["preview_assembly.svg"] == "<svg><text>assembly</text></svg>"
             assert base64.b64decode(arts["preview_top.png"]) == png_bytes
             assert base64.b64decode(arts["preview_2d_top.png"]) == flat_png_bytes
 
@@ -520,6 +524,7 @@ class TestFindArtifacts:
             png_bytes = b"\x89PNG\r\n\x1a\npreview"
             flat_png_bytes = b"\x89PNG\r\n\x1a\nflat-preview"
             (p / "preview_top.svg").write_text("<svg><text>pcb</text></svg>")
+            (p / "preview_assembly.svg").write_text("<svg><text>assembly</text></svg>")
             (p / "preview_top.png").write_bytes(png_bytes)
             (p / "preview_2d_top.png").write_bytes(flat_png_bytes)
             (p / "bom.csv").write_text("Comment,Designator,Footprint,LCSC\nR,R1,0603,C1\n")
@@ -537,6 +542,7 @@ class TestFindArtifacts:
 
             with zipfile.ZipFile(BytesIO(base64.b64decode(arts["_board.zip"]))) as zf:
                 assert zf.read("preview_top.svg").decode() == "<svg><text>pcb</text></svg>"
+                assert zf.read("preview_assembly.svg").decode() == "<svg><text>assembly</text></svg>"
                 assert zf.read("preview_top.png") == png_bytes
                 assert zf.read("preview_2d_top.png") == flat_png_bytes
 
@@ -1405,7 +1411,8 @@ class TestAgentUX:
         for needle in (
             "get_job", "job_id", "Part()", "Net()", "footprint",
             "Library:Name", "POWER", "100nF", "eda://guide/skidl",
-            "timeout_s", "route_timeout_s", "LCSC", "manufacturing",
+            "timeout_s", "route_timeout_s", "assembly_policy",
+            "assembly_side", "LCSC", "manufacturing",
         ):
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
 

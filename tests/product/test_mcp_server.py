@@ -39,6 +39,7 @@ from mcp_server.engine_worker import (
     _outline_for_spec,
     _route_pcb,
     _run_pcbnew_child,
+    _write_layout_mockup_svg,
 )
 from mcp_server.pipeline import (
     _enrich_code_exceptions,
@@ -52,6 +53,8 @@ from mcp_server import worker as worker_mod
 from mcp_server.worker import _lcsc_refs_in_spec, _restore_lcsc_asset
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
+from skidl.layout.constraints import BoardOutline
+from skidl.layout.writer import PlacedPart
 
 
 SYM_DIR = "/usr/share/kicad/symbols"
@@ -169,6 +172,29 @@ class TestBoardPreviews:
         assert flattened.mode == "RGB"
         assert flattened.getpixel((0, 0)) == (231, 231, 227)
         assert flattened.getpixel((1, 0)) != (185, 101, 76)
+
+    def test_write_layout_mockup_svg_styles_back_side_parts(self, tmp_path):
+        layout_result = SimpleNamespace(
+            outline=BoardOutline(40.0, 30.0, corner_radius_mm=1.2),
+            placed_parts=[
+                PlacedPart("J1", 10.0, 12.0, 0.0, "Connector_Audio:Jack"),
+                PlacedPart("U1", 28.0, 16.0, 0.0, "Package:SOIC"),
+            ],
+            fp_bboxes={
+                "Connector_Audio:Jack": (8.0, 8.0),
+                "Package:SOIC": (6.0, 4.0),
+            },
+            intent_plan=SimpleNamespace(assembly_sides={"J1": "front", "U1": "back"}),
+        )
+
+        warning = _write_layout_mockup_svg(layout_result, tmp_path)
+
+        assert warning is None
+        svg = (tmp_path / "preview_assembly.svg").read_text(encoding="utf-8")
+        assert 'data-ref="J1" data-side="front"' in svg
+        assert 'data-ref="U1" data-side="back"' in svg
+        assert 'fill="none" stroke="#D8CEC8"' in svg
+        assert 'fill="#A66A53" opacity="0.78">U1</text>' in svg
 
     def test_generate_board_previews_writes_png_and_svg(self, monkeypatch, tmp_path):
         pcb_path = tmp_path / "board.kicad_pcb"

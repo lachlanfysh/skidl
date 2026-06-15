@@ -91,6 +91,21 @@ def _rects_overlap(a, b, clearance_mm: float = 0.0) -> bool:
     )
 
 
+def _assembly_side(pp: PlacedPart) -> str:
+    side = str(getattr(pp, "side", "front") or "front").lower()
+    if side not in {"front", "back", "mechanical"}:
+        return "front"
+    return side
+
+
+def _same_physical_side(a: PlacedPart, b: PlacedPart) -> bool:
+    a_side = _assembly_side(a)
+    b_side = _assembly_side(b)
+    if {a_side, b_side} == {"front", "back"}:
+        return False
+    return True
+
+
 def _check_overlaps(
     placed: list[PlacedPart],
     fp_bboxes: dict[str, tuple[float, float]],
@@ -110,12 +125,19 @@ def _check_overlaps(
             w = b[2] - b[0]
             h = b[3] - b[1]
             grid.insert(pp.ref, cx, cy, w, h)
-        return grid.all_overlapping_pairs(clearance=clearance_mm)
+        placed_by_ref = {pp.ref: pp for pp in placed}
+        return [
+            (a_ref, b_ref)
+            for a_ref, b_ref in grid.all_overlapping_pairs(clearance=clearance_mm)
+            if _same_physical_side(placed_by_ref[a_ref], placed_by_ref[b_ref])
+        ]
 
     overlaps = []
     for i, a in enumerate(placed):
         a_bounds = _placed_bounds(a, fp_bboxes, fp_geometries)
         for b in placed[i + 1:]:
+            if not _same_physical_side(a, b):
+                continue
             b_bounds = _placed_bounds(b, fp_bboxes, fp_geometries)
             if _rects_overlap(a_bounds, b_bounds, clearance_mm):
                 overlaps.append((a.ref, b.ref))

@@ -193,6 +193,49 @@ def test_write_minimal_pcb_footprint_count(tmp_path):
     assert len(footprints) == 2
 
 
+def test_write_back_side_part_flips_footprint_layers(tmp_path):
+    lib_root = _make_minimal_fp_lib(tmp_path)
+    circuit = _MockCircuit()
+
+    parts = [
+        PlacedPart(
+            ref="R1",
+            x_mm=10.0,
+            y_mm=10.0,
+            rot_deg=0.0,
+            footprint="TestLib:R_Test",
+            side="back",
+        ),
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+    write_kicad_pcb(parts, circuit, [lib_root], out)
+
+    board = Sexp(open(out).read())
+    footprint = list(board.search("footprint"))[0]
+    top_layer = next(child for child in footprint if isinstance(child, list) and child[0] == "layer")
+    reference = next(
+        prop
+        for prop in board.search("property")
+        if len(prop) > 2 and str(prop[1]).strip('"') == "Reference"
+    )
+    value = next(
+        prop
+        for prop in board.search("property")
+        if len(prop) > 2 and str(prop[1]).strip('"') == "Value"
+    )
+    ref_layer = next(child for child in reference if isinstance(child, list) and child[0] == "layer")
+    value_layer = next(child for child in value if isinstance(child, list) and child[0] == "layer")
+    pad_layers = [
+        next(child for child in pad if isinstance(child, list) and child[0] == "layers")
+        for pad in board.search("pad")
+    ]
+
+    assert str(top_layer[1]).strip('"') == "B.Cu"
+    assert str(ref_layer[1]).strip('"') == "B.SilkS"
+    assert str(value_layer[1]).strip('"') == "B.Fab"
+    assert all(str(layer[1]).strip('"') == "B.Cu" for layer in pad_layers)
+
+
 def test_write_minimal_pcb_net_declarations(tmp_path):
     lib_root = _make_minimal_fp_lib(tmp_path)
     nets = [_MockNet("VCC"), _MockNet("GND"), _MockNet("SIG")]

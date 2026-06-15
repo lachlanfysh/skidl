@@ -308,6 +308,12 @@ def _bounds_center(bounds) -> tuple[float, float]:
     return (bounds.x_min + bounds.x_max) / 2, (bounds.y_min + bounds.y_max) / 2
 
 
+def _clamp_axis(value: float, low: float, high: float) -> float:
+    if low > high:
+        return (low + high) / 2
+    return max(low, min(high, value))
+
+
 def _edge_anchor_position(
     anchor: EdgeAnchor,
     width: float,
@@ -338,6 +344,7 @@ def _edge_anchor_position(
 
     if edge in {"top", "bottom"}:
         x = anchor.offset_mm if anchor.offset_mm is not None else x_mid
+        x = _clamp_axis(x, outline.x_min + ew / 2, outline.x_max - ew / 2)
         y = (
             outline.y_min + eh / 2 + anchor.inset_mm
             if edge == "top"
@@ -350,6 +357,7 @@ def _edge_anchor_position(
             else outline.x_max - ew / 2 - anchor.inset_mm
         )
         y = anchor.offset_mm if anchor.offset_mm is not None else y_mid
+        y = _clamp_axis(y, outline.y_min + eh / 2, outline.y_max - eh / 2)
     else:
         raise ValueError(f"Unknown edge anchor '{anchor.edge}' for {anchor.ref}")
     return x, y, rot
@@ -400,6 +408,11 @@ def _edge_anchor_origin_position(
 
     if edge in {"top", "bottom"}:
         center_x = anchor.offset_mm if anchor.offset_mm is not None else x_mid
+        center_x = _clamp_axis(
+            center_x,
+            outline.x_min + ew / 2,
+            outline.x_max - ew / 2,
+        )
         origin_x = center_x - center_dx
         if edge == "top":
             origin_y = outline.y_min + anchor.inset_mm - by_min
@@ -408,6 +421,11 @@ def _edge_anchor_origin_position(
         center_y = origin_y + center_dy
     elif edge in {"left", "right"}:
         center_y = anchor.offset_mm if anchor.offset_mm is not None else y_mid
+        center_y = _clamp_axis(
+            center_y,
+            outline.y_min + eh / 2,
+            outline.y_max - eh / 2,
+        )
         origin_y = center_y - center_dy
         if edge == "left":
             origin_x = outline.x_min + anchor.inset_mm - bx_min

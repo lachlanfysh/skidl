@@ -14,7 +14,14 @@ from .constraints import (
     KeepOut,
     NearConstraint,
 )
-from .roles import GND_NET_RE, POWER_NET_RE, PartRole, classify_parts, pin_net_names
+from .roles import (
+    GND_NET_RE,
+    POWER_NET_RE,
+    PartRole,
+    classify_parts,
+    is_audio_jack_part,
+    pin_net_names,
+)
 
 
 CHANNEL_RE = re.compile(r"(?:^|[_/.-])(?:CH|CHAN|CHANNEL)(\d+)(?:[_/.-]|$)", re.I)
@@ -105,6 +112,8 @@ class PlacementIntentPlan:
     distribute_constraints: list[DistributeConstraint] = field(default_factory=list)
     repeated_channels: list[RepeatedChannelIntent] = field(default_factory=list)
     mating_intents: list[MatingIntent] = field(default_factory=list)
+    assembly_sides: dict[str, str] = field(default_factory=dict)
+    assembly_policy: str = "single_sided"
     backend_status: OptionalBackendStatus = field(default_factory=optional_backend_status)
     warnings: list[str] = field(default_factory=list)
 
@@ -150,11 +159,89 @@ class PlacementIntentPlan:
             lines.append(f"  mating intents: {len(self.mating_intents)}")
         if self.repeated_channels:
             lines.append(f"  repeated channel groups: {len(self.repeated_channels)}")
+        if self.assembly_sides:
+            counts: dict[str, int] = {}
+            for side in self.assembly_sides.values():
+                counts[side] = counts.get(side, 0) + 1
+            detail = ", ".join(f"{side}: {counts[side]}" for side in sorted(counts))
+            lines.append(f"  assembly sides: {detail}")
+        if self.assembly_policy != "single_sided":
+            lines.append(f"  assembly policy: {self.assembly_policy}")
         if self.warnings:
             lines.append("Warnings:")
             for warning in self.warnings[:20]:
                 lines.append(f"  {warning}")
         return "\n".join(lines)
+
+    def to_dict(self) -> dict:
+        return {
+            "intents": {
+                ref: [
+                    {
+                        "kind": intent.kind,
+                        "priority": intent.priority,
+                        "reasons": list(intent.reasons),
+                    }
+                    for intent in intents
+                ]
+                for ref, intents in self.intents.items()
+            },
+            "assembly_sides": dict(self.assembly_sides),
+            "assembly_policy": self.assembly_policy,
+            "warnings": list(self.warnings),
+        }
+
+
+def normalize_assembly_policy(value: object | None) -> str:
+    """Normalize MCP/layout assembly policy labels."""
+    text = str(value or "single_sided").strip().lower().replace("-", "_")
+    aliases = {
+        "single": "single_sided",
+        "single_side": "single_sided",
+        "one_sided": "single_sided",
+        "one_side": "single_sided",
+        "front_only": "single_sided",
+        "double": "double_sided",
+        "double_side": "double_sided",
+        "dual_sided": "double_sided",
+        "dual_side": "double_sided",
+        "two_sided": "double_sided",
+        "two_side": "double_sided",
+    }
+    text = aliases.get(text, text)
+    if text in {"single_sided", "double_sided"}:
+        return text
+    return "single_sided"
+
+
+def normalize_assembly_side(value: object | None) -> str | None:
+    """Normalize explicit per-part assembly side labels."""
+    text = str(value or "").strip().lower().replace("-", "_")
+    aliases = {
+        "f": "front",
+        "top": "front",
+        "component": "front",
+        "component_side": "front",
+        "b": "back",
+        "bottom": "back",
+        "rear": "back",
+        "solder": "back",
+        "solder_side": "back",
+        "mech": "mechanical",
+        "mounting": "mechanical",
+    }
+    text = aliases.get(text, text)
+    if text in {"front", "back", "mechanical"}:
+        return text
+    return None
+
+
+def _explicit_part_assembly_side(part) -> str | None:
+    for attr in ("assembly_side", "placement_side", "pcb_side", "side"):
+        side = normalize_assembly_side(getattr(part, attr, None))
+        if side is not None:
+            return side
+    return None
 
 
 def _part_text(part) -> str:
@@ -417,6 +504,123 @@ def _mating_intent_for_part(
             reasons=["LED/indicator metadata"],
         )
     return None
+
+
+def _has_eurorack_context(circuit, roles: dict[str, PartRole]) -> bool:
+    for part in circuit.parts:
+        ref = str(getattr(part, "ref", "") or "")
+        role = roles.get(ref)
+        text = _part_text(part)
+        nets = pin_net_names(part)
+        upper_nets = {net.upper() for net in nets}
+        has_eurorack_supply = bool(
+            upper_nets
+            & {
+                "+12V",
+                "-12V",
+                "EURORACK_+12V",
+                "EURORACK_-12V",
+            }
+        )
+        has_ground = any(GND_NET_RE.match(net) for net in nets)
+
+        if "eurorack" in text or "doepfer" in text:
+            return True
+        if (
+            role is not None
+            and role.role == "connector"
+            and has_eurorack_supply
+            and has_ground
+        ):
+            return True
+    return False
+
+
+def _apply_eurorack_audio_policy(
+    circuit,
+    roles: dict[str, PartRole],
+    plan: PlacementIntentPlan,
+) -> dict[str, PartRole]:
+    if not _has_eurorack_context(circuit, roles):
+        return roles
+
+    updated = dict(roles)
+    for part in circuit.parts:
+        if not is_audio_jack_part(part):
+            continue
+        ref = str(getattr(part, "ref", "") or "")
+        role = updated.get(ref)
+        if role is not None and role.role == "panel_jack":
+            continue
+        updated[ref] = PartRole(
+            ref=ref,
+            role="panel_jack",
+            confidence=max(0.88, getattr(role, "confidence", 0.0) if role else 0.0),
+            reasons=[
+                "Eurorack context treats 3.5mm audio jacks as panel-mounted",
+                "prefer Thonkiconn/PJ398 vertical jacks unless user specified edge-mount",
+            ],
+        )
+        plan.warnings.append(
+            f"{ref}: Eurorack context treats 3.5mm audio jacks as panel-mounted; "
+            "prefer Thonkiconn/PJ398 vertical footprints unless the human explicitly "
+            "asked for right-angle edge jacks."
+        )
+    return updated
+
+
+def _assign_eurorack_assembly_sides(
+    circuit,
+    roles: dict[str, PartRole],
+    plan: PlacementIntentPlan,
+    assembly_policy: str,
+) -> None:
+    if not _has_eurorack_context(circuit, roles):
+        return
+
+    policy = normalize_assembly_policy(assembly_policy)
+    plan.assembly_policy = policy
+    if policy == "single_sided":
+        plan.warnings.append(
+            "Eurorack single-board modules commonly use front-panel controls "
+            "with rear electronics. The single_sided policy avoids automatic "
+            "rear-side SMD placement to keep fabrication/assembly cost down; "
+            "choose run_options.assembly_policy='double_sided' only when that "
+            "mechanical stack is acceptable, or model a two-board module."
+        )
+
+    mating_by_ref = {mating.ref: mating for mating in plan.mating_intents}
+    for part in circuit.parts:
+        ref = str(getattr(part, "ref", "") or "")
+        if not ref:
+            continue
+        if ref in plan.assembly_sides:
+            continue
+        role = roles.get(ref)
+        role_name = role.role if role is not None else ""
+        text = _part_text(part)
+        mating = mating_by_ref.get(ref)
+
+        if role_name in {"panel_jack", "control"} or LED_RE.search(text):
+            plan.assembly_sides[ref] = "front"
+            _add_intent(plan, ref, "front_assembly", 86, "Eurorack panel-facing part")
+        elif role_name == "mounting_hole":
+            plan.assembly_sides[ref] = "mechanical"
+        elif policy != "double_sided":
+            plan.assembly_sides[ref] = "front"
+            _add_intent(
+                plan,
+                ref,
+                "front_assembly",
+                62,
+                "single-sided assembly policy avoids rear-side SMD cost",
+            )
+        else:
+            plan.assembly_sides[ref] = "back"
+            reason = "Eurorack rear-side internal/power/electronics part"
+            if mating is not None and mating.kind == "eurorack_power":
+                reason = "Eurorack rear-side power header"
+            _add_intent(plan, ref, "back_assembly", 80, reason)
 
 
 def _is_panel_subject(ref: str, roles: dict[str, PartRole], plan: PlacementIntentPlan) -> bool:
@@ -1241,12 +1445,15 @@ def infer_placement_intents(
     circuit,
     outline=None,
     backend_status: OptionalBackendStatus | None = None,
+    assembly_policy: str | None = None,
 ) -> PlacementIntentPlan:
     """Infer first-draft placement intent from schematic roles and net names."""
     plan = PlacementIntentPlan(
+        assembly_policy=normalize_assembly_policy(assembly_policy),
         backend_status=backend_status or optional_backend_status()
     )
     roles = classify_parts(circuit)
+    roles = _apply_eurorack_audio_policy(circuit, roles, plan)
     mounting_refs: list[str] = []
 
     for part in circuit.parts:
@@ -1254,6 +1461,22 @@ def infer_placement_intents(
         role = roles.get(ref)
         text = _part_text(part)
         nets = pin_net_names(part)
+        explicit_side = _explicit_part_assembly_side(part)
+        if explicit_side is not None:
+            side = explicit_side
+            if side == "back" and plan.assembly_policy != "double_sided":
+                side = "front"
+                plan.warnings.append(
+                    f"{ref}: explicit back-side assembly request ignored because "
+                    "assembly_policy is single_sided; choose "
+                    "run_options.assembly_policy='double_sided' before placing "
+                    "parts on the back."
+                )
+            plan.assembly_sides[ref] = side
+            if side == "front":
+                _add_intent(plan, ref, "front_assembly", 92, "explicit part.assembly_side")
+            elif side == "back":
+                _add_intent(plan, ref, "back_assembly", 92, "explicit part.assembly_side")
         mating_intent = _mating_intent_for_part(ref, text, role, nets)
         if mating_intent is not None:
             plan.mating_intents.append(mating_intent)
@@ -1343,6 +1566,7 @@ def infer_placement_intents(
     _colocate_display_and_controls(plan, outline)
     _place_opposing_header_pair(plan)
     _place_mounting_holes(plan, mounting_refs, outline)
+    _assign_eurorack_assembly_sides(circuit, roles, plan, plan.assembly_policy)
     _arrange_array_subjects(plan, roles, outline)
     _spread_edge_anchor_offsets(plan, outline)
     return plan

@@ -75,6 +75,7 @@ class PlacedPart:
     y_mm: float
     rot_deg: float
     footprint: str  # "Library:Name" format
+    side: str = "front"
 
 
 def _part_uuid(part) -> str:
@@ -307,6 +308,41 @@ def _sanitize_layer_nodes(fp: Sexp):
                 node[:] = ["layers"] + [_q(layer) for layer in layers]
 
 
+_SIDE_LAYER_SWAP = {
+    "F.Cu": "B.Cu",
+    "B.Cu": "F.Cu",
+    "F.Adhes": "B.Adhes",
+    "B.Adhes": "F.Adhes",
+    "F.Paste": "B.Paste",
+    "B.Paste": "F.Paste",
+    "F.SilkS": "B.SilkS",
+    "B.SilkS": "F.SilkS",
+    "F.Mask": "B.Mask",
+    "B.Mask": "F.Mask",
+    "F.CrtYd": "B.CrtYd",
+    "B.CrtYd": "F.CrtYd",
+    "F.Fab": "B.Fab",
+    "B.Fab": "F.Fab",
+}
+
+
+def _flip_layer_name(layer: str) -> str:
+    return _SIDE_LAYER_SWAP.get(str(layer).strip('"'), str(layer).strip('"'))
+
+
+def _place_footprint_on_back(fp: Sexp) -> None:
+    for node in _walk_nodes(fp):
+        if not node:
+            continue
+        if node[0] == "layer" and len(node) > 1:
+            node[1] = _q(_flip_layer_name(node[1]))
+        elif node[0] == "layers":
+            node[1:] = [
+                _q(_flip_layer_name(layer))
+                for layer in node[1:]
+            ]
+
+
 def _ensure_uuid(node, seed: str):
     if _find_child(node, "uuid") is None:
         node.append(Sexp(["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, seed))]))
@@ -471,6 +507,8 @@ def _place_footprint(
 ) -> Sexp:
     fp = copy.deepcopy(fp_sexp)
     _prepare_footprint_for_board(fp, fp_uuid)
+    if str(getattr(pp, "side", "front") or "front").lower() == "back":
+        _place_footprint_on_back(fp)
 
     at_val = [pp.x_mm, pp.y_mm]
     if pp.rot_deg:

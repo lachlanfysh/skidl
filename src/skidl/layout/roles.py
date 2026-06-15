@@ -89,11 +89,16 @@ def pin_net_names(part) -> list[str]:
     return names
 
 
+def is_audio_jack_part(part) -> bool:
+    text = _part_text(part)
+    return bool(AUDIO_JACK_RE.search(text) and not POWER_JACK_RE.search(text))
+
+
 def is_ui_grid_part(part) -> bool:
     """Return true for parts whose panel/front-face grid should be authoritative."""
     prefix = _ref_prefix(part)
     text = _part_text(part)
-    if AUDIO_JACK_RE.search(text) and not POWER_JACK_RE.search(text):
+    if is_audio_jack_part(part):
         return True
     if prefix in {"SW", "S", "RV", "POT"} or PANEL_CONTROL_RE.search(text):
         return True
@@ -143,7 +148,7 @@ def classify_part(part) -> PartRole:
         reasons.append("panel/user-control reference or metadata")
         return PartRole(ref, "control", 0.85, reasons)
 
-    if AUDIO_JACK_RE.search(text) and not POWER_JACK_RE.search(text):
+    if is_audio_jack_part(part):
         if PANEL_JACK_RE.search(text) and not EDGE_AUDIO_JACK_RE.search(text):
             reasons.append("panel/audio jack metadata")
             return PartRole(ref, "panel_jack", 0.9, reasons)

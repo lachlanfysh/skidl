@@ -11,7 +11,7 @@ from skidl.layout.constraints import (
     LayoutConstraints,
     NearConstraint,
 )
-from skidl.layout.engine import LayoutResult, _footprint_names, plan_layout
+from skidl.layout.engine import LayoutResult, _footprint_names, _placed_bounds, plan_layout
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
 from skidl.layout.placer import derive_outline
 
@@ -250,6 +250,87 @@ def test_plan_layout_keeps_inferred_pin_header_on_auto_outline_edge():
         warning.startswith("J1: violates") or "J1: connector row" in warning
         for warning in result.score.warnings
     )
+
+
+def test_plan_layout_clamps_geometry_backed_edge_header_inside_outline(monkeypatch):
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    sig = _Net("SDA")
+    j1 = _Part(
+        "J1",
+        name="pin header",
+        footprint="Connector:PinHeader_1x06",
+        nets=[vcc, gnd, sig],
+        pins=6,
+    )
+    circuit = _Circuit([j1], [vcc, gnd, sig])
+    outline = BoardOutline(20.0, 20.0)
+    geometries = {
+        "Connector:PinHeader_1x06": FootprintGeometry(
+            footprint="Connector:PinHeader_1x06",
+            courtyard_bounds=(0.0, 0.0, 2.54, 15.24),
+        ),
+    }
+    monkeypatch.setattr(
+        "skidl.layout.engine._resolve_geometries",
+        lambda circuit, fp_lib_dirs: geometries,
+    )
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=outline,
+            edge_anchors=[EdgeAnchor("J1", "bottom", offset_mm=19.5)],
+        ),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    bounds = _placed_bounds(placed["J1"], BBOXES, geometries)
+
+    assert bounds[0] >= outline.x_min - 1e-6
+    assert bounds[2] <= outline.x_max + 1e-6
+    assert bounds[3] == pytest.approx(outline.y_max - 0.5)
+    assert placed["J1"].rot_deg == 90.0
+
+
+def test_plan_layout_stamps_eurorack_front_back_sides_on_placements():
+    plus12 = _Net("+12V")
+    minus12 = _Net("-12V")
+    gnd = _Net("GND")
+    sig = _Net("OUT")
+    power = _Part(
+        "J10",
+        name="Eurorack power header",
+        footprint="Connector:PinHeader_1x06",
+        nets=[plus12, minus12, gnd],
+        pins=6,
+    )
+    jack = _Part(
+        "J1",
+        name="3.5mm mono output jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    circuit = _Circuit([power, jack], [plus12, minus12, gnd, sig])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=BoardOutline(40.0, 120.0)),
+        assembly_policy="double_sided",
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    layout = result.to_dict()
+    sides = {part["ref"]: part["side"] for part in layout["placed_parts"]}
+
+    assert placed["J1"].side == "front"
+    assert placed["J10"].side == "back"
+    assert sides["J1"] == "front"
+    assert sides["J10"] == "back"
+    assert layout["intent_plan"]["assembly_sides"]["J10"] == "back"
 
 
 def test_plan_layout_places_two_generic_headers_on_opposing_edges():

@@ -245,8 +245,17 @@ async def submit_skidl_code(
     design_intent: optional original user/design request. Include it so the
       server can warn when the code appears to omit requested features such as
       USB-C, STEMMA/Qwiic, I2C/SPI, LiPo charging, regulators, or shunts.
-    run_options: {"timeout_s": 300, "route_timeout_s": 120} — raise
-      timeout_s for complex boards, route_timeout_s after ROUTE_TIMEOUT.
+    run_options: {"timeout_s": 300, "route_timeout_s": 120,
+      "assembly_policy": "single_sided"} — raise timeout_s for complex
+      boards, route_timeout_s after ROUTE_TIMEOUT. Choose assembly_policy
+      up front: "single_sided" avoids automatic rear-side SMD placement and
+      is the cost-preserving default; "double_sided" allows front-panel
+      controls with rear electronics when the human accepts the extra
+      fabrication/assembly cost. For Eurorack, ask/decide whether this is a
+      single-board dual-sided module or a two-board panel/main-board stack.
+      If double_sided is chosen, set `part.assembly_side = "front"` or
+      `"back"` on parts where the side matters; do not use the back merely
+      as a squeezing/autorouting escape hatch.
       For layout overlap/outline/congestion feedback, prefer improving
       grouping, connector choices, and outline_mm before resubmitting.
 
@@ -255,16 +264,17 @@ async def submit_skidl_code(
     if not code or not code.strip():
         raise ValueError("code must be non-empty SKiDL Python source.")
 
+    opts = dict(run_options or {})
     job_spec = {
         "_mode": "skidl_python",
         "code": code,
         "board_name": board_name or "board",
         "outline_mm": outline_mm,
         "corner_radius_mm": corner_radius_mm,
+        "assembly_policy": opts.get("assembly_policy"),
         "design_intent": design_intent or "",
         "kicad_version": kicad_version or "9",
     }
-    opts = dict(run_options or {})
     job_id = await db.create_job(job_spec, opts)
     return {
         "job_id": job_id,
@@ -722,8 +732,9 @@ async def get_run(run_id: str) -> dict:
 
     artifacts contains .kicad_sch and .kicad_pcb file contents. It may also
     contain preview_2d_top.png (base64 flat 2D board preview for human review),
-    preview_top.svg (2D vector source), and preview_top.png (base64 KiCad 3D
-    render when available). When the board passes routing, DRC, and
+    preview_top.svg (2D vector source), preview_assembly.svg (side-aware
+    front/back placement mockup), and preview_top.png (base64 KiCad 3D render
+    when available). When the board passes routing, DRC, and
     manufacturing export, files also include:
     bom.csv (JLCPCB BOM with LCSC part numbers), cpl.csv (pick-and-place),
     and Gerber/drill files in the zip.
@@ -751,14 +762,21 @@ async def get_run(run_id: str) -> dict:
     )
     has_preview = any(
         name in artifacts
-        for name in ("preview_2d_top.png", "preview_top.svg", "preview_top.png")
+        for name in (
+            "preview_2d_top.png",
+            "preview_assembly.svg",
+            "preview_top.svg",
+            "preview_top.png",
+        )
     )
     preview_note = ""
     if has_preview:
         preview_note = (
             " Human-review previews are included: show preview_2d_top.png first "
-            "for the flat 2D board view, use preview_top.svg as the vector "
-            "source, or preview_top.png for the KiCad 3D render when present. "
+            "for the flat 2D board view, use preview_assembly.svg when "
+            "front/back assembly side assumptions matter, preview_top.svg as "
+            "the KiCad vector source, or preview_top.png for the KiCad 3D render "
+            "when present. "
             "After the human reviews the image, call submit_human_feedback() "
             "before revising and resubmitting."
         )
@@ -818,7 +836,7 @@ async def submit_human_feedback(
     """Record human review feedback for a generated PCB run.
 
     Use this after get_run() and after showing the human preview_2d_top.png
-    (preferred), preview_top.svg, or preview_top.png. This is the ask-human
+    (preferred), preview_assembly.svg, preview_top.svg, or preview_top.png. This is the ask-human
     turn: preserve what the human said before you revise SKiDL code and
     resubmit a new run.
 
@@ -830,7 +848,8 @@ async def submit_human_feedback(
     Parameters:
     - run_id: run being reviewed, from get_job()/get_run().
     - feedback: human's natural-language visual/design feedback.
-    - target_artifact: artifact shown to the human, usually preview_2d_top.png.
+    - target_artifact: artifact shown to the human, usually preview_2d_top.png
+      or preview_assembly.svg when assembly side/front-back placement matters.
     - labels: optional short tags such as ["placement", "silkscreen", "outline"].
     - suggested_action: optional agent interpretation of the next edit.
     - metadata: optional small structured context; do not include secrets.
@@ -857,7 +876,12 @@ async def submit_human_feedback(
         "suggested_action": action,
         "artifact_exists": artifact in artifacts,
         "available_preview_artifacts": [
-            name for name in ("preview_2d_top.png", "preview_top.svg", "preview_top.png")
+            name for name in (
+                "preview_2d_top.png",
+                "preview_assembly.svg",
+                "preview_top.svg",
+                "preview_top.png",
+            )
             if name in artifacts
         ],
     }
@@ -1433,9 +1457,9 @@ Ask or decide these points before choosing a jack:
   and pin-name confusion.
 - **Mounting**: through-hole is stronger and easier to hand solder; SMD is
   lower profile but mechanically weaker unless the footprint has support tabs.
-- **Orientation**: horizontal/right-angle is edge-facing for panels and
-  enclosures; vertical points out of the board face and usually should not be
-  used for a panel edge.
+- **Orientation**: horizontal/right-angle is edge-facing for enclosures;
+  vertical points out of the board face and is usually the right choice for
+  Eurorack/control-panel PCBs that sit behind a panel.
 - **Panel/edge constraint**: jacks, USB-C, switches, pots, and screw terminals
   normally belong on a board edge. Keep mating parts on the same edge when
   the product has a panel.
@@ -1466,8 +1490,22 @@ Common KiCad symbol patterns:
   those are backplane/card connectors, not 5-pin MIDI panel connectors.
 
 If the request does not specify jack style, make the choice visible in your
-final report. For product/panel boards, prefer edge-facing through-hole jacks
-unless there is a reason to choose SMD or vertical.
+final report. For enclosure-edge products, prefer edge-facing through-hole
+jacks unless there is a reason to choose SMD or vertical.
+
+For Eurorack or synth module boards with a Eurorack/Doepfer/IDC power header,
+prefer Thonkiconn/PJ398-style vertical panel jacks. Do not choose horizontal
+PJ320/right-angle edge jacks for Eurorack unless the human explicitly asks for
+edge-mounted jacks or a non-standard mechanical stack.
+
+For Eurorack panel/control boards, decide the assembly stack before submitting:
+single-board Eurorack often wants front-facing jacks/pots/switches/LEDs and
+rear-facing power/electronics, but that is a double-sided assembly choice and
+can add cost. If the human prefers single-sided assembly, keep SMD/electronics
+on one side or model a two-board panel/main-board stack. State this choice in
+`run_options.assembly_policy` and your final report. When double-sided is
+chosen, set `part.assembly_side = "front"` for panel-facing controls/jacks/LEDs
+and `"back"` for rear-facing power/electronics where the side matters.
 
 ## USB-C receptacles
 
@@ -1899,14 +1937,33 @@ is a routed board when routing succeeds.
 |---|---|---|
 | timeout_s | 300 | raise to 600-1500 for dense boards or slow autorouting |
 | route_timeout_s | 120 | raise to 300-900 after ROUTE_TIMEOUT; must stay below timeout_s |
+| assembly_policy | "single_sided" | set "double_sided" only after deciding the human accepts rear-side assembly cost |
 | board_id | none | telemetry label for tracking related runs |
+
+Choose `assembly_policy` before submitting. The default `"single_sided"` keeps
+SMD/electronics on the front where possible and avoids using the back as an
+easy placement escape hatch. `"double_sided"` allows front-panel controls with
+rear electronics, which is often mechanically right for a single-board
+Eurorack module but can add fabrication/assembly cost. If a Eurorack design
+asks for single-sided assembly, either keep the board genuinely single-sided or
+model a two-board panel/main-board stack rather than silently moving SMD parts
+to the back.
+
+`assembly_policy` is the board-level cost/permission gate. It is not the whole
+floorplan. If `"double_sided"` is chosen, be opinionated about sides by setting
+`part.assembly_side = "front"` or `"back"` for mechanically meaningful parts.
+For Eurorack, strongly prefer front controls/jacks/LEDs and rear
+power/electronics on single-board modules. For other boards, use the back only
+when it serves a real mechanical, connector, thermal, shielding, or packaging
+reason; otherwise keep the design single-sided and cheaper.
 
 ## Layout feedback
 
 - LAYOUT_OVERLAP, LAYOUT_OUTLINE_VIOLATION, and HIGH_CONGESTION are usually
   placement/constraint feedback, not schematic failures.
 - When `get_run()` returns `preview_2d_top.png`, show it to the human before
-  claiming the board is visually acceptable. If they give feedback, immediately
+  claiming the board is visually acceptable. If front/back assembly side matters,
+  also show `preview_assembly.svg`. If they give feedback, immediately
   call `submit_human_feedback(run_id, feedback, target_artifact="preview_2d_top.png")`
   to record the review turn, then edit the SKiDL source or run options and
   resubmit.

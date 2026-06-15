@@ -30,6 +30,28 @@ def test_overlap_detected():
     assert set(pair) == {"R1", "R2"}
 
 
+def test_front_and_back_parts_may_share_xy_without_overlap():
+    parts = [
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805", side="front"),
+        PlacedPart("R2", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805", side="back"),
+    ]
+
+    result = validate(parts, None, BBOXES_0805)
+
+    assert result.overlaps == []
+
+
+def test_mechanical_parts_still_overlap_front_or_back_parts():
+    parts = [
+        PlacedPart("H1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805", side="mechanical"),
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805", side="back"),
+    ]
+
+    result = validate(parts, None, BBOXES_0805)
+
+    assert result.overlaps == [("H1", "R1")]
+
+
 def test_clearance_boundary():
     # Parts just outside clearance — width 2.0 each, so gap needed = 2.0 + 0.5 = 2.5
     # At x-distance of 2.6 they should be clear
