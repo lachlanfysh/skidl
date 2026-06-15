@@ -110,6 +110,67 @@ def test_spreads_multiple_connectors_on_same_edge():
     assert all(0.0 < offset < 60.0 for offset in offsets)
 
 
+def test_explicit_edge_preference_overrides_generic_connector_inference():
+    sig = _Net("SIG")
+    gnd = _Net("GND")
+    power = _Part(
+        "J1",
+        name="9V barrel power input",
+        footprint="Connector:BarrelJack",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    output = _Part(
+        "J2",
+        name="audio output header",
+        footprint="Connector:PinHeader_1x02",
+        nets=[sig, gnd],
+        pins=2,
+    )
+    power.edge_preference = "top"
+    power.edge_offset_mm = 20.0
+    output.edge_preference = "right"
+    circuit = _Circuit([power, output], [sig, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+
+    anchors = {anchor.ref: anchor for anchor in plan.edge_anchors}
+    assert anchors["J1"].edge == "top"
+    assert anchors["J1"].offset_mm == 20.0
+    assert anchors["J2"].edge == "right"
+    assert "explicit_edge_anchor" in _kinds(plan, "J1")
+    assert "explicit_edge_anchor" in _kinds(plan, "J2")
+    assert any(face.ref == "J1" and face.edge == "top" for face in plan.face_edges)
+
+
+def test_explicit_edges_prevent_opposing_header_pair_rewrite():
+    sig = _Net("SIG")
+    gnd = _Net("GND")
+    input_header = _Part(
+        "J1",
+        name="pedal input header",
+        footprint="Connector:PinHeader_1x02",
+        nets=[sig, gnd],
+        pins=2,
+    )
+    output_header = _Part(
+        "J2",
+        name="pedal output header",
+        footprint="Connector:PinHeader_1x02",
+        nets=[sig, gnd],
+        pins=2,
+    )
+    input_header.edge_preference = "top"
+    output_header.edge_preference = "bottom"
+    circuit = _Circuit([input_header, output_header], [sig, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+
+    anchors = {anchor.ref: anchor for anchor in plan.edge_anchors}
+    assert anchors["J1"].edge == "top"
+    assert anchors["J2"].edge == "bottom"
+
+
 def test_infers_board_ui_mating_intent():
     gnd = _Net("GND")
     button = _Part(

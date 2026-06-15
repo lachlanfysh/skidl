@@ -1412,9 +1412,32 @@ class TestAgentUX:
             "get_job", "job_id", "Part()", "Net()", "footprint",
             "Library:Name", "POWER", "100nF", "eda://guide/skidl",
             "timeout_s", "route_timeout_s", "assembly_policy",
-            "assembly_side", "LCSC", "manufacturing",
+            "assembly_side", "edge_preference", "LCSC", "manufacturing",
         ):
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
+
+    @pytest.mark.asyncio
+    async def test_submit_skidl_code_stores_effective_assembly_policy(self, monkeypatch):
+        from mcp_server import server_http
+
+        seen = {}
+
+        async def fake_create_job(spec, options, parent_job_id=None):
+            seen["spec"] = spec
+            seen["options"] = options
+            seen["parent_job_id"] = parent_job_id
+            return "job-default-policy"
+
+        monkeypatch.setattr(server_http.db, "create_job", fake_create_job)
+
+        result = await server_http.submit_skidl_code(
+            "from skidl import *",
+            board_name="policy-board",
+        )
+
+        assert result["job_id"] == "job-default-policy"
+        assert seen["spec"]["assembly_policy"] == "single_sided"
+        assert seen["options"]["assembly_policy"] == "single_sided"
 
     @pytest.mark.asyncio
     async def test_submit_human_feedback_teaches_review_turn(self):

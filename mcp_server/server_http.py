@@ -51,6 +51,27 @@ mcp = FastMCP(
 db = DB()
 
 
+def _normalize_assembly_policy(value: object | None) -> str:
+    text = str(value or "single_sided").strip().lower().replace("-", "_")
+    aliases = {
+        "single": "single_sided",
+        "single_side": "single_sided",
+        "one_sided": "single_sided",
+        "one_side": "single_sided",
+        "front_only": "single_sided",
+        "double": "double_sided",
+        "double_side": "double_sided",
+        "dual_sided": "double_sided",
+        "dual_side": "double_sided",
+        "two_sided": "double_sided",
+        "two_side": "double_sided",
+    }
+    text = aliases.get(text, text)
+    if text in {"single_sided", "double_sided"}:
+        return text
+    return "single_sided"
+
+
 def _validate_spec(input_spec: dict | str) -> CircuitSpec:
     """Validate input_spec and raise ValueError with clean, actionable messages."""
     if isinstance(input_spec, str):
@@ -256,6 +277,9 @@ async def submit_skidl_code(
       If double_sided is chosen, set `part.assembly_side = "front"` or
       `"back"` on parts where the side matters; do not use the back merely
       as a squeezing/autorouting escape hatch.
+      For enclosure semantics, set `part.edge_preference = "left"`, "right",
+      "top", or "bottom" on connectors/headers that must face a specific
+      side; optional `part.edge_offset_mm` sets the along-edge position.
       For layout overlap/outline/congestion feedback, prefer improving
       grouping, connector choices, and outline_mm before resubmitting.
 
@@ -265,13 +289,15 @@ async def submit_skidl_code(
         raise ValueError("code must be non-empty SKiDL Python source.")
 
     opts = dict(run_options or {})
+    assembly_policy = _normalize_assembly_policy(opts.get("assembly_policy"))
+    opts["assembly_policy"] = assembly_policy
     job_spec = {
         "_mode": "skidl_python",
         "code": code,
         "board_name": board_name or "board",
         "outline_mm": outline_mm,
         "corner_radius_mm": corner_radius_mm,
-        "assembly_policy": opts.get("assembly_policy"),
+        "assembly_policy": assembly_policy,
         "design_intent": design_intent or "",
         "kicad_version": kicad_version or "9",
     }
@@ -1793,6 +1819,12 @@ Connection syntax rules:
 - Do not put a function call or temporary expression on the left side of `+=`.
 - Do not use `Net("X") + part["PIN"]`; create `x = Net("X")`, then `x += part["PIN"]`.
 
+Mechanical placement hints:
+- `part.assembly_side = "front"` or `"back"` for explicit side choices.
+- `part.edge_preference = "left" | "right" | "top" | "bottom"` for
+  enclosure-facing connectors such as pedal input/output/power or desktop
+  instrument I/O. Optional `part.edge_offset_mm` sets the along-edge position.
+
 ## KiCad library names (NOT manufacturer names)
 
 Common libraries — use search_kicad() for anything not listed here:
@@ -1956,6 +1988,13 @@ For Eurorack, strongly prefer front controls/jacks/LEDs and rear
 power/electronics on single-board modules. For other boards, use the back only
 when it serves a real mechanical, connector, thermal, shielding, or packaging
 reason; otherwise keep the design single-sided and cheaper.
+
+Use `part.edge_preference = "left" | "right" | "top" | "bottom"` when the
+human or product implies a specific side. This is important for enclosure and
+panel work: guitar pedals usually want input left, output right, power top, and
+footswitch bottom; desktop instruments often want audio/MIDI on rear/side
+edges and controls on the front panel. Optional `part.edge_offset_mm` sets the
+position along that edge in mm.
 
 ## Layout feedback
 

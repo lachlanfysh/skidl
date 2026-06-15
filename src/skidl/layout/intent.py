@@ -236,11 +236,53 @@ def normalize_assembly_side(value: object | None) -> str | None:
     return None
 
 
+def normalize_board_edge(value: object | None) -> str | None:
+    """Normalize explicit per-part board-edge labels."""
+    text = str(value or "").strip().lower().replace("-", "_")
+    aliases = {
+        "north": "top",
+        "upper": "top",
+        "south": "bottom",
+        "lower": "bottom",
+        "west": "left",
+        "east": "right",
+    }
+    text = aliases.get(text, text)
+    if text in {"top", "bottom", "left", "right"}:
+        return text
+    return None
+
+
 def _explicit_part_assembly_side(part) -> str | None:
     for attr in ("assembly_side", "placement_side", "pcb_side", "side"):
         side = normalize_assembly_side(getattr(part, attr, None))
         if side is not None:
             return side
+    return None
+
+
+def _explicit_part_edge_anchor(part) -> tuple[str, float | None] | None:
+    for attr in (
+        "edge_preference",
+        "edge_anchor",
+        "placement_edge",
+        "board_edge",
+        "mating_edge",
+    ):
+        edge = normalize_board_edge(getattr(part, attr, None))
+        if edge is None:
+            continue
+        offset = None
+        for offset_attr in ("edge_offset_mm", "placement_offset_mm"):
+            raw = getattr(part, offset_attr, None)
+            if raw is None:
+                continue
+            try:
+                offset = float(raw)
+            except (TypeError, ValueError):
+                offset = None
+            break
+        return edge, offset
     return None
 
 
@@ -1346,6 +1388,11 @@ def _place_opposing_header_pair(plan: PlacementIntentPlan) -> None:
         return
 
     refs = sorted(intent.ref for intent in pin_headers)
+    if any(
+        "explicit_edge_anchor" in {i.kind for i in plan.intents_for(ref)}
+        for ref in refs
+    ):
+        return
     existing = {
         anchor.ref: anchor
         for anchor in plan.edge_anchors
@@ -1394,15 +1441,24 @@ def _spread_edge_anchor_offsets(plan: PlacementIntentPlan, outline=None) -> None
         if length <= 0:
             continue
 
-        anchors.sort(key=lambda anchor: anchor.ref)
+        explicit_refs = set(plan.refs_with_kind("explicit_edge_anchor"))
+        movable = [
+            anchor
+            for anchor in anchors
+            if not (anchor.ref in explicit_refs and anchor.offset_mm is not None)
+        ]
+        movable.sort(key=lambda anchor: anchor.ref)
+        if not movable:
+            continue
         if len(anchors) == 1:
-            anchors[0].offset_mm = start + length / 2
+            if movable[0].offset_mm is None:
+                movable[0].offset_mm = start + length / 2
             continue
 
         pad = min(max(length * 0.12, 5.0), length * 0.30)
         usable = max(0.0, length - 2 * pad)
-        step = usable / max(1, len(anchors) - 1)
-        for idx, anchor in enumerate(anchors):
+        step = usable / max(1, len(movable) - 1)
+        for idx, anchor in enumerate(movable):
             anchor.offset_mm = start + pad + step * idx
 
 
@@ -1462,6 +1518,7 @@ def infer_placement_intents(
         text = _part_text(part)
         nets = pin_net_names(part)
         explicit_side = _explicit_part_assembly_side(part)
+        explicit_edge = _explicit_part_edge_anchor(part)
         if explicit_side is not None:
             side = explicit_side
             if side == "back" and plan.assembly_policy != "double_sided":
@@ -1486,7 +1543,7 @@ def infer_placement_intents(
                 "mechanical_mating",
                 88,
                 f"{mating_intent.kind} mating intent",
-            )
+                )
             if mating_intent.edge_preference is not None:
                 plan.face_edges.append(
                     FaceEdgeConstraint(ref=ref, edge=mating_intent.edge_preference)
@@ -1504,6 +1561,32 @@ def infer_placement_intents(
                 plan.edge_anchors.append(
                     EdgeAnchor(ref=ref, edge=edge, offset_mm=offset)
                 )
+
+        if explicit_edge is not None:
+            edge, offset = explicit_edge
+            if offset is None and outline is not None:
+                if edge in {"top", "bottom"}:
+                    offset = (outline.x_min + outline.x_max) / 2
+                else:
+                    offset = (outline.y_min + outline.y_max) / 2
+            plan.edge_anchors = [
+                anchor for anchor in plan.edge_anchors if anchor.ref != ref
+            ]
+            plan.face_edges = [
+                face_edge for face_edge in plan.face_edges if face_edge.ref != ref
+            ]
+            plan.edge_anchors.append(EdgeAnchor(ref=ref, edge=edge, offset_mm=offset))
+            plan.face_edges.append(FaceEdgeConstraint(ref=ref, edge=edge))
+            for mating in plan.mating_intents:
+                if mating.ref == ref:
+                    mating.edge_preference = edge
+            _add_intent(
+                plan,
+                ref,
+                "explicit_edge_anchor",
+                94,
+                f"explicit part edge preference: {edge}",
+            )
 
         if UI_RE.search(text):
             _add_intent(plan, ref, "board_ui", 75, "UI-like metadata")
