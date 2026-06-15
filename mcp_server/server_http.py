@@ -2099,6 +2099,10 @@ facing the wrong direction.
 - For boards where mechanical layout matters, a clean `placement_review` run is
   a valid intermediate result. Show the preview, collect human feedback, and
   iterate placement before attempting routing.
+- Track the best successful `placement_review` run_id, preview, and layout
+  score while iterating. Later resubmissions are experiments; if they introduce
+  overlaps, outline violations, or a much lower score, keep the earlier clean
+  run as the current candidate instead of treating the latest run as progress.
 - LAYOUT_OVERLAP, LAYOUT_OUTLINE_VIOLATION, and HIGH_CONGESTION are usually
   placement/constraint feedback, not schematic failures.
 - When `get_run()` returns `preview_2d_top.png`, show it to the human before
