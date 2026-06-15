@@ -78,8 +78,36 @@ def test_infers_edge_connector_power_and_debug_intent():
     assert usb_mating.mating_side == "outside_board"
     assert 180.0 in usb_mating.allowed_rotations
     assert debug_mating.kind == "header"
-    assert any(face.ref == "J1" and face.edge == "bottom" for face in plan.face_edges)
+    assert usb_anchor.rot_deg == 0.0
+    assert usb_anchor.inset_mm == 0.0
+    assert any(
+        face.ref == "J1" and face.edge == "bottom" and face.rot_deg == 0.0
+        for face in plan.face_edges
+    )
     assert "mechanical_mating" in _kinds(plan, "J1")
+
+
+def test_infers_outward_rotation_for_qwiic_edge_connector():
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    sda = _Net("SDA")
+    scl = _Net("SCL")
+    qwiic = _Part(
+        "J100",
+        name="Qwiic STEMMA QT JST SH connector",
+        footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+        nets=[gnd, vcc, sda, scl],
+        pins=4,
+    )
+    qwiic.edge_preference = "right"
+    circuit = _Circuit([qwiic], [vcc, gnd, sda, scl])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(40.0, 30.0))
+
+    anchor = next(anchor for anchor in plan.edge_anchors if anchor.ref == "J100")
+    assert anchor.edge == "right"
+    assert anchor.rot_deg == 270.0
+    assert anchor.inset_mm == 0.0
 
 
 def test_spreads_multiple_connectors_on_same_edge():

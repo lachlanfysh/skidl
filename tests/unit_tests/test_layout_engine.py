@@ -65,6 +65,7 @@ BBOXES = {
     "MountingHole:M2": (4.4, 4.4),
     "Connector:PinHeader_1x04": (2.54, 10.16),
     "Connector:PinHeader_1x06": (2.54, 15.24),
+    "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal": (7.8, 6.56),
     "Connector_Audio:Thonkiconn_PJ398SM": (8.0, 8.0),
     "Connector_Audio:Jack_3.5mm_PJ320D_Horizontal": (14.0, 10.0),
 }
@@ -505,6 +506,51 @@ def test_plan_layout_infers_mounting_holes_to_corners():
     assert "locked by fixed-position constraint" in result.report.part_reasons["H1"]
 
 
+def test_plan_layout_centers_single_qwiic_between_two_mounting_holes():
+    outline = BoardOutline(40.0, 28.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    sda = _Net("SDA")
+    scl = _Net("SCL")
+    u1 = _Part(
+        "U1",
+        name="MCP9808 temperature sensor",
+        footprint="Package_QFP:MCU",
+        nets=[vcc, gnd, sda, scl],
+        pins=8,
+    )
+    j100 = _Part(
+        "J100",
+        name="Qwiic STEMMA QT JST SH connector",
+        footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
+        nets=[gnd, vcc, sda, scl],
+        pins=4,
+    )
+    h1 = _Part("H1", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    h2 = _Part("H2", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    circuit = _Circuit([u1, j100, h1, h2], [vcc, gnd, sda, scl])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    anchor = next(anchor for anchor in result.intent_plan.edge_anchors if anchor.ref == "J100")
+
+    assert anchor.edge == "top"
+    assert anchor.offset_mm == pytest.approx(outline.width_mm / 2)
+    assert anchor.rot_deg == 180.0
+    assert placed["J100"].x_mm == pytest.approx(outline.width_mm / 2)
+    assert placed["J100"].y_mm - BBOXES[j100.footprint][1] / 2 == pytest.approx(outline.y_min)
+    assert placed["H1"].y_mm == pytest.approx(placed["H2"].y_mm)
+    assert placed["H1"].x_mm < placed["J100"].x_mm < placed["H2"].x_mm
+    assert "connector_between_mounting_holes" in {
+        intent.kind for intent in result.intent_plan.intents_for("J100")
+    }
+
+
 def test_plan_layout_does_not_edge_anchor_oled_daughterboard_header():
     outline = BoardOutline(60.0, 40.0)
     vcc = _Net("3V3")
@@ -671,13 +717,12 @@ def test_plan_layout_keeps_horizontal_audio_jack_row_on_edge():
     anchors = {anchor.ref: anchor.edge for anchor in result.intent_plan.edge_anchors}
     placed = {part.ref: part for part in result.placed_parts}
     jack_width, jack_height = BBOXES["Connector_Audio:Jack_3.5mm_PJ320D_Horizontal"]
-    rotated_width = jack_height
 
     for ref in {f"J{idx}" for idx in range(1, 7)}:
         assert anchors[ref] == "right"
         jack = placed[ref]
-        assert jack.rot_deg == 90.0
-        assert jack.x_mm + rotated_width / 2 == pytest.approx(outline.x_max - 0.5)
+        assert jack.rot_deg == 180.0
+        assert jack.x_mm + jack_width / 2 == pytest.approx(outline.x_max)
         assert not any(warning.startswith(f"{ref}: violates right-edge") for warning in result.score.warnings)
 
 

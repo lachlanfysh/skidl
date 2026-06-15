@@ -54,6 +54,7 @@ XTAL_PIN_RE = re.compile(r"^(XTAL|OSC|XTALI|XTALO|XIN|XOUT)$", re.I)
 AUDIO_IC_RE = re.compile(r"\b(dac|codec|audio|i2s|pcm510|wm874|max9814|sgtl5000|tlv320)\b", re.I)
 DISPLAY_NET_RE = re.compile(r"(?:^|[_/.\s-])(eink|e.ink|oled|lcd|disp|tft|epd|dc|busy)(?:[_/.\s-]|$)", re.I)
 NAV_RE = re.compile(r"\b(nav|joystick|d-pad|dpad|5.?way|4.?way)\b", re.I)
+QWIIC_RE = re.compile(r"\b(qwiic|stemma\s*qt|stemmaqt)\b", re.I)
 
 
 @dataclass
@@ -299,6 +300,70 @@ def _explicit_part_edge_anchor(part) -> tuple[str, float | None, float | None] |
             break
         return edge, offset, rot
     return None
+
+
+def _rotation_for_local_exit(edge: str, local_exit: str) -> float | None:
+    """Return KiCad rotation that points a known local connector exit outward."""
+    edge = edge.lower()
+    if local_exit == "+y":
+        return {"bottom": 0.0, "left": 90.0, "top": 180.0, "right": 270.0}.get(edge)
+    if local_exit == "-x":
+        return {"left": 0.0, "bottom": 90.0, "right": 180.0, "top": 270.0}.get(edge)
+    return None
+
+
+def _default_edge_rotation_for_part(
+    part,
+    text: str,
+    mating_kind: str | None,
+    edge: str | None,
+) -> float | None:
+    """Infer outward-facing rotation for common edge-mounted footprints."""
+    edge = normalize_board_edge(edge)
+    if edge is None:
+        return None
+
+    footprint = str(getattr(part, "footprint", "") or "").lower()
+    kind = str(mating_kind or "").lower()
+
+    # KiCad PJ320D-style horizontal jacks have the socket opening on local -X.
+    if (
+        kind == "audio_jack"
+        or AUDIO_JACK_RE.search(text)
+        or "jack_3.5mm" in footprint
+    ) and (
+        "horizontal" in footprint
+        or "pj320" in footprint
+        or "pj-320" in footprint
+    ):
+        return _rotation_for_local_exit(edge, "-x")
+
+    # KiCad USB-C edge-mount footprints mark "PCB Edge" on local +Y.
+    if kind == "usb" or "usb" in text or "connector_usb" in footprint:
+        if "horizontal" in footprint or "receptacle" in footprint or "usb" in footprint:
+            return _rotation_for_local_exit(edge, "+y")
+
+    # JST SH/PH side-entry connectors, including Qwiic/STEMMA QT, exit local +Y.
+    if (
+        kind == "jst"
+        or JST_RE.search(text)
+        or QWIIC_RE.search(text)
+        or "connector_jst" in footprint
+        or "jst_" in footprint
+    ):
+        if "horizontal" in footprint or QWIIC_RE.search(text) or "jst_sh" in footprint:
+            return _rotation_for_local_exit(edge, "+y")
+
+    return None
+
+
+def _default_edge_inset_for_part(text: str, mating_kind: str | None) -> float:
+    """Use true board-edge placement for connectors that need cable access."""
+    if str(mating_kind or "").lower() in {"usb", "jst", "audio_jack", "barrel"}:
+        return 0.0
+    if AUDIO_JACK_RE.search(text) or QWIIC_RE.search(text) or "usb" in text:
+        return 0.0
+    return 0.5
 
 
 def _part_text(part) -> str:
@@ -1512,6 +1577,84 @@ def _place_mounting_holes(
         plan.fixed_positions.append(FixedPosition(ref=ref, x_mm=x, y_mm=y))
 
 
+def _center_single_connector_between_two_mounting_holes(
+    plan: PlacementIntentPlan,
+    mounting_refs: list[str],
+    part_by_ref: dict[str, object],
+    outline=None,
+) -> None:
+    if outline is None or len(mounting_refs) != 2:
+        return
+
+    explicit_refs = set(plan.refs_with_kind("explicit_edge_anchor"))
+    mating_by_ref = {mating.ref: mating for mating in plan.mating_intents}
+    eligible_kinds = {"header", "generic_connector", "jst"}
+    eligible = [
+        anchor
+        for anchor in plan.edge_anchors
+        if anchor.ref not in explicit_refs
+        and (mating := mating_by_ref.get(anchor.ref)) is not None
+        and mating.kind in eligible_kinds
+    ]
+    if len(eligible) != 1:
+        return
+
+    holes = {
+        fixed.ref: fixed
+        for fixed in plan.fixed_positions
+        if fixed.ref in set(mounting_refs)
+    }
+    if len(holes) != 2:
+        return
+
+    hole_positions = [holes[ref] for ref in mounting_refs]
+    h0, h1 = hole_positions
+    center_x = (outline.x_min + outline.x_max) / 2
+    center_y = (outline.y_min + outline.y_max) / 2
+    edge = None
+    offset = None
+    if abs(h0.y_mm - h1.y_mm) <= 2.0:
+        edge = "top" if (h0.y_mm + h1.y_mm) / 2 <= center_y else "bottom"
+        offset = (h0.x_mm + h1.x_mm) / 2
+        if abs(offset - center_x) <= max(1.0, outline.width_mm * 0.08):
+            offset = center_x
+    elif abs(h0.x_mm - h1.x_mm) <= 2.0:
+        edge = "left" if (h0.x_mm + h1.x_mm) / 2 <= center_x else "right"
+        offset = (h0.y_mm + h1.y_mm) / 2
+        if abs(offset - center_y) <= max(1.0, outline.height_mm * 0.08):
+            offset = center_y
+    if edge is None or offset is None:
+        return
+
+    anchor = eligible[0]
+    part = part_by_ref.get(anchor.ref)
+    text = _part_text(part) if part is not None else ""
+    mating = mating_by_ref.get(anchor.ref)
+    anchor.edge = edge
+    anchor.offset_mm = offset
+    anchor.inset_mm = _default_edge_inset_for_part(text, mating.kind if mating else None)
+    anchor.rot_deg = _default_edge_rotation_for_part(
+        part,
+        text,
+        mating.kind if mating else None,
+        edge,
+    )
+
+    for face_edge in plan.face_edges:
+        if face_edge.ref == anchor.ref:
+            face_edge.edge = edge
+            face_edge.rot_deg = anchor.rot_deg
+    if mating is not None:
+        mating.edge_preference = edge
+    _add_intent(
+        plan,
+        anchor.ref,
+        "connector_between_mounting_holes",
+        86,
+        "single main connector centered between two mounting holes",
+    )
+
+
 def infer_placement_intents(
     circuit,
     outline=None,
@@ -1525,6 +1668,7 @@ def infer_placement_intents(
     )
     roles = classify_parts(circuit)
     roles = _apply_eurorack_audio_policy(circuit, roles, plan)
+    part_by_ref = {str(getattr(part, "ref", "") or ""): part for part in circuit.parts}
     mounting_refs: list[str] = []
 
     for part in circuit.parts:
@@ -1560,25 +1704,62 @@ def infer_placement_intents(
                 f"{mating_intent.kind} mating intent",
                 )
             if mating_intent.edge_preference is not None:
+                rot = _default_edge_rotation_for_part(
+                    part,
+                    text,
+                    mating_intent.kind,
+                    mating_intent.edge_preference,
+                )
                 plan.face_edges.append(
-                    FaceEdgeConstraint(ref=ref, edge=mating_intent.edge_preference)
+                    FaceEdgeConstraint(
+                        ref=ref,
+                        edge=mating_intent.edge_preference,
+                        rot_deg=rot,
+                    )
                 )
 
         if role is not None and role.role == "connector":
             edge = _edge_for_part(text, role, nets)
             _add_intent(plan, ref, "edge_connector", 90, "connector-like part")
             if edge is not None:
+                rot = _default_edge_rotation_for_part(
+                    part,
+                    text,
+                    mating_intent.kind if mating_intent is not None else None,
+                    edge,
+                )
+                inset = _default_edge_inset_for_part(
+                    text,
+                    mating_intent.kind if mating_intent is not None else None,
+                )
                 offset = None
                 if outline is not None and edge in {"top", "bottom"}:
                     offset = (outline.x_min + outline.x_max) / 2
                 elif outline is not None:
                     offset = (outline.y_min + outline.y_max) / 2
                 plan.edge_anchors.append(
-                    EdgeAnchor(ref=ref, edge=edge, offset_mm=offset)
+                    EdgeAnchor(
+                        ref=ref,
+                        edge=edge,
+                        offset_mm=offset,
+                        inset_mm=inset,
+                        rot_deg=rot,
+                    )
                 )
 
         if explicit_edge is not None:
             edge, offset, rot = explicit_edge
+            if rot is None:
+                rot = _default_edge_rotation_for_part(
+                    part,
+                    text,
+                    mating_intent.kind if mating_intent is not None else None,
+                    edge,
+                )
+            inset = _default_edge_inset_for_part(
+                text,
+                mating_intent.kind if mating_intent is not None else None,
+            )
             if offset is None and outline is not None:
                 if edge in {"top", "bottom"}:
                     offset = (outline.x_min + outline.x_max) / 2
@@ -1591,7 +1772,13 @@ def infer_placement_intents(
                 face_edge for face_edge in plan.face_edges if face_edge.ref != ref
             ]
             plan.edge_anchors.append(
-                EdgeAnchor(ref=ref, edge=edge, offset_mm=offset, rot_deg=rot)
+                EdgeAnchor(
+                    ref=ref,
+                    edge=edge,
+                    offset_mm=offset,
+                    inset_mm=inset,
+                    rot_deg=rot,
+                )
             )
             plan.face_edges.append(FaceEdgeConstraint(ref=ref, edge=edge, rot_deg=rot))
             for mating in plan.mating_intents:
@@ -1666,6 +1853,12 @@ def infer_placement_intents(
     _colocate_display_and_controls(plan, outline)
     _place_opposing_header_pair(plan)
     _place_mounting_holes(plan, mounting_refs, outline)
+    _center_single_connector_between_two_mounting_holes(
+        plan,
+        mounting_refs,
+        part_by_ref,
+        outline,
+    )
     _assign_eurorack_assembly_sides(circuit, roles, plan, plan.assembly_policy)
     _arrange_array_subjects(plan, roles, outline)
     _spread_edge_anchor_offsets(plan, outline)
