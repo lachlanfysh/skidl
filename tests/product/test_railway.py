@@ -1416,7 +1416,8 @@ class TestAgentUX:
             "timeout_s", "route_timeout_s", "assembly_policy", "pipeline_goal",
             "assembly_side", "edge_preference", "edge_rot_deg", "LCSC",
             "manufacturing", "placement_review", "EDA_FLOORPLAN",
-            "custom_footprints", "EDA_FOOTPRINTS",
+            "custom_footprints", "EDA_FOOTPRINTS", "succeeded_with_warnings",
+            "terminal status", "edge_preference alone is usually not enough",
         ):
             assert needle in desc, f"submit_skidl_code description missing {needle!r}"
 
@@ -1606,9 +1607,13 @@ class TestAgentUX:
         from mcp_server.server_http import mcp
         tools = {t.name: t for t in await mcp.list_tools()}
         desc = tools["get_job"].description
-        for status in ("queued", "running", "succeeded", "failed", "timeout"):
+        for status in (
+            "queued", "running", "succeeded", "succeeded_with_warnings",
+            "failed", "timeout", "crashed",
+        ):
             assert status in desc
         assert "run_id" in desc and "exceptions" in desc
+        assert "not a design result" in desc
         assert "edit the SKiDL code" in desc
         assert "apply_correction" not in desc
         assert "CircuitSpec" not in desc

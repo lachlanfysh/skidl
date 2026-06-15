@@ -329,6 +329,12 @@ async def submit_skidl_code(
       displays, batteries, mounting holes, panel controls, and large modules;
       do not strip them merely because the hosted service owns
       generation/layout.
+      For dense Eurorack, pedal, control-panel, or enclosure-front boards,
+      edge_preference alone is usually not enough. Use EDA_FLOORPLAN to put
+      panel controls into an intentional row/grid, reserve clearance for
+      mounting holes and power headers, and keep the analog/electronics core in
+      a separate interior or back-side zone before asking the placer to fill in
+      passives.
       For custom project footprints that Railway does not have installed,
       pass the KiCad `.kicad_mod` text via custom_footprints:
       `custom_footprints={"MyLib:MyFootprint": "(footprint ...)"}`. The
@@ -341,7 +347,10 @@ async def submit_skidl_code(
       For layout overlap/outline/congestion feedback, prefer improving
       grouping, connector choices, and outline_mm before resubmitting.
 
-    Returns: {"job_id": "...", "status": "queued"}. Poll get_job(job_id).
+    Returns: {"job_id": "...", "status": "queued"}. This is only an
+    acknowledgement, not a completed design. Poll get_job(job_id) until it
+    returns a terminal status: "succeeded", "succeeded_with_warnings",
+    "failed", "timeout", or "crashed".
     """
     if not code or not code.strip():
         raise ValueError("code must be non-empty SKiDL Python source.")
@@ -368,12 +377,13 @@ async def submit_skidl_code(
         "job_id": job_id,
         "status": "queued",
         "hint": (
-            "Job queued. Poll with get_job(job_id) every 10s until "
-            "status is 'succeeded' or 'failed'. If your code has errors "
-            "(wrong lib/part/pin names), you'll get a clear message — "
-            "fix and resubmit. When the board passes routing, DRC, and "
-            "manufacturing export, Gerbers, BOM, and CPL are included in "
-            "the output zip."
+            "Job queued. This is not a design result yet. Poll with "
+            "get_job(job_id) every 10s until status is 'succeeded', "
+            "'succeeded_with_warnings', 'failed', 'timeout', or 'crashed'. "
+            "If your code has errors (wrong lib/part/pin names), you'll get "
+            "a clear message — fix and resubmit. When the board passes "
+            "routing, DRC, and manufacturing export, Gerbers, BOM, and CPL "
+            "are included in the output zip."
         ),
     }
 
@@ -383,7 +393,10 @@ async def get_job(job_id: str) -> dict:
     """Poll a submitted job. Returns status and a compact finished result.
 
     status values: "queued" (waiting for a worker), "running",
-    "succeeded", "failed", "timeout". Poll every 5-15s while queued/running.
+    "succeeded", "succeeded_with_warnings", "failed", "timeout", "crashed".
+    Poll every 5-15s while queued/running. A submit response with
+    status="queued" is not a design result; keep polling get_job(job_id) until
+    one of the terminal statuses above appears, then inspect result/run_id.
 
     When finished, the "result" field contains:
     - run_id: pass to get_run() for artifacts
@@ -396,7 +409,9 @@ async def get_job(job_id: str) -> dict:
 
     If the job crashed, "error" holds the traceback message and result may
     be null. A failed/timeout status with exceptions is normal — that is
-    the correction loop, not a malfunction; inspect the candidates.
+    the correction loop, not a malfunction; inspect the candidates. A
+    succeeded_with_warnings status is a usable result with advisories; call
+    get_run(result.run_id) for previews/artifacts before final judgement.
     """
     job = deepcopy(await db.get_job(job_id))
 
@@ -2120,6 +2135,15 @@ edges and controls on the front panel. Optional `part.edge_offset_mm` sets the
 position along that edge in mm. Optional `part.edge_rot_deg` fixes orientation
 when preview shows a jack/USB/JST/barrel connector on the correct edge but
 facing the wrong direction.
+
+For dense panel boards, do not rely on `edge_preference` alone. Eurorack,
+guitar pedals, synth control boards, and other enclosure-front designs need an
+explicit `EDA_FLOORPLAN`: put pots/switches/LEDs/jacks in deliberate rows or
+grids, keep mounting-hole clearance open, place Eurorack power or rear I/O away
+from the front-control field, and leave an interior/back-side zone for the
+analog/electronics core. If the preview shows out-of-bounds panel hardware or
+overlaps, resubmit with stronger floorplan coordinates/zones before changing
+the circuit.
 
 ## Layout feedback
 
