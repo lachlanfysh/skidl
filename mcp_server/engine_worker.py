@@ -1475,6 +1475,41 @@ def _generate_board_previews(pcb_path: str, out_dir: Path) -> dict:
     return result
 
 
+def _add_layout_mockup_preview(
+    previews: dict,
+    out_dir: Path,
+    side_preview_warning: str | None,
+) -> None:
+    """Add side-aware SVG and PNG fallback when KiCad preview export fails."""
+    if side_preview_warning is not None:
+        previews.setdefault("warnings", []).append(side_preview_warning)
+        return
+
+    files = previews.setdefault("files", [])
+    if "preview_assembly.svg" not in files:
+        files.append("preview_assembly.svg")
+
+    if "preview_2d_top.png" in files:
+        return
+
+    svg_path = out_dir / "preview_assembly.svg"
+    png_path = out_dir / "preview_2d_top.png"
+    raster_warning = _rasterize_svg_preview(svg_path, png_path)
+    if raster_warning is None:
+        files.append("preview_2d_top.png")
+        brand_warning = _brand_preview_png(png_path)
+        if brand_warning is not None:
+            previews.setdefault("warnings", []).append(brand_warning)
+        previews.setdefault("warnings", []).append(
+            "preview_2d_top.png was generated from preview_assembly.svg "
+            "because KiCad PCB preview export was unavailable"
+        )
+    else:
+        previews.setdefault("warnings", []).append(
+            f"layout mockup PNG fallback unavailable: {raster_warning}"
+        )
+
+
 def _generate_bom(circuit, spec=None, out_dir: Path = None) -> Path | None:
     """Generate JLCPCB BOM CSV from circuit parts."""
     from corpus.jlc.footprint_resolver import generate_bom_csv
@@ -2699,10 +2734,7 @@ def _run_skidl_code(envelope: dict) -> dict:
 
     previews = _generate_board_previews(str(pcb_path), out_dir)
     side_preview_warning = _write_layout_mockup_svg(layout_result, out_dir)
-    if side_preview_warning is None:
-        previews.setdefault("files", []).append("preview_assembly.svg")
-    else:
-        previews.setdefault("warnings", []).append(side_preview_warning)
+    _add_layout_mockup_preview(previews, out_dir, side_preview_warning)
 
     outputs = {
         "run_dir": str(out_dir),
@@ -2920,10 +2952,7 @@ def run(envelope: dict) -> dict:
 
     previews = _generate_board_previews(str(pcb_path), out_dir)
     side_preview_warning = _write_layout_mockup_svg(layout_result, out_dir)
-    if side_preview_warning is None:
-        previews.setdefault("files", []).append("preview_assembly.svg")
-    else:
-        previews.setdefault("warnings", []).append(side_preview_warning)
+    _add_layout_mockup_preview(previews, out_dir, side_preview_warning)
 
     outputs = {
         "run_dir": str(out_dir),

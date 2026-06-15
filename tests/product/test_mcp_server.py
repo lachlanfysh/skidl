@@ -21,6 +21,7 @@ from mcp_server.exception_mapper import (
 )
 from mcp_server.engine_worker import (
     PREVIEW_BACKGROUND,
+    _add_layout_mockup_preview,
     _brand_preview_png,
     _brand_preview_svg,
     _code_exception_from_exec,
@@ -260,6 +261,38 @@ class TestBoardPreviews:
             "warnings": [],
             "ok": False,
         }
+
+    def test_layout_mockup_preview_rasterizes_when_kicad_preview_missing(
+        self, monkeypatch, tmp_path
+    ):
+        (tmp_path / "preview_assembly.svg").write_text(
+            "<svg><rect width='10' height='10'/></svg>",
+            encoding="utf-8",
+        )
+
+        def fake_rasterize(svg_path, png_path, width_px=1600):
+            png_path.write_bytes(b"\x89PNG\r\n\x1a\nmockup")
+            return None
+
+        monkeypatch.setattr(
+            "mcp_server.engine_worker._rasterize_svg_preview",
+            fake_rasterize,
+        )
+        monkeypatch.setattr(
+            "mcp_server.engine_worker._brand_preview_png",
+            lambda png_path: None,
+        )
+        previews = {
+            "files": [],
+            "errors": ["pcb export svg exited 3: Failed to load board"],
+            "warnings": [],
+        }
+
+        _add_layout_mockup_preview(previews, tmp_path, None)
+
+        assert previews["files"] == ["preview_assembly.svg", "preview_2d_top.png"]
+        assert (tmp_path / "preview_2d_top.png").read_bytes().startswith(b"\x89PNG")
+        assert any("preview_assembly.svg" in warning for warning in previews["warnings"])
 
 
 class TestKiCadEnv:
