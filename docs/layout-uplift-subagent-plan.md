@@ -29,10 +29,10 @@ Railway endpoint: `https://mcp-server-production-5d58.up.railway.app/mcp`
 
 | Lane | Status | Agent | Primary Scope | Goal | Acceptance Checks |
 | --- | --- | --- | --- | --- | --- |
-| Routing diagnosis | queued | TBD | routing feedback / exception mapper / layout quality | Classify failed traces as placement-blocked, footprint issue, congestion, router limitation, or outline-too-small. | Failed route output recommends placement fixes before outline growth when board is already oversized. |
-| Front/back policy | queued | TBD | side intent, validator, preview metadata | Eurorack and double-sided boards can intentionally place controls/jacks front and power/IC/passives back. | Side-aware overlap tests; back-side THT/SMD overlaps handled correctly; preview metadata marks back-side parts. |
-| Custom footprints | queued | TBD | MCP server upload/preflight path | Hosted MCP accepts project footprints/libs so MR-1 and 45lux do not fail footprint preflight. | Tests for submitted footprint payload or library path; hosted preflight reports custom footprints present. |
-| Floorplan API | queued | TBD | `submit_skidl_code` envelope and docs | Agents can pass fixed positions, edge anchors, grids, sides, keepouts, outline, and later cutouts explicitly. | 45lux-style floorplan survives code-mode submission; clear docs/examples for agent authors. |
+| Routing diagnosis | in progress | Peirce `019ecfa8-f0cd-7411-85ba-2cc483c8b902` | routing feedback / exception mapper / layout quality | Classify failed traces as placement-blocked, footprint issue, congestion, router limitation, or outline-too-small. | Failed route output recommends placement fixes before outline growth when board is already oversized. |
+| Front/back policy | in progress | Ptolemy `019ecfa8-f10c-7ef2-81cb-bf318fd5befb` | side intent, validator, preview metadata | Eurorack and double-sided boards can intentionally place controls/jacks front and power/IC/passives back. | Side-aware overlap tests; back-side THT/SMD overlaps handled correctly; preview metadata marks back-side parts. |
+| Custom footprints | in progress | Noether `019ecfa8-f142-7c70-9fae-fe842b6dcaae` | MCP server upload/preflight path | Hosted MCP accepts project footprints/libs so MR-1 and 45lux do not fail footprint preflight. | Tests for submitted footprint payload or library path; hosted preflight reports custom footprints present. |
+| Floorplan API | in progress | Zeno `019ecfa8-f179-7fa0-a994-e735921e8490` | `submit_skidl_code` envelope and docs | Agents can pass fixed positions, edge anchors, grids, sides, keepouts, outline, and later cutouts explicitly. | 45lux-style floorplan survives code-mode submission; clear docs/examples for agent authors. |
 
 ## Standard Test Boards
 
