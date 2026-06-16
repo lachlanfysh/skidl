@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .constraints import (
     AlignConstraint,
@@ -77,6 +77,19 @@ def _merge_inferred_edge_anchors(
 
     explicit_position_refs = _explicit_position_refs(constraints)
     explicit_floorplan_refs = _explicit_floorplan_refs(constraints)
+
+    inferred_anchor_by_ref = {
+        anchor.ref: anchor
+        for anchor in intent_plan.edge_anchors
+    }
+    for idx, anchor in enumerate(merged.edge_anchors):
+        inferred = inferred_anchor_by_ref.get(anchor.ref)
+        if (
+            inferred is not None
+            and anchor.rot_deg is None
+            and inferred.rot_deg is not None
+        ):
+            merged.edge_anchors[idx] = replace(anchor, rot_deg=inferred.rot_deg)
 
     explicit_refs = {anchor.ref for anchor in merged.edge_anchors}
     for anchor in intent_plan.edge_anchors:

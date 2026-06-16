@@ -129,6 +129,28 @@ class TestEnrichmentPassiveRules:
         cc_actions = [a for a in actions if a["rule"] == "A4"]
         assert len(cc_actions) == 2
 
+    def test_a4_usb_cc_pulldowns_detects_usb_c_hyphen_and_usb4105(self):
+        spec = {
+            "parts": [
+                {
+                    "ref": "J_USB",
+                    "lib": "",
+                    "part": "USB-C receptacle",
+                    "footprint": "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+                },
+            ],
+            "nets": [
+                {"name": "VBUS", "power": True, "pins": ["J_USB.VBUS"]},
+                {"name": "GND", "power": True, "pins": ["J_USB.GND"]},
+                {"name": "CC1", "pins": ["J_USB.CC1"]},
+                {"name": "CC2", "pins": ["J_USB.CC2"]},
+            ],
+        }
+
+        enriched, actions = enrich(spec)
+
+        assert len([a for a in actions if a["rule"] == "A4"]) == 2
+
     def test_enrich_returns_deepcopy(self, ic_spec_dict):
         original_parts = len(ic_spec_dict["parts"])
         enriched, _ = enrich(ic_spec_dict)
@@ -201,6 +223,31 @@ class TestBlockEnrichment:
             str(part.get("value", "") or "").upper() == "STEMMA_QT"
             for part in enriched["parts"]
         )
+
+    def test_usb_c_block_not_duplicated_by_existing_usb4105_connector(self):
+        spec = {
+            "parts": [
+                {
+                    "ref": "J_USB",
+                    "lib": "",
+                    "part": "USB-C receptacle",
+                    "value": "",
+                    "footprint": "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+                },
+            ],
+            "nets": [
+                {"name": "VBUS", "power": True, "pins": ["J_USB.VBUS"]},
+                {"name": "GND", "power": True, "pins": ["J_USB.GND"]},
+                {"name": "CC1", "pins": ["J_USB.CC1"]},
+                {"name": "CC2", "pins": ["J_USB.CC2"]},
+            ],
+        }
+
+        enriched, actions = enrich_blocks(spec, "USB-C MIDI adapter")
+
+        assert not any(action["rule"] == "block:usb_c_input" for action in actions)
+        assert [part["ref"] for part in enriched["parts"]].count("J_USB") == 1
+        assert not any(part["ref"] == "J100" for part in enriched["parts"])
 
 
 # ---------------------------------------------------------------------------
@@ -396,6 +443,26 @@ class TestDesignReviewExceptions:
         no_conn = [e for e in exceptions if e.code == ExcCode.DESIGN_NO_CONNECTOR]
         assert len(no_conn) == 1
         assert no_conn[0].severity == Severity.ERROR
+
+    def test_onboard_usb_dev_module_counts_as_user_connection(self):
+        spec = {
+            "parts": [
+                {
+                    "ref": "A1",
+                    "lib": "",
+                    "part": "Raspberry Pi Pico module",
+                    "footprint": "Module:RaspberryPi_Pico_Common_THT",
+                }
+            ],
+            "nets": [
+                {"name": "VBUS", "power": True, "pins": ["A1.VBUS"]},
+                {"name": "GND", "power": True, "pins": ["A1.GND"]},
+            ],
+        }
+
+        exceptions = design_review_exceptions(spec)
+
+        assert not any(e.code == ExcCode.DESIGN_NO_CONNECTOR for e in exceptions)
 
     def test_no_power_rail_error(self):
         spec = {

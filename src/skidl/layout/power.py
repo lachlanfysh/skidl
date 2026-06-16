@@ -207,17 +207,96 @@ def _part_text(part) -> str:
     return " ".join(str(chunk or "") for chunk in chunks).lower()
 
 
-def _is_source_part(part, role: str, nets: list[str]) -> bool:
+def _power_ground_nets(part) -> tuple[set[str], set[str]]:
+    supplies: set[str] = set()
+    grounds: set[str] = set()
+    for net in _part_nets(part):
+        if GND_NET_RE.match(net):
+            grounds.add(net)
+        elif POWER_NET_RE.match(net) or HIGH_CURRENT_NET_RE.match(net):
+            supplies.add(net)
+    return supplies, grounds
+
+
+def _pin_is_power_output(pin) -> bool:
+    func = getattr(pin, "func", None)
+    func_name = str(getattr(func, "name", "") or "").upper()
+    if func_name == "PWROUT":
+        return True
+    func_text = str(func or "").lower().replace("_", "")
+    return "pwrout" in func_text or "poweroutput" in func_text
+
+
+def _power_output_nets(part) -> list[str]:
+    nets: list[str] = []
+    for pin in getattr(part, "pins", []) or []:
+        if not _pin_is_power_output(pin):
+            continue
+        name = getattr(getattr(pin, "net", None), "name", None)
+        if (
+            name
+            and str(name) not in nets
+            and not GND_NET_RE.match(str(name))
+            and (POWER_NET_RE.match(str(name)) or HIGH_CURRENT_NET_RE.match(str(name)))
+        ):
+            nets.append(str(name))
+    return nets
+
+
+def _is_local_regulator_decap(regulator, cap) -> bool:
+    regulator_supplies, regulator_grounds = _power_ground_nets(regulator)
+    cap_supplies, cap_grounds = _power_ground_nets(cap)
+    return bool(
+        regulator_supplies.intersection(cap_supplies)
+        and regulator_grounds.intersection(cap_grounds)
+    )
+
+
+def _source_nets_for_part(part, role: str, nets: list[str]) -> list[str]:
     text = _part_text(part)
+    source_nets = list(_power_output_nets(part))
     source_like = any(
         token in text
-        for token in ("usb", "battery", "batt", "barrel", "power", "jst", "terminal")
+        for token in ("battery", "batt", "barrel", "power", "jst", "terminal")
     )
+    dev_module_like = any(
+        token in text
+        for token in (
+            "pico",
+            "rp2040 zero",
+            "devkit",
+            "dev kit",
+            "feather",
+            "itsybitsy",
+            "teensy",
+            "arduino",
+            "daisy seed",
+            "xiao",
+            "qt py",
+            "qtpy",
+        )
+    )
+    if role == "module_socket" and any(HIGH_CURRENT_NET_RE.match(net) for net in nets):
+        source_nets.extend(net for net in nets if HIGH_CURRENT_NET_RE.match(net))
     if role == "connector" and any(HIGH_CURRENT_NET_RE.match(net) for net in nets):
-        return True
-    return source_like and any(
-        POWER_NET_RE.match(net) or HIGH_CURRENT_NET_RE.match(net) for net in nets
-    )
+        source_nets.extend(net for net in nets if HIGH_CURRENT_NET_RE.match(net))
+    if source_like or dev_module_like:
+        source_nets.extend(
+            net
+            for net in nets
+            if not GND_NET_RE.match(net)
+            and (POWER_NET_RE.match(net) or HIGH_CURRENT_NET_RE.match(net))
+        )
+    return sorted(dict.fromkeys(source_nets))
+
+
+def _source_reason_for_part(part, role: str, source_net: str) -> str:
+    ref = str(getattr(part, "ref", "") or "")
+    if source_net in _power_output_nets(part):
+        return f"{ref} has a power-output pin on {source_net}"
+    if role in {"connector", "module_socket"}:
+        return f"{ref} is connector-like source on {source_net}"
+    return f"{ref} is source-like on {source_net}"
 
 
 def _is_protection_part(part, role: str) -> bool:
@@ -238,13 +317,11 @@ def _is_storage_part(part, nets: list[str]) -> bool:
 
 
 def _suggest_width(name: str, kind: str, refs: list[str]) -> float:
-    if kind == "ground":
-        return 0.5
     if HIGH_CURRENT_NET_RE.match(name):
         return 0.8
-    if len(refs) >= 6:
-        return 0.5
-    return 0.3
+    if kind == "ground" or len(refs) >= 6:
+        return 0.3
+    return 0.25
 
 
 def _suggest_layer(kind: str, board_layers: int) -> str:
@@ -276,19 +353,20 @@ def infer_power_topology(circuit) -> PowerTopology:
         for net in nets:
             refs_by_net.setdefault(net, []).append(ref)
 
-    source_refs: list[str] = []
+    source_nets_by_ref: dict[str, list[str]] = {}
     for ref, part in parts_by_ref.items():
         role = roles.get(ref)
         role_name = role.role if role is not None else "unknown"
-        if _is_source_part(part, role_name, nets_by_ref.get(ref, [])):
-            source_refs.append(ref)
+        source_nets = _source_nets_for_part(part, role_name, nets_by_ref.get(ref, []))
+        if source_nets:
+            source_nets_by_ref[ref] = source_nets
 
     chains: list[PowerChain] = []
     warnings: list[str] = []
-    for source_ref in sorted(source_refs):
+    for source_ref in sorted(source_nets_by_ref):
         source_nets = [
             net
-            for net in nets_by_ref.get(source_ref, [])
+            for net in source_nets_by_ref.get(source_ref, [])
             if POWER_NET_RE.match(net) or HIGH_CURRENT_NET_RE.match(net)
         ]
         source_nets = [net for net in source_nets if not GND_NET_RE.match(net)]
@@ -348,8 +426,17 @@ def infer_power_topology(circuit) -> PowerTopology:
                 and roles[ref].role in {"ic", "connector", "unknown"}
             )
 
+            source_role = (
+                roles.get(source_ref).role
+                if roles.get(source_ref) is not None
+                else "unknown"
+            )
             reasons = [
-                f"{source_ref} is connector-like source on {source_net}",
+                _source_reason_for_part(
+                    parts_by_ref[source_ref],
+                    source_role,
+                    source_net,
+                ),
             ]
             if converter_refs:
                 reasons.append(
@@ -517,8 +604,18 @@ def _power_warnings(
     power_nets: list[PowerNet],
 ) -> list[str]:
     placed = {pp.ref: pp for pp in placed_parts}
+    part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
     roles = classify_parts(circuit)
     warnings: list[str] = []
+    supply_nets_by_ref: dict[str, set[str]] = {}
+    ground_refs: set[str] = set()
+    for net in power_nets:
+        if net.kind == "ground":
+            ground_refs.update(ref for ref in net.refs if ref)
+        elif net.kind == "supply":
+            for ref in net.refs:
+                if ref:
+                    supply_nets_by_ref.setdefault(ref, set()).add(net.name)
 
     for net in power_nets:
         unplaced_refs = [ref for ref in net.refs if ref not in placed]
@@ -544,17 +641,28 @@ def _power_warnings(
     decap_refs = [
         ref
         for ref, role in roles.items()
-        if role.role == "decoupling_cap" and ref in placed
+        if (
+            role.role == "decoupling_cap"
+            or (
+                str(ref).upper().startswith("C")
+                and ref in ground_refs
+                and supply_nets_by_ref.get(ref)
+            )
+        )
+        and ref in placed
     ]
     for regulator_ref in regulator_refs:
+        regulator_supplies = supply_nets_by_ref.get(regulator_ref, set())
         close_decaps = [
             ref
             for ref in decap_refs
-            if _distance(placed[regulator_ref], placed[ref]) <= 5.0
+            if regulator_supplies.intersection(supply_nets_by_ref.get(ref, set()))
+            and ref in ground_refs
+            and _distance(placed[regulator_ref], placed[ref]) <= 8.0
         ]
         if not close_decaps:
             warnings.append(
-                f"{regulator_ref}: regulator has no decoupling cap within 5mm"
+                f"{regulator_ref}: regulator has no local rail decoupling cap within 8mm"
             )
 
     return warnings

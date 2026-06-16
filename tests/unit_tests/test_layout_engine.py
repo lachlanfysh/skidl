@@ -14,6 +14,7 @@ from skidl.layout.constraints import (
 from skidl.layout.engine import (
     LayoutResult,
     _footprint_names,
+    _legalize_edge_anchor_neighbors,
     _legalize_small_parts_from_outline,
     _placed_bounds,
     _snap_edge_anchors_to_outline,
@@ -77,6 +78,7 @@ BBOXES = {
     "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal": (7.8, 6.56),
     "Connector_Audio:Thonkiconn_PJ398SM": (8.0, 8.0),
     "Connector_Audio:Jack_3.5mm_PJ320D_Horizontal": (14.0, 10.0),
+    "Connector_Audio:Jack_3.5mm_CUI_SJ1-3523N_Horizontal": (13.0, 15.0),
 }
 
 
@@ -241,6 +243,32 @@ def test_plan_layout_honors_explicit_part_edge_rotation():
     anchor = next(anchor for anchor in result.intent_plan.edge_anchors if anchor.ref == "J1")
     assert anchor.edge == "right"
     assert anchor.rot_deg == pytest.approx(270.0)
+
+
+def test_explicit_edge_anchor_uses_inferred_rotation_when_unspecified():
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    jack = _Part(
+        "J1",
+        name="left edge stereo audio jack",
+        footprint="Connector_Audio:Jack_3.5mm_CUI_SJ1-3523N_Horizontal",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    jack.edge_preference = "left"
+    circuit = _Circuit([jack], [sig, gnd])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=BoardOutline(60.0, 30.0),
+            edge_anchors=[EdgeAnchor("J1", "left", offset_mm=15.0)],
+        ),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    assert placed["J1"].rot_deg == pytest.approx(270.0)
 
 
 def test_plan_layout_keeps_inferred_pin_header_on_auto_outline_edge():
@@ -523,6 +551,35 @@ def test_plan_layout_infers_mounting_holes_to_corners():
     assert "locked by fixed-position constraint" in result.report.part_reasons["H1"]
 
 
+def test_rounded_outline_places_mounting_holes_at_corner_radius_centers():
+    outline = BoardOutline(60.0, 40.0, corner_radius_mm=2.7)
+    circuit = _circuit()
+    h1 = _Part("H1", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    h2 = _Part("H2", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    h3 = _Part("H3", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    h4 = _Part("H4", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    circuit.parts.extend([h1, h2, h3, h4])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    corners = {
+        (round(placed[ref].x_mm, 3), round(placed[ref].y_mm, 3))
+        for ref in ("H1", "H2", "H3", "H4")
+    }
+
+    assert corners == {
+        (2.7, 2.7),
+        (57.3, 2.7),
+        (57.3, 37.3),
+        (2.7, 37.3),
+    }
+
+
 def test_plan_layout_centers_single_qwiic_between_two_mounting_holes():
     outline = BoardOutline(40.0, 28.0)
     vcc = _Net("3V3")
@@ -767,6 +824,72 @@ def test_legalize_small_parts_nudges_connectors_clear_of_mounting_holes():
     assert placed["H1"].x_mm == pytest.approx(4.0)
 
 
+def test_edge_neighbor_legalizer_allows_opposite_side_tht_body_overlap():
+    outline = BoardOutline(40.0, 30.0)
+    constraints = LayoutConstraints(
+        outline=outline,
+        edge_anchors=[EdgeAnchor("J1", "left", offset_mm=15.0)],
+    )
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[EdgeAnchor("J1", "left", offset_mm=15.0)],
+    )
+    placed_parts = [
+        PlacedPart("J1", 10.0, 15.0, 0.0, "Demo:FrontTHT", side="front"),
+        PlacedPart("U1", 10.0, 15.0, 0.0, "Demo:BackTHT", side="back"),
+    ]
+    bboxes = {
+        "Demo:FrontTHT": (10.0, 10.0),
+        "Demo:BackTHT": (10.0, 10.0),
+    }
+    geometries = {
+        "Demo:FrontTHT": FootprintGeometry(
+            "Demo:FrontTHT",
+            pads=[
+                PadGeometry(
+                    "1",
+                    -3.0,
+                    0.0,
+                    1.0,
+                    1.0,
+                    pad_type="thru_hole",
+                    layers=("*.Cu", "*.Mask"),
+                )
+            ],
+            courtyard_bounds=(-5.0, -5.0, 5.0, 5.0),
+        ),
+        "Demo:BackTHT": FootprintGeometry(
+            "Demo:BackTHT",
+            pads=[
+                PadGeometry(
+                    "1",
+                    3.0,
+                    0.0,
+                    1.0,
+                    1.0,
+                    pad_type="thru_hole",
+                    layers=("*.Cu", "*.Mask"),
+                )
+            ],
+            courtyard_bounds=(-5.0, -5.0, 5.0, 5.0),
+        ),
+    }
+
+    legalized, moved = _legalize_edge_anchor_neighbors(
+        placed_parts,
+        outline,
+        intent_plan,
+        constraints,
+        bboxes,
+        geometries,
+        clearance_mm=0.5,
+    )
+
+    placed = {part.ref: part for part in legalized}
+    assert moved == []
+    assert placed["U1"].x_mm == pytest.approx(10.0)
+    assert placed["U1"].side == "back"
+
+
 def test_edge_anchor_snap_avoids_mounting_hole_halos():
     outline = BoardOutline(40.0, 28.0)
     intent_plan = PlacementIntentPlan(
@@ -815,6 +938,41 @@ def test_edge_anchor_snap_avoids_mounting_hole_halos():
         and header_bounds[1] < halo[3]
         and header_bounds[3] > halo[1]
     )
+
+
+def test_edge_anchor_snap_preserves_explicit_left_right_offsets():
+    outline = BoardOutline(90.0, 70.0)
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[
+            EdgeAnchor("BAT1", "left", offset_mm=52.0),
+            EdgeAnchor("J1", "right", offset_mm=18.0),
+        ]
+    )
+    constraints = LayoutConstraints(
+        outline=outline,
+        edge_anchors=[
+            EdgeAnchor("BAT1", "left", offset_mm=52.0),
+            EdgeAnchor("J1", "right", offset_mm=18.0),
+        ],
+    )
+    placed_parts = [
+        PlacedPart("BAT1", 10.0, 35.0, 0.0, "Connector:USB"),
+        PlacedPart("J1", 80.0, 35.0, 0.0, "Connector:USB"),
+    ]
+
+    snapped, moved = _snap_edge_anchors_to_outline(
+        placed_parts,
+        outline,
+        intent_plan,
+        constraints,
+        BBOXES,
+        None,
+    )
+    placed = {part.ref: part for part in snapped}
+
+    assert set(moved) == {"BAT1", "J1"}
+    assert placed["BAT1"].y_mm == pytest.approx(52.0)
+    assert placed["J1"].y_mm == pytest.approx(18.0)
 
 
 def test_plan_layout_does_not_edge_anchor_oled_daughterboard_header():
@@ -1032,11 +1190,13 @@ def test_soft_constraints_do_not_move_edge_anchored_connectors():
     )
 
     placed = {part.ref: part for part in result.placed_parts}
-    jack_width, jack_height = BBOXES["Connector_Audio:Jack_3.5mm_PJ320D_Horizontal"]
-    rotated_width = jack_height
 
-    assert placed["J1"].x_mm + rotated_width / 2 == pytest.approx(outline.x_max - 0.5)
-    assert placed["J2"].x_mm + rotated_width / 2 == pytest.approx(outline.x_max - 0.5)
+    assert _placed_bounds(placed["J1"], BBOXES, result.fp_geometries)[2] == pytest.approx(
+        outline.x_max - 0.5
+    )
+    assert _placed_bounds(placed["J2"], BBOXES, result.fp_geometries)[2] == pytest.approx(
+        outline.x_max - 0.5
+    )
 
 
 def test_edge_parallel_warning_is_limited_to_pin_access_headers():

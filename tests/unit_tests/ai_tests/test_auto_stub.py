@@ -44,7 +44,8 @@ class TestPowerNetRegex:
     @pytest.mark.parametrize(
         "name",
         ["GND", "gnd", "AGND", "DGND", "PGND", "VCC", "VDD", "VSS", "VEE",
-         "VBUS", "VBAT", "AVCC", "AVDD", "DVCC", "DVDD", "+3V3", "+5V", "+12V"],
+         "VBUS", "VBAT", "AVCC", "AVDD", "DVCC", "DVDD", "+3V3", "-3V3",
+         "+5V", "-5V", "+12V", "-12V"],
     )
     def test_power_nets_match(self, name):
         assert _POWER_NET_RE.match(name), f"{name} should match power net pattern"

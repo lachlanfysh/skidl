@@ -38,6 +38,10 @@ PANEL_CONTROL_RE = re.compile(
     re.IGNORECASE,
 )
 LED_UI_RE = re.compile(r"(led|neopixel|ws2812|apa102)", re.IGNORECASE)
+CONNECTOR_METADATA_RE = re.compile(
+    r"(connector|header|jack|terminal|receptacle|socket)",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -159,9 +163,7 @@ def classify_part(part) -> PartRole:
         reasons.append("Daisy Seed plug-in module/socket metadata")
         return PartRole(ref, "module_socket", 0.95, reasons)
 
-    if prefix in {"J", "P", "CON", "CN"} or any(
-        term in text for term in ("connector", "header", "usb", "jack", "terminal")
-    ):
+    if prefix in {"J", "P", "CON", "CN"} or CONNECTOR_METADATA_RE.search(text):
         reasons.append("connector-like reference or metadata")
         return PartRole(ref, "connector", 0.9, reasons)
 

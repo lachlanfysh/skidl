@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .candidates import PlacementCandidate
 from .constraints import LayoutConstraints
@@ -9,7 +9,7 @@ from .geometry import FootprintGeometry, PadGeometry, transform_point
 from .placer import _find_clear_position
 from .roles import GND_NET_RE, POWER_NET_RE, classify_parts, is_ui_grid_part
 from .scoring import LayoutScore, score_placement
-from .validator import validate
+from .validator import _same_physical_side, _through_board_pads_collide, validate
 from .writer import PlacedPart
 
 
@@ -29,16 +29,7 @@ class RefinementResult:
 
 
 def _clone_placed(placed_parts: list[PlacedPart]) -> list[PlacedPart]:
-    return [
-        PlacedPart(
-            ref=part.ref,
-            x_mm=part.x_mm,
-            y_mm=part.y_mm,
-            rot_deg=part.rot_deg,
-            footprint=part.footprint,
-        )
-        for part in placed_parts
-    ]
+    return [replace(part) for part in placed_parts]
 
 
 def _score(
@@ -467,15 +458,7 @@ def _move_trials(
             if key in seen or key == (round(placed.x_mm, 4), round(placed.y_mm, 4)):
                 continue
             seen.add(key)
-            trials.append(
-                PlacedPart(
-                    ref=placed.ref,
-                    x_mm=x_mm,
-                    y_mm=y_mm,
-                    rot_deg=placed.rot_deg,
-                    footprint=placed.footprint,
-                )
-            )
+            trials.append(replace(placed, x_mm=x_mm, y_mm=y_mm))
     return trials
 
 
@@ -528,15 +511,7 @@ def _targeted_clear_move_trials(
         if key in seen:
             continue
         seen.add(key)
-        trials.append(
-            PlacedPart(
-                ref=placed.ref,
-                x_mm=x,
-                y_mm=y,
-                rot_deg=placed.rot_deg,
-                footprint=placed.footprint,
-            )
-        )
+        trials.append(replace(placed, x_mm=x, y_mm=y))
     return trials
 
 
@@ -545,15 +520,7 @@ def _rotation_trials(placed: PlacedPart) -> list[PlacedPart]:
     for rotation in (0.0, 90.0, 180.0, 270.0):
         if abs(rotation - placed.rot_deg) <= 1e-6:
             continue
-        trials.append(
-            PlacedPart(
-                ref=placed.ref,
-                x_mm=placed.x_mm,
-                y_mm=placed.y_mm,
-                rot_deg=rotation,
-                footprint=placed.footprint,
-            )
-        )
+        trials.append(replace(placed, rot_deg=rotation))
     return trials
 
 
@@ -592,6 +559,63 @@ def _best_single_ref_trial(
     return best_parts, best_score, best_trial
 
 
+def _hard_violation_key(score: LayoutScore) -> tuple[int, int, int, int]:
+    return (
+        score.overlap_count,
+        score.outline_violation_count,
+        score.keepout_violation_count,
+        score.missing_count,
+    )
+
+
+def _best_pin_gravity_trial(
+    placed_parts: list[PlacedPart],
+    current_score: LayoutScore,
+    ref: str,
+    placed: PlacedPart,
+    target_xy: tuple[float, float],
+    trials: list[PlacedPart],
+    circuit,
+    fp_bboxes: dict[str, tuple[float, float]],
+    constraints: LayoutConstraints | None,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    clearance_mm: float,
+    board_layers: int,
+) -> tuple[list[PlacedPart], LayoutScore, PlacedPart] | None:
+    current_distance = math.hypot(
+        placed.x_mm - target_xy[0],
+        placed.y_mm - target_xy[1],
+    )
+    current_hard = _hard_violation_key(current_score)
+    best: tuple[tuple[float, float], list[PlacedPart], LayoutScore, PlacedPart] | None = None
+    for trial in trials:
+        target_distance = math.hypot(
+            trial.x_mm - target_xy[0],
+            trial.y_mm - target_xy[1],
+        )
+        if target_distance >= current_distance - 0.25:
+            continue
+        trial_parts = _replace_ref(placed_parts, ref, trial)
+        trial_score = _score(
+            trial_parts,
+            circuit,
+            fp_bboxes,
+            constraints,
+            fp_geometries,
+            clearance_mm,
+            board_layers,
+        )
+        if _hard_violation_key(trial_score) > current_hard:
+            continue
+        key = (target_distance, -trial_score.score)
+        if best is None or key < best[0]:
+            best = (key, trial_parts, trial_score, trial)
+    if best is None:
+        return None
+    _, best_parts, best_score, best_trial = best
+    return best_parts, best_score, best_trial
+
+
 def _occupied_without_ref(
     placed_parts: list[PlacedPart],
     ref: str,
@@ -610,9 +634,25 @@ def _occupied_without_ref(
                     keepout.y_max - keepout.y_min,
                 )
             )
+    subject = next((part for part in placed_parts if part.ref == ref), None)
     for part in placed_parts:
         if part.ref == ref:
             continue
+        if subject is not None and not _same_physical_side(subject, part):
+            subject_geometry = (fp_geometries or {}).get(subject.footprint)
+            part_geometry = (fp_geometries or {}).get(part.footprint)
+            if (
+                subject_geometry is not None
+                and part_geometry is not None
+                and not _through_board_pads_collide(
+                    subject,
+                    subject_geometry,
+                    part,
+                    part_geometry,
+                    0.0,
+                )
+            ):
+                continue
         width_mm, height_mm = _part_dimensions(part, fp_bboxes, fp_geometries)
         occupied.append((part.x_mm, part.y_mm, width_mm, height_mm))
     return occupied
@@ -692,13 +732,7 @@ def _legalize_one_overlap(
                 and abs(y_mm - placed.y_mm) <= 1e-6
             ):
                 continue
-            trial = PlacedPart(
-                ref=placed.ref,
-                x_mm=x_mm,
-                y_mm=y_mm,
-                rot_deg=placed.rot_deg,
-                footprint=placed.footprint,
-            )
+            trial = replace(placed, x_mm=x_mm, y_mm=y_mm)
             trial_parts = _replace_ref(placed_parts, ref, trial)
             trial_score = _score(
                 trial_parts,
@@ -764,6 +798,7 @@ def refine_placement(
     accepted_rotations = 0
     accepted_swaps = 0
     ref_reasons: dict[str, list[str]] = {}
+    pin_gravity_anchored_refs: set[str] = set()
 
     for _ in range(max_passes):
         changed = False
@@ -791,6 +826,7 @@ def refine_placement(
                 roles,
             )
             if pin_target is not None:
+                pin_gravity_anchored_refs.add(ref)
                 target_xy, target_reason = pin_target
                 bounds = _bounds_for_ref(ref, constraints)
                 move_trials = _targeted_clear_move_trials(
@@ -813,10 +849,12 @@ def refine_placement(
                         bounds,
                     )
                 )
-                best = _best_single_ref_trial(
+                best = _best_pin_gravity_trial(
                     current_parts,
                     current_score,
                     ref,
+                    placed,
+                    target_xy,
                     move_trials,
                     circuit,
                     fp_bboxes,
@@ -838,7 +876,11 @@ def refine_placement(
                     )
                     placed = trial
 
-            centroid = _neighbor_centroid(ref, neighbors, placed_by_ref)
+            centroid = (
+                None
+                if ref in pin_gravity_anchored_refs
+                else _neighbor_centroid(ref, neighbors, placed_by_ref)
+            )
             if centroid is not None:
                 move_trials = _move_trials(
                     placed,
@@ -911,9 +953,11 @@ def refine_placement(
                 b = placed_by_ref.get(ref_b)
                 if b is None or not _same_swap_class(a, b, constraints):
                     continue
+                if a.ref in pin_gravity_anchored_refs or b.ref in pin_gravity_anchored_refs:
+                    continue
                 swap_attempts += 1
-                trial_a = PlacedPart(a.ref, b.x_mm, b.y_mm, a.rot_deg, a.footprint)
-                trial_b = PlacedPart(b.ref, a.x_mm, a.y_mm, b.rot_deg, b.footprint)
+                trial_a = replace(a, x_mm=b.x_mm, y_mm=b.y_mm)
+                trial_b = replace(b, x_mm=a.x_mm, y_mm=a.y_mm)
                 trial_parts = _replace_refs(
                     current_parts,
                     {a.ref: trial_a, b.ref: trial_b},

@@ -27,7 +27,10 @@ from mcp_server.dsn_rules import (
 
 class TestClassifyNets:
     def test_power_nets(self):
-        names = ["VCC", "VDD", "VDDA", "+3.3V", "+5V", "VIN", "VOUT", "VBAT", "VREF"]
+        names = [
+            "VCC", "VDD", "VDDA", "+3.3V", "-3.3V", "+5V", "-5V",
+            "+12V", "-12V", "VIN", "VOUT", "VBAT", "VREF",
+        ]
         result = classify_nets(names)
         for n in names:
             assert result[n] is POWER_CLASS, f"{n} should be Power"
@@ -151,9 +154,9 @@ class TestGenerateClassSection:
     def test_format(self):
         section = _generate_class_section(POWER_CLASS, ["VCC", "+3.3V"])
         assert "(class Power VCC +3.3V" in section
-        assert "(width 500)" in section
+        assert "(width 250)" in section
         assert "(clearance 200)" in section
-        assert "Via[0-1]_800:400_um" in section
+        assert "Via[0-1]_600:300_um" in section
 
     def test_signal_defaults(self):
         section = _generate_class_section(SIGNAL_CLASS, ["NET1"])
@@ -246,8 +249,8 @@ class TestInjectNetClasses:
         inject_net_classes(str(dsn_file))
         content = dsn_file.read_text()
 
-        # Power class uses 800:400 vias, should be added
-        assert "Via[0-1]_800:400_um" in content
+        # Power class uses fine default vias unless explicitly widened.
+        assert "Via[0-1]_600:300_um" in content
 
     def test_extracts_nets_when_not_provided(self, tmp_path):
         dsn_file = tmp_path / "board.dsn"

@@ -28,6 +28,7 @@ from mcp_server.engine_worker import (
     _code_exception_from_syntax,
     _circuit_to_spec_dict,
     _drc_to_exceptions,
+    _ensure_kicad_project_profile,
     _exec_skidl,
     _export_dsn_with_pcbnew,
     _find_kicad_python,
@@ -1446,6 +1447,29 @@ class TestRoutingExceptions:
         ]
         assert exc.candidates[-1].confidence < 0.5
 
+    def test_kicad_project_profile_uses_deterministic_prototype_rules(self, tmp_path):
+        pcb = tmp_path / "board.kicad_pcb"
+        pcb.write_text("(kicad_pcb)\n")
+        existing = {
+            "meta": {"filename": "board.kicad_pro", "version": 3},
+            "board": {
+                "design_settings": {
+                    "rules": {
+                        "min_hole_clearance": 0.25,
+                        "min_through_hole_diameter": 0.3,
+                    },
+                },
+            },
+        }
+        pcb.with_suffix(".kicad_pro").write_text(json.dumps(existing))
+
+        pro = _ensure_kicad_project_profile(str(pcb))
+        data = json.loads(pro.read_text())
+        rules = data["board"]["design_settings"]["rules"]
+
+        assert rules["min_hole_clearance"] == 0.15
+        assert rules["min_through_hole_diameter"] == 0.2
+
     def test_route_timeout_suggests_router_budget_retry(self, monkeypatch, tmp_path):
         original_exists = Path.exists
         jar_path = tmp_path / "freerouting.jar"
@@ -1961,6 +1985,27 @@ sim_source("VBUS", 5.0, provenance="USB input")
             code=code,
             layout_result=layout_result,
             floorplan_meta={"edge_anchors": 1},
+            circuit=circuit,
+        )
+
+        assert advisories == []
+
+    def test_python_mode_layout_intent_advisory_skips_valid_layout(self):
+        layout_result = SimpleNamespace(
+            validation=SimpleNamespace(
+                overlaps=[],
+                outline_violations=[],
+                keepout_violations=[],
+                missing_refs=[],
+            ),
+            score=SimpleNamespace(congestion_score=250.0),
+        )
+        circuit = SimpleNamespace(parts=[SimpleNamespace(ref=f"R{i}") for i in range(24)])
+
+        advisories = _skidl_layout_intent_advisories(
+            code="from skidl import *\n# flat generated board\n",
+            layout_result=layout_result,
+            floorplan_meta={},
             circuit=circuit,
         )
 

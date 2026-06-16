@@ -4,6 +4,7 @@ import copy
 import logging
 import math
 import os
+import re
 import uuid
 from dataclasses import dataclass
 
@@ -64,8 +65,14 @@ _LAYERS = [
 ]
 _BOARD_LAYER_NAMES = {str(entry[1]).strip('"') for entry in _LAYERS}
 _FOOTPRINT_LAYER_WILDCARDS = {"*.Cu", "*.Mask", "*.Paste"}
+_FOOTPRINT_EDGE_CUTS_LAYER = "Dwgs.User"
 _SILKSCREEN_LAYERS = {"F.SilkS", "B.SilkS"}
 _SILKSCREEN_TEXT_MARGIN_MM = 2.0
+_SMALL_SMD_PASSIVE_RE = re.compile(
+    r"(?:^|[:_])(?:R|C|L|D)_?(?:0201|0402|0603|0805|"
+    r"0603Metric|1005Metric|1608Metric|2012Metric)(?:_|$)",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -308,6 +315,16 @@ def _sanitize_layer_nodes(fp: Sexp):
                 node[:] = ["layers"] + [_q(layer) for layer in layers]
 
 
+def _demote_footprint_edge_cuts(fp: Sexp) -> None:
+    """Prevent copied footprint graphics from becoming board-outline geometry."""
+    for node in _walk_nodes(fp):
+        if not isinstance(node, list) or not node:
+            continue
+        layer = _find_child(node, "layer")
+        if layer is not None and len(layer) > 1 and _strip_quotes(layer[1]) == "Edge.Cuts":
+            layer[1] = _q(_FOOTPRINT_EDGE_CUTS_LAYER)
+
+
 _SIDE_LAYER_SWAP = {
     "F.Cu": "B.Cu",
     "B.Cu": "F.Cu",
@@ -341,6 +358,38 @@ def _place_footprint_on_back(fp: Sexp) -> None:
                 _q(_flip_layer_name(layer))
                 for layer in node[1:]
             ]
+
+
+def _normalize_angle(angle: float) -> float:
+    normalized = angle % 360.0
+    if math.isclose(normalized, 0.0, abs_tol=1e-9) or math.isclose(
+        normalized,
+        360.0,
+        abs_tol=1e-9,
+    ):
+        return 0.0
+    return round(normalized, 4)
+
+
+def _apply_footprint_rotation_to_pads(fp: Sexp, rot_deg: float) -> None:
+    """Make pad shape rotation explicit for rotated footprints.
+
+    KiCad applies footprint rotation to pad positions, but DRC treats the pad's
+    local angle as the copper shape orientation.  Without this, non-square pads
+    in rotated SOIC/USB footprints can appear to overlap adjacent pins.
+    """
+    if math.isclose(rot_deg % 360.0, 0.0, abs_tol=1e-9):
+        return
+    for pad in fp.search("pad"):
+        at = _find_child(pad, "at")
+        if at is None or len(at) < 3:
+            continue
+        existing = float(at[3]) if len(at) > 3 else 0.0
+        angle = _normalize_angle(existing + rot_deg)
+        if len(at) > 3:
+            at[3] = angle
+        else:
+            at.append(angle)
 
 
 def _ensure_uuid(node, seed: str):
@@ -379,6 +428,7 @@ def _prepare_footprint_for_board(fp: Sexp, fp_uuid: str):
     if len(fp) > 1:
         fp[1] = _q(fp[1])
     _sanitize_layer_nodes(fp)
+    _demote_footprint_edge_cuts(fp)
     _ensure_uuid(fp, fp_uuid)
 
     for prop in fp.search("property"):
@@ -391,6 +441,16 @@ def _prepare_footprint_for_board(fp: Sexp, fp_uuid: str):
     for pad in fp.search("pad"):
         if len(pad) > 1:
             pad[1] = _q(pad[1])
+        pad[:] = [
+            node
+            for node in pad
+            if not (
+                isinstance(node, list)
+                and len(node) > 1
+                and node[0] == "property"
+                and _strip_quotes(node[1]).startswith("pad_prop_")
+            )
+        ]
         _ensure_uuid(pad, f"{fp_uuid}:pad:{pad[1] if len(pad) > 1 else ''}")
 
     _refresh_uuids(fp, fp_uuid)
@@ -434,13 +494,22 @@ def _is_mounting_hole(part, pp: PlacedPart) -> bool:
     return "mountinghole" in text or "mounting hole" in text
 
 
+def _is_small_smd_passive(part, pp: PlacedPart) -> bool:
+    ref = str(getattr(pp, "ref", "") or getattr(part, "ref", "") or "")
+    prefix = re.match(r"[A-Za-z]+", ref)
+    if prefix is None or prefix.group(0).upper() not in {"R", "C", "L", "D"}:
+        return False
+    footprint = str(getattr(pp, "footprint", "") or getattr(part, "footprint", "") or "")
+    return bool(_SMALL_SMD_PASSIVE_RE.search(footprint))
+
+
 def _rotate_point(x: float, y: float, rot_deg: float) -> tuple[float, float]:
     if not rot_deg:
         return x, y
     angle = math.radians(rot_deg)
     return (
-        x * math.cos(angle) - y * math.sin(angle),
-        x * math.sin(angle) + y * math.cos(angle),
+        x * math.cos(angle) + y * math.sin(angle),
+        -x * math.sin(angle) + y * math.cos(angle),
     )
 
 
@@ -487,11 +556,12 @@ def _tidy_silkscreen_text(
     outline: BoardOutline | None,
 ) -> None:
     hide_mounting_hole_text = _is_mounting_hole(part, pp)
+    hide_small_passive_text = _is_small_smd_passive(part, pp)
     for node in _walk_nodes(fp):
         kind = _text_kind(node)
         if kind not in {"Reference", "Value"}:
             continue
-        if hide_mounting_hole_text and _is_silkscreen_text_node(node):
+        if (hide_mounting_hole_text or hide_small_passive_text) and _is_silkscreen_text_node(node):
             _ensure_hidden(node)
             continue
         _nudge_silkscreen_text_inside_outline(node, pp, outline)
@@ -509,6 +579,7 @@ def _place_footprint(
     _prepare_footprint_for_board(fp, fp_uuid)
     if str(getattr(pp, "side", "front") or "front").lower() == "back":
         _place_footprint_on_back(fp)
+    _apply_footprint_rotation_to_pads(fp, pp.rot_deg)
 
     at_val = [pp.x_mm, pp.y_mm]
     if pp.rot_deg:

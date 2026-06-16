@@ -4,6 +4,7 @@ import math
 from dataclasses import dataclass, field
 
 from .congestion import build_congestion_map
+from .decaps import measure_decap_pad_distances
 from .geometry import FootprintGeometry
 from .power import plan_power_routes
 from .roles import GND_NET_RE, POWER_NET_RE, PartRole, classify_parts, pin_net_names
@@ -333,6 +334,7 @@ def _role_warnings(
     roles: dict[str, PartRole],
     fp_bboxes: dict[str, tuple[float, float]],
     outline=None,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
 ) -> list[str]:
     placed_by_ref = {pp.ref: pp for pp in placed_parts}
     warnings: list[str] = []
@@ -357,6 +359,11 @@ def _role_warnings(
 
     part_by_ref = {part.ref: part for part in circuit.parts}
     nets_by_ref = {ref: set(pin_net_names(part)) for ref, part in part_by_ref.items()}
+    decap_pad_distances = measure_decap_pad_distances(
+        placed_parts,
+        circuit,
+        fp_geometries or {},
+    )
 
     if outline is not None:
         panel_like_count = sum(
@@ -396,6 +403,15 @@ def _role_warnings(
         ]
         if not candidates:
             warnings.append(f"{ref}: no placed IC/regulator shares its supply nets")
+            continue
+        pad_distance = decap_pad_distances.get(ref)
+        if pad_distance is not None:
+            if pad_distance.average_pad_distance_mm > 6.0:
+                warnings.append(
+                    f"{ref}: decoupling cap pads average "
+                    f"{pad_distance.average_pad_distance_mm:.1f}mm from "
+                    f"{pad_distance.parent_ref} supply pads"
+                )
             continue
         nearest_ref = min(
             candidates,
@@ -495,7 +511,14 @@ def score_placement_quick(
         fp_geometries=fp_geometries,
     )
     roles = ctx.roles if ctx is not None else (classify_parts(circuit) if circuit is not None else {})
-    warnings = _role_warnings(placed_parts, circuit, roles, fp_bboxes, outline)
+    warnings = _role_warnings(
+        placed_parts,
+        circuit,
+        roles,
+        fp_bboxes,
+        outline,
+        fp_geometries=fp_geometries,
+    )
     total_hpwl = _total_hpwl(placed_parts, circuit)
 
     penalty = 0.0
@@ -541,7 +564,14 @@ def score_placement(
         fp_geometries=fp_geometries,
     )
     roles = ctx.roles if ctx is not None else (classify_parts(circuit) if circuit is not None else {})
-    warnings = _role_warnings(placed_parts, circuit, roles, fp_bboxes, outline)
+    warnings = _role_warnings(
+        placed_parts,
+        circuit,
+        roles,
+        fp_bboxes,
+        outline,
+        fp_geometries=fp_geometries,
+    )
     power_plan = None
     if circuit is not None:
         power_plan = plan_power_routes(circuit, placed_parts, board_layers=board_layers)

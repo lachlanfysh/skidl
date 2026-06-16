@@ -29,7 +29,12 @@ from .report import PlacementReport, build_placement_report
 from .roles import GND_NET_RE, POWER_NET_RE, classify_parts
 from .routability import RoutabilityFeedback
 from .scoring import LayoutScore, score_placement, score_placement_quick
-from .validator import ValidationResult, validate
+from .validator import (
+    ValidationResult,
+    _same_physical_side,
+    _through_board_pads_collide,
+    validate,
+)
 from .writer import PlacedPart, load_footprint_bboxes
 
 
@@ -448,6 +453,7 @@ def _snap_mounting_holes_to_outline_corners(
     moved: list[str] = []
     snapped: list[PlacedPart] = []
     clearance = 0.8
+    rounded_corner_radius = getattr(outline, "corner_radius_mm", 0.0) or 0.0
 
     for placed in placed_parts:
         if placed.ref not in mounting_refs or placed.ref in explicit_floorplan_refs:
@@ -460,15 +466,22 @@ def _snap_mounting_holes_to_outline_corners(
         top_margin = max(0.0, placed.y_mm - bounds[1])
         bottom_margin = max(0.0, bounds[3] - placed.y_mm)
 
-        if placed.x_mm <= center_x:
-            x_mm = outline.x_min + left_margin + clearance
+        if rounded_corner_radius > 0:
+            x_inset = min(float(rounded_corner_radius), outline.width_mm / 2)
+            y_inset = min(float(rounded_corner_radius), outline.height_mm / 2)
         else:
-            x_mm = outline.x_max - right_margin - clearance
+            x_inset = left_margin + clearance if placed.x_mm <= center_x else right_margin + clearance
+            y_inset = top_margin + clearance if placed.y_mm <= center_y else bottom_margin + clearance
+
+        if placed.x_mm <= center_x:
+            x_mm = outline.x_min + x_inset
+        else:
+            x_mm = outline.x_max - x_inset
 
         if placed.y_mm <= center_y:
-            y_mm = outline.y_min + top_margin + clearance
+            y_mm = outline.y_min + y_inset
         else:
-            y_mm = outline.y_max - bottom_margin - clearance
+            y_mm = outline.y_max - y_inset
 
         if abs(x_mm - placed.x_mm) > 1e-6 or abs(y_mm - placed.y_mm) > 1e-6:
             moved.append(placed.ref)
@@ -506,6 +519,11 @@ def _snap_edge_anchors_to_outline(
     fixed_refs = {
         fixed.ref for fixed in (constraints.fixed if constraints else []) or []
     }
+    explicit_edge_offset_refs = {
+        anchor.ref
+        for anchor in ((constraints.edge_anchors if constraints else []) or [])
+        if anchor.offset_mm is not None
+    }
     pin_access_refs = {
         intent.ref
         for intent in (intent_plan.mating_intents if intent_plan else [])
@@ -541,9 +559,17 @@ def _snap_edge_anchors_to_outline(
         geometry = (fp_geometries or {}).get(placed.footprint)
         edge = anchor.edge.lower()
         offset = anchor.offset_mm
-        if align_vertical_pair and edge in {"left", "right"}:
+        if (
+            placed.ref not in explicit_edge_offset_refs
+            and align_vertical_pair
+            and edge in {"left", "right"}
+        ):
             offset = (outline.y_min + outline.y_max) / 2
-        elif placed.ref in pin_access_refs and edge in {"top", "bottom"}:
+        elif (
+            placed.ref not in explicit_edge_offset_refs
+            and placed.ref in pin_access_refs
+            and edge in {"top", "bottom"}
+        ):
             refs = edge_refs["top"] + edge_refs["bottom"]
             if len(refs) == 1:
                 offset = (outline.x_min + outline.x_max) / 2
@@ -783,6 +809,29 @@ def _bounds_overlap(
     )
 
 
+def _physically_blocks(
+    a: PlacedPart,
+    b: PlacedPart,
+    a_bounds: tuple[float, float, float, float],
+    b_bounds: tuple[float, float, float, float],
+    clearance_mm: float,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> bool:
+    if _same_physical_side(a, b):
+        return _bounds_overlap(a_bounds, b_bounds, clearance_mm)
+    a_geometry = (fp_geometries or {}).get(a.footprint)
+    b_geometry = (fp_geometries or {}).get(b.footprint)
+    if a_geometry is None or b_geometry is None:
+        return _bounds_overlap(a_bounds, b_bounds, clearance_mm)
+    return _through_board_pads_collide(
+        a,
+        a_geometry,
+        b,
+        b_geometry,
+        clearance_mm,
+    )
+
+
 def _translated_bounds(
     bounds: tuple[float, float, float, float],
     dx: float,
@@ -853,7 +902,14 @@ def _legalize_edge_anchor_neighbors(
                 ):
                     continue
                 bounds = bounds_by_ref[ref]
-                if not _bounds_overlap(anchor_bounds, bounds, clearance_mm):
+                if not _physically_blocks(
+                    anchor_part,
+                    placed,
+                    anchor_bounds,
+                    bounds,
+                    clearance_mm,
+                    fp_geometries,
+                ):
                     continue
                 dx = dy = 0.0
                 if edge == "left":
@@ -938,10 +994,19 @@ def _legalize_small_parts_from_outline(
         ref: str,
         bounds: tuple[float, float, float, float],
     ) -> bool:
+        placed = placed_by_ref[ref]
         for other_ref in placed_by_ref:
             if other_ref == ref:
                 continue
-            if _bounds_overlap(bounds, _bounds_for(other_ref), clearance_mm):
+            other = placed_by_ref[other_ref]
+            if _physically_blocks(
+                placed,
+                other,
+                bounds,
+                _bounds_for(other_ref),
+                clearance_mm,
+                fp_geometries,
+            ):
                 return True
         return False
 

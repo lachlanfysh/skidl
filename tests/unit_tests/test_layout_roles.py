@@ -60,6 +60,17 @@ def test_classify_connector_from_ref_and_text():
     assert classify_part(part).role == "connector"
 
 
+def test_classify_usb_capable_ic_not_as_connector():
+    part = _Part(
+        "U1",
+        name="USB MIDI bridge MCU",
+        footprint="Package_SO:SOIC-16_3.9x9.9mm_P1.27mm",
+        pins=16,
+    )
+
+    assert classify_part(part).role == "ic"
+
+
 def test_classify_thonkiconn_as_panel_jack_not_edge_connector():
     part = _Part(
         "J1",

@@ -55,6 +55,11 @@ AUDIO_IC_RE = re.compile(r"\b(dac|codec|audio|i2s|pcm510|wm874|max9814|sgtl5000|
 DISPLAY_NET_RE = re.compile(r"(?:^|[_/.\s-])(eink|e.ink|oled|lcd|disp|tft|epd|dc|busy)(?:[_/.\s-]|$)", re.I)
 NAV_RE = re.compile(r"\b(nav|joystick|d-pad|dpad|5.?way|4.?way)\b", re.I)
 QWIIC_RE = re.compile(r"\b(qwiic|stemma\s*qt|stemmaqt)\b", re.I)
+USB_CONNECTOR_RE = re.compile(
+    r"(connector[_\s:/-]*usb|usb[_\s-]*(?:c|micro|mini|a|b)?[_\s-]*(?:connector|receptacle|socket)|"
+    r"type[_\s-]?c|usb4105|type-c-31|usb_c_receptacle)",
+    re.I,
+)
 
 
 @dataclass
@@ -306,7 +311,7 @@ def _rotation_for_local_exit(edge: str, local_exit: str) -> float | None:
     """Return KiCad rotation that points a known local connector exit outward."""
     edge = edge.lower()
     if local_exit == "+y":
-        return {"bottom": 0.0, "left": 90.0, "top": 180.0, "right": 270.0}.get(edge)
+        return {"bottom": 0.0, "left": 270.0, "top": 180.0, "right": 90.0}.get(edge)
     if local_exit == "-x":
         return {"left": 0.0, "bottom": 90.0, "right": 180.0, "top": 270.0}.get(edge)
     return None
@@ -326,6 +331,15 @@ def _default_edge_rotation_for_part(
     footprint = str(getattr(part, "footprint", "") or "").lower()
     kind = str(mating_kind or "").lower()
 
+    # KiCad CUI SJ1 horizontal jacks mark their PCB-edge/socket opening on
+    # local +Y using footprint-local Edge.Cuts geometry.
+    if (
+        kind == "audio_jack"
+        or AUDIO_JACK_RE.search(text)
+        or "jack_3.5mm" in footprint
+    ) and ("cui_sj1" in footprint or "sj1-352" in footprint):
+        return _rotation_for_local_exit(edge, "+y")
+
     # KiCad PJ320D-style horizontal jacks have the socket opening on local -X.
     if (
         kind == "audio_jack"
@@ -339,7 +353,7 @@ def _default_edge_rotation_for_part(
         return _rotation_for_local_exit(edge, "-x")
 
     # KiCad USB-C edge-mount footprints mark "PCB Edge" on local +Y.
-    if kind == "usb" or "usb" in text or "connector_usb" in footprint:
+    if kind == "usb" or USB_CONNECTOR_RE.search(text) or "connector_usb" in footprint:
         if "horizontal" in footprint or "receptacle" in footprint or "usb" in footprint:
             return _rotation_for_local_exit(edge, "+y")
 
@@ -361,7 +375,7 @@ def _default_edge_inset_for_part(text: str, mating_kind: str | None) -> float:
     """Use true board-edge placement for connectors that need cable access."""
     if str(mating_kind or "").lower() in {"usb", "jst", "audio_jack", "barrel"}:
         return 0.0
-    if AUDIO_JACK_RE.search(text) or QWIIC_RE.search(text) or "usb" in text:
+    if AUDIO_JACK_RE.search(text) or QWIIC_RE.search(text) or USB_CONNECTOR_RE.search(text):
         return 0.0
     return 0.5
 
@@ -452,7 +466,7 @@ def _edge_for_part(text: str, role: PartRole, nets: list[str]) -> str | None:
         return None
     if _is_eurorack_power_connector(text, role, nets):
         return None
-    if "usb" in text:
+    if role.role == "connector" and USB_CONNECTOR_RE.search(text):
         return "bottom"
     if DEBUG_RE.search(text):
         return "right"
@@ -507,7 +521,7 @@ def _mating_intent_for_part(
             confidence=0.9,
             reasons=["panel/audio jack metadata"],
         )
-    if "usb" in text:
+    if role_name == "connector" and USB_CONNECTOR_RE.search(text):
         return MatingIntent(
             ref=ref,
             kind="usb",
@@ -1561,14 +1575,19 @@ def _place_mounting_holes(
     if outline is None or not refs:
         return
 
-    base_inset = min(3.5, max(2.0, min(outline.width_mm, outline.height_mm) * 0.08))
-    edge_set = {anchor.edge.lower() for anchor in plan.edge_anchors}
-    x_inset = base_inset + (2.5 if edge_set & {"left", "right"} else 0.0)
-    needs_bottom_row = len(refs) > 2
-    y_edge_conflict = "top" in edge_set or (needs_bottom_row and "bottom" in edge_set)
-    y_inset = base_inset + (2.5 if y_edge_conflict else 0.0)
-    x_inset = min(x_inset, max(base_inset, outline.width_mm * 0.32))
-    y_inset = min(y_inset, max(base_inset, outline.height_mm * 0.32))
+    rounded_corner_radius = getattr(outline, "corner_radius_mm", 0.0) or 0.0
+    if rounded_corner_radius > 0:
+        x_inset = min(float(rounded_corner_radius), outline.width_mm / 2)
+        y_inset = min(float(rounded_corner_radius), outline.height_mm / 2)
+    else:
+        base_inset = min(3.5, max(2.0, min(outline.width_mm, outline.height_mm) * 0.08))
+        edge_set = {anchor.edge.lower() for anchor in plan.edge_anchors}
+        x_inset = base_inset + (2.5 if edge_set & {"left", "right"} else 0.0)
+        needs_bottom_row = len(refs) > 2
+        y_edge_conflict = "top" in edge_set or (needs_bottom_row and "bottom" in edge_set)
+        y_inset = base_inset + (2.5 if y_edge_conflict else 0.0)
+        x_inset = min(x_inset, max(base_inset, outline.width_mm * 0.32))
+        y_inset = min(y_inset, max(base_inset, outline.height_mm * 0.32))
     x0 = outline.x_min + x_inset
     x1 = outline.x_max - x_inset
     y0 = outline.y_min + y_inset
@@ -1926,10 +1945,12 @@ def infer_placement_intents(
         if DEBUG_RE.search(text):
             _add_intent(plan, ref, "test_debug", 80, "debug connector metadata")
 
-        if any(POWER_NET_RE.match(net) for net in nets) and (
-            POWER_INPUT_RE.search(text)
-            or (role is not None and role.role == "connector")
-        ):
+        role_name = role.role if role is not None else "unknown"
+        power_input_like = role_name in {"connector", "module_socket"} or (
+            role_name not in {"ic", "regulator"}
+            and POWER_INPUT_RE.search(text)
+        )
+        if any(POWER_NET_RE.match(net) for net in nets) and power_input_like:
             _add_intent(plan, ref, "power_input", 85, "connector on supply net")
 
         if role is not None and role.role == "panel_jack":

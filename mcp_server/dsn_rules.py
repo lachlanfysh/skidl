@@ -20,8 +20,8 @@ from pathlib import Path
 POWER_NET_RE = re.compile(
     r"^(V(CC|DD|DDA|DDIO|SS|IN|OUT|BAT|REF|BUS)|"
     r"A?V(CC|DD)|D?V(CC|DD)|IOV(DD)|"
-    r"\+\d+(\.\d+)?V(\d+)?|"
-    r"\+3\.?3V?|\+5V?)$",
+    r"[-+]?\d+(\.\d+)?V(\d+)?|"
+    r"[-+]?3\.?3V?|[-+]?5V?)$",
     re.IGNORECASE,
 )
 
@@ -54,20 +54,20 @@ class NetClassDef:
 
 POWER_CLASS = NetClassDef(
     name="Power",
-    width_um=500,      # 0.5mm — current carrying
+    width_um=250,      # fine-pitch-safe default; widen only with explicit policy
     clearance_um=200,  # standard
-    via_drill_um=400,
-    via_pad_um=800,
-    description="Power supply rails — wide traces, large vias",
+    via_drill_um=300,
+    via_pad_um=600,
+    description="Power supply rails — fine default escape traces",
 )
 
 GROUND_CLASS = NetClassDef(
     name="Ground",
-    width_um=500,
+    width_um=250,
     clearance_um=200,
-    via_drill_um=400,
-    via_pad_um=800,
-    description="Ground rails — wide traces for return current",
+    via_drill_um=300,
+    via_pad_um=600,
+    description="Ground rails — fine default escape traces",
 )
 
 ANALOG_CLASS = NetClassDef(

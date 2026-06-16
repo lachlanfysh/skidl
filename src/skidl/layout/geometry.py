@@ -19,6 +19,7 @@ class PadGeometry:
     rot_deg: float = 0.0
     layers: tuple[str, ...] = ()
     net_name: str | None = None
+    pad_type: str = "smd"
 
     @property
     def local_bounds(self) -> tuple[float, float, float, float]:
@@ -28,6 +29,24 @@ class PadGeometry:
             self.x_mm + self.width_mm / 2,
             self.y_mm + self.height_mm / 2,
         )
+
+    @property
+    def is_through_board(self) -> bool:
+        return self.pad_type in {"thru_hole", "np_thru_hole"} or "*.Cu" in self.layers
+
+    def transformed_bounds(self, placed: PlacedPart) -> tuple[float, float, float, float]:
+        x_min, y_min, x_max, y_max = self.local_bounds
+        corners = [
+            (x_min, y_min),
+            (x_max, y_min),
+            (x_max, y_max),
+            (x_min, y_max),
+        ]
+        points = [
+            transform_point(placed.x_mm, placed.y_mm, placed.rot_deg, x, y)
+            for x, y in corners
+        ]
+        return _bounds_union((x, y, x, y) for x, y in points)
 
 
 @dataclass(frozen=True)
@@ -103,11 +122,12 @@ def transform_point(
     local_y: float,
 ) -> tuple[float, float]:
     radians = math.radians(rot_deg)
-    # KiCad PCB coordinates are Y-down, so positive footprint rotations are
-    # clockwise in screen/world space rather than the usual math Y-up rotation.
+    # Match KiCad PCB footprint rotation. Positive angles rotate local +Y
+    # toward board +X, which is the transform pcbnew applies when rendering
+    # `(footprint ... (at x y angle))` records.
     return (
-        origin_x + local_x * math.cos(radians) - local_y * math.sin(radians),
-        origin_y + local_x * math.sin(radians) + local_y * math.cos(radians),
+        origin_x + local_x * math.cos(radians) + local_y * math.sin(radians),
+        origin_y - local_x * math.sin(radians) + local_y * math.cos(radians),
     )
 
 
@@ -194,6 +214,7 @@ def footprint_geometry_from_sexp(footprint: str, fp: Sexp) -> FootprintGeometry:
         pads.append(
             PadGeometry(
                 number=str(pad[1]).strip('"'),
+                pad_type=str(pad[2]).strip('"'),
                 x_mm=_as_float(at[1]) if len(at) > 1 else 0.0,
                 y_mm=_as_float(at[2]) if len(at) > 2 else 0.0,
                 rot_deg=_as_float(at[3]) if len(at) > 3 else 0.0,

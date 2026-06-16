@@ -409,6 +409,40 @@ class TestRegulatorCapRecommendations:
                                        "regulator_missing_output_cap")]
         assert len(cap_warns) == 0
 
+    def test_regulator_named_caps_clean(self):
+        from skidl.pin import pin_types
+        from skidl.sim.power_tree import analyze_power_tree
+
+        bat = _make_part("BT1", "Battery", pins_spec=[
+            (1, "+", "VBAT", pin_types.PASSIVE),
+            (2, "-", "GND", pin_types.PASSIVE),
+        ])
+        ldo = _make_part("U1", "LDO", pins_spec=[
+            (1, "VIN", "VBAT", pin_types.PWRIN),
+            (2, "GND", "GND", pin_types.PWRIN),
+            (5, "VOUT", "+3V3", pin_types.PWROUT),
+        ], description="Linear Regulator")
+        c_in = _make_part("CREGIN", "1uF", pins_spec=[
+            (1, "1", "VBAT", None),
+            (2, "2", "GND", None),
+        ])
+        c_out = _make_part("CREGOUT", "10uF", pins_spec=[
+            (1, "1", "+3V3", None),
+            (2, "2", "GND", None),
+        ])
+        c_hf = _make_part("CREGHF", "100nF", pins_spec=[
+            (1, "1", "+3V3", None),
+            (2, "2", "GND", None),
+        ])
+        ckt = _make_circuit([bat, ldo, c_in, c_out, c_hf])
+
+        report = analyze_power_tree(circuit=ckt)
+
+        reg_cap_warns = [f for f in report.findings
+                         if f.category in ("regulator_missing_input_cap",
+                                           "regulator_missing_output_cap")]
+        assert reg_cap_warns == []
+
 
 # ---------------------------------------------------------------------------
 # Harness sources as authoritative roots

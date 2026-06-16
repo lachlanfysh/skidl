@@ -3,11 +3,36 @@ from __future__ import annotations
 import pytest
 
 from skidl.layout.constraints import BoardOutline, KeepOut
+from skidl.layout.geometry import FootprintGeometry, PadGeometry
 from skidl.layout.writer import PlacedPart
 from skidl.layout.validator import validate, ValidationResult, run_kicad_drc
 
 
 BBOXES_0805 = {"Resistor_SMD:R_0805": (2.0, 1.25)}
+
+
+def _test_geometry(
+    footprint: str,
+    pad_x: float,
+    *,
+    pad_type: str = "smd",
+    layers: tuple[str, ...] = ("F.Cu",),
+) -> FootprintGeometry:
+    return FootprintGeometry(
+        footprint,
+        pads=[
+            PadGeometry(
+                "1",
+                pad_x,
+                0.0,
+                1.0,
+                1.0,
+                pad_type=pad_type,
+                layers=layers,
+            )
+        ],
+        courtyard_bounds=(-5.0, -5.0, 5.0, 5.0),
+    )
 
 
 def test_no_overlaps_when_separated():
@@ -39,6 +64,82 @@ def test_front_and_back_parts_may_share_xy_without_overlap():
     result = validate(parts, None, BBOXES_0805)
 
     assert result.overlaps == []
+
+
+def test_front_and_back_through_hole_bodies_may_overlap_when_pads_clear():
+    parts = [
+        PlacedPart("J1", 10.0, 10.0, 0.0, "Demo:THTLeft", side="front"),
+        PlacedPart("J2", 10.0, 10.0, 0.0, "Demo:THTRight", side="back"),
+    ]
+    geometries = {
+        "Demo:THTLeft": _test_geometry(
+            "Demo:THTLeft", -3.0, pad_type="thru_hole", layers=("*.Cu", "*.Mask")
+        ),
+        "Demo:THTRight": _test_geometry(
+            "Demo:THTRight", 3.0, pad_type="thru_hole", layers=("*.Cu", "*.Mask")
+        ),
+    }
+
+    result = validate(parts, None, {}, clearance_mm=0.5, fp_geometries=geometries)
+
+    assert result.overlaps == []
+
+
+def test_front_and_back_through_hole_pad_collision_detected():
+    parts = [
+        PlacedPart("J1", 10.0, 10.0, 0.0, "Demo:THTA", side="front"),
+        PlacedPart("J2", 10.0, 10.0, 0.0, "Demo:THTB", side="back"),
+    ]
+    geometries = {
+        "Demo:THTA": _test_geometry(
+            "Demo:THTA", 0.0, pad_type="thru_hole", layers=("*.Cu", "*.Mask")
+        ),
+        "Demo:THTB": _test_geometry(
+            "Demo:THTB", 0.0, pad_type="thru_hole", layers=("*.Cu", "*.Mask")
+        ),
+    }
+
+    result = validate(parts, None, {}, clearance_mm=0.0, fp_geometries=geometries)
+
+    assert result.overlaps == [("J1", "J2")]
+
+
+def test_back_smd_pad_cannot_share_front_through_hole_pad():
+    parts = [
+        PlacedPart("J1", 10.0, 10.0, 0.0, "Demo:THT", side="front"),
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Demo:SMD", side="back"),
+    ]
+    geometries = {
+        "Demo:THT": _test_geometry(
+            "Demo:THT", 0.0, pad_type="thru_hole", layers=("*.Cu", "*.Mask")
+        ),
+        "Demo:SMD": _test_geometry("Demo:SMD", 0.0, layers=("B.Cu",)),
+    }
+
+    result = validate(parts, None, {}, clearance_mm=0.0, fp_geometries=geometries)
+
+    assert result.overlaps == [("J1", "R1")]
+
+
+def test_cross_side_pad_collision_detected_with_spatial_grid_path():
+    parts = [
+        PlacedPart("J1", 10.0, 10.0, 0.0, "Demo:THT", side="front"),
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Demo:SMD", side="back"),
+    ]
+    parts.extend(
+        PlacedPart(f"F{i}", 100.0 + i * 10.0, 100.0, 0.0, "Demo:SMD", side="front")
+        for i in range(18)
+    )
+    geometries = {
+        "Demo:THT": _test_geometry(
+            "Demo:THT", 0.0, pad_type="thru_hole", layers=("*.Cu", "*.Mask")
+        ),
+        "Demo:SMD": _test_geometry("Demo:SMD", 0.0, layers=("B.Cu",)),
+    }
+
+    result = validate(parts, None, {}, clearance_mm=0.0, fp_geometries=geometries)
+
+    assert ("J1", "R1") in result.overlaps
 
 
 def test_mechanical_parts_still_overlap_front_or_back_parts():

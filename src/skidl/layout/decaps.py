@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 
 from .candidates import PlacementCandidate
@@ -35,6 +36,13 @@ class DecapRefinementResult:
     placed_parts: list[PlacedPart]
     intents: list[DecapPlacementIntent] = field(default_factory=list)
     ref_reasons: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class DecapPadDistance:
+    ref: str
+    parent_ref: str
+    average_pad_distance_mm: float
 
 
 def _pin_number(pin, index: int) -> str:
@@ -142,9 +150,88 @@ def _role_priority(role: str) -> int:
     return {
         "regulator": 50,
         "ic": 40,
+        "module_socket": 40,
         "connector": 15,
         "unknown": 0,
     }.get(role, 5)
+
+
+def _alpha_tokens(text: str) -> set[str]:
+    generic_tokens = {
+        "CAP",
+        "CAPACITOR",
+        "DEVICE",
+        "FOOTPRINT",
+        "IC",
+        "LGA",
+        "MCU",
+        "METRIC",
+        "MODULE",
+        "PACKAGE",
+        "PKG",
+        "RESISTOR",
+        "SMD",
+        "SENSOR",
+    }
+    tokens: set[str] = set()
+    for match in re.finditer(r"[A-Za-z]{3,}", str(text or "")):
+        token = match.group(0).upper()
+        if token not in generic_tokens:
+            tokens.add(token)
+        if token[0] in {"C", "R", "L", "D", "U", "J", "Q"} and len(token) >= 4:
+            stripped = token[1:]
+            if stripped not in generic_tokens:
+                tokens.add(stripped)
+    return tokens
+
+
+def _part_tokens(part) -> set[str]:
+    fields = (
+        getattr(part, "ref", ""),
+        getattr(part, "name", ""),
+        getattr(part, "value", ""),
+        getattr(part, "footprint", ""),
+    )
+    tokens: set[str] = set()
+    for field in fields:
+        tokens.update(_alpha_tokens(str(field)))
+    return tokens
+
+
+def _token_affinity(cap_part, parent_part) -> int:
+    cap_tokens = _part_tokens(cap_part)
+    parent_tokens = _part_tokens(parent_part)
+    if not cap_tokens or not parent_tokens:
+        return 0
+    best = 0
+    for cap_token in cap_tokens:
+        for parent_token in parent_tokens:
+            if cap_token == parent_token:
+                best = max(best, 3)
+            elif cap_token in parent_token or parent_token in cap_token:
+                best = max(best, 2)
+    return best
+
+
+def _average_candidate_pad_distance(
+    cap_placed: PlacedPart,
+    parent_placed: PlacedPart,
+    power_pads: list[PadGeometry],
+    ground_pads: list[PadGeometry],
+) -> float:
+    pad_points = [
+        _pad_world_xy(pad, parent_placed)
+        for pad in [*power_pads, *ground_pads]
+    ]
+    if not pad_points:
+        return _distance(
+            (cap_placed.x_mm, cap_placed.y_mm),
+            (parent_placed.x_mm, parent_placed.y_mm),
+        )
+    return min(
+        _distance((cap_placed.x_mm, cap_placed.y_mm), pad_xy)
+        for pad_xy in pad_points
+    )
 
 
 def _select_parent(
@@ -156,13 +243,17 @@ def _select_parent(
     fp_geometries: dict[str, FootprintGeometry],
 ) -> tuple[object, list[PadGeometry], list[PadGeometry]] | None:
     roles = classify_parts(circuit)
+    part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
+    cap_part = part_by_ref.get(cap_ref)
+    cap_placed = placed_by_ref.get(cap_ref)
     candidates = []
     for part in circuit.parts:
         ref = getattr(part, "ref", None)
         if not ref or ref == cap_ref or ref not in placed_by_ref:
             continue
         role = roles.get(ref)
-        if role is not None and role.role == "decoupling_cap":
+        role_name = role.role if role is not None else "unknown"
+        if role_name not in {"ic", "regulator", "module_socket"}:
             continue
         geometry = fp_geometries.get(placed_by_ref[ref].footprint)
         if geometry is None:
@@ -171,18 +262,31 @@ def _select_parent(
         if not power_pads:
             continue
         ground_pads = _pads_for_net(part, geometry, ground_net)
-        role_name = role.role if role is not None else "unknown"
         score = (
             _role_priority(role_name)
             + len(power_pads) * 4
             + len(ground_pads) * 2
         )
-        candidates.append((-score, str(ref), part, power_pads, ground_pads))
+        parent_placed = placed_by_ref[ref]
+        distance = (
+            _average_candidate_pad_distance(
+                cap_placed,
+                parent_placed,
+                power_pads,
+                ground_pads,
+            )
+            if cap_placed is not None
+            else 0.0
+        )
+        affinity = _token_affinity(cap_part, part) if cap_part is not None else 0
+        candidates.append(
+            (-affinity, distance, -score, str(ref), part, power_pads, ground_pads)
+        )
 
     if not candidates:
         return None
 
-    _, _, parent, power_pads, ground_pads = min(candidates)
+    _, _, _, _, parent, power_pads, ground_pads = min(candidates)
     return parent, power_pads, ground_pads
 
 
@@ -363,6 +467,55 @@ def _best_cap_rotation(
         )
     distance_mm, _, rotation = min(candidates)
     return rotation, distance_mm
+
+
+def measure_decap_pad_distances(
+    placed_parts: list[PlacedPart],
+    circuit,
+    fp_geometries: dict[str, FootprintGeometry],
+) -> dict[str, DecapPadDistance]:
+    """Measure decap pad distance to the parent IC/regulator supply pads."""
+    if circuit is None or not fp_geometries:
+        return {}
+
+    placed_by_ref = {placed.ref: placed for placed in placed_parts}
+    part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
+    distances: dict[str, DecapPadDistance] = {}
+
+    for intent in infer_decap_placement_intents(circuit, placed_parts, fp_geometries):
+        cap_part = part_by_ref.get(intent.ref)
+        cap_placed = placed_by_ref.get(intent.ref)
+        cap_geometry = fp_geometries.get(cap_placed.footprint) if cap_placed else None
+        if cap_part is None or cap_placed is None or cap_geometry is None:
+            continue
+
+        targets = [
+            (_cap_pad_for_net(cap_part, cap_geometry, intent.supply_net), intent.target_power_xy),
+            (_cap_pad_for_net(cap_part, cap_geometry, intent.ground_net), intent.target_ground_xy),
+        ]
+        measured = [
+            _distance(
+                transform_point(
+                    cap_placed.x_mm,
+                    cap_placed.y_mm,
+                    cap_placed.rot_deg,
+                    pad.x_mm,
+                    pad.y_mm,
+                ),
+                target_xy,
+            )
+            for pad, target_xy in targets
+            if pad is not None and target_xy is not None
+        ]
+        if not measured:
+            continue
+        distances[intent.ref] = DecapPadDistance(
+            ref=intent.ref,
+            parent_ref=intent.parent_ref,
+            average_pad_distance_mm=sum(measured) / len(measured),
+        )
+
+    return distances
 
 
 def _locked_refs(constraints: LayoutConstraints | None) -> set[str]:

@@ -63,7 +63,7 @@ def test_refine_orientations_rotates_pad_toward_connected_neighbor():
     result = refine_orientations(placed, circuit, geometries)
     refined = {part.ref: part for part in result.placed_parts}
 
-    assert refined["U1"].rot_deg == 90.0
+    assert refined["U1"].rot_deg == 270.0
     assert "pad/net pressure" in result.ref_reasons["U1"][0]
 
 

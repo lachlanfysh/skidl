@@ -87,6 +87,28 @@ def test_infers_edge_connector_power_and_debug_intent():
     assert "mechanical_mating" in _kinds(plan, "J1")
 
 
+def test_usb_capable_ic_does_not_get_connector_mating_intent():
+    vbus = _Net("VBUS")
+    gnd = _Net("GND")
+    dp = _Net("USB_D+")
+    dm = _Net("USB_D-")
+    mcu = _Part(
+        "U1",
+        name="USB MIDI bridge MCU",
+        footprint="Package_SO:SOIC-16_3.9x9.9mm_P1.27mm",
+        nets=[vbus, gnd, dp, dm],
+        pins=16,
+    )
+    circuit = _Circuit([mcu], [vbus, gnd, dp, dm])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+
+    assert "edge_connector" not in _kinds(plan, "U1")
+    assert "mechanical_mating" not in _kinds(plan, "U1")
+    assert "power_input" not in _kinds(plan, "U1")
+    assert [mating for mating in plan.mating_intents if mating.ref == "U1"] == []
+
+
 def test_infers_outward_rotation_for_qwiic_edge_connector():
     vcc = _Net("3V3")
     gnd = _Net("GND")
@@ -106,7 +128,7 @@ def test_infers_outward_rotation_for_qwiic_edge_connector():
 
     anchor = next(anchor for anchor in plan.edge_anchors if anchor.ref == "J100")
     assert anchor.edge == "right"
-    assert anchor.rot_deg == 270.0
+    assert anchor.rot_deg == 90.0
     assert anchor.inset_mm == 0.0
 
 
@@ -249,6 +271,31 @@ def test_horizontal_35mm_audio_jack_is_edge_connector():
     assert mating.edge_preference == "right"
     assert mating.mating_side == "outside_board"
     assert any(face.ref == "J1" and face.edge == "right" for face in plan.face_edges)
+
+
+def test_cui_sj1_horizontal_audio_jack_uses_local_y_socket_exit():
+    sig = _Net("AUDIO_OUT")
+    gnd = _Net("GND")
+    jack = _Part(
+        "J1",
+        name="3.5mm stereo headphone jack",
+        footprint="Connector_Audio:Jack_3.5mm_CUI_SJ1-3523N_Horizontal",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    circuit = _Circuit([jack], [sig, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+
+    anchor = next(anchor for anchor in plan.edge_anchors if anchor.ref == "J1")
+    assert anchor.edge == "right"
+    assert anchor.rot_deg == 90.0
+
+    jack.edge_preference = "left"
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+    anchor = next(anchor for anchor in plan.edge_anchors if anchor.ref == "J1")
+    assert anchor.edge == "left"
+    assert anchor.rot_deg == 270.0
 
 
 def test_eurorack_power_treats_audio_jacks_as_panel_subjects_with_single_sided_default():

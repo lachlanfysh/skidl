@@ -39,6 +39,10 @@ _EXTERNAL_POWER_CONNECTOR_RE = re.compile(
     r"(eurorack|doepfer)",
     re.IGNORECASE,
 )
+_CAP_VALUE_RE = re.compile(
+    r"^\s*\d+(?:\.\d+)?\s*(?:p|n|u|µ|m)?f?\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -140,6 +144,28 @@ def _part_text(part) -> str:
         getattr(part, "description", ""),
     ]
     return " ".join(str(c or "") for c in chunks).lower()
+
+
+def _is_capacitor_part(part) -> bool:
+    pins = getattr(part, "pins", [])
+    if len(pins) != 2:
+        return False
+
+    ref = str(getattr(part, "ref", "") or "").upper()
+    name = str(getattr(part, "name", "") or "").upper()
+    value = str(getattr(part, "value", "") or "")
+    footprint = str(getattr(part, "footprint", "") or "").lower()
+    description = str(getattr(part, "description", "") or "").lower()
+
+    if _ref_prefix(ref) == "C":
+        return True
+    if name in {"C", "CAP", "CAPACITOR"}:
+        return True
+    if "capacitor" in footprint or "capacitor" in description:
+        return True
+    if ref.startswith("C") and _CAP_VALUE_RE.match(value):
+        return True
+    return False
 
 
 def _looks_like_external_power_connector(part) -> bool:
@@ -352,7 +378,7 @@ def analyze_power_tree(circuit=None) -> PowerTreeReport:
 
         else:
             # Regular part — record as load on its power rails
-            if prefix == "C" and len(pins) == 2:
+            if _is_capacitor_part(part):
                 for net in part_power_nets:
                     rails[net].caps.append(part.ref)
             elif part_load_power_nets and prefix not in {"R", "L", "D"}:

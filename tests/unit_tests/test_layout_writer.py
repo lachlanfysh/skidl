@@ -185,6 +185,63 @@ def test_write_minimal_pcb_valid_sexp(tmp_path):
     assert board[0] == "kicad_pcb"
 
 
+def test_write_strips_library_only_pad_properties(tmp_path):
+    lib_dir = tmp_path / "TestLib.pretty"
+    lib_dir.mkdir()
+    (lib_dir / "ThermalPad.kicad_mod").write_text(
+        '(footprint "ThermalPad"\n'
+        '  (layer "F.Cu")\n'
+        '  (property "Reference" "REF**" (at 0 -2) (layer "F.SilkS"))\n'
+        '  (property "Value" "ThermalPad" (at 0 2) (layer "F.Fab"))\n'
+        '  (pad "1" thru_hole circle (at 0 0) (size 0.6 0.6) (drill 0.2)\n'
+        '    (property "pad_prop_heatsink")\n'
+        '    (layers "*.Cu" "F.Mask"))\n'
+        ")\n"
+    )
+    circuit = _MockCircuit()
+    parts = [PlacedPart(ref="U1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint="TestLib:ThermalPad")]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [str(tmp_path)], out)
+
+    content = open(out).read()
+    assert "pad_prop_heatsink" not in content
+    assert Sexp(content)[0] == "kicad_pcb"
+
+
+def test_write_demotes_footprint_edge_cuts_to_user_drawing_layer(tmp_path):
+    lib_dir = tmp_path / "TestLib.pretty"
+    lib_dir.mkdir()
+    (lib_dir / "EdgeMarkedJack.kicad_mod").write_text(
+        '(footprint "EdgeMarkedJack"\n'
+        '  (layer "F.Cu")\n'
+        '  (property "Reference" "REF**" (at 0 -2) (layer "F.SilkS"))\n'
+        '  (property "Value" "EdgeMarkedJack" (at 0 2) (layer "F.Fab"))\n'
+        '  (fp_line (start -2 1) (end 2 1) (stroke (width 0.12) (type solid)) (layer "Edge.Cuts"))\n'
+        '  (pad "1" thru_hole circle (at 0 0) (size 1 1) (drill 0.5) (layers "*.Cu" "*.Mask"))\n'
+        ")\n"
+    )
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(
+            ref="J1",
+            x_mm=5.0,
+            y_mm=5.0,
+            rot_deg=0.0,
+            footprint="TestLib:EdgeMarkedJack",
+        )
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [str(tmp_path)], out)
+
+    board = Sexp(open(out).read())
+    footprint = list(board.search("footprint"))[0]
+    line = list(footprint.search("fp_line"))[0]
+    layer = next(child for child in line if isinstance(child, list) and child[0] == "layer")
+    assert str(layer[1]).strip('"') == "Dwgs.User"
+
+
 def test_write_minimal_pcb_footprint_count(tmp_path):
     lib_root = _make_minimal_fp_lib(tmp_path)
     circuit = _MockCircuit()
@@ -246,6 +303,41 @@ def test_write_back_side_part_flips_footprint_layers(tmp_path):
     assert all(str(layer[1]).strip('"') == "B.Cu" for layer in pad_layers)
 
 
+def test_write_rotated_footprint_makes_pad_rotations_explicit(tmp_path):
+    lib_dir = tmp_path / "TestLib.pretty"
+    lib_dir.mkdir()
+    (lib_dir / "LongPads.kicad_mod").write_text(
+        '(footprint "LongPads"\n'
+        '  (layer "F.Cu")\n'
+        '  (property "Reference" "REF**" (at 0 -2) (layer "F.SilkS"))\n'
+        '  (pad "1" smd roundrect (at -1 0) (size 2.0 0.5) (layers "F.Cu" "F.Mask"))\n'
+        '  (pad "2" smd roundrect (at 1 0 15) (size 2.0 0.5) (layers "F.Cu" "F.Mask"))\n'
+        ")\n"
+    )
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(
+            ref="U1",
+            x_mm=10.0,
+            y_mm=10.0,
+            rot_deg=90.0,
+            footprint="TestLib:LongPads",
+        )
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [str(tmp_path)], out)
+
+    pads = {
+        str(pad[1]).strip('"'): pad
+        for pad in Sexp(open(out).read()).search("pad")
+    }
+    pad1_at = next(child for child in pads["1"] if isinstance(child, list) and child[0] == "at")
+    pad2_at = next(child for child in pads["2"] if isinstance(child, list) and child[0] == "at")
+    assert float(pad1_at[3]) == pytest.approx(90.0)
+    assert float(pad2_at[3]) == pytest.approx(105.0)
+
+
 def test_write_minimal_pcb_net_declarations(tmp_path):
     lib_root = _make_minimal_fp_lib(tmp_path)
     nets = [_MockNet("VCC"), _MockNet("GND"), _MockNet("SIG")]
@@ -300,6 +392,41 @@ def test_write_hides_mounting_hole_silkscreen_reference(tmp_path):
             y_mm=3.0,
             rot_deg=0.0,
             footprint="MountingHole:M2",
+        )
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(parts, circuit, [str(tmp_path)], out, outline=BoardOutline(20, 20))
+
+    board = Sexp(open(out).read())
+    ref = next(
+        prop
+        for prop in board.search("property")
+        if len(prop) > 2 and str(prop[1]).strip('"') == "Reference"
+    )
+    assert ["hide", "yes"] in ref
+
+
+def test_write_hides_small_smd_passive_silkscreen_reference(tmp_path):
+    lib_dir = tmp_path / "Resistor_SMD.pretty"
+    lib_dir.mkdir()
+    (lib_dir / "R_0603_1608Metric.kicad_mod").write_text(
+        '(footprint "R_0603_1608Metric"\n'
+        '  (layer "F.Cu")\n'
+        '  (property "Reference" "REF**" (at 0 -1.43 0) (layer "F.SilkS"))\n'
+        '  (property "Value" "R_0603_1608Metric" (at 0 1.43 0) (layer "F.Fab"))\n'
+        '  (pad "1" smd rect (at -0.825 0) (size 0.8 0.95) (layers "F.Cu" "F.Mask"))\n'
+        '  (pad "2" smd rect (at 0.825 0) (size 0.8 0.95) (layers "F.Cu" "F.Mask"))\n'
+        ")\n"
+    )
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(
+            ref="R1",
+            x_mm=5.0,
+            y_mm=5.0,
+            rot_deg=0.0,
+            footprint="Resistor_SMD:R_0603_1608Metric",
         )
     ]
     out = str(tmp_path / "board.kicad_pcb")

@@ -181,6 +181,20 @@ def _is_named_supply_rail(name: str) -> bool:
     )
 
 
+def _is_usb_c_part(part: dict) -> bool:
+    text = " ".join(
+        str(part.get(field, "") or "")
+        for field in ("lib", "part", "value", "footprint")
+    )
+    return bool(
+        re.search(
+            r"(USB[_\-\s]?C|TYPE[_\-\s]?C|USB4105|TYPE-C-31)",
+            text,
+            re.IGNORECASE,
+        )
+    )
+
+
 def _net_has_power_pin_for_ref(net: dict, ref: str) -> bool:
     return any(POWER_PIN_RE.match(pin) for pin in _pin_names_on_net_for_ref(net, ref))
 
@@ -410,12 +424,7 @@ def _rule_a2_a3_regulator_caps(parts, nets, actions):
 
 def _rule_a4_usb_cc_pulldowns(parts, nets, actions):
     """5.1K pull-downs on USB-C CC1/CC2 pins."""
-    has_usb_c = any(
-        "USB_C" in str(p.get("part", "") or "").upper() or
-        "USB_C" in str(p.get("footprint", "") or "").upper() or
-        "Type-C" in str(p.get("footprint", "") or "")
-        for p in parts
-    )
+    has_usb_c = any(_is_usb_c_part(p) for p in parts)
     if not has_usb_c:
         return
 
@@ -900,6 +909,10 @@ def _block_already_present(
         if _has_qwiic_like_i2c_connector(parts, nets):
             return True
 
+    if tid == "usb_c_input":
+        if any(_is_usb_c_part(part) for part in parts):
+            return True
+
     # Check explicit IC names
     for ic_name in ic_names:
         pat = ic_name.upper()
@@ -959,7 +972,10 @@ def _block_implied_by_spec(template: dict, parts: list[dict], nets: list[dict]) 
     tid = template["id"]
 
     if tid == "usb_c_input":
-        return any("USB_C" in s or "USB-C" in s or "TYPE-C" in s for s in part_strings)
+        return any(
+            re.search(r"(USB[_\-\s]?C|TYPE[_\-\s]?C|USB4105|TYPE-C-31)", s)
+            for s in part_strings
+        )
 
     if tid == "lipo_charger":
         charger_hints = ("MCP7383", "BQ2407", "TP4056", "LT3652", "CHARGER", "LIPO")
@@ -1183,17 +1199,41 @@ def _design_review_bulk_caps(parts, nets, exceptions, eid_counter):
         ))
 
 
+ONBOARD_CONNECTOR_MODULE_RE = re.compile(
+    r"(raspberry\s*pi\s*pico|raspberrypi_pico|rp2040[-_ ]?zero|"
+    r"\bpico\b|esp32.*(dev|kit|module)|devkit|feather|itsybitsy|"
+    r"teensy|arduino|daisy[_ ]?seed|xiao|qt[_ ]?py)",
+    re.IGNORECASE,
+)
+
+
+def _is_user_connection_part(part: dict) -> bool:
+    ref = str(part.get("ref", "") or "")
+    lib = str(part.get("lib", "") or "")
+    name = str(part.get("part", "") or "")
+    value = str(part.get("value", "") or "")
+    footprint = str(part.get("footprint", "") or "")
+    haystack = " ".join((lib, name, value, footprint))
+
+    if ref.startswith("J") or "Connector" in lib:
+        return True
+    if re.search(
+        r"(Connector|PinHeader|Socket|Terminal|USB|JST|Qwiic|STEMMA|"
+        r"Barrel|Jack|AudioJack)",
+        footprint,
+        re.IGNORECASE,
+    ):
+        return True
+    return bool(ONBOARD_CONNECTOR_MODULE_RE.search(haystack))
+
+
 def _design_review_connectors(parts, exceptions, eid_counter):
     """Board must have at least one connector."""
     from schemas.exceptions import (
         Candidate, DesignException, ExcCode, Severity, ActionType,
     )
 
-    has_connector = any(
-        p.get("ref", "").startswith("J") or
-        "Connector" in str(p.get("lib", "") or "")
-        for p in parts
-    )
+    has_connector = any(_is_user_connection_part(p) for p in parts)
     if has_connector:
         return
     eid_counter[0] += 1
@@ -1368,7 +1408,7 @@ def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counte
              any(kw in str(p.get(f, "") or "").lower() for kw in ("mcp73831", "bq24", "tp4056", "battery_management"))
              for p in parts for f in ("part", "lib", "value"))),
         (["usb-c", "usb c", "type-c"], "USB-C connector",
-         lambda: any("USB_C" in str(p.get("part", "") or "").upper() or "USB_C" in str(p.get("footprint", "") or "").upper() for p in parts)),
+         lambda: any(_is_usb_c_part(p) for p in parts)),
         (["neopixel", "ws2812"], "NeoPixel/addressable LED",
          lambda: any("WS2812" in str(p.get("part", "") or "").upper() for p in parts)),
         (["stemma", "qwiic"], "STEMMA QT/Qwiic connector",

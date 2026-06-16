@@ -54,7 +54,7 @@ warnings.filterwarnings("ignore", message=".*fp-lib-table.*")
 
 # Pattern matching common power net names.
 _POWER_NET_RE = re.compile(
-    r"^(\+\d[\d.]*V[\d]*|GND|AGND|DGND|PGND|VCC|VDD|VSS|VEE|VBUS|VBAT|AVCC|AVDD|DVCC|DVDD)$",
+    r"^([-+]?\d[\d.]*V[\d]*|GND|AGND|DGND|PGND|VCC|VDD|VSS|VEE|VBUS|VBAT|AVCC|AVDD|DVCC|DVDD)$",
     re.IGNORECASE,
 )
 
@@ -86,8 +86,8 @@ def auto_stub_nets(circuit, **options):
         if not net.valid or len(net.pins) == 0:
             continue
 
-        # Power nets: anything starting with "+" or matching common power names.
-        if net.name.startswith("+") or _POWER_NET_RE.match(net.name):
+        # Power nets: signed numeric rails or matching common power names.
+        if _POWER_NET_RE.match(net.name):
             net._stub = True
             net._stub_explicit = False
             for pin in net.get_pins():
@@ -405,7 +405,7 @@ def preprocess_circuit(circuit, **options):
             return
 
         def is_pwr(net_name):
-            return net_name.startswith("+")
+            return bool(_POWER_NET_RE.match(net_name) and not is_gnd(net_name))
 
         def is_gnd(net_name):
             return "gnd" in net_name.lower()

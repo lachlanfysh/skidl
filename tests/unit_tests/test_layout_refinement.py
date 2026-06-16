@@ -118,6 +118,25 @@ def test_refinement_moves_unlocked_part_when_score_improves():
     assert "connected-net centroid" in "; ".join(candidate.ref_reasons["U2"])
 
 
+def test_refinement_preserves_back_side_when_moving_part():
+    circuit = _connected_circuit()
+    constraints = LayoutConstraints(
+        outline=BoardOutline(100.0, 50.0),
+        fixed=[FixedPosition("U1", 10.0, 10.0)],
+    )
+    placed = [
+        PlacedPart("U1", 10.0, 10.0, 0.0, "Package_QFP:MCU", side="front"),
+        PlacedPart("U2", 80.0, 10.0, 0.0, "Package_QFP:MCU", side="back"),
+    ]
+
+    result = refine_placement(placed, circuit, BBOXES, constraints=constraints)
+    by_ref = {part.ref: part for part in result.placed_parts}
+
+    assert result.accepted_moves >= 1
+    assert by_ref["U2"].x_mm < 80.0
+    assert by_ref["U2"].side == "back"
+
+
 def test_refinement_preserves_edge_anchor_positions():
     vbus = _Net("VBUS")
     j1 = _Part("J1", "Connector:USB", name="USB connector", nets=[vbus], pins=4)
@@ -187,6 +206,61 @@ def test_refinement_uses_pad_aware_pin_gravity_for_signal_passive():
     assert by_ref["R1"].x_mm < 70.0
     assert abs(by_ref["R1"].x_mm - 24.0) < 12.0
     assert "passive pin gravity" in "; ".join(result.ref_reasons["R1"])
+
+
+def test_refinement_keeps_pin_gravity_passive_from_centroid_drift():
+    sig = _Net("GPIO1")
+    vcc = _Net("3V3")
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[sig, vcc], pins=8)
+    j1 = _Part("J1", "Connector:USB", nets=[sig], pins=4)
+    r1 = _Part("R1", "Resistor_SMD:R_0603", nets=[sig, vcc], pins=2)
+    circuit = _Circuit([u1, j1, r1], [sig, vcc])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(100.0, 50.0),
+        fixed=[FixedPosition("U1", 20.0, 20.0), FixedPosition("J1", 90.0, 20.0)],
+    )
+    geometries = {
+        "Package_QFP:MCU": FootprintGeometry(
+            footprint="Package_QFP:MCU",
+            courtyard_bounds=(-4.0, -4.0, 4.0, 4.0),
+            pads=[
+                PadGeometry("1", 4.0, -1.0, 0.5, 0.5),
+                PadGeometry("2", 4.0, 1.0, 0.5, 0.5),
+            ],
+        ),
+        "Resistor_SMD:R_0603": FootprintGeometry(
+            footprint="Resistor_SMD:R_0603",
+            courtyard_bounds=(-0.8, -0.4, 0.8, 0.4),
+            pads=[
+                PadGeometry("1", -0.45, 0.0, 0.4, 0.5),
+                PadGeometry("2", 0.45, 0.0, 0.4, 0.5),
+            ],
+        ),
+        "Connector:USB": FootprintGeometry(
+            footprint="Connector:USB",
+            courtyard_bounds=(-5.0, -2.5, 5.0, 2.5),
+            pads=[PadGeometry("1", -2.0, 0.0, 0.8, 0.8)],
+        ),
+    }
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("J1", 90.0, 20.0, 0.0, "Connector:USB"),
+        PlacedPart("R1", 70.0, 30.0, 0.0, "Resistor_SMD:R_0603"),
+    ]
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=geometries,
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+    reasons = "; ".join(result.ref_reasons["R1"])
+
+    assert by_ref["R1"].x_mm < 40.0
+    assert "passive pin gravity" in reasons
+    assert "connected-net centroid" not in reasons
 
 
 def test_refinement_better_gate_prioritizes_hard_violations():
