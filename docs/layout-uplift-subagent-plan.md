@@ -20,19 +20,19 @@ Railway endpoint: `https://mcp-server-production-5d58.up.railway.app/mcp`
 
 | Lane | Status | Agent | Primary Scope | Goal | Acceptance Checks |
 | --- | --- | --- | --- | --- | --- |
-| Connector geometry | integrated locally | Boyle `019ecf87-2011-7ba3-8bdd-2167673376df` | `src/skidl/layout/orientation.py`, `src/skidl/layout/connector_metadata.py`, `src/skidl/layout/intent.py`, focused tests | Edge-anchored jacks, headers, USB, and terminal blocks should put their mating face on the requested board edge and face outward. | Integrated layout sweep passed. Needs hosted visual Railway run after push. |
-| Board sizing | integrated locally | Heisenberg `019ecf87-2079-7772-b9e1-f955280ecc5e` | `src/skidl/layout/engine.py`, `src/skidl/layout/placer.py`, focused tests | Auto boards shrink to sensible size; fixed outlines use available space when generous. | Integrated layout sweep passed. Needs hosted visual Railway run after push. |
-| Grid/UI placement | integrated locally | Chandrasekhar `019ecf87-20a8-7cf2-a81c-287f623cb806` | `src/skidl/layout/grid.py`, `src/skidl/layout/intent.py`, `src/skidl/layout/roles.py`, `src/skidl/layout/scoring.py`, focused tests | Repeated controls/LEDs/switches/jacks use strong grid/alignment constraints unless explicit floorplan overrides. | Integrated layout sweep passed. Needs hosted visual Railway run after push. |
-| Passive gravity | integrated locally | Aristotle `019ecf87-20d1-71e2-8a95-2b328a07774f` | `src/skidl/layout/refinement.py`, focused tests | Passives cluster near connected IC pins/groups after mechanical constraints settle, without overlapping locked parts. | Integrated layout sweep passed after adding repeated-channel near constraints and near-aware passive gravity fallback. Needs hosted visual Railway run after push. |
+| Connector geometry | hosted verified | Boyle `019ecf87-2011-7ba3-8bdd-2167673376df` | `src/skidl/layout/orientation.py`, `src/skidl/layout/connector_metadata.py`, `src/skidl/layout/intent.py`, focused tests | Edge-anchored jacks, headers, USB, and terminal blocks should put their mating face on the requested board edge and face outward. | Integrated layout sweep passed; hosted MCP9808 edge-anchor smoke `69c4dddcdadb` / run `598dc57750ca` had no edge-anchor false positive. |
+| Board sizing | hosted verified | Heisenberg `019ecf87-2079-7772-b9e1-f955280ecc5e` | `src/skidl/layout/engine.py`, `src/skidl/layout/placer.py`, focused tests | Auto boards shrink to sensible size; fixed outlines use available space when generous. | Integrated layout sweep passed; hosted placement smokes produced valid outlines/previews and no known sizing regression in this tranche. |
+| Grid/UI placement | hosted verified | Chandrasekhar `019ecf87-20a8-7cf2-a81c-287f623cb806` | `src/skidl/layout/grid.py`, `src/skidl/layout/intent.py`, `src/skidl/layout/roles.py`, `src/skidl/layout/scoring.py`, focused tests | Repeated controls/LEDs/switches/jacks use strong grid/alignment constraints unless explicit floorplan overrides. | Integrated layout sweep passed; hosted `EDA_FLOORPLAN` smoke `cedd87015056` / run `dac9edcbfe78` preserved LED grid fixed positions. |
+| Passive gravity | hosted verified | Aristotle `019ecf87-20d1-71e2-8a95-2b328a07774f` | `src/skidl/layout/refinement.py`, focused tests | Passives cluster near connected IC pins/groups after mechanical constraints settle, without overlapping locked parts. | Integrated layout sweep passed after repeated-channel near constraints and near-aware passive gravity fallback; hosted placement smokes completed with no overlap errors. |
 
 ## Wave 2 Tasks
 
 | Lane | Status | Agent | Primary Scope | Goal | Acceptance Checks |
 | --- | --- | --- | --- | --- | --- |
-| Routing diagnosis | integrated locally | Peirce `019ecfa8-f0cd-7411-85ba-2cc483c8b902` | routing feedback / exception mapper / layout quality | Classify failed traces as placement-blocked, footprint issue, congestion, router limitation, or outline-too-small. | Integrated product/layout tests passed. Needs hosted visual Railway run after push. |
-| Front/back policy | integrated locally | Ptolemy `019ecfa8-f10c-7ef2-81cb-bf318fd5befb` | side intent, validator, preview metadata | Eurorack and double-sided boards can intentionally place controls/jacks front and power/IC/passives back. | Integrated product/layout tests passed. Needs hosted visual Railway run after push. |
-| Custom footprints | integrated locally | Noether `019ecfa8-f142-7c70-9fae-fe842b6dcaae` | MCP server upload/preflight path | Hosted MCP accepts project footprints/libs so MR-1 and 45lux do not fail footprint preflight. | Integrated product/layout tests passed. Needs hosted visual Railway run after push. |
-| Floorplan API | integrated locally | Zeno `019ecfa8-f179-7fa0-a994-e735921e8490` | `submit_skidl_code` envelope and docs | Agents can pass fixed positions, edge anchors, grids, sides, keepouts, outline, and later cutouts explicitly. | Integrated product/layout tests passed. Needs hosted visual Railway run after push. |
+| Routing diagnosis | hosted verified | Peirce `019ecfa8-f0cd-7411-85ba-2cc483c8b902` | routing feedback / exception mapper / layout quality | Classify failed traces as placement-blocked, footprint issue, congestion, router limitation, or outline-too-small. | Integrated product/layout tests passed; hosted bad-footprint smoke `5889de9103fa` / run `af5261730bd4` classified DRC failures as `footprint_issue` and demoted outline growth. |
+| Front/back policy | hosted verified | Ptolemy `019ecfa8-f10c-7ef2-81cb-bf318fd5befb` | side intent, validator, preview metadata | Eurorack and double-sided boards can intentionally place controls/jacks front and power/IC/passives back. | Integrated product/layout tests passed; hosted floorplan smoke `cedd87015056` / run `dac9edcbfe78` preserved `U1` on `back` and front-side LED grid. |
+| Custom footprints | hosted verified | Noether `019ecfa8-f142-7c70-9fae-fe842b6dcaae` | MCP server upload/preflight path | Hosted MCP accepts project footprints/libs so MR-1 and 45lux do not fail footprint preflight. | Integrated product/layout tests passed; hosted custom footprint smoke `29fd14ca8339` / run `f523ceafb570` reported `inline_footprints={"count": 1, "footprints": ["CustomLib:Tiny_2Pad"]}`. |
+| Floorplan API | hosted verified | Zeno `019ecfa8-f179-7fa0-a994-e735921e8490` | `submit_skidl_code` envelope and docs | Agents can pass fixed positions, edge anchors, grids, sides, keepouts, outline, and later cutouts explicitly. | Integrated product/layout tests passed; hosted `EDA_FLOORPLAN` smoke `cedd87015056` / run `dac9edcbfe78` preserved grid, edge anchor, keepout, outline, and side metadata. |
 
 ## Standard Test Boards
 
@@ -46,18 +46,20 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
 
 ## Hosted Bug Queue
 
-- Mycelium hosted submissions can spin without producing a preview or terminal result:
-  - Full board job `ba9ef6f36af5`, `timeout_s=900`, still reported `running`.
-  - Reduced core job `5170e4a63245`, `timeout_s=300`, still reported `running`.
-  - Important clue: the reduced job strips display/nav/BT/extras, so if it also hangs this is likely service-side placement/runtime or custom-part SKiDL-shape handling, not just board complexity.
-  - Next checks: inspect Railway worker logs by job id, confirm watchdog behavior, ensure claimed jobs always emit either a `run_id` result or a structured timeout/crash exception, and add a regression test for a worker/pipeline hang path.
+- P1 Mycelium worker hang / missing terminal payload:
+  - Initial symptom: hosted submissions could remain `running` without producing a preview, `run_id`, or agent-actionable result.
+  - Full board job `ba9ef6f36af5`, `timeout_s=900`, initially reported `running`.
+  - Reduced core job `5170e4a63245`, `timeout_s=300`, initially reported `running`.
+  - Important clue: the reduced job stripped display/nav/BT/extras, so a hang there pointed at service-side placement/runtime or custom-part SKiDL-shape handling, not just board complexity.
   - Follow-up after Wave 2 deploy: both jobs became terminal.
     - Full board `ba9ef6f36af5` -> `failed`, no `run_id`, error `worker lost while job was running; resubmit the design`.
     - Reduced core `5170e4a63245` -> `failed`, run `ddc3d32fa1bd`, placement-review feedback with overlaps, outline violations, high congestion, and long power nets.
-  - Refined bug: reduced job now produces useful circuit/layout feedback, but full-board worker loss still needs a structured exception/result and better log correlation.
+  - Refined bug: reduced job now produces useful circuit/layout feedback, but full-board worker loss needed a structured exception/result and better log correlation.
   - Fix prepared: stale/lost jobs now become top-level `status="crashed"` with a structured `ENGINE_CRASH` result, `stage="worker_lost"`, a `regenerate` candidate, and a hint that no run artifacts were produced.
   - Hosted verification boundary found by Dirac: no public MCP/admin endpoint safely created a stale running job, and production DB helper calls were global queue mutations. A hosted `get_job` proof required a staging DB or restricted sentinel-job admin endpoint.
   - Fix completed: added owner-only `/api/admin/worker-loss-probe`, which creates and fails exactly one synthetic `ops_probe` job by id without touching real queued/running work.
+  - Hosted verification: sentinel job `probe_19f8d84a3e77` returned `crashed` through `get_job` with `ENGINE_CRASH`, `stage="worker_lost"`, and a hint telling agents to retry unchanged rather than rewrite the circuit.
+  - Monitor condition: any future job stuck past timeout, or any `worker_lost` without structured MCP result payload, reopens this P1.
 
 ## Compact Resume Checklist
 
