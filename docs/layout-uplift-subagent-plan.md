@@ -3,7 +3,7 @@
 Last updated: 2026-06-16
 
 Current branch: `feat/overnight-product-layer`
-Current hosted commit: `34bac27b` (`Improve product layout validation`)
+Current hosted commit: `891e8cba` (`Add owner worker-loss sentinel probe`)
 Railway endpoint: `https://mcp-server-production-5d58.up.railway.app/mcp`
 
 ## Rules For All Agents
@@ -56,7 +56,8 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
     - Reduced core `5170e4a63245` -> `failed`, run `ddc3d32fa1bd`, placement-review feedback with overlaps, outline violations, high congestion, and long power nets.
   - Refined bug: reduced job now produces useful circuit/layout feedback, but full-board worker loss still needs a structured exception/result and better log correlation.
   - Fix prepared: stale/lost jobs now become top-level `status="crashed"` with a structured `ENGINE_CRASH` result, `stage="worker_lost"`, a `regenerate` candidate, and a hint that no run artifacts were produced.
-  - Hosted verification boundary: no public MCP/admin endpoint safely creates a stale running job, and production DB helper calls are global queue mutations. Current proof is the DB-level product test plus deployed code status. A hosted `get_job` proof requires a staging DB or a restricted sentinel-job admin endpoint.
+  - Hosted verification boundary found by Dirac: no public MCP/admin endpoint safely created a stale running job, and production DB helper calls were global queue mutations. A hosted `get_job` proof required a staging DB or restricted sentinel-job admin endpoint.
+  - Fix completed: added owner-only `/api/admin/worker-loss-probe`, which creates and fails exactly one synthetic `ops_probe` job by id without touching real queued/running work.
 
 ## Compact Resume Checklist
 
@@ -155,7 +156,7 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
   - placement score `98.73`
   - `get_run` layout reported `inline_footprints={"count": 1, "footprints": ["CustomLib:Tiny_2Pad"]}`
 - Remaining hosted gaps:
-  - Need hosted confirmation that full-board worker-loss handling produces the new structured `ENGINE_CRASH` packet after deploy; safe production probe is not currently exposed.
+  - None known from this tranche. Continue broad visual/board-quality testing with new designs.
 
 2026-06-16 hosted routing-diagnosis smoke:
 
@@ -179,3 +180,25 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
   - both exceptions now include `routing_diagnosis=footprint_issue`
   - evidence hotspot: `{"ref": "REF**", "source": "same_footprint_drc_example", "placeholder_ref": true}`
   - outline growth candidate confidence demoted to `0.2` behind regenerate/footprint-focused repair.
+
+2026-06-16 hosted worker-loss sentinel smoke:
+
+- Commit deployed:
+  - `891e8cba` (`Add owner worker-loss sentinel probe`)
+- Deployment state:
+  - `worker` and `mcp-server` both `SUCCESS` / `RUNNING` on `891e8cba`.
+- Owner-only sentinel endpoint:
+  - `POST /api/admin/worker-loss-probe`
+  - result `ok=true`
+  - job `probe_19f8d84a3e77`
+  - status `crashed`
+  - result stage `worker_lost`
+  - exception `ENGINE_CRASH`
+- Agent-facing MCP verification:
+  - `get_job("probe_19f8d84a3e77")` returned status `crashed`
+  - `exception_codes=["ENGINE_CRASH"]`
+  - top exception `ENGINE_CRASH`, subject stage `worker_lost`, worker_id `ops-probe`
+  - hint: backend engine failure, not circuit feedback; retry unchanged and do not rewrite the circuit.
+- Local tests:
+  - `.venv/bin/python -m pytest tests/product/test_railway.py::TestDB::test_worker_loss_probe_only_updates_ops_probe_job tests/product/test_railway.py::TestAuthMiddleware::test_admin_worker_loss_probe_returns_structured_crash tests/product/test_railway.py::TestAuthMiddleware::test_admin_worker_loss_probe_requires_owner_token tests/product/test_railway.py::TestAuthMiddleware::test_user_api_key_can_access_mcp_but_not_admin -q` -> `3 passed, 1 skipped, 1 warning`
+  - `.venv/bin/python -m pytest tests/product/test_railway.py tests/product/test_mcp_server.py tests/unit_tests/test_product_layer.py -q` -> `216 passed, 56 skipped, 1 warning`
