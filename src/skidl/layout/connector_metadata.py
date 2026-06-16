@@ -15,9 +15,11 @@ class ConnectorMatingFace:
 
 AUDIO_JACK_RE = re.compile(
     r"(audio.?jack|audio.?plug|3\.5\s*mm|3\.5mm|mono.?jack|"
-    r"stereo.?jack|trs|trrs|pj320|pj-?320|sj1-35)",
+    r"stereo.?jack|trs|trrs|pj320|pj-?320|sj1-35|"
+    r"6\.35\s*mm|6\.35mm|1/4\s*(?:in|inch)?|quarter.?inch|phone.?jack)",
     re.I,
 )
+BARREL_RE = re.compile(r"(barrel|dc.?jack|power.?jack)", re.I)
 HEADER_RE = re.compile(
     r"(pin.?header|header|angled.?header|right.?angle.?header|tagconnect|swd|jtag)",
     re.I,
@@ -181,6 +183,14 @@ def infer_connector_mating_face(
             local_exit="+y",
             confidence=0.9,
             reasons=("KiCad USB receptacle PCB-edge marker is local +Y",),
+        )
+
+    if kind == "barrel" or BARREL_RE.search(combined):
+        return ConnectorMatingFace(
+            kind="barrel",
+            local_exit="+y",
+            confidence=0.78,
+            reasons=("common horizontal barrel jack cable entry is local +Y",),
         )
 
     if kind == "jst" or JST_RE.search(combined):

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import pytest
+from simp_sexp import Sexp
 
 from skidl.layout.constraints import BoardCutout, BoardOutline, KeepOut
-from skidl.layout.geometry import FootprintGeometry, PadGeometry
+from skidl.layout.geometry import FootprintGeometry, PadGeometry, footprint_geometry_from_sexp
 from skidl.layout.writer import PlacedPart
 from skidl.layout.validator import validate, ValidationResult, run_kicad_drc
 
@@ -35,6 +36,25 @@ def _test_geometry(
     )
 
 
+def _panel_switch_geometry(footprint: str = "Demo:PanelSwitch") -> FootprintGeometry:
+    return footprint_geometry_from_sexp(
+        footprint,
+        Sexp(
+            f"""
+(footprint "{footprint}"
+  (pad "1" thru_hole circle (at 0 0) (size 1 1) (layers "*.Cu" "*.Mask"))
+  (fp_rect (start -1 -1) (end 1 1) (layer "F.CrtYd"))
+  (fp_poly
+    (pts (xy -4 -14) (xy 4 -14) (xy 4 14) (xy -4 14))
+    (stroke (width 0.1) (type solid))
+    (fill none)
+    (layer "F.SilkS"))
+)
+"""
+        ),
+    )
+
+
 def test_no_overlaps_when_separated():
     parts = [
         PlacedPart("R1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
@@ -53,6 +73,18 @@ def test_overlap_detected():
     assert len(result.overlaps) > 0
     pair = result.overlaps[0]
     assert set(pair) == {"R1", "R2"}
+
+
+def test_visual_body_overlap_counts_when_pads_do_not_overlap():
+    parts = [
+        PlacedPart("SW1", 20.0, 20.0, 0.0, "Demo:PanelSwitch", side="mechanical"),
+        PlacedPart("U1", 28.0, 20.0, 0.0, "Demo:PanelSwitch", side="front"),
+    ]
+    geometries = {"Demo:PanelSwitch": _panel_switch_geometry()}
+
+    result = validate(parts, None, {}, clearance_mm=0.0, fp_geometries=geometries)
+
+    assert result.overlaps == [("SW1", "U1")]
 
 
 def test_courtyard_overlap_without_body_or_pad_collision_is_not_hard_overlap():
@@ -294,6 +326,25 @@ def test_rotated_bbox_used_for_outline_validation():
     )
 
     assert result.outline_violations == []
+
+
+def test_rotated_large_physical_body_extending_past_outline_is_violation():
+    outline = BoardOutline(100.0, 30.0)
+    parts = [
+        PlacedPart(
+            "SW1",
+            90.0,
+            15.0,
+            90.0,
+            "Demo:PanelSwitch",
+            side="mechanical",
+        )
+    ]
+    geometries = {"Demo:PanelSwitch": _panel_switch_geometry()}
+
+    result = validate(parts, None, {}, outline=outline, fp_geometries=geometries)
+
+    assert result.outline_violations == ["SW1"]
 
 
 def test_no_outline_no_violations():

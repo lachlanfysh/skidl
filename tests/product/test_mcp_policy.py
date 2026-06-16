@@ -127,6 +127,26 @@ def test_decision_kind_classifies_post_artifact_failure_as_tool_failure():
     assert decision_kind([exc]) == "tool_unavailable"
 
 
+def test_decision_kind_classifies_floorplan_intent_as_mechanical_constraint():
+    exc = DesignException(
+        id="e-floorplan-intent",
+        code=ExcCode.DESIGN_MISSING_FEATURE,
+        severity=Severity.ERROR,
+        message="placement needs explicit floorplan intent",
+        subject={"feature": "placement_floorplan_intent"},
+        candidates=[
+            Candidate(
+                id="c1",
+                action=ActionType.REGENERATE,
+                params={"required_intent": ["EDA_FLOORPLAN.edge_anchors"]},
+                human_summary="Add floorplan intent and regenerate.",
+            )
+        ],
+    )
+
+    assert decision_kind([exc]) == "mechanical_constraint"
+
+
 def test_generate_policy_auto_applies_advisory(tmp_path, monkeypatch):
     calls = []
 

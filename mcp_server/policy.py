@@ -151,6 +151,12 @@ def decision_kind(exceptions: list[DesignException]) -> str:
         ExcCode.POST_ARTIFACT_FAILURE,
     }:
         return "tool_unavailable"
+    if any(
+        exc.code == ExcCode.DESIGN_MISSING_FEATURE
+        and (exc.subject or {}).get("feature") == "placement_floorplan_intent"
+        for exc in exceptions
+    ):
+        return "mechanical_constraint"
     if all(exc.severity == Severity.ADVISORY for exc in exceptions):
         return "quality_advisory"
     if actions & {ActionType.SET_FORM_FACTOR, ActionType.SET_OUTLINE, ActionType.SCALE_OUTLINE, ActionType.SET_LAYERS}:

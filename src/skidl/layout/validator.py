@@ -289,7 +289,7 @@ def _check_outline_violations(
     violations = []
     for pp in placed:
         if not _outline_contains_bounds(
-            _placed_bounds(pp, fp_bboxes, fp_geometries), outline
+            _placed_bounds(pp, fp_bboxes, fp_geometries, physical=True), outline
         ):
             violations.append(pp.ref)
     return violations
@@ -315,7 +315,7 @@ def _check_keepout_violations(
         for keepout in keepouts
     ]
     for pp in placed:
-        bounds = _placed_bounds(pp, fp_bboxes, fp_geometries)
+        bounds = _placed_bounds(pp, fp_bboxes, fp_geometries, physical=True)
         if any(
             pp.ref not in allowed_refs
             and _rects_overlap(bounds, (x_min, y_min, x_max, y_max))
@@ -345,7 +345,7 @@ def _check_cutout_violations(
         for cutout in cutouts
     ]
     for pp in placed:
-        bounds = _placed_bounds(pp, fp_bboxes, fp_geometries)
+        bounds = _placed_bounds(pp, fp_bboxes, fp_geometries, physical=True)
         if any(_rects_overlap(bounds, cutout) for cutout in cutout_bounds):
             violations.append(pp.ref)
     return violations

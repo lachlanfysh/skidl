@@ -3618,6 +3618,83 @@ def _skidl_layout_intent_advisories(
     ]
 
 
+def _floorplan_intent_preflight_exception(
+    circuit,
+    *,
+    floorplan_meta: dict | None,
+) -> DesignException | None:
+    """Return a blocking preflight error for mechanically under-specified boards."""
+
+    try:
+        from skidl.layout.intent import classify_floorplan_intent_gap
+
+        diagnosis = classify_floorplan_intent_gap(
+            circuit,
+            floorplan_meta=floorplan_meta,
+        )
+    except Exception:
+        return None
+    if not diagnosis.get("needs_floorplan"):
+        return None
+
+    module_refs = list(diagnosis.get("large_module_refs") or [])
+    connector_refs = list(diagnosis.get("connector_refs") or [])
+    mechanical_refs = list(diagnosis.get("mechanical_refs") or [])
+    focus_refs = sorted(
+        set(module_refs[:3] + connector_refs[:5] + mechanical_refs[:5])
+    )
+    return DesignException(
+        id="e-floorplan-intent",
+        code=ExcCode.DESIGN_MISSING_FEATURE,
+        severity=Severity.ERROR,
+        message=(
+            "placement needs explicit floorplan/mechanical intent before "
+            "running the layout engine"
+        ),
+        subject={
+            "feature": "placement_floorplan_intent",
+            "classification": "intent_insufficient_for_large_module_board",
+            "reason": diagnosis.get("reason"),
+            "confidence": diagnosis.get("confidence", 0.0),
+            "large_module_refs": module_refs,
+            "connector_refs": connector_refs,
+            "mechanical_refs": mechanical_refs,
+            "part_count": diagnosis.get("part_count", 0),
+            "floorplan_intent": diagnosis.get("floorplan_intent", "none_or_weak"),
+        },
+        candidates=[
+            Candidate(
+                id="c1",
+                action=ActionType.REGENERATE,
+                params={
+                    "required_intent": [
+                        "EDA_FLOORPLAN.outline or outline_mm tied to the actual mechanical envelope",
+                        "EDA_FLOORPLAN.edge_anchors for USB/JST/headers/card sockets and other user-facing connectors",
+                        "EDA_FLOORPLAN.fixed_positions or zones for large modules and mounting-critical parts",
+                        "part.edge_preference for connector refs when a full EDA_FLOORPLAN is not available",
+                    ],
+                    "focus_refs": focus_refs,
+                },
+                human_summary=(
+                    "Add explicit floorplan constraints for the large module "
+                    "and connector/mechanical refs, then regenerate"
+                ),
+                cost_hint="free",
+                confidence=0.86,
+            )
+        ],
+        retry_hint=(
+            "Do not retry this board unchanged or treat a later placement crash "
+            "as a generic engine failure. Add explicit mechanical intent first: "
+            "set the real board outline; anchor edge connectors with "
+            "EDA_FLOORPLAN['edge_anchors']; give the large module and any "
+            "mounting-critical connectors fixed_positions or anchor zones; and "
+            "use part.edge_preference for connector refs when only edge intent "
+            "is known. Then resubmit the same circuit."
+        ),
+    )
+
+
 def _run_skidl_code(envelope: dict) -> dict:
     """Execute SKiDL Python code and run the generation pipeline."""
     code = envelope.get("code", "")
@@ -3782,6 +3859,20 @@ def _run_skidl_code(envelope: dict) -> dict:
         namespace.get("EDA_FLOORPLAN")
     )
     _apply_floorplan_part_attributes(circuit, floorplan_meta)
+    floorplan_preflight = _floorplan_intent_preflight_exception(
+        circuit,
+        floorplan_meta=floorplan_meta,
+    )
+    if floorplan_preflight is not None:
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="floorplan_preflight",
+            exceptions=[floorplan_preflight] + review_exceptions,
+            outputs={"run_dir": str(out_dir), "schematic": str(schematic_path)},
+            metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
+            summary=floorplan_preflight.message,
+        )
     if floorplan_constraints is None:
         constraints = LayoutConstraints(outline=outline)
     else:
@@ -4078,6 +4169,21 @@ def run(envelope: dict) -> dict:
         outline=_outline_for_spec(spec),
         form_factor=spec.board.form_factor,
     )
+    floorplan_preflight = _floorplan_intent_preflight_exception(
+        circuit,
+        floorplan_meta={},
+    )
+    if floorplan_preflight is not None:
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="floorplan_preflight",
+            spec=spec,
+            exceptions=[floorplan_preflight] + review_exceptions,
+            outputs={"run_dir": str(out_dir), "schematic": str(schematic_path)},
+            metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
+            summary=floorplan_preflight.message,
+        )
     auto_corner_radius_mm = (
         _auto_layout_corner_radius_hint(
             circuit,

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from simp_sexp import Sexp
+
 from skidl.layout.constraints import BoardOutline
+from skidl.layout.geometry import footprint_geometry_from_sexp
 from skidl.layout.scoring import LayoutScore, score_placement
 from skidl.layout.writer import PlacedPart
 
@@ -347,6 +350,39 @@ def test_score_counts_hard_validation_failures():
 
     assert score.overlap_count == 1
     assert score.outline_violation_count == 2
+    assert score.ok is False
+
+
+def test_score_counts_physical_body_outline_violation():
+    footprint = "Demo:PanelSwitch"
+    geometry = footprint_geometry_from_sexp(
+        footprint,
+        Sexp(
+            f"""
+(footprint "{footprint}"
+  (pad "1" thru_hole circle (at 0 0) (size 1 1) (layers "*.Cu" "*.Mask"))
+  (fp_rect (start -1 -1) (end 1 1) (layer "F.CrtYd"))
+  (fp_poly
+    (pts (xy -4 -14) (xy 4 -14) (xy 4 14) (xy -4 14))
+    (stroke (width 0.1) (type solid))
+    (fill none)
+    (layer "F.SilkS"))
+)
+"""
+        ),
+    )
+    circuit = _Circuit([], [])
+    placed = [PlacedPart("SW1", 90.0, 15.0, 90.0, footprint)]
+
+    score = score_placement(
+        placed,
+        circuit,
+        {},
+        outline=BoardOutline(100.0, 30.0),
+        fp_geometries={footprint: geometry},
+    )
+
+    assert score.outline_violation_count == 1
     assert score.ok is False
 
 

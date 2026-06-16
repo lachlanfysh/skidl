@@ -677,6 +677,78 @@ def enrich_routing_failure_exceptions(
     return enriched
 
 
+def product_layout_exception(quality: dict) -> DesignException:
+    """Convert a failed reviewable product-layout gate into agent feedback."""
+
+    issues = [
+        issue for issue in (quality.get("issues") or [])
+        if isinstance(issue, dict)
+    ]
+    issue_codes = [
+        str(issue.get("code") or "")
+        for issue in issues
+        if issue.get("code")
+    ]
+    blocking_codes = [
+        str(issue.get("code") or "")
+        for issue in issues
+        if str(issue.get("severity") or "").lower() in {"error", "fatal"}
+        and issue.get("code")
+    ]
+    preview_files = (
+        quality.get("artifacts", {}).get("preview_files")
+        if isinstance(quality.get("artifacts"), dict)
+        else []
+    )
+    top_issues = [
+        {
+            "code": str(issue.get("code") or ""),
+            "severity": str(issue.get("severity") or ""),
+            "message": str(issue.get("message") or ""),
+            "recommendation": str(issue.get("recommendation") or ""),
+        }
+        for issue in issues[:5]
+    ]
+    return DesignException(
+        id="e-product-layout",
+        code=ExcCode.PRODUCT_LAYOUT_FAILED,
+        severity=Severity.ERROR,
+        message=(
+            "product layout quality gates failed; preview artifacts are "
+            "available for human review"
+        ),
+        subject={
+            "review_state": str(quality.get("review", {}).get("state") or ""),
+            "product_layout_ok": bool(
+                quality.get("gates", {}).get("product_layout_ok")
+            ),
+            "visual_review_ready": bool(
+                quality.get("gates", {}).get("visual_review_ready")
+            ),
+            "issue_codes": issue_codes,
+            "blocking_issue_codes": blocking_codes,
+            "top_issues": top_issues,
+            "preview_files": list(preview_files or []),
+        },
+        candidates=[
+            _candidate(
+                "c1",
+                ActionType.REGENERATE,
+                {},
+                "revise placement or floorplan intent, then rerun with the preview artifacts preserved for review",
+                "free",
+            )
+        ],
+        retry_hint=(
+            "Do not treat placement_review-only advisories as success when "
+            "layout_quality.gates.product_layout_ok is false. Inspect the "
+            "preview files and layout_quality issues, then revise SKiDL "
+            "placement intent, edge anchors, fixed positions, footprint "
+            "choices, or outline constraints before resubmitting."
+        ),
+    )
+
+
 def _placement_candidates(
     *,
     scale_params: dict,

@@ -329,6 +329,94 @@ def _apply_edge_intent_score(
     )
 
 
+def _bounds_inside_outline(
+    bounds: tuple[float, float, float, float],
+    outline: BoardOutline,
+) -> bool:
+    return (
+        bounds[0] >= outline.x_min
+        and bounds[1] >= outline.y_min
+        and bounds[2] <= outline.x_max
+        and bounds[3] <= outline.y_max
+    )
+
+
+def _panel_mechanical_refs(intent_plan: PlacementIntentPlan | None) -> set[str]:
+    if intent_plan is None:
+        return set()
+    refs = set(intent_plan.refs_with_kind("front_panel_subject"))
+    refs.update(intent_plan.refs_with_kind("panel_control"))
+    refs.update(intent_plan.refs_with_kind("panel_jack"))
+    for mating in intent_plan.mating_intents:
+        if mating.kind in {
+            "button",
+            "encoder",
+            "key",
+            "nav_control",
+            "panel_jack",
+            "pot",
+        }:
+            refs.add(mating.ref)
+    return refs
+
+
+def _physical_or_placed_bounds(
+    placed: PlacedPart,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> tuple[float, float, float, float]:
+    geometry = (fp_geometries or {}).get(placed.footprint)
+    if geometry is not None:
+        return geometry.transformed_physical_bounds(placed)
+    return _placed_bounds(placed, fp_bboxes, fp_geometries)
+
+
+def _apply_panel_mechanical_outline_score(
+    score: LayoutScore,
+    placed_parts: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    outline: BoardOutline | None,
+    intent_plan: PlacementIntentPlan | None,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
+) -> LayoutScore:
+    """Panel subjects are invalid when their physical body crosses the board."""
+    if outline is None:
+        return score
+
+    panel_refs = _panel_mechanical_refs(intent_plan)
+    if not panel_refs:
+        return score
+
+    violating_refs: list[str] = []
+    for placed in placed_parts:
+        if placed.ref not in panel_refs:
+            continue
+        bounds = _physical_or_placed_bounds(placed, fp_bboxes, fp_geometries)
+        if not _bounds_inside_outline(bounds, outline):
+            violating_refs.append(placed.ref)
+
+    if not violating_refs:
+        return score
+
+    warnings = list(score.warnings)
+    for ref in violating_refs:
+        message = f"{ref}: panel/mechanical body crosses board outline"
+        if message not in warnings:
+            warnings.append(message)
+
+    penalty = 40.0 + min(10.0 * (len(violating_refs) - 1), 30.0)
+    return replace(
+        score,
+        score=max(0.0, score.score - penalty),
+        outline_violation_count=max(
+            score.outline_violation_count,
+            len(violating_refs),
+        ),
+        warning_count=len(warnings),
+        warnings=warnings,
+    )
+
+
 def _derive_outline_for_edge_anchors(
     placed_parts: list[PlacedPart],
     fp_bboxes: dict[str, tuple[float, float]],
@@ -624,6 +712,221 @@ def _snap_mounting_holes_to_outline_corners(
     return snapped, moved
 
 
+def _separate_same_edge_anchors(
+    placed_parts: list[PlacedPart],
+    outline: BoardOutline,
+    anchors: dict[str, EdgeAnchor],
+    fixed_refs: set[str],
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    *,
+    keepouts: list | None = None,
+    clearance_mm: float = 0.75,
+) -> tuple[list[PlacedPart], list[str]]:
+    """Keep connectors on the same board edge from collapsing to one fallback."""
+
+    placed_by_ref = {placed.ref: placed for placed in placed_parts}
+    replacements: dict[str, PlacedPart] = {}
+    moved: list[str] = []
+
+    for edge in ("top", "bottom", "left", "right"):
+        refs = [
+            ref
+            for ref, anchor in anchors.items()
+            if anchor.edge.lower() == edge
+            and ref in placed_by_ref
+            and ref not in fixed_refs
+        ]
+        if len(refs) < 2:
+            continue
+
+        horizontal = edge in {"top", "bottom"}
+        axis_min = outline.x_min if horizontal else outline.y_min
+        axis_max = outline.x_max if horizontal else outline.y_max
+        items = []
+        for ref in refs:
+            placed = replacements.get(ref, placed_by_ref[ref])
+            bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
+            span = (bounds[2] - bounds[0]) if horizontal else (bounds[3] - bounds[1])
+            half_span = span / 2
+            current = (
+                (bounds[0] + bounds[2]) / 2
+                if horizontal
+                else (bounds[1] + bounds[3]) / 2
+            )
+            desired = anchors[ref].offset_mm if anchors[ref].offset_mm is not None else current
+            items.append(
+                {
+                    "ref": ref,
+                    "placed": placed,
+                    "bounds": bounds,
+                    "half": half_span,
+                    "current": current,
+                    "desired": float(desired),
+                    "min": axis_min + half_span,
+                    "max": axis_max - half_span,
+                }
+            )
+
+        items.sort(key=lambda item: (item["desired"], item["current"], item["ref"]))
+        total_span = sum(item["half"] * 2 for item in items) + clearance_mm * (len(items) - 1)
+        available = axis_max - axis_min
+        if total_span > available + 1e-6:
+            if len(items) == 1:
+                positions = [(axis_min + axis_max) / 2]
+            else:
+                positions = [
+                    axis_min + available * index / (len(items) - 1)
+                    for index in range(len(items))
+                ]
+        else:
+            positions = [
+                min(max(item["desired"], item["min"]), item["max"])
+                for item in items
+            ]
+            for index in range(1, len(items)):
+                prev = items[index - 1]
+                item = items[index]
+                min_position = positions[index - 1] + prev["half"] + item["half"] + clearance_mm
+                positions[index] = max(positions[index], min_position)
+            if positions[-1] > items[-1]["max"]:
+                overflow = positions[-1] - items[-1]["max"]
+                positions = [position - overflow for position in positions]
+            for index in range(len(items) - 2, -1, -1):
+                item = items[index]
+                nxt = items[index + 1]
+                max_position = positions[index + 1] - item["half"] - nxt["half"] - clearance_mm
+                positions[index] = min(positions[index], max_position)
+            if positions[0] < items[0]["min"]:
+                underflow = items[0]["min"] - positions[0]
+                positions = [position + underflow for position in positions]
+            positions = _slide_edge_anchor_positions_away_from_keepouts(
+                items,
+                positions,
+                edge,
+                axis_min,
+                axis_max,
+                keepouts or [],
+                clearance_mm,
+            )
+
+        for item, position in zip(items, positions):
+            placed = item["placed"]
+            delta = position - item["current"]
+            if abs(delta) <= 1e-6:
+                continue
+            moved.append(item["ref"])
+            replacements[item["ref"]] = PlacedPart(
+                ref=placed.ref,
+                x_mm=placed.x_mm + (delta if horizontal else 0.0),
+                y_mm=placed.y_mm + (0.0 if horizontal else delta),
+                rot_deg=placed.rot_deg,
+                footprint=placed.footprint,
+                side=getattr(placed, "side", "front"),
+            )
+
+    if not replacements:
+        return placed_parts, []
+    return [replacements.get(placed.ref, placed) for placed in placed_parts], moved
+
+
+def _slide_edge_anchor_positions_away_from_keepouts(
+    items: list[dict],
+    positions: list[float],
+    edge: str,
+    axis_min: float,
+    axis_max: float,
+    keepouts: list,
+    clearance_mm: float,
+) -> list[float]:
+    """Nudge same-edge connector positions out of keepout intervals when possible."""
+
+    if not keepouts:
+        return positions
+
+    horizontal = edge in {"top", "bottom"}
+
+    def forbidden_intervals(item: dict) -> list[tuple[float, float]]:
+        bounds = item["bounds"]
+        intervals: list[tuple[float, float]] = []
+        fixed_min, fixed_max = (bounds[1], bounds[3]) if horizontal else (bounds[0], bounds[2])
+        for keepout in keepouts:
+            ko_fixed_min, ko_fixed_max = (
+                (keepout.y_min, keepout.y_max)
+                if horizontal
+                else (keepout.x_min, keepout.x_max)
+            )
+            if fixed_max <= ko_fixed_min or fixed_min >= ko_fixed_max:
+                continue
+            ko_axis_min, ko_axis_max = (
+                (keepout.x_min, keepout.x_max)
+                if horizontal
+                else (keepout.y_min, keepout.y_max)
+            )
+            intervals.append((
+                ko_axis_min - item["half"] - clearance_mm,
+                ko_axis_max + item["half"] + clearance_mm,
+            ))
+        return intervals
+
+    def allowed(item: dict, position: float) -> bool:
+        if position < item["min"] - 1e-6 or position > item["max"] + 1e-6:
+            return False
+        return all(
+            position <= lo + 1e-6 or position >= hi - 1e-6
+            for lo, hi in forbidden_intervals(item)
+        )
+
+    adjusted = list(positions)
+    for _ in range(3):
+        changed = False
+        for index, item in enumerate(items):
+            if allowed(item, adjusted[index]):
+                continue
+            candidates = [item["min"], item["max"], item["desired"], item["current"]]
+            for lo, hi in forbidden_intervals(item):
+                candidates.extend((lo, hi))
+            if index > 0:
+                prev = items[index - 1]
+                candidates.append(adjusted[index - 1] + prev["half"] + item["half"] + clearance_mm)
+            if index < len(items) - 1:
+                nxt = items[index + 1]
+                candidates.append(adjusted[index + 1] - nxt["half"] - item["half"] - clearance_mm)
+            valid = [
+                min(max(float(candidate), item["min"]), item["max"])
+                for candidate in candidates
+            ]
+            valid = [candidate for candidate in valid if allowed(item, candidate)]
+            if not valid:
+                continue
+            best = min(valid, key=lambda candidate: abs(candidate - item["desired"]))
+            if abs(best - adjusted[index]) > 1e-6:
+                adjusted[index] = best
+                changed = True
+
+        for index in range(1, len(items)):
+            prev = items[index - 1]
+            item = items[index]
+            min_position = adjusted[index - 1] + prev["half"] + item["half"] + clearance_mm
+            if adjusted[index] < min_position:
+                adjusted[index] = min(min_position, item["max"])
+                changed = True
+        for index in range(len(items) - 2, -1, -1):
+            item = items[index]
+            nxt = items[index + 1]
+            max_position = adjusted[index + 1] - item["half"] - nxt["half"] - clearance_mm
+            if adjusted[index] > max_position:
+                adjusted[index] = max(max_position, item["min"])
+                changed = True
+        if not changed:
+            break
+
+    return [
+        min(max(position, axis_min + item["half"]), axis_max - item["half"])
+        for item, position in zip(items, adjusted)
+    ]
+
+
 def _snap_edge_anchors_to_outline(
     placed_parts: list[PlacedPart],
     outline: BoardOutline | None,
@@ -751,7 +1054,22 @@ def _snap_edge_anchors_to_outline(
         else:
             snapped.append(placed)
 
-    return snapped, moved
+    separated, separated_refs = _separate_same_edge_anchors(
+        snapped,
+        outline,
+        anchors,
+        fixed_refs,
+        fp_bboxes,
+        fp_geometries,
+        keepouts=[
+            *((constraints.keepouts if constraints else []) or []),
+            *mounting_keepouts,
+        ],
+    )
+    for ref in separated_refs:
+        if ref not in moved:
+            moved.append(ref)
+    return separated, moved
 
 
 def _mounting_hole_keepouts(
@@ -1891,13 +2209,21 @@ def plan_layout(
                 board_layers=board_layers,
                 ctx=ctx,
             )
-        candidate_scores[candidate.name] = _apply_edge_intent_score(
+        edge_score = _apply_edge_intent_score(
             raw_score,
             candidate.placed_parts,
             resolved_bboxes,
             resolved_outline,
             intent_plan,
             constraints=candidate.constraints,
+            fp_geometries=fp_geometries,
+        )
+        candidate_scores[candidate.name] = _apply_panel_mechanical_outline_score(
+            edge_score,
+            candidate.placed_parts,
+            resolved_bboxes,
+            resolved_outline,
+            intent_plan,
             fp_geometries=fp_geometries,
         )
         candidate.score = candidate_scores[candidate.name].score
@@ -1928,13 +2254,21 @@ def plan_layout(
                 board_layers=board_layers,
                 ctx=ctx,
             )
-            candidate_scores[candidate.name] = _apply_edge_intent_score(
+            edge_score = _apply_edge_intent_score(
                 raw_score,
                 candidate.placed_parts,
                 resolved_bboxes,
                 resolved_outline,
                 intent_plan,
                 constraints=candidate.constraints,
+                fp_geometries=fp_geometries,
+            )
+            candidate_scores[candidate.name] = _apply_panel_mechanical_outline_score(
+                edge_score,
+                candidate.placed_parts,
+                resolved_bboxes,
+                resolved_outline,
+                intent_plan,
                 fp_geometries=fp_geometries,
             )
             candidate.score = candidate_scores[candidate.name].score
@@ -2324,13 +2658,21 @@ def plan_layout(
             board_layers=board_layers,
             ctx=ctx,
         )
-        score = _apply_edge_intent_score(
+        edge_score = _apply_edge_intent_score(
             raw_score,
             placed_parts,
             resolved_bboxes,
             candidate_outline,
             intent_plan,
             constraints=candidate_constraints,
+            fp_geometries=fp_geometries,
+        )
+        score = _apply_panel_mechanical_outline_score(
+            edge_score,
+            placed_parts,
+            resolved_bboxes,
+            candidate_outline,
+            intent_plan,
             fp_geometries=fp_geometries,
         )
         candidate.score = score.score

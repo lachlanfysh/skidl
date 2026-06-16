@@ -27,6 +27,20 @@ EASYEDA_CACHE = Path(__file__).resolve().parent.parent / "corpus" / "jlc" / "eas
 LCSC_RE = re.compile(r"\bC\d{2,}\b", re.IGNORECASE)
 
 
+def _job_status_from_result(result: dict) -> str:
+    pipeline_status = str(result.get("status") or "")
+    if pipeline_status in {
+        "succeeded",
+        "succeeded_with_warnings",
+        "failed_reviewable",
+        "failed",
+        "timeout",
+        "crashed",
+    }:
+        return pipeline_status
+    return "succeeded" if result["ok"] else "failed"
+
+
 async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
     """Single worker slot: claim jobs, run engine, store results."""
     label = f"worker-{worker_id}[{slot}]"
@@ -58,17 +72,7 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
             # Extract artifact file contents before storing — they bloat
             # the jobs.result column and can cause tool response truncation.
             artifacts = _collect_artifacts(result)
-            pipeline_status = str(result.get("status") or "")
-            if pipeline_status in {
-                "succeeded",
-                "succeeded_with_warnings",
-                "failed",
-                "timeout",
-                "crashed",
-            }:
-                status = pipeline_status
-            else:
-                status = "succeeded" if result["ok"] else "failed"
+            status = _job_status_from_result(result)
             await db.complete_job(job_id, status, result=result)
 
             if result.get("run_id"):

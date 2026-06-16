@@ -36,6 +36,7 @@ from mcp_server.engine_worker import (
     _exec_skidl,
     _export_dsn_with_pcbnew,
     _find_kicad_python,
+    _floorplan_intent_preflight_exception,
     _footprint_missing_exception,
     _freerouting_jar_path,
     _generate_board_previews,
@@ -63,7 +64,11 @@ from mcp_server.pipeline import (
 from mcp_server.layout_quality import build_layout_quality, write_layout_quality
 from mcp_server.runs import RunStore
 from mcp_server import worker as worker_mod
-from mcp_server.worker import _lcsc_refs_in_spec, _restore_lcsc_asset
+from mcp_server.worker import (
+    _job_status_from_result,
+    _lcsc_refs_in_spec,
+    _restore_lcsc_asset,
+)
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
 from skidl.layout.constraints import BoardOutline
@@ -148,6 +153,13 @@ class TestRunStore:
         assert (tmp_path / "run-1" / "spec.json").exists()
         assert (tmp_path / "run-1" / "exceptions.json").exists()
         assert (tmp_path / "run-1" / "response.json").exists()
+
+
+class TestWorkerStatus:
+    def test_worker_preserves_failed_reviewable_status(self):
+        assert _job_status_from_result(
+            {"status": "failed_reviewable", "ok": False}
+        ) == "failed_reviewable"
 
 
 class TestLayoutQuality:
@@ -1171,6 +1183,112 @@ class TestLayoutQuality:
         assert updated.outputs["layout_quality"] == str(report_path)
         assert updated.layout_quality["gates"]["manufacturable"] is True
         assert updated.metrics["quality_gates"] == updated.layout_quality["gates"]
+
+    def test_attach_layout_quality_promotes_reviewable_product_failure(self, tmp_path):
+        response = DesignResponse(
+            run_id="run-quality-fail-reviewable",
+            ok=True,
+            status="succeeded_with_warnings",
+            stage="placement_review",
+            exceptions=[
+                DesignException(
+                    id="e-review",
+                    code=ExcCode.PLACEMENT_REVIEW_ONLY,
+                    severity=Severity.ADVISORY,
+                    message="placement preview generated without routing",
+                )
+            ],
+            artifacts={
+                "pcb": str(tmp_path / "board.kicad_pcb"),
+                "previews": {"files": ["preview_2d_top.png"]},
+            },
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 100.0, "height_mm": 80.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 48.0, "y_mm": 38.0},
+                    {"ref": "U2", "x_mm": 50.0, "y_mm": 40.0},
+                    {"ref": "J1", "x_mm": 52.0, "y_mm": 42.0},
+                    {"ref": "R1", "x_mm": 49.0, "y_mm": 41.0},
+                    {"ref": "C1", "x_mm": 51.0, "y_mm": 39.0},
+                ],
+                "validation": {"ok": True},
+            },
+            metrics={
+                "manufacturable": False,
+                "manufacturing_complete": False,
+                "pipeline_goal": "placement_review",
+                "board_area_mm2": 8000.0,
+            },
+        )
+
+        updated = _attach_layout_quality(response, tmp_path)
+
+        assert updated.ok is False
+        assert updated.status == "failed_reviewable"
+        assert updated.layout_quality["status"] == "failed_reviewable"
+        assert updated.layout_quality["gates"]["visual_review_ready"] is True
+        assert updated.layout_quality["gates"]["product_layout_ok"] is False
+        assert updated.artifacts["previews"]["files"] == ["preview_2d_top.png"]
+        assert updated.artifacts["layout_quality"].endswith("layout_quality.json")
+        product_exc = next(
+            exc for exc in updated.exceptions
+            if exc.code == ExcCode.PRODUCT_LAYOUT_FAILED
+        )
+        assert product_exc.severity == Severity.ERROR
+        assert product_exc.subject["visual_review_ready"] is True
+        assert "LOW_PART_SPREAD" in product_exc.subject["issue_codes"]
+        assert any(
+            exc.code == ExcCode.PLACEMENT_REVIEW_ONLY
+            for exc in updated.exceptions
+        )
+
+    def test_attach_layout_quality_promotes_review_only_product_gate(self, tmp_path):
+        response = DesignResponse(
+            run_id="run-quality-placement-review",
+            ok=True,
+            status="succeeded_with_warnings",
+            stage="placement_review",
+            exceptions=[
+                DesignException(
+                    id="e-review",
+                    code=ExcCode.PLACEMENT_REVIEW_ONLY,
+                    severity=Severity.ADVISORY,
+                    message="placement preview generated without routing",
+                )
+            ],
+            artifacts={
+                "pcb": str(tmp_path / "board.kicad_pcb"),
+                "previews": {"files": ["preview_2d_top.png"]},
+            },
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 30.0, "height_mm": 20.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 8.0, "y_mm": 8.0},
+                    {"ref": "J1", "x_mm": 20.0, "y_mm": 8.0},
+                ],
+                "validation": {"ok": True},
+            },
+            metrics={
+                "manufacturable": False,
+                "manufacturing_complete": False,
+                "pipeline_goal": "placement_review",
+            },
+        )
+
+        updated = _attach_layout_quality(response, tmp_path)
+
+        assert updated.ok is False
+        assert updated.status == "failed_reviewable"
+        assert updated.layout_quality["gates"]["visual_review_ready"] is True
+        assert updated.layout_quality["gates"]["product_layout_ok"] is False
+        product_exc = next(
+            exc for exc in updated.exceptions
+            if exc.code == ExcCode.PRODUCT_LAYOUT_FAILED
+        )
+        assert product_exc.subject["issue_codes"] == ["PLACEMENT_REVIEW_ONLY"]
+        assert product_exc.subject["blocking_issue_codes"] == []
 
     def test_write_layout_quality_round_trip(self, tmp_path):
         quality = {"version": 1, "run_id": "r1", "gates": {"placement_ok": True}}
@@ -3721,6 +3839,50 @@ def test_skidl_worker_custom_footprints_reach_preflight_layout_and_writer(
         "footprints": ["CustomLib:Tiny_2Pad"],
     }
     assert seen["preflight_dirs"][0] == seen["layout_dirs"][0] == seen["writer_dirs"][0]
+
+
+def test_floorplan_preflight_blocks_large_module_connector_board():
+    circuit = SimpleNamespace(
+        parts=[
+            SimpleNamespace(
+                ref="U1",
+                name="ESP32-S3 WROOM logger module",
+                value="ESP32-S3",
+                footprint="RF_Module:ESP32-S3-WROOM-1",
+                pins=[object()] * 44,
+            ),
+            SimpleNamespace(
+                ref="J1",
+                name="USB-C connector",
+                footprint="Connector_USB:USB_C_Receptacle",
+                pins=[object()] * 16,
+            ),
+            SimpleNamespace(
+                ref="J2",
+                name="microSD card socket",
+                footprint="Connector_Card:microSD",
+                pins=[object()] * 12,
+            ),
+            SimpleNamespace(
+                ref="J3",
+                name="debug pin header",
+                footprint="Connector_PinHeader_2.54mm:PinHeader_1x04",
+                pins=[object()] * 4,
+            ),
+        ]
+    )
+
+    exc = _floorplan_intent_preflight_exception(circuit, floorplan_meta={})
+
+    assert exc is not None
+    assert exc.code == ExcCode.DESIGN_MISSING_FEATURE
+    assert exc.severity == Severity.ERROR
+    assert exc.subject["feature"] == "placement_floorplan_intent"
+    assert exc.subject["classification"] == "intent_insufficient_for_large_module_board"
+    assert exc.subject["large_module_refs"] == ["U1"]
+    assert {"J1", "J2", "J3"}.issubset(set(exc.subject["connector_refs"]))
+    assert exc.candidates[0].action == ActionType.REGENERATE
+    assert "EDA_FLOORPLAN['edge_anchors']" in exc.retry_hint
 
 
 @needs_kicad

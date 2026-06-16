@@ -195,6 +195,123 @@ def _bounds_union(bounds_iter) -> tuple[float, float, float, float]:
     return x_min, y_min, x_max, y_max
 
 
+def _expand_bounds(
+    bounds: tuple[float, float, float, float],
+    amount: float,
+) -> tuple[float, float, float, float]:
+    x_min, y_min, x_max, y_max = bounds
+    return x_min - amount, y_min - amount, x_max + amount, y_max + amount
+
+
+def _stroke_half_width(node) -> float:
+    stroke = _find_child(node, "stroke")
+    width = _find_child(stroke, "width") if stroke is not None else None
+    if width is not None and len(width) > 1:
+        return max(0.0, _as_float(width[1]) / 2)
+    width = _find_child(node, "width")
+    if width is not None and len(width) > 1:
+        return max(0.0, _as_float(width[1]) / 2)
+    return 0.0
+
+
+def _bounds_from_points(
+    points: list[tuple[float, float]],
+    stroke_half_width: float = 0.0,
+) -> tuple[float, float, float, float] | None:
+    if not points:
+        return None
+    bounds = _bounds_union((x, y, x, y) for x, y in points)
+    if stroke_half_width > 0.0:
+        return _expand_bounds(bounds, stroke_half_width)
+    return bounds
+
+
+def _pts_xy_points(node) -> list[tuple[float, float]]:
+    pts = _find_child(node, "pts")
+    if pts is None:
+        return []
+    points = []
+    for child in pts:
+        if isinstance(child, list) and len(child) >= 3 and child[0] == "xy":
+            points.append((_as_float(child[1]), _as_float(child[2])))
+    return points
+
+
+def _normalize_angle(angle: float) -> float:
+    return angle % (math.tau)
+
+
+def _angle_between_ccw(start: float, angle: float, end: float) -> bool:
+    start = _normalize_angle(start)
+    angle = _normalize_angle(angle)
+    end = _normalize_angle(end)
+    return (angle - start) % math.tau <= (end - start) % math.tau + 1e-12
+
+
+def _circle_center_from_three_points(
+    start: tuple[float, float],
+    mid: tuple[float, float],
+    end: tuple[float, float],
+) -> tuple[float, float] | None:
+    x1, y1 = start
+    x2, y2 = mid
+    x3, y3 = end
+    determinant = 2 * (
+        x1 * (y2 - y3)
+        + x2 * (y3 - y1)
+        + x3 * (y1 - y2)
+    )
+    if abs(determinant) < 1e-12:
+        return None
+    x1_sq_y1_sq = x1 * x1 + y1 * y1
+    x2_sq_y2_sq = x2 * x2 + y2 * y2
+    x3_sq_y3_sq = x3 * x3 + y3 * y3
+    center_x = (
+        x1_sq_y1_sq * (y2 - y3)
+        + x2_sq_y2_sq * (y3 - y1)
+        + x3_sq_y3_sq * (y1 - y2)
+    ) / determinant
+    center_y = (
+        x1_sq_y1_sq * (x3 - x2)
+        + x2_sq_y2_sq * (x1 - x3)
+        + x3_sq_y3_sq * (x2 - x1)
+    ) / determinant
+    return center_x, center_y
+
+
+def _arc_bounds(node) -> tuple[float, float, float, float] | None:
+    start = _xy(node, "start")
+    mid = _xy(node, "mid")
+    end = _xy(node, "end")
+    if start is None or mid is None or end is None:
+        return None
+
+    center = _circle_center_from_three_points(start, mid, end)
+    if center is None:
+        return _bounds_from_points([start, mid, end], _stroke_half_width(node))
+
+    cx, cy = center
+    radius = math.hypot(start[0] - cx, start[1] - cy)
+    if radius <= 0.0:
+        return _bounds_from_points([start, mid, end], _stroke_half_width(node))
+
+    start_angle = math.atan2(start[1] - cy, start[0] - cx)
+    mid_angle = math.atan2(mid[1] - cy, mid[0] - cx)
+    end_angle = math.atan2(end[1] - cy, end[0] - cx)
+    ccw = _angle_between_ccw(start_angle, mid_angle, end_angle)
+
+    points = [start, mid, end]
+    for angle in (0.0, math.pi / 2, math.pi, math.pi * 3 / 2):
+        on_arc = (
+            _angle_between_ccw(start_angle, angle, end_angle)
+            if ccw
+            else _angle_between_ccw(end_angle, angle, start_angle)
+        )
+        if on_arc:
+            points.append((cx + radius * math.cos(angle), cy + radius * math.sin(angle)))
+    return _bounds_from_points(points, _stroke_half_width(node))
+
+
 def _graphic_bounds(
     fp: Sexp,
     layer_suffix: str,
@@ -208,7 +325,12 @@ def _graphic_bounds(
         if start and end:
             xs = [start[0], end[0]]
             ys = [start[1], end[1]]
-            bounds.append((min(xs), min(ys), max(xs), max(ys)))
+            bounds.append(
+                _expand_bounds(
+                    (min(xs), min(ys), max(xs), max(ys)),
+                    _stroke_half_width(line),
+                )
+            )
     for rect in fp.search("fp_rect"):
         if not _layer_name(rect).endswith(layer_suffix):
             continue
@@ -217,7 +339,42 @@ def _graphic_bounds(
         if start and end:
             xs = [start[0], end[0]]
             ys = [start[1], end[1]]
-            bounds.append((min(xs), min(ys), max(xs), max(ys)))
+            bounds.append(
+                _expand_bounds(
+                    (min(xs), min(ys), max(xs), max(ys)),
+                    _stroke_half_width(rect),
+                )
+            )
+    for circle in fp.search("fp_circle"):
+        if not _layer_name(circle).endswith(layer_suffix):
+            continue
+        center = _xy(circle, "center")
+        end = _xy(circle, "end")
+        if center and end:
+            radius = math.hypot(end[0] - center[0], end[1] - center[1])
+            bounds.append(
+                _expand_bounds(
+                    (
+                        center[0] - radius,
+                        center[1] - radius,
+                        center[0] + radius,
+                        center[1] + radius,
+                    ),
+                    _stroke_half_width(circle),
+                )
+            )
+    for arc in fp.search("fp_arc"):
+        if not _layer_name(arc).endswith(layer_suffix):
+            continue
+        arc_bounds = _arc_bounds(arc)
+        if arc_bounds is not None:
+            bounds.append(arc_bounds)
+    for poly in fp.search("fp_poly"):
+        if not _layer_name(poly).endswith(layer_suffix):
+            continue
+        poly_bounds = _bounds_from_points(_pts_xy_points(poly), _stroke_half_width(poly))
+        if poly_bounds is not None:
+            bounds.append(poly_bounds)
     if not bounds:
         return None
     return _bounds_union(bounds)

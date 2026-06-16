@@ -15,6 +15,7 @@ import json
 
 import pytest
 
+from mcp_server.exception_mapper import product_layout_exception
 from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import CorrectionError, apply_candidate
 from schemas.enrichment import (
@@ -699,6 +700,46 @@ class TestExceptionModel:
             message="test",
         )
         assert exc.waiver_key() == "DESIGN_NO_CONNECTOR:"
+
+    def test_product_layout_exception_preserves_review_context(self):
+        exc = product_layout_exception(
+            {
+                "gates": {
+                    "product_layout_ok": False,
+                    "visual_review_ready": True,
+                },
+                "review": {"state": "failed_reviewable"},
+                "issues": [
+                    {
+                        "code": "EDGE_ANCHOR_OFF_EDGE",
+                        "severity": "error",
+                        "message": "J1 is away from the edge",
+                        "recommendation": "move J1 to the requested edge",
+                    },
+                    {
+                        "code": "PLACEMENT_REVIEW_ONLY",
+                        "severity": "advisory",
+                        "message": "preview-only run",
+                    },
+                ],
+                "artifacts": {
+                    "preview_files": ["preview_2d_top.png"],
+                },
+            }
+        )
+
+        assert exc.code == ExcCode.PRODUCT_LAYOUT_FAILED
+        assert exc.severity == Severity.ERROR
+        assert exc.subject["review_state"] == "failed_reviewable"
+        assert exc.subject["visual_review_ready"] is True
+        assert exc.subject["product_layout_ok"] is False
+        assert exc.subject["issue_codes"] == [
+            "EDGE_ANCHOR_OFF_EDGE",
+            "PLACEMENT_REVIEW_ONLY",
+        ]
+        assert exc.subject["blocking_issue_codes"] == ["EDGE_ANCHOR_OFF_EDGE"]
+        assert exc.subject["preview_files"] == ["preview_2d_top.png"]
+        assert exc.candidates[0].action == ActionType.REGENERATE
 
 
 # ---------------------------------------------------------------------------

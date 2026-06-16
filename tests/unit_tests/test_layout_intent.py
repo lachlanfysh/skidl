@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
 from skidl.layout.constraints import BoardOutline
-from skidl.layout.intent import infer_placement_intents
+from skidl.layout.intent import classify_floorplan_intent_gap, infer_placement_intents
 
 
 class _Net:
@@ -53,6 +55,94 @@ class _Circuit:
 
 def _kinds(plan, ref):
     return {intent.kind for intent in plan.intents_for(ref)}
+
+
+def test_classifies_large_module_connector_board_as_floorplan_gap():
+    vbus = _Net("VBUS")
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    module = _Part(
+        "U1",
+        name="ESP32-S3 WROOM logger module",
+        footprint="RF_Module:ESP32-S3-WROOM-1",
+        nets=[vbus, gnd, sig],
+        pins=44,
+    )
+    usb = _Part(
+        "J1",
+        name="USB-C connector",
+        footprint="Connector_USB:USB_C_Receptacle",
+        nets=[vbus, gnd],
+        pins=16,
+    )
+    sd = _Part(
+        "J2",
+        name="microSD card socket",
+        footprint="Connector_Card:microSD_Hirose_DM3AT",
+        nets=[vbus, gnd, sig],
+        pins=12,
+    )
+    debug = _Part(
+        "J3",
+        name="SWD debug header",
+        footprint="Connector:PinHeader_1x04",
+        nets=[gnd, sig],
+        pins=4,
+    )
+    circuit = _Circuit([module, usb, sd, debug], [vbus, gnd, sig])
+
+    diagnosis = classify_floorplan_intent_gap(circuit)
+
+    assert diagnosis["needs_floorplan"] is True
+    assert diagnosis["large_module_refs"] == ["U1"]
+    assert {"J1", "J2", "J3"}.issubset(set(diagnosis["connector_refs"]))
+    assert diagnosis["confidence"] >= 0.8
+
+
+def test_floorplan_gap_classifier_respects_explicit_edge_intent():
+    vbus = _Net("VBUS")
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    module = _Part(
+        "U1",
+        name="ESP32-S3 WROOM logger module",
+        footprint="RF_Module:ESP32-S3-WROOM-1",
+        nets=[vbus, gnd, sig],
+        pins=44,
+    )
+    usb = _Part("J1", name="USB-C connector", nets=[vbus, gnd], pins=16)
+    sd = _Part("J2", name="microSD socket", nets=[vbus, gnd, sig], pins=12)
+    debug = _Part("J3", name="SWD debug header", nets=[gnd, sig], pins=4)
+    usb.edge_preference = "bottom"
+    circuit = _Circuit([module, usb, sd, debug], [vbus, gnd, sig])
+
+    diagnosis = classify_floorplan_intent_gap(circuit)
+
+    assert diagnosis["needs_floorplan"] is False
+
+
+def test_floorplan_gap_classifier_treats_outline_only_as_weak_intent():
+    vbus = _Net("VBUS")
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    module = _Part(
+        "U1",
+        name="ESP32-S3 WROOM logger module",
+        footprint="RF_Module:ESP32-S3-WROOM-1",
+        nets=[vbus, gnd, sig],
+        pins=44,
+    )
+    usb = _Part("J1", name="USB-C connector", nets=[vbus, gnd], pins=16)
+    sd = _Part("J2", name="microSD socket", nets=[vbus, gnd, sig], pins=12)
+    debug = _Part("J3", name="SWD debug header", nets=[gnd, sig], pins=4)
+    circuit = _Circuit([module, usb, sd, debug], [vbus, gnd, sig])
+
+    diagnosis = classify_floorplan_intent_gap(
+        circuit,
+        floorplan_meta={"outline": "explicit"},
+    )
+
+    assert diagnosis["needs_floorplan"] is True
 
 
 def test_infers_edge_connector_power_and_debug_intent():
@@ -226,6 +316,75 @@ def test_explicit_edges_prevent_opposing_header_pair_rewrite():
     assert anchors["J2"].edge == "bottom"
 
 
+def test_usb_c_inline_input_output_pair_gets_opposing_edges():
+    vbus = _Net("VBUS")
+    gnd = _Net("GND")
+    dp = _Net("USB_D+")
+    dm = _Net("USB_D-")
+    upstream = _Part(
+        "J1",
+        name="USB-C IN receptacle",
+        footprint="Connector_USB:USB_C_Receptacle",
+        nets=[vbus, gnd, dp, dm],
+        pins=16,
+    )
+    downstream = _Part(
+        "J2",
+        name="USB-C OUT receptacle",
+        footprint="Connector_USB:USB_C_Receptacle",
+        nets=[vbus, gnd, dp, dm],
+        pins=16,
+    )
+    circuit = _Circuit([upstream, downstream], [vbus, gnd, dp, dm])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(70.0, 28.0))
+
+    anchors = {anchor.ref: anchor for anchor in plan.edge_anchors}
+    assert anchors["J1"].edge == "left"
+    assert anchors["J2"].edge == "right"
+    assert anchors["J1"].offset_mm == pytest.approx(14.0)
+    assert anchors["J2"].offset_mm == pytest.approx(14.0)
+    assert anchors["J1"].rot_deg == pytest.approx(270.0)
+    assert anchors["J2"].rot_deg == pytest.approx(90.0)
+    assert "opposing_inline_connector_pair" in _kinds(plan, "J1")
+    assert "opposing_inline_connector_pair" in _kinds(plan, "J2")
+
+
+def test_breakout_header_centered_between_mounting_holes_keeps_offset_when_edge_has_other_anchor():
+    outline = BoardOutline(40.0, 28.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    sda = _Net("SDA")
+    scl = _Net("SCL")
+    header = _Part(
+        "J1",
+        name="MCP9808 breakout pin header",
+        footprint="Connector:PinHeader_1x06",
+        nets=[vcc, gnd, sda, scl],
+        pins=6,
+    )
+    fixture = _Part(
+        "J2",
+        name="factory test connector",
+        footprint="Connector:PinHeader_1x02",
+        nets=[gnd],
+        pins=2,
+    )
+    fixture.edge_preference = "top"
+    fixture.edge_offset_mm = 35.0
+    h1 = _Part("H1", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    h2 = _Part("H2", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    circuit = _Circuit([header, fixture, h1, h2], [vcc, gnd, sda, scl])
+
+    plan = infer_placement_intents(circuit, outline=outline)
+
+    anchors = {anchor.ref: anchor for anchor in plan.edge_anchors}
+    assert anchors["J1"].edge == "top"
+    assert anchors["J1"].offset_mm == pytest.approx(outline.width_mm / 2)
+    assert anchors["J2"].offset_mm == pytest.approx(35.0)
+    assert "connector_between_mounting_holes" in _kinds(plan, "J1")
+
+
 def test_infers_board_ui_mating_intent():
     gnd = _Net("GND")
     button = _Part(
@@ -295,6 +454,41 @@ def test_vertical_pj398_jack_is_panel_subject_not_edge_connector():
     assert mating.kind == "panel_jack"
     assert mating.edge_preference is None
     assert mating.mating_side == "front_panel"
+
+
+def test_guitar_pedal_panel_jack_and_footswitch_are_panel_subjects():
+    sig = _Net("AUDIO_IN")
+    gnd = _Net("GND")
+    jack = _Part(
+        "J1",
+        name="guitar pedal 1/4 inch panel input jack",
+        footprint="Connector_Audio:Jack_6.35mm_Neutrik_NMJ4HCD2",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    footswitch = _Part(
+        "SW1",
+        name="guitar pedal latching footswitch",
+        footprint="Button_Switch_THT:SW_3PDT_Stomp",
+        nets=[sig, gnd],
+        pins=6,
+    )
+    circuit = _Circuit([jack, footswitch], [sig, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(60.0, 110.0))
+
+    assert "panel_jack" in _kinds(plan, "J1")
+    assert "front_panel_subject" in _kinds(plan, "J1")
+    assert "edge_connector" not in _kinds(plan, "J1")
+    assert "panel_control" in _kinds(plan, "SW1")
+    assert "front_panel_subject" in _kinds(plan, "SW1")
+    assert all(anchor.ref != "J1" for anchor in plan.edge_anchors)
+    jack_mating = next(mating for mating in plan.mating_intents if mating.ref == "J1")
+    switch_mating = next(mating for mating in plan.mating_intents if mating.ref == "SW1")
+    assert jack_mating.kind == "panel_jack"
+    assert jack_mating.mating_side == "front_panel"
+    assert switch_mating.kind == "button"
+    assert switch_mating.mating_side == "user_control"
 
 
 def test_cui_sj1_horizontal_audio_jack_uses_local_y_socket_exit():

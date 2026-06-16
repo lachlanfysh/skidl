@@ -17,6 +17,7 @@ from mcp_server.exception_mapper import (
     crash_exception,
     order_exceptions_for_agent,
     payload_exceptions,
+    product_layout_exception,
     timeout_exception,
 )
 from mcp_server.layout_quality import build_layout_quality, write_layout_quality
@@ -100,6 +101,8 @@ def _status(ok: bool, exceptions: list[DesignException], timed_out: bool = False
         return "timeout"
     if any(exc.severity == Severity.FATAL for exc in exceptions):
         return "failed"
+    if any(exc.code == ExcCode.PRODUCT_LAYOUT_FAILED for exc in exceptions):
+        return "failed_reviewable"
     if any(exc.severity == Severity.ERROR for exc in exceptions):
         return "failed"
     if exceptions:
@@ -138,6 +141,23 @@ def _attach_layout_quality(response: DesignResponse, run_dir: Path) -> DesignRes
         metrics=response.metrics,
         artifacts=response.artifacts or response.outputs,
     )
+    gates = quality.get("gates", {}) if isinstance(quality.get("gates"), dict) else {}
+    review = quality.get("review", {}) if isinstance(quality.get("review"), dict) else {}
+    failed_reviewable = bool(
+        gates.get("visual_review_ready")
+        and not gates.get("product_layout_ok")
+    )
+    if failed_reviewable and not any(
+        exc.code == ExcCode.PRODUCT_LAYOUT_FAILED for exc in response.exceptions
+    ):
+        response.exceptions = order_exceptions_for_agent(
+            [*response.exceptions, product_layout_exception(quality)]
+        )
+    if failed_reviewable:
+        response.ok = False
+        response.status = str(review.get("state") or "failed_reviewable")
+        quality["ok"] = False
+        quality["status"] = response.status
     quality_path = write_layout_quality(run_dir, quality)
     response.layout_quality = quality
     response.outputs = dict(response.outputs or {})

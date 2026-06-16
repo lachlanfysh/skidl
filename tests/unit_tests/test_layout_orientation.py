@@ -104,6 +104,17 @@ def _connector_part(ref: str, name: str, footprint: str) -> _Part:
             "+y",
             {"bottom": 0.0, "right": 90.0, "top": 180.0, "left": 270.0},
         ),
+        (
+            _connector_part(
+                "J5",
+                "horizontal barrel power jack",
+                "Connector_BarrelJack:BarrelJack_Horizontal",
+            ),
+            "barrel",
+            "barrel",
+            "+y",
+            {"bottom": 0.0, "right": 90.0, "top": 180.0, "left": 270.0},
+        ),
     ],
 )
 def test_infers_connector_mating_face_and_outward_edge_rotation(

@@ -79,6 +79,7 @@ BBOXES = {
     "Package_QFP:MCU": (12.0, 12.0),
     "Capacitor:C_0805": (2.0, 1.25),
     "Connector:USB": (10.0, 5.0),
+    "Connector:USB_C_Receptacle": (10.0, 5.0),
     "MountingHole:M2": (4.4, 4.4),
     "Connector:PinHeader_1x04": (2.54, 10.16),
     "Connector:PinHeader_1x06": (2.54, 15.24),
@@ -86,6 +87,7 @@ BBOXES = {
     "Connector_Audio:Thonkiconn_PJ398SM": (8.0, 8.0),
     "Connector_Audio:Jack_3.5mm_PJ320D_Horizontal": (14.0, 10.0),
     "Connector_Audio:Jack_3.5mm_CUI_SJ1-3523N_Horizontal": (13.0, 15.0),
+    "Switch:3PDT_Footswitch": (6.0, 6.0),
     (
         "TerminalBlock_Phoenix:"
         "TerminalBlock_Phoenix_MKDS-3-2-5.08_1x02_P5.08mm_Horizontal"
@@ -783,6 +785,44 @@ def test_plan_layout_places_two_generic_headers_on_opposing_edges():
         assert y_edge_distance <= result.outline.height_mm * 0.25
 
 
+def test_plan_layout_places_usb_c_inline_pair_on_opposing_edges():
+    vbus = _Net("VBUS")
+    gnd = _Net("GND")
+    dp = _Net("USB_D+")
+    dm = _Net("USB_D-")
+    j1 = _Part(
+        "J1",
+        name="USB-C IN receptacle",
+        footprint="Connector:USB_C_Receptacle",
+        nets=[vbus, gnd, dp, dm],
+        pins=16,
+    )
+    j2 = _Part(
+        "J2",
+        name="USB-C OUT receptacle",
+        footprint="Connector:USB_C_Receptacle",
+        nets=[vbus, gnd, dp, dm],
+        pins=16,
+    )
+    circuit = _Circuit([j1, j2], [vbus, gnd, dp, dm])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=BoardOutline(60.0, 24.0)),
+    )
+
+    anchors = {anchor.ref: anchor for anchor in result.intent_plan.edge_anchors}
+    placed = {part.ref: part for part in result.placed_parts}
+
+    assert anchors["J1"].edge == "left"
+    assert anchors["J2"].edge == "right"
+    assert anchors["J1"].rot_deg == pytest.approx(270.0)
+    assert anchors["J2"].rot_deg == pytest.approx(90.0)
+    assert placed["J1"].x_mm < placed["J2"].x_mm
+    assert result.validation.overlaps == []
+
+
 def test_plan_layout_grids_passives_between_opposing_headers():
     vcc = _Net("VCC")
     gnd = _Net("GND")
@@ -1046,6 +1086,47 @@ def test_plan_layout_splits_qwiic_and_header_on_two_hole_breakout():
     assert "connector_opposite_mounting_hole_header" in {
         intent.kind for intent in result.intent_plan.intents_for("J100")
     }
+
+
+def test_panel_control_physical_body_crossing_outline_is_score_invalid(monkeypatch):
+    gnd = _Net("GND")
+    sig = _Net("BYPASS")
+    sw1 = _Part(
+        "SW1",
+        name="guitar pedal footswitch",
+        footprint="Switch:3PDT_Footswitch",
+        nets=[sig, gnd],
+        pins=6,
+    )
+    circuit = _Circuit([sw1], [sig, gnd])
+    outline = BoardOutline(20.0, 20.0)
+    geometries = {
+        "Switch:3PDT_Footswitch": FootprintGeometry(
+            footprint="Switch:3PDT_Footswitch",
+            courtyard_bounds=(-3.0, -3.0, 3.0, 3.0),
+            body_bounds=(-8.0, -8.0, 8.0, 8.0),
+        ),
+    }
+    monkeypatch.setattr(
+        "skidl.layout.engine._resolve_geometries",
+        lambda circuit, fp_lib_dirs: geometries,
+    )
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=outline,
+            fixed=[FixedPosition("SW1", 5.0, 10.0)],
+        ),
+    )
+
+    assert result.score.outline_violation_count >= 1
+    assert not result.ok
+    assert any(
+        "SW1: panel/mechanical body crosses board outline" == warning
+        for warning in result.score.warnings
+    )
 
 
 def test_legalize_small_parts_nudges_passives_clear_of_outline():
@@ -1417,6 +1498,47 @@ def test_edge_anchor_snap_avoids_mounting_hole_halos():
         and header_bounds[1] < halo[3]
         and header_bounds[3] > halo[1]
     )
+
+
+def test_edge_anchor_snap_separates_same_edge_connectors_after_keepout_avoidance():
+    outline = BoardOutline(56.0, 26.0)
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[
+            EdgeAnchor("J1", "bottom", offset_mm=6.6, rot_deg=0.0),
+            EdgeAnchor("J2", "bottom", offset_mm=48.4, rot_deg=0.0),
+        ]
+    )
+    intent_plan.intents["H1"] = [
+        PlacementIntent("H1", "mounting_hole", 90, ["left mounting hole"])
+    ]
+    intent_plan.intents["H2"] = [
+        PlacementIntent("H2", "mounting_hole", 90, ["right mounting hole"])
+    ]
+    placed_parts = [
+        PlacedPart("H1", x_mm=4.0, y_mm=22.0, rot_deg=0.0, footprint="MountingHole:M2"),
+        PlacedPart("H2", x_mm=52.0, y_mm=22.0, rot_deg=0.0, footprint="MountingHole:M2"),
+        PlacedPart("J1", x_mm=6.6, y_mm=20.0, rot_deg=0.0, footprint="Connector:USB"),
+        PlacedPart("J2", x_mm=48.4, y_mm=20.0, rot_deg=0.0, footprint="Connector:USB"),
+    ]
+
+    snapped, moved = _snap_edge_anchors_to_outline(
+        placed_parts,
+        outline,
+        intent_plan,
+        LayoutConstraints(outline=outline),
+        BBOXES,
+        None,
+    )
+
+    placed = {part.ref: part for part in snapped}
+    j1_bounds = _placed_bounds(placed["J1"], BBOXES)
+    j2_bounds = _placed_bounds(placed["J2"], BBOXES)
+
+    assert {"J1", "J2"}.issubset(set(moved))
+    assert j1_bounds[3] == pytest.approx(outline.y_max - 0.5)
+    assert j2_bounds[3] == pytest.approx(outline.y_max - 0.5)
+    assert j1_bounds[2] + 0.75 <= j2_bounds[0]
+    assert placed["J1"].x_mm < placed["J2"].x_mm
 
 
 def test_edge_anchor_snap_preserves_explicit_left_right_offsets():

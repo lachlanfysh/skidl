@@ -45,14 +45,24 @@ FFC_RE = re.compile(r"\b(ffc|fpc|flat flex|ribbon)\b", re.I)
 HEADER_RE = re.compile(r"\b(header|pinheader|pin header|tagconnect|swd|jtag)\b", re.I)
 AUDIO_JACK_RE = re.compile(
     r"(audio.?jack|audio.?plug|3\.5\s*mm|3\.5mm|mono.?jack|"
-    r"stereo.?jack|trs|trrs|pj320)",
+    r"stereo.?jack|trs|trrs|pj320|6\.35\s*mm|6\.35mm|"
+    r"1/4\s*(?:in|inch)?|quarter.?inch|phone.?jack)",
+    re.I,
+)
+PANEL_MOUNT_JACK_RE = re.compile(
+    r"(panel.?jack|guitar.?pedal|stompbox|6\.35\s*mm|6\.35mm|"
+    r"1/4\s*(?:in|inch)?|quarter.?inch|phone.?jack|neutrik|lumberg)",
+    re.I,
+)
+EDGE_AUDIO_JACK_RE = re.compile(
+    r"(horizontal|right.?angle|edge.?mount|side.?entry|pj-?320|pj320d)",
     re.I,
 )
 INTERNAL_HEADER_RE = re.compile(
     r"\b(oled|lcd|display|tft|screen|daughter|mezzanine|board.?to.?board|b2b|module|socket)\b",
     re.I,
 )
-BUTTON_RE = re.compile(r"\b(button|pushbutton|tact|switch)\b", re.I)
+BUTTON_RE = re.compile(r"\b(button|pushbutton|tact|switch|footswitch)\b", re.I)
 LED_RE = re.compile(r"\b(led|neopixel|indicator)\b", re.I)
 DISPLAY_RE = re.compile(r"\b(display|oled|lcd|screen)\b", re.I)
 POT_ENCODER_RE = re.compile(r"\b(pot|potentiometer|encoder|knob)\b", re.I)
@@ -79,6 +89,14 @@ QWIIC_RE = re.compile(r"\b(qwiic|stemma\s*qt|stemmaqt)\b", re.I)
 USB_CONNECTOR_RE = re.compile(
     r"(connector[_\s:/-]*usb|usb[_\s-]*(?:c|micro|mini|a|b)?[_\s-]*(?:connector|receptacle|socket)|"
     r"type[_\s-]?c|usb4105|type-c-31|usb_c_receptacle)",
+    re.I,
+)
+INLINE_INPUT_RE = re.compile(r"(?:^|[\s_/:.,-])(in|input)(?:$|[\s_/:.,-])", re.I)
+INLINE_OUTPUT_RE = re.compile(r"(?:^|[\s_/:.,-])(out|output)(?:$|[\s_/:.,-])", re.I)
+MIDI_RE = re.compile(r"\bmidi\b", re.I)
+LARGE_MODULE_RE = re.compile(
+    r"\b(esp32|esp32-?s3|wroom|wrover|nrf52|pico|teensy|daisy|"
+    r"module|castellated|stamp|s3-?mini)\b",
     re.I,
 )
 
@@ -419,6 +437,128 @@ def _part_text(part) -> str:
     return " ".join(str(chunk or "") for chunk in chunks).lower()
 
 
+def _part_ref(part) -> str:
+    return str(getattr(part, "ref", "") or "")
+
+
+def _part_pin_count(part) -> int:
+    try:
+        return len(part)
+    except Exception:
+        return len(getattr(part, "pins", []) or [])
+
+
+def _has_explicit_floorplan_intent(circuit, floorplan_meta: dict | None) -> bool:
+    meta = floorplan_meta or {}
+    for key in (
+        "fixed_positions",
+        "edge_anchors",
+        "keepouts",
+        "zones",
+        "align_constraints",
+        "distribute_constraints",
+        "grids",
+        "grid_fixed_positions",
+    ):
+        if int(meta.get(key, 0) or 0) > 0:
+            return True
+    if meta.get("assembly_sides") or meta.get("edge_anchor_refs"):
+        return True
+    for part in getattr(circuit, "parts", []) or []:
+        if (
+            _explicit_part_edge_anchor(part) is not None
+            or _explicit_part_assembly_side(part) is not None
+        ):
+            return True
+        for attr in ("x_mm", "y_mm", "placement_x_mm", "placement_y_mm"):
+            if getattr(part, attr, None) is not None:
+                return True
+    return False
+
+
+def classify_floorplan_intent_gap(
+    circuit,
+    *,
+    floorplan_meta: dict | None = None,
+) -> dict:
+    """Detect complex mechanical boards that need explicit placement intent.
+
+    This is intentionally a conservative classifier for product/MCP preflight:
+    it catches large module boards with several connector/mechanical subjects
+    and no explicit floorplan, without making claims about final placement.
+    """
+
+    parts = list(getattr(circuit, "parts", []) or [])
+    if not parts:
+        return {"needs_floorplan": False, "reason": "empty circuit"}
+    if _has_explicit_floorplan_intent(circuit, floorplan_meta):
+        return {"needs_floorplan": False, "reason": "explicit floorplan intent present"}
+
+    roles = classify_parts(circuit)
+    large_modules: list[str] = []
+    connector_refs: list[str] = []
+    mechanical_refs: list[str] = []
+
+    for part in parts:
+        ref = _part_ref(part)
+        if not ref:
+            continue
+        role = roles.get(ref)
+        role_name = role.role if role is not None else ""
+        text = _part_text(part)
+        pin_count = _part_pin_count(part)
+        footprint = str(getattr(part, "footprint", "") or getattr(part, "foot", "") or "")
+
+        if (
+            role_name == "module_socket"
+            or LARGE_MODULE_RE.search(text)
+            or "module" in footprint.lower()
+            or (role_name == "ic" and pin_count >= 28)
+        ):
+            large_modules.append(ref)
+
+        nets = pin_net_names(part)
+        mating = _mating_intent_for_part(ref, text, role, nets)
+        if role_name in {"connector", "panel_jack", "module_socket"} or mating is not None:
+            connector_refs.append(ref)
+        if role_name in {"connector", "panel_jack", "module_socket", "mounting_hole", "control"}:
+            mechanical_refs.append(ref)
+
+    connector_refs = sorted(set(connector_refs), key=_natural_ref_key)
+    mechanical_refs = sorted(set(mechanical_refs), key=_natural_ref_key)
+    large_modules = sorted(set(large_modules), key=_natural_ref_key)
+
+    needs_floorplan = bool(
+        large_modules
+        and len(connector_refs) >= 2
+        and len(mechanical_refs) >= 3
+    )
+    confidence = 0.0
+    if needs_floorplan:
+        confidence = min(
+            0.95,
+            0.72
+            + min(len(large_modules), 2) * 0.05
+            + min(len(connector_refs) - 2, 3) * 0.04
+            + min(len(mechanical_refs) - 3, 4) * 0.03,
+        )
+
+    return {
+        "needs_floorplan": needs_floorplan,
+        "reason": (
+            "large module plus multiple connector/mechanical subjects and no explicit floorplan"
+            if needs_floorplan
+            else "below large-module/mechanical-connectivity threshold"
+        ),
+        "confidence": round(confidence, 2),
+        "large_module_refs": large_modules,
+        "connector_refs": connector_refs,
+        "mechanical_refs": mechanical_refs,
+        "part_count": len(parts),
+        "floorplan_intent": "none_or_weak",
+    }
+
+
 def _add_intent(
     plan: PlacementIntentPlan,
     ref: str,
@@ -510,6 +650,14 @@ def _edge_for_part(text: str, role: PartRole, nets: list[str]) -> str | None:
     return None
 
 
+def _is_panel_mounted_jack_text(text: str) -> bool:
+    if not AUDIO_JACK_RE.search(text):
+        return False
+    if BARREL_RE.search(text) or "power jack" in text:
+        return False
+    return bool(PANEL_MOUNT_JACK_RE.search(text) and not EDGE_AUDIO_JACK_RE.search(text))
+
+
 def _mating_intent_for_part(
     ref: str,
     text: str,
@@ -548,6 +696,16 @@ def _mating_intent_for_part(
             confidence=0.9,
             reasons=["panel/audio jack metadata"],
         )
+    if _is_panel_mounted_jack_text(text):
+        return MatingIntent(
+            ref=ref,
+            kind="panel_jack",
+            edge_preference=None,
+            mating_side="front_panel",
+            allowed_rotations=(0.0, 180.0),
+            confidence=0.84,
+            reasons=["panel-mounted audio jack metadata"],
+        )
     if role_name == "connector" and USB_CONNECTOR_RE.search(text):
         return MatingIntent(
             ref=ref,
@@ -578,6 +736,17 @@ def _mating_intent_for_part(
             allowed_rotations=(0.0, 90.0, 180.0, 270.0),
             confidence=0.86,
             reasons=["terminal block wire-entry metadata"],
+        )
+    if role_name == "connector" and MIDI_RE.search(text):
+        edge = _edge_for_part(text, role or PartRole(ref, "connector", 0.5), nets)
+        return MatingIntent(
+            ref=ref,
+            kind="midi",
+            edge_preference=edge,
+            mating_side="outside_board",
+            allowed_rotations=(0.0, 90.0, 180.0, 270.0),
+            confidence=0.82,
+            reasons=["MIDI connector metadata"],
         )
     if JST_RE.search(text):
         return MatingIntent(
@@ -1694,6 +1863,80 @@ def _place_opposing_header_pair(plan: PlacementIntentPlan) -> None:
     plan.align_constraints.append(AlignConstraint(refs=refs, axis="y"))
 
 
+def _inline_direction_for_text(text: str) -> str | None:
+    has_input = INLINE_INPUT_RE.search(text) is not None
+    has_output = INLINE_OUTPUT_RE.search(text) is not None
+    if has_input == has_output:
+        return None
+    return "input" if has_input else "output"
+
+
+def _place_opposing_inline_connector_pair(
+    plan: PlacementIntentPlan,
+    part_by_ref: dict[str, object],
+    outline=None,
+) -> None:
+    """Split paired directional edge connectors to opposing left/right edges."""
+    explicit_refs = set(plan.refs_with_kind("explicit_edge_anchor"))
+    mating_by_ref = {mating.ref: mating for mating in plan.mating_intents}
+    anchors_by_ref = {anchor.ref: anchor for anchor in plan.edge_anchors}
+    groups: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    eligible_kinds = {"audio_jack", "generic_connector", "midi", "usb"}
+
+    for ref, part in part_by_ref.items():
+        if ref in explicit_refs or ref not in anchors_by_ref:
+            continue
+        mating = mating_by_ref.get(ref)
+        if mating is None or mating.kind not in eligible_kinds:
+            continue
+        direction = _inline_direction_for_text(_part_text(part))
+        if direction is None:
+            continue
+        footprint = str(
+            getattr(part, "footprint", None)
+            or getattr(part, "foot", "")
+            or ""
+        )
+        groups.setdefault((mating.kind, footprint), []).append((direction, ref))
+
+    for (_kind, _footprint), entries in groups.items():
+        if len(entries) != 2:
+            continue
+        directions = {direction for direction, _ref in entries}
+        if directions != {"input", "output"}:
+            continue
+
+        refs_by_direction = {direction: ref for direction, ref in entries}
+        offset = None
+        if outline is not None:
+            offset = (outline.y_min + outline.y_max) / 2
+        for direction, edge in (("input", "left"), ("output", "right")):
+            ref = refs_by_direction[direction]
+            anchor = anchors_by_ref.get(ref)
+            mating = mating_by_ref.get(ref)
+            if anchor is None:
+                continue
+            _set_edge_anchor(
+                plan,
+                anchor,
+                edge=edge,
+                offset=offset,
+                part=part_by_ref.get(ref),
+                mating=mating,
+            )
+            _add_intent(
+                plan,
+                ref,
+                "opposing_inline_connector_pair",
+                87,
+                "paired inline input/output connector",
+            )
+
+        refs = [refs_by_direction["input"], refs_by_direction["output"]]
+        if not any(set(constraint.refs) == set(refs) for constraint in plan.align_constraints):
+            plan.align_constraints.append(AlignConstraint(refs=refs, axis="y"))
+
+
 def _spread_edge_anchor_offsets(plan: PlacementIntentPlan, outline=None) -> None:
     """Assign stable, spaced offsets to inferred edge anchors.
 
@@ -1722,11 +1965,12 @@ def _spread_edge_anchor_offsets(plan: PlacementIntentPlan, outline=None) -> None
         if length <= 0:
             continue
 
-        explicit_refs = set(plan.refs_with_kind("explicit_edge_anchor"))
+        pinned_offset_refs = set(plan.refs_with_kind("explicit_edge_anchor"))
+        pinned_offset_refs.update(plan.refs_with_kind("connector_between_mounting_holes"))
         movable = [
             anchor
             for anchor in anchors
-            if not (anchor.ref in explicit_refs and anchor.offset_mm is not None)
+            if not (anchor.ref in pinned_offset_refs and anchor.offset_mm is not None)
         ]
         movable.sort(key=lambda anchor: anchor.ref)
         if not movable:
@@ -2021,7 +2265,9 @@ def infer_placement_intents(
                     )
                 )
 
-        if role is not None and role.role == "connector":
+        panel_mounted_jack = _is_panel_mounted_jack_text(text)
+
+        if role is not None and role.role == "connector" and not panel_mounted_jack:
             edge = _edge_for_part(text, role, nets)
             _add_intent(plan, ref, "edge_connector", 90, "connector-like part")
             if edge is not None:
@@ -2131,7 +2377,11 @@ def infer_placement_intents(
         if any(POWER_NET_RE.match(net) for net in nets) and power_input_like:
             _add_intent(plan, ref, "power_input", 85, "connector on supply net")
 
-        if role is not None and role.role == "panel_jack":
+        if (
+            role is not None and role.role == "panel_jack"
+        ) or (
+            mating_intent is not None and mating_intent.kind == "panel_jack"
+        ):
             _add_intent(plan, ref, "panel_jack", 86, "panel/audio jack")
             _add_intent(plan, ref, "front_panel_subject", 84, "panel jack")
 
@@ -2159,6 +2409,7 @@ def infer_placement_intents(
     _add_simple_ic_passive_near_constraints(circuit, plan, roles)
     _colocate_display_and_controls(plan, outline)
     _place_opposing_header_pair(plan)
+    _place_opposing_inline_connector_pair(plan, part_by_ref, outline)
     _place_mounting_holes(plan, mounting_refs, outline)
     _center_breakout_connectors_with_two_mounting_holes(
         plan,
