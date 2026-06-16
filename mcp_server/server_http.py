@@ -606,6 +606,13 @@ def _get_job_hint(job: dict) -> str:
 
     if decision_required:
         if has_engine_failure:
+            if not run_id:
+                return (
+                    "Backend engine failure, not circuit feedback. Retry once "
+                    "unchanged; no run artifacts were produced before the worker "
+                    "was lost. If it repeats, report the service failure instead "
+                    "of rewriting the circuit."
+                )
             return (
                 "Backend engine failure, not circuit feedback. Retry once unchanged; "
                 f"if it repeats, fetch get_run('{run_id}') to inspect stderr_tail "

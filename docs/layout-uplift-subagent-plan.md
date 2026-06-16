@@ -55,6 +55,7 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
     - Full board `ba9ef6f36af5` -> `failed`, no `run_id`, error `worker lost while job was running; resubmit the design`.
     - Reduced core `5170e4a63245` -> `failed`, run `ddc3d32fa1bd`, placement-review feedback with overlaps, outline violations, high congestion, and long power nets.
   - Refined bug: reduced job now produces useful circuit/layout feedback, but full-board worker loss still needs a structured exception/result and better log correlation.
+  - Fix prepared: stale/lost jobs now become top-level `status="crashed"` with a structured `ENGINE_CRASH` result, `stage="worker_lost"`, a `regenerate` candidate, and a hint that no run artifacts were produced.
 
 ## Compact Resume Checklist
 
@@ -154,4 +155,4 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
   - `get_run` layout reported `inline_footprints={"count": 1, "footprints": ["CustomLib:Tiny_2Pad"]}`
 - Remaining hosted gaps:
   - Need a dedicated routing-diagnosis hosted smoke, ideally without long routing time.
-  - Need full-board worker-loss handling for Mycelium-style jobs to produce a structured exception and useful logs.
+  - Need hosted confirmation that full-board worker-loss handling produces the new structured `ENGINE_CRASH` packet after deploy.

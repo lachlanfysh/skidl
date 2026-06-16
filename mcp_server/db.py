@@ -170,7 +170,53 @@ class DB:
             result = await conn.execute(
                 """
                 UPDATE jobs
-                SET status = 'failed',
+                SET status = 'crashed',
+                    result = COALESCE(
+                        result,
+                        jsonb_build_object(
+                            'run_id', NULL,
+                            'ok', false,
+                            'status', 'crashed',
+                            'stage', 'worker_lost',
+                            'decision_required', true,
+                            'decision_kind', 'backend_failure',
+                            'recommended_next_tool', 'submit_skidl_code',
+                            'exceptions', jsonb_build_array(
+                                jsonb_build_object(
+                                    'id', 'e-worker-lost',
+                                    'code', 'ENGINE_CRASH',
+                                    'severity', 'fatal',
+                                    'message',
+                                        'worker lost while job was running; retry once unchanged',
+                                    'subject', jsonb_build_object(
+                                        'stage', 'worker_lost',
+                                        'job_id', id,
+                                        'worker_id', worker_id,
+                                        'started_at', started_at,
+                                        'timeout_s',
+                                            COALESCE(
+                                                (options->>'timeout_s')::double precision,
+                                                300.0
+                                            )
+                                    ),
+                                    'candidates', jsonb_build_array(
+                                        jsonb_build_object(
+                                            'id', 'c1',
+                                            'action', 'regenerate',
+                                            'params', '{}'::jsonb,
+                                            'human_summary',
+                                                'retry unchanged; this is a service/backend failure, not circuit feedback',
+                                            'cost_hint', 'cheap',
+                                            'confidence', 0.8,
+                                            'source', 'deterministic'
+                                        )
+                                    ),
+                                    'retry_hint',
+                                        'Retry once unchanged. If it repeats, report a backend worker-loss issue instead of rewriting the circuit.'
+                                )
+                            )
+                        )
+                    ),
                     error = COALESCE(
                         error,
                         'worker lost while job was running; resubmit the design'

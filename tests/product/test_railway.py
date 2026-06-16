@@ -303,8 +303,15 @@ class TestDB:
 
         assert failed == 1
         job = await db.get_job(job_id)
-        assert job["status"] == "failed"
+        assert job["status"] == "crashed"
         assert "worker lost" in job["error"]
+        assert job["result"]["status"] == "crashed"
+        assert job["result"]["stage"] == "worker_lost"
+        assert job["result"]["decision_required"] is True
+        assert job["result"]["recommended_next_tool"] == "submit_skidl_code"
+        assert job["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
+        assert job["result"]["exceptions"][0]["subject"]["stage"] == "worker_lost"
+        assert job["result"]["exceptions"][0]["candidates"][0]["action"] == "regenerate"
 
     @pytest.mark.asyncio
     async def test_expire_old_jobs(self, db):
@@ -1812,6 +1819,25 @@ class TestAgentUX:
         assert "Backend engine failure" in hint
         assert "not circuit feedback" in hint
         assert "get_run('run-crash')" in hint
+
+    def test_get_job_hint_for_worker_lost_without_run_id_says_no_artifacts(self):
+        from mcp_server.server_http import _get_job_hint
+        hint = _get_job_hint({
+            "status": "crashed",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "result": {
+                "run_id": None,
+                "decision_required": True,
+                "exceptions": [{
+                    "code": "ENGINE_CRASH",
+                    "subject": {"stage": "worker_lost"},
+                }],
+            },
+        })
+        assert "Backend engine failure" in hint
+        assert "no run artifacts were produced" in hint
+        assert "not circuit feedback" in hint
+        assert "get_run" not in hint
 
     def test_get_job_hint_for_post_artifact_failure_says_fetch_artifacts(self):
         from mcp_server.server_http import _get_job_hint
