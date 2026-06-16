@@ -69,6 +69,10 @@ EURORACK_CONTEXT_RE = re.compile(
     r"eurorack[_\s-]*power|box\s+header|shrouded\s+header)\b",
     re.I,
 )
+MOUNTING_HOLE_DIAMETER_RE = re.compile(
+    r"MountingHole[_:-]([0-9]+(?:\.[0-9]+)?)mm",
+    re.I,
+)
 
 
 def _default_corner_radius_mm(width_mm: float, height_mm: float) -> float:
@@ -91,6 +95,29 @@ def _corner_radius_hint(value, width_mm: float, height_mm: float, *context_texts
             return 0.0
         return _default_corner_radius_mm(width_mm, height_mm)
     return max(0.0, float(value))
+
+
+def _auto_layout_corner_radius_hint(circuit, explicit_value, *context_texts) -> float | None:
+    """Return a radius hint before auto-outline placement starts."""
+    if explicit_value is not None:
+        return max(0.0, float(explicit_value))
+    if _looks_eurorack_context(*context_texts):
+        return 0.0
+
+    diameters: list[float] = []
+    for part in getattr(circuit, "parts", []) or []:
+        text = " ".join(
+            str(getattr(part, attr, "") or "")
+            for attr in ("name", "value", "footprint", "foot")
+        )
+        if "mountinghole" not in text.lower().replace(" ", ""):
+            continue
+        for match in MOUNTING_HOLE_DIAMETER_RE.finditer(text):
+            try:
+                diameters.append(float(match.group(1)))
+            except ValueError:
+                pass
+    return max(diameters) if diameters else None
 
 
 def _spec_corner_context(spec: CircuitSpec) -> str:
@@ -2005,6 +2032,7 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         return None, {}
 
     from skidl.layout import (
+        BoardOutline,
         EdgeAnchor,
         FixedPosition,
         KeepOut,
@@ -2065,17 +2093,94 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         except (TypeError, ValueError, KeyError) as exc:
             warnings.append(f"ignored keepout: {exc}")
 
+    def _outline_from_dict(data: dict) -> BoardOutline | None:
+        try:
+            if all(key in data for key in ("x_min", "y_min", "x_max", "y_max")):
+                x_min = float(data["x_min"])
+                y_min = float(data["y_min"])
+                x_max = float(data["x_max"])
+                y_max = float(data["y_max"])
+            elif all(key in data for key in ("width_mm", "height_mm")):
+                x_min = float(data.get("x_min", data.get("x_mm", 0.0)) or 0.0)
+                y_min = float(data.get("y_min", data.get("y_mm", 0.0)) or 0.0)
+                x_max = x_min + float(data["width_mm"])
+                y_max = y_min + float(data["height_mm"])
+            else:
+                return None
+            if x_max <= x_min or y_max <= y_min:
+                return None
+            return BoardOutline(
+                vertices=[
+                    (x_min, y_min),
+                    (x_max, y_min),
+                    (x_max, y_max),
+                    (x_min, y_max),
+                ],
+                corner_radius_mm=float(data.get("corner_radius_mm", 0.0) or 0.0),
+            )
+        except (TypeError, ValueError):
+            return None
+
+    explicit_outline = None
+    outline_data = floorplan.get("outline") or floorplan.get("board_outline")
+    if isinstance(outline_data, dict):
+        explicit_outline = _outline_from_dict(outline_data)
+        if explicit_outline is None:
+            warnings.append("ignored invalid floorplan outline")
+
+    def _keepout_band_outline() -> BoardOutline | None:
+        if explicit_outline is not None or len(keepouts) < 2:
+            return None
+        x_min = min(keepout.x_min for keepout in keepouts)
+        y_min = min(keepout.y_min for keepout in keepouts)
+        x_max = max(keepout.x_max for keepout in keepouts)
+        y_max = max(keepout.y_max for keepout in keepouts)
+        if x_max <= x_min or y_max <= y_min:
+            return None
+        tol = 1e-6
+        horizontal_bands = [
+            keepout
+            for keepout in keepouts
+            if abs(keepout.x_min - x_min) <= tol and abs(keepout.x_max - x_max) <= tol
+        ]
+        vertical_bands = [
+            keepout
+            for keepout in keepouts
+            if abs(keepout.y_min - y_min) <= tol and abs(keepout.y_max - y_max) <= tol
+        ]
+        if len(horizontal_bands) < 2 and len(vertical_bands) < 2:
+            return None
+        for item in fixed:
+            if not (x_min - tol <= item.x_mm <= x_max + tol):
+                return None
+            if not (y_min - tol <= item.y_mm <= y_max + tol):
+                return None
+        return BoardOutline(
+            vertices=[
+                (x_min, y_min),
+                (x_max, y_min),
+                (x_max, y_max),
+                (x_min, y_max),
+            ]
+        )
+
+    inferred_outline = explicit_outline or _keepout_band_outline()
     metadata = {
         "fixed_positions": len(fixed),
         "edge_anchors": len(edge_anchors),
         "keepouts": len(keepouts),
     }
+    if explicit_outline is not None:
+        metadata["outline"] = "explicit"
+    elif inferred_outline is not None:
+        metadata["outline"] = "keepout_bands"
     if warnings:
         metadata["warnings"] = warnings
     constraints = LayoutConstraints(
         fixed=fixed,
         edge_anchors=edge_anchors,
         keepouts=keepouts,
+        outline=inferred_outline,
     )
     return constraints, metadata
 
@@ -2937,14 +3042,29 @@ def _run_skidl_code(envelope: dict) -> dict:
         constraints = LayoutConstraints(outline=outline)
     else:
         constraints = floorplan_constraints
-        constraints.outline = outline
+        if outline is not None:
+            constraints.outline = outline
+    auto_corner_radius_mm = (
+        None
+        if outline_mm
+        else _auto_layout_corner_radius_hint(
+            circuit,
+            envelope.get("corner_radius_mm"),
+            *radius_context,
+        )
+    )
     layout_result = plan_layout(
         circuit,
         fp_lib_dirs=fp_dirs,
         constraints=constraints,
         assembly_policy=envelope.get("assembly_policy"),
+        corner_radius_mm=auto_corner_radius_mm,
     )
-    if outline_mm is None and layout_result.outline is not None:
+    if (
+        outline_mm is None
+        and auto_corner_radius_mm is None
+        and layout_result.outline is not None
+    ):
         layout_result.outline.corner_radius_mm = _corner_radius_hint(
             envelope.get("corner_radius_mm"),
             layout_result.outline.width_mm,
@@ -3203,16 +3323,27 @@ def run(envelope: dict) -> dict:
         outline=_outline_for_spec(spec),
         form_factor=spec.board.form_factor,
     )
+    auto_corner_radius_mm = (
+        _auto_layout_corner_radius_hint(
+            circuit,
+            spec.board.corner_radius_mm,
+            _spec_corner_context(spec),
+        )
+        if spec.board.outline_hint_mm is None and spec.board.form_factor is None
+        else None
+    )
     layout_result = plan_layout(
         circuit,
         fp_lib_dirs=fp_dirs,
         constraints=constraints,
         board_layers=spec.board.layers,
         assembly_policy=envelope.get("assembly_policy"),
+        corner_radius_mm=auto_corner_radius_mm,
     )
     if (
         spec.board.outline_hint_mm is None
         and spec.board.form_factor is None
+        and auto_corner_radius_mm is None
         and layout_result.outline is not None
     ):
         layout_result.outline.corner_radius_mm = _corner_radius_hint(

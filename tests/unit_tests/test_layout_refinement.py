@@ -27,11 +27,11 @@ class _Pin:
 
 
 class _Part:
-    def __init__(self, ref, footprint, name="", nets=None, pins=2):
+    def __init__(self, ref, footprint, name="", value="", nets=None, pins=2):
         self.ref = ref
         self.footprint = footprint
         self.name = name
-        self.value = ""
+        self.value = value
         self.pins = []
         for net in nets or []:
             self.pins.append(_Pin(self, net))
@@ -56,6 +56,8 @@ BBOXES = {
     "Connector:USB": (10.0, 5.0),
     "Package:Long": (16.0, 4.0),
     "Resistor_SMD:R_0603": (1.6, 0.8),
+    "Capacitor_SMD:C_0603": (1.6, 0.8),
+    "Capacitor_SMD:C_0805": (2.0, 1.25),
 }
 
 
@@ -306,6 +308,54 @@ def test_refinement_legalizes_overlap_without_net_centroid():
     assert by_ref["U1"].y_mm == pytest.approx(20.0)
     assert by_ref["U2"].x_mm != pytest.approx(20.0) or by_ref["U2"].y_mm != pytest.approx(20.0)
     assert "legalized overlap" in "; ".join(result.ref_reasons["U2"])
+
+
+def test_refinement_legalizes_movable_decap_from_fixed_floorplan_cap():
+    vbat = _Net("VBAT")
+    gnd = _Net("GND")
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[vbat, gnd], pins=8)
+    cin = _Part("CIN", "Capacitor_SMD:C_0805", value="10uF", nets=[vbat, gnd])
+    c1 = _Part("C1", "Capacitor_SMD:C_0603", value="100nF", nets=[vbat, gnd])
+    circuit = _Circuit([u1, cin, c1], [vbat, gnd])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(40.0, 25.0),
+        fixed=[
+            FixedPosition("U1", 24.0, 12.0),
+            FixedPosition("CIN", 14.0, 10.0),
+        ],
+    )
+    placed = [
+        PlacedPart("U1", 24.0, 12.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("CIN", 14.0, 10.0, 0.0, "Capacitor_SMD:C_0805"),
+        PlacedPart("C1", 14.0, 10.0, 0.0, "Capacitor_SMD:C_0603"),
+    ]
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        max_movable_refs=0,
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+    score = score_placement(
+        result.placed_parts,
+        circuit,
+        BBOXES,
+        outline=constraints.outline,
+    )
+
+    assert result.accepted_moves >= 1
+    assert score.overlap_count == 0
+    assert by_ref["U1"].x_mm == pytest.approx(24.0)
+    assert by_ref["U1"].y_mm == pytest.approx(12.0)
+    assert by_ref["CIN"].x_mm == pytest.approx(14.0)
+    assert by_ref["CIN"].y_mm == pytest.approx(10.0)
+    assert (
+        by_ref["C1"].x_mm != pytest.approx(14.0)
+        or by_ref["C1"].y_mm != pytest.approx(10.0)
+    )
+    assert "legalized overlap with CIN" in "; ".join(result.ref_reasons["C1"])
 
 
 def test_refinement_legalizes_multiple_independent_overlaps():

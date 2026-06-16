@@ -288,6 +288,21 @@ def test_keepout_violation_detected_and_fails_validation():
     assert "INSIDE KEEPOUT" in result.summary()
 
 
+def test_keepout_allows_named_source_ref_only():
+    parts = [
+        PlacedPart("H1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+    result = validate(
+        parts,
+        None,
+        BBOXES_0805,
+        keepouts=[KeepOut(8.0, 8.0, 12.0, 12.0, allowed_refs=["H1"])],
+    )
+
+    assert result.keepout_violations == ["R1"]
+
+
 def test_polygon_outline_containment_checks_corners():
     outline = BoardOutline(
         vertices=[

@@ -24,7 +24,7 @@ from .placer import (
 )
 from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
-from .refinement import refine_candidate_placement
+from .refinement import refine_candidate_placement, refine_placement
 from .report import PlacementReport, build_placement_report
 from .roles import GND_NET_RE, POWER_NET_RE, classify_parts
 from .routability import RoutabilityFeedback
@@ -90,8 +90,13 @@ class LayoutResult:
             result["intent_plan"] = self.intent_plan.to_dict()
         if self.outline is not None:
             result["outline"] = {
+                "x_min_mm": self.outline.x_min,
+                "y_min_mm": self.outline.y_min,
+                "x_max_mm": self.outline.x_max,
+                "y_max_mm": self.outline.y_max,
                 "width_mm": self.outline.width_mm,
                 "height_mm": self.outline.height_mm,
+                "corner_radius_mm": getattr(self.outline, "corner_radius_mm", 0.0),
             }
         return result
 
@@ -447,7 +452,10 @@ def _snap_mounting_holes_to_outline_corners(
     if not mounting_refs:
         return placed_parts, []
 
-    explicit_floorplan_refs = _constraint_floorplan_refs(constraints)
+    placed_mounting_refs = [placed.ref for placed in placed_parts if placed.ref in mounting_refs]
+    if len(placed_mounting_refs) < 4:
+        return placed_parts, []
+
     center_x = (outline.x_min + outline.x_max) / 2
     center_y = (outline.y_min + outline.y_max) / 2
     moved: list[str] = []
@@ -456,7 +464,7 @@ def _snap_mounting_holes_to_outline_corners(
     rounded_corner_radius = getattr(outline, "corner_radius_mm", 0.0) or 0.0
 
     for placed in placed_parts:
-        if placed.ref not in mounting_refs or placed.ref in explicit_floorplan_refs:
+        if placed.ref not in mounting_refs:
             snapped.append(placed)
             continue
 
@@ -641,9 +649,96 @@ def _mounting_hole_keepouts(
                 bounds[1] - clearance_mm,
                 bounds[2] + clearance_mm,
                 bounds[3] + clearance_mm,
+                allowed_refs=[placed.ref],
             )
         )
     return keepouts
+
+
+def _effective_keepouts(
+    constraints: LayoutConstraints | None,
+    placed_parts: list[PlacedPart],
+    intent_plan: PlacementIntentPlan | None,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    outline: BoardOutline | None = None,
+) -> list[KeepOut]:
+    explicit_keepouts = list((constraints.keepouts if constraints else []) or [])
+    if outline is not None and intent_plan is not None:
+        mounting_refs = set(intent_plan.refs_with_kind("mounting_hole"))
+        if mounting_refs:
+            allowed_mounting_refs = sorted(mounting_refs)
+            adjusted: list[KeepOut] = []
+            for keepout in explicit_keepouts:
+                if _is_outline_edge_band(keepout, outline):
+                    allowed_refs = sorted(
+                        set(getattr(keepout, "allowed_refs", []) or [])
+                        | set(allowed_mounting_refs)
+                    )
+                    adjusted.append(
+                        KeepOut(
+                            keepout.x_min,
+                            keepout.y_min,
+                            keepout.x_max,
+                            keepout.y_max,
+                            allowed_refs=allowed_refs,
+                        )
+                    )
+                else:
+                    adjusted.append(keepout)
+            explicit_keepouts = adjusted
+    return [
+        *explicit_keepouts,
+        *_mounting_hole_keepouts(
+            placed_parts,
+            intent_plan,
+            fp_bboxes,
+            fp_geometries,
+        ),
+    ]
+
+
+def _constraints_with_effective_keepouts(
+    constraints: LayoutConstraints | None,
+    placed_parts: list[PlacedPart],
+    intent_plan: PlacementIntentPlan | None,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    outline: BoardOutline | None = None,
+) -> LayoutConstraints:
+    effective = copy_constraints(constraints or LayoutConstraints())
+    effective.keepouts = _effective_keepouts(
+        constraints,
+        placed_parts,
+        intent_plan,
+        fp_bboxes,
+        fp_geometries,
+        outline,
+    )
+    return effective
+
+
+def _is_outline_edge_band(keepout: KeepOut, outline: BoardOutline) -> bool:
+    tol = 1e-6
+    spans_width = (
+        keepout.x_min <= outline.x_min + tol
+        and keepout.x_max >= outline.x_max - tol
+    )
+    spans_height = (
+        keepout.y_min <= outline.y_min + tol
+        and keepout.y_max >= outline.y_max - tol
+    )
+    touches_horizontal_edge = (
+        abs(keepout.y_min - outline.y_min) <= tol
+        or abs(keepout.y_max - outline.y_max) <= tol
+    )
+    touches_vertical_edge = (
+        abs(keepout.x_min - outline.x_min) <= tol
+        or abs(keepout.x_max - outline.x_max) <= tol
+    )
+    return (spans_width and touches_horizontal_edge) or (
+        spans_height and touches_vertical_edge
+    )
 
 
 def _bounds_touch_keepout(bounds: tuple[float, float, float, float], keepout) -> bool:
@@ -1408,6 +1503,7 @@ def plan_layout(
     derive_outline_if_missing: bool = True,
     routability: RoutabilityFeedback | None = None,
     assembly_policy: str | None = None,
+    corner_radius_mm: float | None = None,
 ) -> LayoutResult:
     """Place and score a board attempt without writing copper geometry."""
     fp_geometries = _resolve_geometries(circuit, fp_lib_dirs)
@@ -1420,6 +1516,8 @@ def plan_layout(
             resolved_bboxes.setdefault(footprint, bbox)
 
     resolved_outline = _resolve_outline(constraints, outline, existing_pcb_path)
+    if resolved_outline is not None and corner_radius_mm is not None:
+        resolved_outline.corner_radius_mm = max(0.0, float(corner_radius_mm))
     resolved_constraints = _copy_constraints(constraints, resolved_outline)
     auto_outline = resolved_outline is None and derive_outline_if_missing
     density_outline: BoardOutline | None = None
@@ -1434,6 +1532,8 @@ def plan_layout(
         else:
             density_outline = derive_outline_from_circuit(circuit, resolved_bboxes)
             resolved_outline = density_outline
+        if resolved_outline is not None and corner_radius_mm is not None:
+            resolved_outline.corner_radius_mm = max(0.0, float(corner_radius_mm))
         resolved_constraints.outline = resolved_outline
 
     groups = extract_groups(circuit)
@@ -1509,13 +1609,21 @@ def plan_layout(
                     candidate.ref_reasons.setdefault(ref, []).append(
                         "nudged clear of edge connector"
                     )
+        candidate_keepouts = _effective_keepouts(
+            candidate_constraints,
+            candidate.placed_parts,
+            intent_plan,
+            resolved_bboxes,
+            fp_geometries,
+            resolved_outline,
+        )
         candidate_validations[candidate.name] = validate(
             candidate.placed_parts,
             circuit,
             resolved_bboxes,
             clearance_mm=clearance_mm,
             outline=resolved_outline,
-            keepouts=candidate_constraints.keepouts,
+            keepouts=candidate_keepouts,
             fp_geometries=fp_geometries,
         )
         if not candidate_validations[candidate.name].ok:
@@ -1524,7 +1632,7 @@ def plan_layout(
                 circuit,
                 resolved_bboxes,
                 outline=resolved_outline,
-                keepouts=candidate_constraints.keepouts,
+                keepouts=candidate_keepouts,
                 fp_geometries=fp_geometries,
                 clearance_mm=clearance_mm,
                 ctx=ctx,
@@ -1535,7 +1643,7 @@ def plan_layout(
                 circuit,
                 resolved_bboxes,
                 outline=resolved_outline,
-                keepouts=candidate_constraints.keepouts,
+                keepouts=candidate_keepouts,
                 fp_geometries=fp_geometries,
                 clearance_mm=clearance_mm,
                 board_layers=board_layers,
@@ -1558,12 +1666,20 @@ def plan_layout(
     if not any_valid:
         for candidate in candidates:
             candidate_constraints = candidate.constraints or resolved_constraints
+            candidate_keepouts = _effective_keepouts(
+                candidate_constraints,
+                candidate.placed_parts,
+                intent_plan,
+                resolved_bboxes,
+                fp_geometries,
+                resolved_outline,
+            )
             raw_score = score_placement(
                 candidate.placed_parts,
                 circuit,
                 resolved_bboxes,
                 outline=resolved_outline,
-                keepouts=candidate_constraints.keepouts,
+                keepouts=candidate_keepouts,
                 fp_geometries=fp_geometries,
                 clearance_mm=clearance_mm,
                 board_layers=board_layers,
@@ -1609,7 +1725,26 @@ def plan_layout(
             constraints=selected_constraints,
             fp_geometries=fp_geometries,
         )
+        if corner_radius_mm is not None:
+            resolved_outline.corner_radius_mm = max(0.0, float(corner_radius_mm))
         selected_constraints.outline = resolved_outline
+        placed_parts, moved_mounting_refs = _snap_mounting_holes_to_outline_corners(
+            placed_parts,
+            resolved_outline,
+            intent_plan,
+            resolved_constraints,
+            resolved_bboxes,
+            fp_geometries,
+        )
+        if moved_mounting_refs:
+            selected_candidate.placed_parts = placed_parts
+            selected_candidate.reasons.append(
+                "mounting holes snapped to final auto-outline corners"
+            )
+            for ref in moved_mounting_refs:
+                selected_candidate.ref_reasons.setdefault(ref, []).append(
+                    "snapped to final auto-outline corner"
+                )
         placed_parts, moved_edge_refs = _snap_edge_anchors_to_outline(
             placed_parts,
             resolved_outline,
@@ -1663,23 +1798,6 @@ def plan_layout(
                 selected_candidate.ref_reasons.setdefault(ref, []).append(
                     "nudged clear of final edge connector"
                 )
-        placed_parts, moved_mounting_refs = _snap_mounting_holes_to_outline_corners(
-            placed_parts,
-            resolved_outline,
-            intent_plan,
-            resolved_constraints,
-            resolved_bboxes,
-            fp_geometries,
-        )
-        if moved_mounting_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "mounting holes snapped to final auto-outline corners"
-            )
-            for ref in moved_mounting_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "snapped to final auto-outline corner"
-                )
         placed_parts, moved_interior_refs = _legalize_small_parts_from_outline(
             placed_parts,
             circuit,
@@ -1714,8 +1832,27 @@ def plan_layout(
             min_area_mm2=min_area,
             max_min_area_growth=1.35,
         )
+        if corner_radius_mm is not None:
+            resolved_outline.corner_radius_mm = max(0.0, float(corner_radius_mm))
 
     if resolved_outline is not None and not auto_outline:
+        placed_parts, moved_mounting_refs = _snap_mounting_holes_to_outline_corners(
+            placed_parts,
+            resolved_outline,
+            intent_plan,
+            resolved_constraints,
+            resolved_bboxes,
+            fp_geometries,
+        )
+        if moved_mounting_refs:
+            selected_candidate.placed_parts = placed_parts
+            selected_candidate.reasons.append(
+                "mounting holes snapped to fixed-outline corners"
+            )
+            for ref in moved_mounting_refs:
+                selected_candidate.ref_reasons.setdefault(ref, []).append(
+                    "snapped to fixed-outline corner"
+                )
         placed_parts, moved_edge_refs = _snap_edge_anchors_to_outline(
             placed_parts,
             resolved_outline,
@@ -1773,6 +1910,47 @@ def plan_layout(
 
     placed_parts = _apply_assembly_sides(placed_parts, intent_plan)
     selected_candidate.placed_parts = placed_parts
+    post_refinement_constraints = _constraints_with_effective_keepouts(
+        selected_constraints,
+        placed_parts,
+        intent_plan,
+        resolved_bboxes,
+        fp_geometries,
+        resolved_outline,
+    )
+    post_refinement = refine_placement(
+        placed_parts,
+        circuit,
+        resolved_bboxes,
+        constraints=post_refinement_constraints,
+        fp_geometries=fp_geometries,
+        clearance_mm=clearance_mm,
+        board_layers=board_layers,
+        max_passes=1,
+        max_movable_refs=32,
+        max_pair_swaps=8,
+    )
+    if post_refinement.accepted_count:
+        placed_parts = post_refinement.placed_parts
+        selected_candidate.placed_parts = placed_parts
+        selected_candidate.reasons.append(
+            (
+                "post-anchor local refinement accepted "
+                f"{post_refinement.accepted_count} score-gated adjustment(s): "
+                f"{post_refinement.start_score:.1f} -> "
+                f"{post_refinement.final_score:.1f}"
+            )
+        )
+        for ref, reasons in post_refinement.ref_reasons.items():
+            selected_candidate.ref_reasons.setdefault(ref, []).extend(reasons)
+    selected_keepouts = _effective_keepouts(
+        selected_constraints,
+        placed_parts,
+        intent_plan,
+        resolved_bboxes,
+        fp_geometries,
+        resolved_outline,
+    )
 
     validation = validate(
         placed_parts,
@@ -1780,7 +1958,7 @@ def plan_layout(
         resolved_bboxes,
         clearance_mm=clearance_mm,
         outline=resolved_outline,
-        keepouts=selected_constraints.keepouts,
+        keepouts=selected_keepouts,
         fp_geometries=fp_geometries,
     )
     raw_score = score_placement(
@@ -1788,7 +1966,7 @@ def plan_layout(
         circuit,
         resolved_bboxes,
         outline=resolved_outline,
-        keepouts=selected_constraints.keepouts,
+        keepouts=selected_keepouts,
         fp_geometries=fp_geometries,
         clearance_mm=clearance_mm,
         board_layers=board_layers,

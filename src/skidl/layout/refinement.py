@@ -165,16 +165,6 @@ def _locked_rotation_refs(constraints: LayoutConstraints | None) -> set[str]:
     return locked
 
 
-def _decap_refs(circuit) -> set[str]:
-    if circuit is None:
-        return set()
-    return {
-        ref
-        for ref, role in classify_parts(circuit).items()
-        if role.role == "decoupling_cap"
-    }
-
-
 def _pin_number(pin, index: int) -> str:
     for attr in ("num", "number", "pin_number", "name"):
         value = getattr(pin, attr, None)
@@ -791,7 +781,6 @@ def refine_placement(
     )
     start_score = current_score.score
     position_locked = _locked_position_refs(constraints, circuit)
-    position_locked.update(_decap_refs(circuit))
     rotation_locked = _locked_rotation_refs(constraints)
     roles = classify_parts(circuit) if circuit is not None else {}
     accepted_moves = 0

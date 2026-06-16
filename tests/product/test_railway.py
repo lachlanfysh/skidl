@@ -381,6 +381,9 @@ class TestWorkerOptionPassthrough:
                 "board_name": "code-board",
                 "outline_mm": [40.0, 25.0],
                 "design_intent": "test board",
+                "custom_footprints": {
+                    "MyLib:MyFootprint": '(footprint "MyFootprint" (layer "F.Cu"))',
+                },
             },
             "options": {
                 "timeout_s": 600,
@@ -399,6 +402,9 @@ class TestWorkerOptionPassthrough:
         assert seen["board_id"] == "route-timeout-test"
         assert seen["assembly_policy"] == "double_sided"
         assert seen["pipeline_goal"] == "placement_review"
+        assert seen["custom_footprints"] == {
+            "MyLib:MyFootprint": '(footprint "MyFootprint" (layer "F.Cu"))',
+        }
 
 
 @needs_kicad

@@ -181,6 +181,220 @@ class TestLayoutQuality:
         assert quality["gates"]["visual_review_ready"] is True
         assert quality["gates"]["product_layout_ok"] is False
 
+    def test_build_layout_quality_blocks_validation_failures(self):
+        quality = build_layout_quality(
+            run_id="validation-fail",
+            status="failed",
+            stage="complete",
+            ok=False,
+            layout={
+                "ok": False,
+                "outline": {"width_mm": 60.0, "height_mm": 40.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 10.0, "y_mm": 10.0},
+                    {"ref": "J1", "x_mm": 62.0, "y_mm": 10.0},
+                ],
+                "validation": {
+                    "ok": False,
+                    "overlaps": [["U1", "R1"]],
+                    "outline_violations": ["J1"],
+                    "keepout_violations": ["C1"],
+                    "missing_refs": ["D1"],
+                },
+            },
+            metrics={"manufacturable": False, "manufacturing_complete": False},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = {issue["code"] for issue in quality["issues"]}
+
+        assert {
+            "LAYOUT_OVERLAP",
+            "LAYOUT_OUTLINE_VIOLATION",
+            "LAYOUT_KEEPOUT",
+            "LAYOUT_MISSING_REF",
+        }.issubset(issue_codes)
+        assert quality["gates"]["visual_review_ready"] is True
+        assert quality["gates"]["product_layout_ok"] is False
+
+    def test_build_layout_quality_dedupes_validation_and_exception_issues(self):
+        quality = build_layout_quality(
+            run_id="dedupe-quality",
+            status="failed",
+            stage="complete",
+            ok=False,
+            exceptions=[
+                DesignException(
+                    id="overlap",
+                    code=ExcCode.LAYOUT_OVERLAP,
+                    severity=Severity.ERROR,
+                    message="1 placement overlap remains",
+                    subject={"pairs": [["U1", "J1"]], "count": 1},
+                ),
+                DesignException(
+                    id="congestion",
+                    code=ExcCode.HIGH_CONGESTION,
+                    severity=Severity.ADVISORY,
+                    message="layout congestion is high",
+                    subject={"congestion_score": 64.0},
+                ),
+            ],
+            layout={
+                "ok": False,
+                "outline": {"width_mm": 60.0, "height_mm": 40.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 10.0, "y_mm": 10.0},
+                    {"ref": "J1", "x_mm": 10.5, "y_mm": 10.0},
+                ],
+                "validation": {
+                    "ok": False,
+                    "overlaps": [["U1", "J1"]],
+                },
+            },
+            metrics={
+                "congestion_score": 64.0,
+                "manufacturable": False,
+                "manufacturing_complete": False,
+            },
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = [issue["code"] for issue in quality["issues"]]
+
+        assert issue_codes.count("LAYOUT_OVERLAP") == 1
+        assert issue_codes.count("HIGH_CONGESTION") == 1
+        assert quality["gates"]["product_layout_ok"] is False
+
+    @pytest.mark.parametrize(
+        "code",
+        [
+            ExcCode.DRC_COURTYARD,
+            ExcCode.FOOTPRINT_MISSING,
+            ExcCode.ROUTE_UNCONNECTED,
+            ExcCode.LONG_POWER_NET,
+            ExcCode.ENGINE_CRASH,
+        ],
+    )
+    def test_build_layout_quality_promotes_exception_codes(self, code):
+        severity = (
+            Severity.ERROR
+            if code
+            in {
+                ExcCode.FOOTPRINT_MISSING,
+                ExcCode.ROUTE_UNCONNECTED,
+                ExcCode.ENGINE_CRASH,
+            }
+            else Severity.ADVISORY
+        )
+        quality = build_layout_quality(
+            run_id=f"quality-{code.value.lower()}",
+            status="succeeded_with_warnings",
+            stage="complete",
+            ok=True,
+            exceptions=[
+                DesignException(
+                    id="e1",
+                    code=code,
+                    severity=severity,
+                    message=f"{code.value} happened",
+                )
+            ],
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 30.0, "height_mm": 20.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 10.0, "y_mm": 10.0},
+                    {"ref": "J1", "x_mm": 20.0, "y_mm": 10.0},
+                ],
+                "validation": {"ok": True},
+            },
+            metrics={"manufacturable": True, "manufacturing_complete": True},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue = next(issue for issue in quality["issues"] if issue["code"] == code.value)
+
+        assert issue["severity"] in {"advisory", "warning", "error"}
+        assert quality["gates"]["visual_review_ready"] is True
+        assert quality["gates"]["product_layout_ok"] is (
+            code
+            not in {
+                ExcCode.DRC_COURTYARD,
+                ExcCode.FOOTPRINT_MISSING,
+                ExcCode.ROUTE_UNCONNECTED,
+                ExcCode.LONG_POWER_NET,
+                ExcCode.ENGINE_CRASH,
+            }
+        )
+
+    def test_build_layout_quality_flags_edge_and_grid_drift(self):
+        quality = build_layout_quality(
+            run_id="edge-grid-drift",
+            status="succeeded",
+            stage="complete",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 100.0, "height_mm": 80.0},
+                "placed_parts": [
+                    {"ref": "J1", "x_mm": 50.0, "y_mm": 40.0},
+                    {"ref": "RV1", "x_mm": 20.0, "y_mm": 20.0},
+                    {"ref": "RV2", "x_mm": 40.0, "y_mm": 23.5},
+                ],
+                "validation": {"ok": True},
+                "intent_plan": {
+                    "edge_anchors": [{"ref": "J1", "edge": "right"}],
+                    "align_constraints": [
+                        {"refs": ["RV1", "RV2"], "axis": "y", "value_mm": 20.0}
+                    ],
+                },
+            },
+            metrics={"manufacturable": True, "manufacturing_complete": True},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = {issue["code"] for issue in quality["issues"]}
+
+        assert "EDGE_ANCHOR_OFF_EDGE" in issue_codes
+        assert "GRID_ALIGNMENT_DRIFT" in issue_codes
+        assert quality["gates"]["visual_review_ready"] is True
+        assert quality["gates"]["product_layout_ok"] is False
+
+    def test_build_layout_quality_uses_offset_outline_bounds(self):
+        quality = build_layout_quality(
+            run_id="offset-outline",
+            status="succeeded",
+            stage="complete",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {
+                    "x_min_mm": -16.0,
+                    "y_min_mm": -4.0,
+                    "x_max_mm": 50.0,
+                    "y_max_mm": 28.0,
+                    "width_mm": 66.0,
+                    "height_mm": 32.0,
+                },
+                "placed_parts": [
+                    {"ref": "J1", "x_mm": 50.0, "y_mm": 12.0},
+                    {"ref": "U1", "x_mm": 16.0, "y_mm": 12.0},
+                ],
+                "validation": {"ok": True},
+                "intent_plan": {
+                    "edge_anchors": [{"ref": "J1", "edge": "right"}],
+                },
+            },
+            metrics={"manufacturable": True, "manufacturing_complete": True},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = {issue["code"] for issue in quality["issues"]}
+
+        assert "EDGE_ANCHOR_OFF_EDGE" not in issue_codes
+        assert quality["placement"]["outline_bounds_mm"]["x_min"] == pytest.approx(-16.0)
+        assert quality["placement"]["edge_margins_mm"]["right"] == pytest.approx(0.0)
+
     def test_attach_layout_quality_persists_report_and_updates_response(self, tmp_path):
         response = DesignResponse(
             run_id="run-quality",
@@ -1803,6 +2017,47 @@ class TestRoutingExceptions:
         assert exc.code == ExcCode.ROUTE_UNAVAILABLE
         assert exc.subject["stage"] == "ses_import"
         assert exc.subject["returncode"] == -11
+
+
+class TestFloorplanParsing:
+    def test_floorplan_keepout_bands_imply_coordinate_frame_outline(self):
+        constraints, meta = engine_worker_mod._floorplan_constraints(
+            {
+                "fixed_positions": [
+                    {"ref": "SW1", "x_mm": 24.0, "y_mm": 18.0},
+                    {"ref": "H1", "x_mm": 6.5, "y_mm": 6.5},
+                    {"ref": "H4", "x_mm": 108.5, "y_mm": 58.5},
+                ],
+                "keepouts": [
+                    {"x_min": 0.0, "y_min": 0.0, "x_max": 115.0, "y_max": 4.0},
+                    {"x_min": 0.0, "y_min": 61.0, "x_max": 115.0, "y_max": 65.0},
+                ],
+            }
+        )
+
+        assert constraints is not None
+        assert constraints.outline is not None
+        assert constraints.outline.x_min == pytest.approx(0.0)
+        assert constraints.outline.y_min == pytest.approx(0.0)
+        assert constraints.outline.x_max == pytest.approx(115.0)
+        assert constraints.outline.y_max == pytest.approx(65.0)
+        assert meta["outline"] == "keepout_bands"
+
+    def test_floorplan_single_internal_keepout_does_not_imply_outline(self):
+        constraints, meta = engine_worker_mod._floorplan_constraints(
+            {
+                "fixed_positions": [
+                    {"ref": "U1", "x_mm": 20.0, "y_mm": 20.0},
+                ],
+                "keepouts": [
+                    {"x_min": 8.0, "y_min": 8.0, "x_max": 12.0, "y_max": 12.0},
+                ],
+            }
+        )
+
+        assert constraints is not None
+        assert constraints.outline is None
+        assert "outline" not in meta
 
 
 @needs_kicad

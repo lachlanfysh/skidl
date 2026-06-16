@@ -27,6 +27,7 @@ class KeepOut:
     y_min: float
     x_max: float
     y_max: float
+    allowed_refs: list[str] = field(default_factory=list)
 
 
 @dataclass

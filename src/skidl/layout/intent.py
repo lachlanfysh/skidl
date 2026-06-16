@@ -192,6 +192,42 @@ class PlacementIntentPlan:
                 ]
                 for ref, intents in self.intents.items()
             },
+            "edge_anchors": [
+                {
+                    "ref": anchor.ref,
+                    "edge": anchor.edge,
+                    "offset_mm": anchor.offset_mm,
+                    "inset_mm": anchor.inset_mm,
+                    "rot_deg": anchor.rot_deg,
+                }
+                for anchor in self.edge_anchors
+            ],
+            "align_constraints": [
+                {
+                    "refs": list(constraint.refs),
+                    "axis": constraint.axis,
+                    "value_mm": constraint.value_mm,
+                }
+                for constraint in self.align_constraints
+            ],
+            "distribute_constraints": [
+                {
+                    "refs": list(constraint.refs),
+                    "axis": constraint.axis,
+                    "start_mm": constraint.start_mm,
+                    "end_mm": constraint.end_mm,
+                }
+                for constraint in self.distribute_constraints
+            ],
+            "fixed_positions": [
+                {
+                    "ref": fixed.ref,
+                    "x_mm": fixed.x_mm,
+                    "y_mm": fixed.y_mm,
+                    "rot_deg": fixed.rot_deg,
+                }
+                for fixed in self.fixed_positions
+            ],
             "assembly_sides": dict(self.assembly_sides),
             "assembly_policy": self.assembly_policy,
             "warnings": list(self.warnings),

@@ -8,6 +8,7 @@ from skidl.layout.constraints import (
     DistributeConstraint,
     EdgeAnchor,
     FixedPosition,
+    KeepOut,
     LayoutConstraints,
     NearConstraint,
 )
@@ -18,6 +19,7 @@ from skidl.layout.engine import (
     _legalize_small_parts_from_outline,
     _placed_bounds,
     _snap_edge_anchors_to_outline,
+    _snap_mounting_holes_to_outline_corners,
     plan_layout,
 )
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
@@ -580,6 +582,66 @@ def test_rounded_outline_places_mounting_holes_at_corner_radius_centers():
     }
 
 
+def test_snap_four_mounting_holes_reconciles_stale_floorplan_to_final_outline():
+    outline = BoardOutline(66.3, 32.3, corner_radius_mm=2.7)
+    intent_plan = PlacementIntentPlan()
+    for ref in ("H1", "H2", "H3", "H4"):
+        intent_plan.intents[ref] = [
+            PlacementIntent(ref, "mounting_hole", 90, ["test mounting hole"])
+        ]
+    placed_parts = [
+        PlacedPart("H1", 2.7, 2.7, 0.0, "MountingHole:M2"),
+        PlacedPart("H2", 47.3, 2.7, 0.0, "MountingHole:M2"),
+        PlacedPart("H3", 2.7, 29.3, 0.0, "MountingHole:M2"),
+        PlacedPart("H4", 47.3, 29.3, 0.0, "MountingHole:M2"),
+    ]
+
+    snapped, moved = _snap_mounting_holes_to_outline_corners(
+        placed_parts,
+        outline,
+        intent_plan,
+        LayoutConstraints(outline=outline),
+        BBOXES,
+        None,
+    )
+
+    placed = {part.ref: part for part in snapped}
+    assert set(moved) == {"H2", "H3", "H4"}
+    assert placed["H1"].x_mm == pytest.approx(2.7)
+    assert placed["H1"].y_mm == pytest.approx(2.7)
+    assert placed["H2"].x_mm == pytest.approx(63.6)
+    assert placed["H2"].y_mm == pytest.approx(2.7)
+    assert placed["H3"].x_mm == pytest.approx(2.7)
+    assert placed["H3"].y_mm == pytest.approx(29.6)
+    assert placed["H4"].x_mm == pytest.approx(63.6)
+    assert placed["H4"].y_mm == pytest.approx(29.6)
+
+
+def test_snap_mounting_holes_preserves_two_hole_panel_pattern():
+    outline = BoardOutline(28.5, 103.2, corner_radius_mm=2.7)
+    intent_plan = PlacementIntentPlan()
+    for ref in ("H1", "H2"):
+        intent_plan.intents[ref] = [
+            PlacementIntent(ref, "mounting_hole", 90, ["test mounting hole"])
+        ]
+    placed_parts = [
+        PlacedPart("H1", 17.5, 8.0, 0.0, "MountingHole:M3"),
+        PlacedPart("H2", 17.5, 102.0, 0.0, "MountingHole:M3"),
+    ]
+
+    snapped, moved = _snap_mounting_holes_to_outline_corners(
+        placed_parts,
+        outline,
+        intent_plan,
+        LayoutConstraints(outline=outline),
+        BBOXES,
+        None,
+    )
+
+    assert moved == []
+    assert snapped == placed_parts
+
+
 def test_plan_layout_centers_single_qwiic_between_two_mounting_holes():
     outline = BoardOutline(40.0, 28.0)
     vcc = _Net("3V3")
@@ -759,6 +821,77 @@ def test_legalize_small_parts_nudges_passives_clear_of_mounting_holes():
         and passive_bounds[3] > halo[1]
     )
     assert placed["H1"].x_mm == pytest.approx(4.0)
+
+
+def test_plan_layout_reports_fixed_part_inside_mounting_hole_clearance():
+    outline = BoardOutline(40.0, 28.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    r1 = _Part("R1", value="10K", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    h1 = _Part("H1", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    circuit = _Circuit([r1, h1, u1], [vcc, gnd])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=outline,
+            fixed=[
+                FixedPosition("H1", 4.0, 4.0),
+                FixedPosition("R1", 7.2, 4.0),
+                FixedPosition("U1", 22.0, 14.0),
+            ],
+        ),
+    )
+
+    assert "R1" in result.validation.keepout_violations
+    assert "H1" not in result.validation.keepout_violations
+    assert result.score.keepout_violation_count >= 1
+
+
+def test_outline_edge_keepout_band_allows_mounting_holes_only():
+    outline = BoardOutline(40.0, 28.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    r1 = _Part("R1", value="10K", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    h1 = _Part("H1", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    circuit = _Circuit([r1, h1, u1], [vcc, gnd])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=outline,
+            fixed=[
+                FixedPosition("H1", 4.0, 3.0),
+                FixedPosition("R1", 10.0, 3.0),
+                FixedPosition("U1", 24.0, 16.0),
+            ],
+            keepouts=[
+                KeepOut(outline.x_min, outline.y_min, outline.x_max, outline.y_min + 6.0),
+            ],
+        ),
+    )
+
+    assert "H1" not in result.validation.keepout_violations
+    assert "R1" in result.validation.keepout_violations
+
+
+def test_plan_layout_applies_corner_radius_hint_to_existing_outline():
+    outline = BoardOutline(40.0, 28.0)
+    circuit = _circuit()
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+        corner_radius_mm=2.7,
+    )
+
+    assert result.outline is not None
+    assert result.outline.corner_radius_mm == pytest.approx(2.7)
 
 
 def test_legalize_small_parts_nudges_connectors_clear_of_mounting_holes():

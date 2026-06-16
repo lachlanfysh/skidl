@@ -295,12 +295,22 @@ def _check_keepout_violations(
         return []
     violations = []
     keepout_bounds = [
-        (keepout.x_min, keepout.y_min, keepout.x_max, keepout.y_max)
+        (
+            keepout.x_min,
+            keepout.y_min,
+            keepout.x_max,
+            keepout.y_max,
+            set(getattr(keepout, "allowed_refs", []) or []),
+        )
         for keepout in keepouts
     ]
     for pp in placed:
         bounds = _placed_bounds(pp, fp_bboxes, fp_geometries)
-        if any(_rects_overlap(bounds, keepout) for keepout in keepout_bounds):
+        if any(
+            pp.ref not in allowed_refs
+            and _rects_overlap(bounds, (x_min, y_min, x_max, y_max))
+            for x_min, y_min, x_max, y_max, allowed_refs in keepout_bounds
+        ):
             violations.append(pp.ref)
     return violations
 

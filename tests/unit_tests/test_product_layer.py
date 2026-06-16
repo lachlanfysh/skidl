@@ -332,6 +332,42 @@ class TestDesignReviewExceptions:
 
         assert "3V3" not in bulk_nets
 
+    def test_bulk_review_only_flags_true_supply_with_i2c_pullups(self):
+        spec = {
+            "board": {"name": "pullup-signal-rails"},
+            "parts": [
+                {"ref": "U1", "lib": "Analog_ADC", "part": "ADS1115",
+                 "footprint": "Package_SO:TSSOP-10_3x3mm_P0.5mm"},
+                {"ref": "R_SDA", "lib": "Device", "part": "R", "value": "4.7K",
+                 "footprint": "Resistor_SMD:R_0603_1608Metric"},
+                {"ref": "R_SCL", "lib": "Device", "part": "R", "value": "4.7K",
+                 "footprint": "Resistor_SMD:R_0603_1608Metric"},
+                {"ref": "R_ALERT", "lib": "Device", "part": "R", "value": "10K",
+                 "footprint": "Resistor_SMD:R_0603_1608Metric"},
+                {"ref": "R_ADDR", "lib": "Device", "part": "R", "value": "10K",
+                 "footprint": "Resistor_SMD:R_0603_1608Metric"},
+            ],
+            "nets": [
+                {"name": "3V3", "power": True,
+                 "pins": ["U1.VDD", "R_SDA.1", "R_SCL.1", "R_ALERT.1"]},
+                {"name": "GND", "power": True, "pins": ["U1.GND", "R_ADDR.1"]},
+                {"name": "SDA", "power": True, "pins": ["U1.SDA", "R_SDA.2"]},
+                {"name": "SCL", "power": True, "pins": ["U1.SCL", "R_SCL.2"]},
+                {"name": "ALERT", "power": True, "pins": ["U1.ALERT", "R_ALERT.2"]},
+                {"name": "ADDR", "power": True, "pins": ["U1.ADDR", "R_ADDR.2"]},
+                {"name": "AIN0", "power": True, "pins": ["U1.AIN0"]},
+            ],
+        }
+
+        exceptions = design_review_exceptions(spec)
+        bulk_nets = {
+            e.subject.get("net")
+            for e in exceptions
+            if e.code == ExcCode.DESIGN_MISSING_BULK_CAP
+        }
+
+        assert bulk_nets == {"3V3"}
+
     def test_enrichment_does_not_treat_signal_power_flags_as_supply_rails(self):
         spec = {
             "board": {"name": "signal-power-flags-enrich"},
