@@ -56,6 +56,7 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
     - Reduced core `5170e4a63245` -> `failed`, run `ddc3d32fa1bd`, placement-review feedback with overlaps, outline violations, high congestion, and long power nets.
   - Refined bug: reduced job now produces useful circuit/layout feedback, but full-board worker loss still needs a structured exception/result and better log correlation.
   - Fix prepared: stale/lost jobs now become top-level `status="crashed"` with a structured `ENGINE_CRASH` result, `stage="worker_lost"`, a `regenerate` candidate, and a hint that no run artifacts were produced.
+  - Hosted verification boundary: no public MCP/admin endpoint safely creates a stale running job, and production DB helper calls are global queue mutations. Current proof is the DB-level product test plus deployed code status. A hosted `get_job` proof requires a staging DB or a restricted sentinel-job admin endpoint.
 
 ## Compact Resume Checklist
 
@@ -154,5 +155,27 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
   - placement score `98.73`
   - `get_run` layout reported `inline_footprints={"count": 1, "footprints": ["CustomLib:Tiny_2Pad"]}`
 - Remaining hosted gaps:
-  - Need a dedicated routing-diagnosis hosted smoke, ideally without long routing time.
-  - Need hosted confirmation that full-board worker-loss handling produces the new structured `ENGINE_CRASH` packet after deploy.
+  - Need hosted confirmation that full-board worker-loss handling produces the new structured `ENGINE_CRASH` packet after deploy; safe production probe is not currently exposed.
+
+2026-06-16 hosted routing-diagnosis smoke:
+
+- Initial bad-footprint hosted smoke before classifier fix:
+  - job `4c5a2a4ac305`
+  - run `17f8ade1f927`
+  - status `failed`
+  - exceptions `DRC_UNCONNECTED`, `DRC_SHORT`
+  - diagnosis incorrectly came back `congestion_router_limitation` even though the DRC short was two pads on the same submitted custom footprint (`REF**`).
+- Classifier fix:
+  - commit `570d545d` (`Classify same-footprint DRC failures as footprint issues`)
+  - detects KiCad DRC examples where multiple conflicting pads are reported on the same footprint token, including placeholder `REF**`.
+  - local tests:
+    - `.venv/bin/python -m pytest tests/product/test_mcp_server.py -q` -> `100 passed, 13 skipped`
+    - `.venv/bin/python -m pytest tests/product/test_mcp_server.py tests/product/test_railway.py tests/unit_tests/test_product_layer.py -q` -> `214 passed, 55 skipped, 1 warning`
+- Hosted confirmation after deploy:
+  - job `5889de9103fa`
+  - run `af5261730bd4`
+  - status `failed`
+  - exceptions `DRC_UNCONNECTED`, `DRC_SHORT`
+  - both exceptions now include `routing_diagnosis=footprint_issue`
+  - evidence hotspot: `{"ref": "REF**", "source": "same_footprint_drc_example", "placeholder_ref": true}`
+  - outline growth candidate confidence demoted to `0.2` behind regenerate/footprint-focused repair.
