@@ -322,14 +322,17 @@ async def submit_skidl_code(
       For explicit human/mechanical floorplans, define a global
       `EDA_FLOORPLAN` dict in the submitted Python after refs exist. It can
       carry `outline`, `fixed_positions`, `edge_anchors`, `grid`/`grids`,
-      `align`, `distribute`, `assembly_sides`, and `keepouts`:
+      `align`, `distribute`, `assembly_sides`, `keepouts`, and physical
+      `cutouts`/`apertures`/`slots`:
       `EDA_FLOORPLAN = {"outline": {"width_mm": 120, "height_mm": 180},
       "grid": {"refs": ["U_S00", "U_S01", "U_S10", "U_S11"],
       "rows": 2, "cols": 2, "x_mm": 18, "y_mm": 36, "dx_mm": 22,
       "dy_mm": 24, "side": "front"}, "assembly_sides": {"U_MCU": "back"},
       "edge_anchors": [{"ref": "J_USB", "edge": "bottom",
       "offset_mm": 60}], "keepouts": [{"x_min": 0, "y_min": 0,
-      "x_max": 120, "y_max": 8, "label": "mounting rail"}]}`.
+      "x_max": 120, "y_max": 8, "label": "mounting rail"}],
+      "cutouts": [{"name": "sensor_window", "x_min": 40, "y_min": 70,
+      "x_max": 80, "y_max": 110}]}`.
       Use fixed_positions for real user floorplans such as sensor grids,
       displays, batteries, mounting holes, panel controls, and large modules;
       do not strip them merely because the hosted service owns
@@ -1973,6 +1976,10 @@ EDA_FLOORPLAN = {
     "distribute": [{"refs": ["LED1", "LED2", "LED3"], "axis": "x"}],
     "assembly_sides": {"U_MCU": "back", "J_USB": "front"},
     "keepouts": [{"x_min": 0, "y_min": 0, "x_max": 120, "y_max": 8}],
+    "cutouts": [
+        {"name": "sensor_window", "x_min": 40, "y_min": 70, "x_max": 80, "y_max": 110},
+        {"name": "cable_slot", "shape": "slot", "start": [20, 150], "end": [55, 150], "width_mm": 3},
+    ],
 }
 ```
 
@@ -1980,8 +1987,9 @@ Preserve explicit sensor grids, controls, displays, batteries, modules, and
 mounting/mechanical intent this way. Do not strip a floorplan just because the
 hosted service owns schematic/layout/routing. `grid` expands into locked
 positions plus row/column align/distribute constraints when origin and pitch
-are supplied. `cutouts`/`apertures` are currently preserved only as metadata;
-they are not yet written as internal Edge.Cuts geometry.
+are supplied. `cutouts`, `apertures`, and `slots` are physical board voids:
+they are emitted as internal Edge.Cuts geometry, shown in layout metadata and
+previews, and protected from component placement.
 
 If the user has custom project footprints that Railway does not have installed,
 pass the KiCad `.kicad_mod` text to `submit_skidl_code(custom_footprints=...)`:

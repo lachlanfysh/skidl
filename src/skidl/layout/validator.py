@@ -17,6 +17,7 @@ class ValidationResult:
     overlaps: list[tuple[str, str]] = field(default_factory=list)
     outline_violations: list[str] = field(default_factory=list)
     keepout_violations: list[str] = field(default_factory=list)
+    cutout_violations: list[str] = field(default_factory=list)
     worst_hpwl_nets: list[tuple[str, float]] = field(default_factory=list)
     worst_hpwl_refs: dict[str, list[str]] = field(default_factory=dict)
     missing_refs: list[str] = field(default_factory=list)
@@ -31,6 +32,7 @@ class ValidationResult:
             and not self.missing_refs
             and not self.outline_violations
             and not self.keepout_violations
+            and not self.cutout_violations
         )
 
     def summary(self) -> str:
@@ -51,6 +53,10 @@ class ValidationResult:
         if self.keepout_violations:
             lines.append(f"INSIDE KEEPOUT ({len(self.keepout_violations)}):")
             for ref in self.keepout_violations[:20]:
+                lines.append(f"  {ref}")
+        if self.cutout_violations:
+            lines.append(f"INTERSECTS CUTOUT ({len(self.cutout_violations)}):")
+            for ref in self.cutout_violations[:20]:
                 lines.append(f"  {ref}")
         if self.worst_hpwl_nets:
             lines.append("Worst HPWL nets:")
@@ -73,9 +79,13 @@ def _placed_bounds(
     pp: PlacedPart,
     fp_bboxes: dict[str, tuple[float, float]],
     fp_geometries: dict[str, FootprintGeometry] | None = None,
+    *,
+    physical: bool = False,
 ) -> tuple[float, float, float, float]:
     geometry = (fp_geometries or {}).get(pp.footprint)
     if geometry is not None:
+        if physical:
+            return geometry.transformed_physical_bounds(pp)
         return geometry.transformed_bounds(pp)
     return _fallback_bounds(pp, fp_bboxes)
 
@@ -177,7 +187,7 @@ def _check_overlaps(
         grid = SpatialGrid(cell_size_mm=10.0)
         bounds_by_ref: dict[str, tuple[float, float, float, float]] = {}
         for pp in placed:
-            b = _placed_bounds(pp, fp_bboxes, fp_geometries)
+            b = _placed_bounds(pp, fp_bboxes, fp_geometries, physical=True)
             bounds_by_ref[pp.ref] = b
             cx = (b[0] + b[2]) / 2
             cy = (b[1] + b[3]) / 2
@@ -196,11 +206,11 @@ def _check_overlaps(
 
     overlaps: list[tuple[str, str]] = []
     for i, a in enumerate(placed):
-        a_bounds = _placed_bounds(a, fp_bboxes, fp_geometries)
+        a_bounds = _placed_bounds(a, fp_bboxes, fp_geometries, physical=True)
         for b in placed[i + 1:]:
             if not _same_physical_side(a, b):
                 continue
-            b_bounds = _placed_bounds(b, fp_bboxes, fp_geometries)
+            b_bounds = _placed_bounds(b, fp_bboxes, fp_geometries, physical=True)
             if _rects_overlap(a_bounds, b_bounds, clearance_mm):
                 overlaps.append((a.ref, b.ref))
     return _dedupe_pairs(
@@ -315,6 +325,32 @@ def _check_keepout_violations(
     return violations
 
 
+def _check_cutout_violations(
+    placed: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    cutouts=None,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
+) -> list[str]:
+    if not cutouts:
+        return []
+    violations = []
+    cutout_bounds = [
+        getattr(cutout, "bounds", None)
+        or (
+            getattr(cutout, "x_min"),
+            getattr(cutout, "y_min"),
+            getattr(cutout, "x_max"),
+            getattr(cutout, "y_max"),
+        )
+        for cutout in cutouts
+    ]
+    for pp in placed:
+        bounds = _placed_bounds(pp, fp_bboxes, fp_geometries)
+        if any(_rects_overlap(bounds, cutout) for cutout in cutout_bounds):
+            violations.append(pp.ref)
+    return violations
+
+
 def _compute_hpwl(
     placed: list[PlacedPart],
     circuit,
@@ -353,6 +389,7 @@ def validate(
     clearance_mm: float = 0.5,
     outline=None,
     keepouts=None,
+    cutouts=None,
     fp_geometries: dict[str, FootprintGeometry] | None = None,
 ) -> ValidationResult:
     result = ValidationResult(placed_parts=len(placed_parts))
@@ -365,6 +402,9 @@ def validate(
     )
     result.keepout_violations = _check_keepout_violations(
         placed_parts, fp_bboxes, keepouts, fp_geometries
+    )
+    result.cutout_violations = _check_cutout_violations(
+        placed_parts, fp_bboxes, cutouts, fp_geometries
     )
 
     if circuit is not None:

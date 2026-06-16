@@ -4,7 +4,33 @@ This plan tracks the recurring layout failures exposed by the ten-board direct M
 
 ## Tracking Model
 
-Create a stable `layout_quality_pack` with the current ten boards as named fixtures:
+Create a stable `layout_quality_pack` with the current ten boards as named fixtures. The first local/offline slice is the five-board pack in `corpus.run_corpus`:
+
+```bash
+.venv/bin/python -m corpus.run_corpus \
+  --product-pack five-board \
+  --mode engine_only \
+  --no-mcp \
+  --force \
+  --concurrency 1 \
+  --timeout-s 60 \
+  --artifacts artifacts/product_layout_quality/five-board \
+  --telemetry artifacts/product_layout_quality/five-board/runs.jsonl \
+  --spend-log artifacts/product_layout_quality/five-board/spend.jsonl \
+  --pid-file artifacts/product_layout_quality/five-board/run_corpus.pid
+```
+
+This writes each board under its run directory with `response.json`, resolved preview paths, `board.kicad_pcb` when the engine emits one, and `layout_quality.json`. The aggregate rinse-and-repeat gate is `artifacts/product_layout_quality/five-board/product_pack_report.json`, which summarizes gate failures and issue-class tags across the pack.
+
+The current five-board slice is:
+
+- `mcp9808_breakout`
+- `eurorack_attenuverter`
+- `esp32_s3_logger`
+- `headphone_line_amp`
+- `solar_lipo_node`
+
+The target ten-board set remains:
 
 - `mcp9808_breakout`
 - `eurorack_attenuverter`
@@ -257,9 +283,9 @@ Acceptance:
 
 ### Phase 1: Tracking And Fixture Pack
 
-- Add `layout_quality_pack` runner for the ten boards.
-- Emit `layout_quality.json` for each board.
-- Add board-level statuses and issue-class tags.
+- Add `layout_quality_pack` runner for the first five boards, then expand it to all ten.
+- Emit `response.json`, previews, `board.kicad_pcb` when available, and `layout_quality.json` for each board.
+- Add aggregate board-level statuses, quality gates, and issue-class tags in `product_pack_report.json`.
 - Preserve the current best previews as baseline review artifacts.
 
 ### Phase 2: Product Layout Scoring

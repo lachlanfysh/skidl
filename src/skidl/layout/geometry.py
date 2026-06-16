@@ -67,6 +67,16 @@ class FootprintGeometry:
         return (-1.0, -1.0, 1.0, 1.0)
 
     @property
+    def physical_bounds(self) -> tuple[float, float, float, float]:
+        bounds = []
+        if self.body_bounds is not None:
+            bounds.append(self.body_bounds)
+        bounds.extend(pad.local_bounds for pad in self.pads)
+        if bounds:
+            return _bounds_union(bounds)
+        return self.bounds
+
+    @property
     def width_mm(self) -> float:
         x_min, _, x_max, _ = self.bounds
         return x_max - x_min
@@ -77,7 +87,20 @@ class FootprintGeometry:
         return y_max - y_min
 
     def transformed_bounds(self, placed: PlacedPart) -> tuple[float, float, float, float]:
-        x_min, y_min, x_max, y_max = self.bounds
+        return self._transform_bounds(self.bounds, placed)
+
+    def transformed_physical_bounds(
+        self,
+        placed: PlacedPart,
+    ) -> tuple[float, float, float, float]:
+        return self._transform_bounds(self.physical_bounds, placed)
+
+    @staticmethod
+    def _transform_bounds(
+        bounds: tuple[float, float, float, float],
+        placed: PlacedPart,
+    ) -> tuple[float, float, float, float]:
+        x_min, y_min, x_max, y_max = bounds
         corners = [
             (x_min, y_min),
             (x_max, y_min),

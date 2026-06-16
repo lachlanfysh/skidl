@@ -65,6 +65,14 @@ def _ref_prefix(part) -> str:
     return match.group(0).upper() if match else ""
 
 
+def _is_capacitor_ref(prefix: str) -> bool:
+    return prefix.startswith("C") and not prefix.startswith(("CN", "CON"))
+
+
+def _is_resistor_ref(prefix: str) -> bool:
+    return prefix.startswith("R") and prefix not in {"RV"}
+
+
 def _part_text(part) -> str:
     chunks = [
         getattr(part, "ref", ""),
@@ -137,7 +145,7 @@ def classify_part(part) -> PartRole:
     reasons: list[str] = []
 
     if (
-        prefix == "C"
+        _is_capacitor_ref(prefix)
         and pin_count == 2
         and DECAP_VALUE_RE.match(str(getattr(part, "value", "") or ""))
     ):
@@ -202,7 +210,7 @@ def classify_part(part) -> PartRole:
         reasons.append("IC-like reference or pin count")
         return PartRole(ref, "ic", 0.75, reasons)
 
-    if prefix in {"R", "C"} and pin_count == 2:
+    if (_is_resistor_ref(prefix) or _is_capacitor_ref(prefix)) and pin_count == 2:
         return PartRole(ref, "signal_passive", 0.7, ["2-pin passive"])
 
     return PartRole(ref, "unknown", 0.1, [])

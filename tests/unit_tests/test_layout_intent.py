@@ -273,6 +273,30 @@ def test_horizontal_35mm_audio_jack_is_edge_connector():
     assert any(face.ref == "J1" and face.edge == "right" for face in plan.face_edges)
 
 
+def test_vertical_pj398_jack_is_panel_subject_not_edge_connector():
+    sig = _Net("AUDIO_IN")
+    gnd = _Net("GND")
+    jack = _Part(
+        "J1",
+        name="Thonkiconn PJ398SM vertical 3.5mm audio jack",
+        footprint="Connector_Audio:Jack_3.5mm_PJ398SM_Vertical",
+        nets=[sig, gnd],
+        pins=3,
+    )
+    circuit = _Circuit([jack], [sig, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(80.0, 50.0))
+
+    assert "panel_jack" in _kinds(plan, "J1")
+    assert "front_panel_subject" in _kinds(plan, "J1")
+    assert "edge_connector" not in _kinds(plan, "J1")
+    assert all(anchor.ref != "J1" for anchor in plan.edge_anchors)
+    mating = next(mating for mating in plan.mating_intents if mating.ref == "J1")
+    assert mating.kind == "panel_jack"
+    assert mating.edge_preference is None
+    assert mating.mating_side == "front_panel"
+
+
 def test_cui_sj1_horizontal_audio_jack_uses_local_y_socket_exit():
     sig = _Net("AUDIO_OUT")
     gnd = _Net("GND")
@@ -1065,6 +1089,64 @@ def test_coaxial_gets_edge_anchor():
     assert any(fe.ref == "J1" and fe.edge == "top" for fe in plan.face_edges)
 
 
+def test_rf_module_with_antenna_metadata_is_not_a_coax_edge_connector():
+    """RF modules may mention antennas, but they should not be edge-anchored."""
+    ant_net = _Net("ANT")
+    gnd = _Net("GND")
+    module = _Part(
+        "U3",
+        name="ESP32-S3 RF module with integrated PCB antenna",
+        footprint="RF_Module:ESP32-S2-MINI-1",
+        nets=[ant_net, gnd],
+        pins=20,
+        pin_names=["ANT", "GND"],
+    )
+    circuit = _Circuit([module], [ant_net, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(65.0, 40.0))
+
+    assert "rf_module" in _kinds(plan, "U3")
+    assert "edge_connector" not in _kinds(plan, "U3")
+    assert [anchor for anchor in plan.edge_anchors if anchor.ref == "U3"] == []
+    assert [mating for mating in plan.mating_intents if mating.ref == "U3"] == []
+
+
+def test_explicit_sma_edge_preference_survives_rf_inference():
+    """Explicit human/agent edge floorplan wins over default coax top-edge policy."""
+    ant_net = _Net("ANT")
+    gnd = _Net("GND")
+    coax = _Part(
+        "J3",
+        name="SMA antenna connector",
+        footprint="Connector_Coaxial:SMA_Amphenol",
+        nets=[ant_net, gnd],
+        pins=2,
+        pin_names=["Signal", "GND"],
+    )
+    coax.edge_preference = "right"
+    rf_ic = _Part(
+        "U5",
+        name="Si4684 RF receiver",
+        footprint="Package_DFN_QFN:QFN-40",
+        nets=[ant_net, gnd],
+        pins=40,
+        pin_names=["ANT_IN", "GND"],
+    )
+    circuit = _Circuit([coax, rf_ic], [ant_net, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(65.0, 40.0))
+
+    anchors = [anchor for anchor in plan.edge_anchors if anchor.ref == "J3"]
+    assert len(anchors) == 1
+    assert anchors[0].edge == "right"
+    assert any(
+        mating.ref == "J3"
+        and mating.kind == "coaxial"
+        and mating.edge_preference == "right"
+        for mating in plan.mating_intents
+    )
+
+
 def test_rf_ic_near_antenna():
     """RF IC should get NearConstraint to antenna connector (~8mm)."""
     ant_net = _Net("ANT")
@@ -1145,6 +1227,40 @@ def test_crystal_near_rf_ic():
     assert near_xtal[0].distance_mm == 4.0
 
     # Crystal should have crystal_network intent
+    assert "crystal_network" in _kinds(plan, "Y1")
+
+
+def test_crystal_near_clock_pins_without_rf_antenna():
+    """Clock crystals should cluster with any IC XTAL/OSC pins, not only RF paths."""
+    xtal_in = _Net("XTAL_IN")
+    xtal_out = _Net("XTAL_OUT")
+    gnd = _Net("GND")
+    ic = _Part(
+        "U5",
+        name="Si4684 digital radio",
+        footprint="Package_DFN_QFN:QFN-40",
+        nets=[xtal_in, xtal_out, gnd],
+        pins=40,
+        pin_names=["XTALI", "XTALO", "GND"],
+    )
+    crystal = _Part(
+        "Y1",
+        name="Crystal 32.768kHz",
+        footprint="Crystal:Crystal_SMD",
+        nets=[xtal_in, xtal_out],
+        pins=2,
+        pin_names=["1", "2"],
+    )
+    circuit = _Circuit([ic, crystal], [xtal_in, xtal_out, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(65.0, 40.0))
+
+    near_xtal = [
+        nc for nc in plan.near_constraints
+        if nc.ref == "Y1" and nc.target_ref == "U5"
+    ]
+    assert len(near_xtal) == 1
+    assert near_xtal[0].distance_mm == 4.0
     assert "crystal_network" in _kinds(plan, "Y1")
 
 

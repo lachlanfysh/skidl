@@ -23,6 +23,7 @@ class PlacementCandidate:
     ref_reasons: dict[str, list[str]] = field(default_factory=dict)
     constraints: LayoutConstraints | None = None
     score: float | None = None
+    pin_gravity_anchored_refs: set[str] = field(default_factory=set)
 
 
 def copy_constraints(constraints: LayoutConstraints | None) -> LayoutConstraints:
@@ -32,6 +33,7 @@ def copy_constraints(constraints: LayoutConstraints | None) -> LayoutConstraints
         zones=list(constraints.zones or []),
         edge_anchors=list(constraints.edge_anchors or []),
         keepouts=list(constraints.keepouts or []),
+        cutouts=list(constraints.cutouts or []),
         align=list(constraints.align or []),
         distribute=list(constraints.distribute or []),
         near=list(constraints.near or []),
@@ -343,6 +345,24 @@ def _with_panel_template(
 
 
 def _channel_slot_refs(channel: RepeatedChannelIntent) -> list[str]:
+    if channel.slots:
+        slot_refs: list[str] = []
+        for slot in sorted(
+            channel.slots,
+            key=lambda item: (item.slot_index, item.channel_number),
+        ):
+            primary_refs = [
+                *slot.sensor_refs,
+                *slot.connector_refs,
+                *slot.other_refs,
+            ]
+            refs = primary_refs or slot.refs
+            for ref in sorted(refs):
+                if ref not in slot.passive_refs and ref not in slot_refs:
+                    slot_refs.append(ref)
+        if slot_refs:
+            return slot_refs
+
     ref_counts: dict[str, int] = {}
     for refs in channel.refs_by_channel.values():
         for ref in refs:

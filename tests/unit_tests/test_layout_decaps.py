@@ -4,8 +4,12 @@ from skidl.layout.decaps import (
     infer_decap_placement_intents,
     measure_decap_pad_distances,
     refine_decaps,
+    refine_candidate_decaps,
 )
+from skidl.layout.candidates import PlacementCandidate
+from skidl.layout.constraints import BoardOutline, EdgeAnchor, FixedPosition, LayoutConstraints
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
+from skidl.layout.validator import validate
 from skidl.layout.writer import PlacedPart
 
 
@@ -127,6 +131,222 @@ def test_refine_decaps_moves_cap_to_actual_pad_side_and_rotates_it():
     assert 17.0 < refined["C1"].y_mm < 23.0
     assert refined["C1"].rot_deg == 270.0
     assert "actual U1 VDD/GND pads" in result.ref_reasons["C1"][0]
+
+
+def test_refine_candidate_decaps_marks_ref_as_pin_gravity_anchored():
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    parent = _Part(
+        "U1",
+        footprint="Pkg:MCU",
+        pins=[("1", vdd), ("2", gnd)],
+        name="MCU",
+    )
+    cap = _Part("C1", value="100nF", footprint="Pkg:Cap", pins=[("1", vdd), ("2", gnd)])
+    circuit = _Circuit([parent, cap], [vdd, gnd])
+    candidate = PlacementCandidate(
+        name="test",
+        placed_parts=[
+            PlacedPart("U1", 20.0, 20.0, 0.0, "Pkg:MCU"),
+            PlacedPart("C1", 20.0, 30.0, 0.0, "Pkg:Cap"),
+        ],
+        constraints=LayoutConstraints(outline=BoardOutline(50.0, 40.0)),
+    )
+
+    refine_candidate_decaps(
+        candidate,
+        circuit,
+        _basic_geometries(),
+        {"Pkg:MCU": (10.0, 10.0), "Pkg:Cap": (2.0, 1.2)},
+    )
+
+    assert "C1" in candidate.pin_gravity_anchored_refs
+
+
+def test_refine_decaps_treats_fixed_cap_as_soft_seed():
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    parent = _Part(
+        "U1",
+        footprint="Pkg:MCU",
+        pins=[("1", vdd), ("2", gnd)],
+        name="MCU",
+    )
+    cap = _Part("C1", value="100nF", footprint="Pkg:Cap", pins=[("1", vdd), ("2", gnd)])
+    circuit = _Circuit([parent, cap], [vdd, gnd])
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Pkg:MCU"),
+        PlacedPart("C1", 6.0, 6.0, 0.0, "Pkg:Cap"),
+    ]
+    constraints = LayoutConstraints(
+        outline=BoardOutline(50.0, 40.0),
+        fixed=[
+            FixedPosition("U1", 20.0, 20.0),
+            FixedPosition("C1", 6.0, 6.0),
+        ],
+    )
+
+    result = refine_decaps(
+        placed,
+        circuit,
+        _basic_geometries(),
+        {"Pkg:MCU": (10.0, 10.0), "Pkg:Cap": (2.0, 1.2)},
+        constraints=constraints,
+    )
+    refined = {part.ref: part for part in result.placed_parts}
+    distances = measure_decap_pad_distances(result.placed_parts, circuit, _basic_geometries())
+
+    assert refined["U1"].x_mm == 20.0
+    assert refined["C1"].x_mm != 6.0 or refined["C1"].y_mm != 6.0
+    assert distances["C1"].average_pad_distance_mm < 6.0
+    assert "actual U1 VDD/GND pads" in result.ref_reasons["C1"][0]
+
+
+def test_refine_decaps_final_position_clears_parent_pads():
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    parent = _Part(
+        "U1",
+        footprint="Pkg:MSOP",
+        pins=[("4", gnd), ("8", vdd)],
+        name="MCP9808",
+    )
+    cap = _Part(
+        "C1",
+        value="100nF",
+        footprint="Pkg:C0603",
+        pins=[("1", vdd), ("2", gnd)],
+    )
+    circuit = _Circuit([parent, cap], [vdd, gnd])
+    geometries = {
+        "Pkg:MSOP": FootprintGeometry(
+            footprint="Pkg:MSOP",
+            pads=[
+                PadGeometry("4", -2.1125, 0.975, 1.625, 0.4),
+                PadGeometry("8", 2.1125, -0.975, 1.625, 0.4),
+            ],
+            body_bounds=(-1.5, -1.5, 1.5, 1.5),
+            courtyard_bounds=(-3.18, -1.75, 3.18, 1.75),
+        ),
+        "Pkg:C0603": FootprintGeometry(
+            footprint="Pkg:C0603",
+            pads=[
+                PadGeometry("1", -0.775, 0.0, 0.9, 0.95),
+                PadGeometry("2", 0.775, 0.0, 0.9, 0.95),
+            ],
+            body_bounds=(-0.8, -0.4, 0.8, 0.4),
+            courtyard_bounds=(-1.48, -0.73, 1.48, 0.73),
+        ),
+    }
+    fp_bboxes = {"Pkg:MSOP": (6.36, 3.5), "Pkg:C0603": (2.96, 1.46)}
+    placed = [
+        PlacedPart("U1", 15.0, 9.2, 0.0, "Pkg:MSOP"),
+        PlacedPart("C1", 20.0, 9.2, 90.0, "Pkg:C0603"),
+    ]
+    constraints = LayoutConstraints(
+        outline=BoardOutline(29.3, 23.6),
+        fixed=[
+            FixedPosition("U1", 15.0, 9.2),
+            FixedPosition("C1", 20.0, 9.2),
+        ],
+    )
+
+    result = refine_decaps(
+        placed,
+        circuit,
+        geometries,
+        fp_bboxes,
+        constraints=constraints,
+    )
+    validation = validate(
+        result.placed_parts,
+        circuit,
+        fp_bboxes,
+        clearance_mm=0.5,
+        outline=constraints.outline,
+        fp_geometries=geometries,
+    )
+    refined = {part.ref: part for part in result.placed_parts}
+    distances = measure_decap_pad_distances(result.placed_parts, circuit, geometries)
+
+    assert validation.overlaps == []
+    assert refined["C1"].x_mm > 18.9
+    assert distances["C1"].average_pad_distance_mm < 4.5
+
+
+def test_refine_decaps_uses_parent_body_not_large_module_courtyard():
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    parent = _Part(
+        "U1",
+        footprint="Pkg:Module",
+        pins=[("1", vdd), ("2", gnd)],
+        name="ESP32_MODULE",
+    )
+    cap = _Part("C1", value="100nF", footprint="Pkg:Cap", pins=[("1", vdd), ("2", gnd)])
+    circuit = _Circuit([parent, cap], [vdd, gnd])
+    geometries = {
+        "Pkg:Module": FootprintGeometry(
+            footprint="Pkg:Module",
+            pads=[
+                PadGeometry("1", -8.75, -0.6, 1.0, 0.8),
+                PadGeometry("2", -8.75, 0.6, 1.0, 0.8),
+            ],
+            body_bounds=(-9.0, -6.0, 9.0, 6.0),
+            courtyard_bounds=(-24.0, -10.0, 24.0, 10.0),
+        ),
+        **_basic_geometries(),
+    }
+    placed = [
+        PlacedPart("U1", 38.0, 30.0, 0.0, "Pkg:Module"),
+        PlacedPart("C1", 11.0, 25.2, 270.0, "Pkg:Cap"),
+    ]
+
+    result = refine_decaps(
+        placed,
+        circuit,
+        geometries,
+        {"Pkg:Module": (48.0, 20.0), "Pkg:Cap": (2.0, 1.2)},
+    )
+    refined = {part.ref: part for part in result.placed_parts}
+    distances = measure_decap_pad_distances(result.placed_parts, circuit, geometries)
+
+    assert refined["C1"].x_mm > 25.0
+    assert distances["C1"].average_pad_distance_mm < 3.0
+
+
+def test_refine_decaps_keeps_edge_anchored_cap_locked():
+    vdd = _Net("VDD")
+    gnd = _Net("GND")
+    parent = _Part(
+        "U1",
+        footprint="Pkg:MCU",
+        pins=[("1", vdd), ("2", gnd)],
+        name="MCU",
+    )
+    cap = _Part("C1", value="100nF", footprint="Pkg:Cap", pins=[("1", vdd), ("2", gnd)])
+    circuit = _Circuit([parent, cap], [vdd, gnd])
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Pkg:MCU"),
+        PlacedPart("C1", 6.0, 6.0, 0.0, "Pkg:Cap"),
+    ]
+    constraints = LayoutConstraints(
+        outline=BoardOutline(50.0, 40.0),
+        edge_anchors=[EdgeAnchor("C1", "left")],
+    )
+
+    result = refine_decaps(
+        placed,
+        circuit,
+        _basic_geometries(),
+        {"Pkg:MCU": (10.0, 10.0), "Pkg:Cap": (2.0, 1.2)},
+        constraints=constraints,
+    )
+    refined = {part.ref: part for part in result.placed_parts}
+
+    assert refined["C1"].x_mm == 6.0
+    assert refined["C1"].y_mm == 6.0
+    assert "C1" not in result.ref_reasons
 
 
 def test_measures_decap_distance_to_actual_parent_pads_not_origin():

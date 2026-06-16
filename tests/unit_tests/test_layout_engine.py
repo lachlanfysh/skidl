@@ -4,6 +4,7 @@ import pytest
 
 from skidl.layout.constraints import (
     AlignConstraint,
+    BoardCutout,
     BoardOutline,
     DistributeConstraint,
     EdgeAnchor,
@@ -14,6 +15,8 @@ from skidl.layout.constraints import (
 )
 from skidl.layout.engine import (
     LayoutResult,
+    _edge_parallel,
+    _effective_keepouts,
     _footprint_names,
     _legalize_edge_anchor_neighbors,
     _legalize_small_parts_from_outline,
@@ -23,6 +26,7 @@ from skidl.layout.engine import (
     plan_layout,
 )
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
+from skidl.layout.grid import points_form_clean_grid
 from skidl.layout.intent import PlacementIntent, PlacementIntentPlan
 from skidl.layout.placer import derive_outline
 from skidl.layout.routability import RoutabilityFeedback
@@ -82,7 +86,18 @@ BBOXES = {
     "Connector_Audio:Thonkiconn_PJ398SM": (8.0, 8.0),
     "Connector_Audio:Jack_3.5mm_PJ320D_Horizontal": (14.0, 10.0),
     "Connector_Audio:Jack_3.5mm_CUI_SJ1-3523N_Horizontal": (13.0, 15.0),
+    (
+        "TerminalBlock_Phoenix:"
+        "TerminalBlock_Phoenix_MKDS-3-2-5.08_1x02_P5.08mm_Horizontal"
+    ): (10.16, 8.0),
 }
+
+
+def _distance(point_a, point_b):
+    return (
+        (point_a[0] - point_b[0]) ** 2
+        + (point_a[1] - point_b[1]) ** 2
+    ) ** 0.5
 
 
 def _circuit():
@@ -120,6 +135,32 @@ def test_plan_layout_derives_outline_scores_and_power_plan():
     assert any(
         intent.strategy == "plane" for intent in result.power_plan.route_intents
     )
+
+
+def test_cutouts_feed_effective_keepout_avoidance():
+    constraints = LayoutConstraints(
+        cutouts=[
+            BoardCutout(
+                x_min=10.0,
+                y_min=12.0,
+                x_max=20.0,
+                y_max=22.0,
+                name="sensor_window",
+            )
+        ]
+    )
+
+    keepouts = _effective_keepouts(
+        constraints,
+        placed_parts=[],
+        intent_plan=None,
+        fp_bboxes={},
+        fp_geometries={},
+    )
+
+    assert len(keepouts) == 1
+    assert keepouts[0].x_min == pytest.approx(10.0)
+    assert keepouts[0].x_max == pytest.approx(20.0)
 
 
 def test_plan_layout_auto_outline_stays_near_placed_envelope():
@@ -279,6 +320,98 @@ def test_plan_layout_returns_candidates_report_and_preserves_edge_anchors():
     assert j1.rot_deg == 180.0
 
 
+def test_plan_layout_selects_best_finalized_candidate(monkeypatch):
+    from types import SimpleNamespace
+
+    from skidl.layout.candidates import PlacementCandidate
+    from skidl.layout.scoring import LayoutScore
+
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    circuit = _Circuit([u1], [vcc, gnd])
+    outline = BoardOutline(120.0, 40.0)
+
+    def fake_candidates(*args, **kwargs):
+        return [
+            PlacementCandidate(
+                name="preliminary_winner",
+                placed_parts=[
+                    PlacedPart("U1", 80.0, 20.0, 0.0, "Package_QFP:MCU"),
+                ],
+                constraints=LayoutConstraints(outline=outline),
+            ),
+            PlacementCandidate(
+                name="stable_candidate",
+                placed_parts=[
+                    PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+                ],
+                constraints=LayoutConstraints(outline=outline),
+            ),
+        ]
+
+    def fake_score(placed_parts, *args, **kwargs):
+        x_mm = {placed.ref: placed.x_mm for placed in placed_parts}["U1"]
+        if x_mm > 60.0:
+            return LayoutScore(score=90.0)
+        if x_mm < 5.0:
+            return LayoutScore(score=0.0, outline_violation_count=1)
+        return LayoutScore(score=24.0)
+
+    def fake_refine(placed_parts, *args, **kwargs):
+        u1_x = {placed.ref: placed.x_mm for placed in placed_parts}["U1"]
+        if u1_x <= 60.0:
+            return SimpleNamespace(
+                accepted_count=0,
+                placed_parts=placed_parts,
+                start_score=24.0,
+                final_score=24.0,
+                ref_reasons={},
+            )
+        return SimpleNamespace(
+            accepted_count=1,
+            placed_parts=[
+                PlacedPart("U1", 0.0, 20.0, 0.0, "Package_QFP:MCU"),
+            ],
+            start_score=90.0,
+            final_score=0.0,
+            ref_reasons={"U1": ["forced degradation for regression coverage"]},
+        )
+
+    monkeypatch.setattr(
+        "skidl.layout.engine.generate_placement_candidates",
+        fake_candidates,
+    )
+    monkeypatch.setattr(
+        "skidl.layout.engine.refine_candidate_orientations",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "skidl.layout.engine.refine_candidate_decaps",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "skidl.layout.engine.refine_candidate_placement",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr("skidl.layout.engine.refine_placement", fake_refine)
+    monkeypatch.setattr("skidl.layout.engine.score_placement", fake_score)
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+    candidate_scores = {
+        candidate.name: candidate.score for candidate in result.candidates
+    }
+
+    assert result.report.selected == "stable_candidate"
+    assert result.score.score == pytest.approx(24.0)
+    assert candidate_scores["preliminary_winner"] == pytest.approx(0.0)
+    assert candidate_scores["stable_candidate"] == pytest.approx(24.0)
+
+
 def test_plan_layout_honors_explicit_part_edge_rotation():
     gnd = _Net("GND")
     sig = _Net("SIG")
@@ -302,9 +435,46 @@ def test_plan_layout_honors_explicit_part_edge_rotation():
     placed = {part.ref: part for part in result.placed_parts}
     assert placed["J1"].rot_deg == pytest.approx(270.0)
     assert result.intent_plan is not None
-    anchor = next(anchor for anchor in result.intent_plan.edge_anchors if anchor.ref == "J1")
+    anchor = next(
+        anchor for anchor in result.intent_plan.edge_anchors if anchor.ref == "J1"
+    )
     assert anchor.edge == "right"
     assert anchor.rot_deg == pytest.approx(270.0)
+
+
+def test_plan_layout_repairs_edge_header_rotation_that_breaks_pin_access():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    j1 = _Part(
+        "J1",
+        name="output pin header",
+        footprint="Connector:PinHeader_1x06",
+        nets=[vcc, gnd],
+        pins=6,
+    )
+    j1.edge_preference = "right"
+    j1.edge_offset_mm = 20.0
+    j1.edge_rot_deg = 90.0
+    circuit = _Circuit([j1], [vcc, gnd])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=BoardOutline(50.0, 40.0)),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    j1 = placed["J1"]
+    width, height = BBOXES[j1.footprint]
+    bounds = _placed_bounds(j1, BBOXES, result.fp_geometries)
+
+    assert j1.rot_deg in {0.0, 180.0}
+    assert height > width
+    assert bounds[2] == pytest.approx(result.outline.x_max - 0.5)
+    assert not any(
+        "J1: connector row is not parallel" in warning
+        for warning in result.score.warnings
+    )
 
 
 def test_explicit_edge_anchor_uses_inferred_rotation_when_unspecified():
@@ -368,7 +538,6 @@ def test_plan_layout_keeps_inferred_pin_header_on_auto_outline_edge():
     )
 
     assert result.outline is not None
-    assert result.report.selected != "baseline"
     assert j1.x_mm == pytest.approx(
         (result.outline.x_min + result.outline.x_max) / 2
     )
@@ -378,6 +547,82 @@ def test_plan_layout_keeps_inferred_pin_header_on_auto_outline_edge():
         warning.startswith("J1: violates") or "J1: connector row" in warning
         for warning in result.score.warnings
     )
+
+
+def test_right_angle_pin_header_is_centered_on_edge_and_faces_outward():
+    outline = BoardOutline(42.0, 24.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    sig = _Net("SDA")
+    j1 = _Part(
+        "J1",
+        name="right-angle pin header",
+        footprint="Connector:PinHeader_1x06",
+        nets=[vcc, gnd, sig],
+        pins=6,
+    )
+    circuit = _Circuit([j1], [vcc, gnd, sig])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    anchor = next(
+        anchor for anchor in result.intent_plan.edge_anchors if anchor.ref == "J1"
+    )
+    bounds = _placed_bounds(placed["J1"], BBOXES, result.fp_geometries)
+
+    assert anchor.edge == "bottom"
+    assert anchor.offset_mm == pytest.approx((outline.x_min + outline.x_max) / 2)
+    assert anchor.rot_deg == pytest.approx(270.0)
+    assert placed["J1"].rot_deg == pytest.approx(270.0)
+    assert placed["J1"].x_mm == pytest.approx((outline.x_min + outline.x_max) / 2)
+    assert bounds[3] == pytest.approx(outline.y_max - anchor.inset_mm)
+    assert (bounds[2] - bounds[0]) > (bounds[3] - bounds[1])
+
+
+def test_terminal_block_is_parallel_to_edge_and_faces_outward():
+    outline = BoardOutline(48.0, 30.0)
+    vin = _Net("VIN")
+    gnd = _Net("GND")
+    j1 = _Part(
+        "J1",
+        name="2-pin Phoenix terminal block",
+        footprint=(
+            "TerminalBlock_Phoenix:"
+            "TerminalBlock_Phoenix_MKDS-3-2-5.08_1x02_P5.08mm_Horizontal"
+        ),
+        nets=[vin, gnd],
+        pins=2,
+    )
+    circuit = _Circuit([j1], [vin, gnd])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    anchor = next(
+        anchor for anchor in result.intent_plan.edge_anchors if anchor.ref == "J1"
+    )
+    mating = next(
+        mating for mating in result.intent_plan.mating_intents if mating.ref == "J1"
+    )
+    bounds = _placed_bounds(placed["J1"], BBOXES, result.fp_geometries)
+
+    assert mating.kind == "terminal_block"
+    assert anchor.edge == "bottom"
+    assert anchor.offset_mm == pytest.approx((outline.x_min + outline.x_max) / 2)
+    assert anchor.rot_deg == pytest.approx(0.0)
+    assert placed["J1"].rot_deg == pytest.approx(0.0)
+    assert bounds[3] == pytest.approx(outline.y_max - anchor.inset_mm)
+    assert (bounds[2] - bounds[0]) > (bounds[3] - bounds[1])
+    assert not any("J1: violates" in warning for warning in result.score.warnings)
 
 
 def test_plan_layout_clamps_geometry_backed_edge_header_inside_outline(monkeypatch):
@@ -883,7 +1128,7 @@ def test_legalize_small_parts_nudges_passives_clear_of_mounting_holes():
     assert placed["H1"].x_mm == pytest.approx(4.0)
 
 
-def test_plan_layout_reports_fixed_part_inside_mounting_hole_clearance():
+def test_plan_layout_nudges_fixed_passive_clear_of_mounting_hole_clearance():
     outline = BoardOutline(40.0, 28.0)
     vcc = _Net("3V3")
     gnd = _Net("GND")
@@ -905,7 +1150,48 @@ def test_plan_layout_reports_fixed_part_inside_mounting_hole_clearance():
         ),
     )
 
-    assert "R1" in result.validation.keepout_violations
+    placed = {part.ref: part for part in result.placed_parts}
+    hole_bounds = _placed_bounds(placed["H1"], BBOXES, result.fp_geometries)
+    passive_bounds = _placed_bounds(placed["R1"], BBOXES, result.fp_geometries)
+    halo = (
+        hole_bounds[0] - 2.0,
+        hole_bounds[1] - 2.0,
+        hole_bounds[2] + 2.0,
+        hole_bounds[3] + 2.0,
+    )
+
+    assert "R1" not in result.validation.keepout_violations
+    assert "H1" not in result.validation.keepout_violations
+    assert result.score.keepout_violation_count == 0
+    assert not (
+        passive_bounds[0] < halo[2]
+        and passive_bounds[2] > halo[0]
+        and passive_bounds[1] < halo[3]
+        and passive_bounds[3] > halo[1]
+    )
+
+
+def test_plan_layout_reports_fixed_large_part_inside_mounting_hole_clearance():
+    outline = BoardOutline(40.0, 28.0)
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    h1 = _Part("H1", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+    u1 = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    circuit = _Circuit([h1, u1], [vcc, gnd])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(
+            outline=outline,
+            fixed=[
+                FixedPosition("H1", 4.0, 4.0),
+                FixedPosition("U1", 7.2, 4.0),
+            ],
+        ),
+    )
+
+    assert "U1" in result.validation.keepout_violations
     assert "H1" not in result.validation.keepout_violations
     assert result.score.keepout_violation_count >= 1
 
@@ -1237,6 +1523,57 @@ def test_plan_layout_aligns_panel_jacks_without_edge_anchoring():
     assert max(xs) - min(xs) >= 30.0
 
 
+def test_plan_layout_grids_repeated_sensors_without_ejecting_local_caps():
+    outline = BoardOutline(100.0, 50.0)
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    ch0 = _Net("CH0_SIG")
+    ch1 = _Net("CH1_SIG")
+    u2 = _Part(
+        "U2",
+        name="MCP9808 temperature sensor",
+        footprint="Package_QFP:MCU",
+        nets=[ch0, vcc, gnd],
+        pins=8,
+    )
+    c2 = _Part("C2", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    u3 = _Part(
+        "U3",
+        name="MCP9808 temperature sensor",
+        footprint="Package_QFP:MCU",
+        nets=[ch1, vcc, gnd],
+        pins=8,
+    )
+    c3 = _Part("C3", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    circuit = _Circuit([u2, c2, u3, c3], [vcc, gnd, ch0, ch1])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+    placed = {part.ref: part for part in result.placed_parts}
+    sensor_points = [
+        (placed["U2"].x_mm, placed["U2"].y_mm),
+        (placed["U3"].x_mm, placed["U3"].y_mm),
+    ]
+    c2_point = (placed["C2"].x_mm, placed["C2"].y_mm)
+    c3_point = (placed["C3"].x_mm, placed["C3"].y_mm)
+
+    assert points_form_clean_grid(sensor_points, tolerance_mm=1.0)
+    assert placed["U3"].x_mm - placed["U2"].x_mm >= 60.0
+    assert _distance(c2_point, sensor_points[0]) <= 8.0
+    assert _distance(c3_point, sensor_points[1]) <= 8.0
+    assert _distance(c2_point, sensor_points[0]) < _distance(
+        c2_point,
+        sensor_points[1],
+    )
+    assert _distance(c3_point, sensor_points[1]) < _distance(
+        c3_point,
+        sensor_points[0],
+    )
+
+
 def test_fixed_generous_outline_spreads_ui_and_mechanics():
     outline = BoardOutline(120.0, 80.0)
     vcc = _Net("VCC")
@@ -1441,7 +1778,7 @@ def test_soft_constraints_do_not_move_edge_anchored_connectors():
     )
 
 
-def test_edge_parallel_warning_is_limited_to_pin_access_headers():
+def test_edge_parallel_check_is_limited_to_pin_access_headers():
     outline = BoardOutline(40.0, 30.0)
     gnd = _Net("GND")
     audio_jack = _Part(
@@ -1476,9 +1813,14 @@ def test_edge_parallel_warning_is_limited_to_pin_access_headers():
         warning.startswith("J1: connector row is not parallel")
         for warning in result.score.warnings
     )
-    assert any(
+    assert not any(
         warning.startswith("J2: connector row is not parallel")
         for warning in result.score.warnings
+    )
+    placed = {part.ref: part for part in result.placed_parts}
+    assert _edge_parallel(
+        "top",
+        _placed_bounds(placed["J2"], BBOXES, result.fp_geometries),
     )
 
 

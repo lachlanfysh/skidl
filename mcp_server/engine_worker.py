@@ -354,6 +354,32 @@ def _write_layout_mockup_svg(layout_result, out_dir: Path) -> str | None:
                 'stroke-width="0.35"/>'
             ),
         ]
+        for idx, cutout in enumerate(getattr(layout_result, "cutouts", []) or []):
+            name = html.escape(str(getattr(cutout, "name", "") or f"cutout-{idx + 1}"))
+            shape = str(getattr(cutout, "shape", "rect") or "rect").lower()
+            vertices = list(getattr(cutout, "vertices", []) or [])
+            if vertices:
+                points = " ".join(f"{x:.4f},{y:.4f}" for x, y in vertices)
+                lines.append(
+                    f'<polygon data-cutout="{name}" points="{points}" '
+                    f'fill="{PREVIEW_BACKGROUND}" stroke="{PREVIEW_EDGE_CUTS}" '
+                    'stroke-width="0.35"/>'
+                )
+                continue
+            if shape == "circle" and getattr(cutout, "radius_mm", None):
+                lines.append(
+                    f'<circle data-cutout="{name}" '
+                    f'cx="{cutout.center_x_mm:.4f}" cy="{cutout.center_y_mm:.4f}" '
+                    f'r="{float(cutout.radius_mm):.4f}" fill="{PREVIEW_BACKGROUND}" '
+                    f'stroke="{PREVIEW_EDGE_CUTS}" stroke-width="0.35"/>'
+                )
+                continue
+            lines.append(
+                f'<rect data-cutout="{name}" x="{cutout.x_min:.4f}" '
+                f'y="{cutout.y_min:.4f}" width="{cutout.width_mm:.4f}" '
+                f'height="{cutout.height_mm:.4f}" fill="{PREVIEW_BACKGROUND}" '
+                f'stroke="{PREVIEW_EDGE_CUTS}" stroke-width="0.35"/>'
+            )
 
         for placed in sorted(placed_parts, key=lambda p: str(p.ref)):
             x, y, w, h = _part_mockup_bounds(placed, fp_bboxes)
@@ -535,6 +561,21 @@ def _metrics(
                 getattr(score, "congestion_score", 0.0) or 0.0
             )
     return metrics
+
+
+def _drop_clean_manufacturing_advisories(
+    exceptions: list[DesignException],
+    *,
+    manufacturable: bool,
+) -> list[DesignException]:
+    """Drop pre-route advisories that clean manufacturing made obsolete."""
+    if not manufacturable:
+        return list(exceptions)
+    return [
+        exc
+        for exc in exceptions
+        if exc.code != ExcCode.HIGH_CONGESTION
+    ]
 
 
 def _json_result(
@@ -1011,43 +1052,10 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
     if import_exception:
         return [import_exception]
 
-    exceptions = []
-    if unrouted > 0:
-        exceptions.append(DesignException(
-            id="e-route-unconnected",
-            code=ExcCode.ROUTE_UNCONNECTED,
-            severity=Severity.ERROR,
-            message=f"{unrouted} net(s) could not be routed",
-            subject={"unrouted_count": unrouted},
-            candidates=[
-                Candidate(id="c1", action=ActionType.REGENERATE, params={},
-                          human_summary=(
-                              "Retry placement/routing without changing outline; "
-                              "unrouted nets often indicate floorplan or router choice"
-                          ),
-                          confidence=0.45),
-                Candidate(id="c2", action=ActionType.SET_LAYERS,
-                          params={"layers": 4},
-                          human_summary="Switch to 4-layer board if complexity justifies it",
-                          confidence=0.45),
-                Candidate(id="c3", action=ActionType.SCALE_OUTLINE,
-                          params={"area_factor": 1.2},
-                          human_summary=(
-                              f"Enlarge board 20% only if the current board is "
-                              f"actually dense ({unrouted} unrouted nets)"
-                          ),
-                          confidence=0.25),
-            ],
-            retry_hint=(
-                "Routing is incomplete. Do not blindly grow the outline if the "
-                "board is already sparse or oversized. First improve floorplan: "
-                "move related parts closer, put external connectors on sensible "
-                "edges, reduce long crossing nets, or use a layer count that "
-                "matches the design complexity."
-            ),
-        ))
-
-    return exceptions
+    # Freerouting stdout can report stale/non-authoritative unrouted counts
+    # after a valid SES import. Once the session imports, KiCad DRC is the
+    # source of truth for remaining unconnected copper.
+    return []
 
 
 def _run_drc(pcb_path: str) -> list:
@@ -1534,52 +1542,79 @@ def _generate_board_previews(pcb_path: str, out_dir: Path) -> dict:
         return result
 
     pcb = Path(pcb_path)
-    flat_png_path = out_dir / "preview_2d_top.png"
+    preview_specs = [
+        (
+            "top",
+            "F.Cu,F.Mask,F.Silkscreen,Edge.Cuts",
+            out_dir / "preview_2d_top.svg",
+            out_dir / "preview_2d_top.png",
+        ),
+        (
+            "bottom",
+            "B.Cu,B.Mask,B.Silkscreen,Edge.Cuts",
+            out_dir / "preview_2d_bottom.svg",
+            out_dir / "preview_2d_bottom.png",
+        ),
+        (
+            "combined",
+            "F.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,B.Silkscreen,Edge.Cuts",
+            out_dir / "preview_2d_combined.svg",
+            out_dir / "preview_2d_combined.png",
+        ),
+    ]
     png_path = out_dir / "preview_top.png"
-    svg_path = out_dir / "preview_top.svg"
 
-    try:
-        svg = sp.run(
-            [
-                kicad_cli,
-                "pcb",
-                "export",
-                "svg",
-                "--output",
-                str(svg_path),
-                "--mode-single",
-                "--page-size-mode",
-                "2",
-                "--exclude-drawing-sheet",
-                "--layers",
-                "F.Cu,F.Mask,F.Silkscreen,Edge.Cuts",
-                str(pcb),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if svg.returncode == 0 and svg_path.exists() and svg_path.stat().st_size:
-            brand_svg_warning = _brand_preview_svg(svg_path)
-            if brand_svg_warning is not None:
-                result["warnings"].append(brand_svg_warning)
-            result["files"].append(svg_path.name)
-            raster_warning = _rasterize_svg_preview(svg_path, flat_png_path)
-            if raster_warning is None:
-                result["files"].append(flat_png_path.name)
-                brand_warning = _brand_preview_png(flat_png_path)
-                if brand_warning is not None:
-                    result["warnings"].append(brand_warning)
-            else:
-                result["warnings"].append(raster_warning)
-        else:
-            result["errors"].append(
-                f"pcb export svg exited {svg.returncode}: {svg.stderr[-500:]}"
+    for side, layers, svg_path, flat_png_path in preview_specs:
+        try:
+            svg = sp.run(
+                [
+                    kicad_cli,
+                    "pcb",
+                    "export",
+                    "svg",
+                    "--output",
+                    str(svg_path),
+                    "--mode-single",
+                    "--page-size-mode",
+                    "2",
+                    "--exclude-drawing-sheet",
+                    "--layers",
+                    layers,
+                    str(pcb),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
-    except sp.TimeoutExpired:
-        result["errors"].append("pcb export svg timed out")
-    except OSError as exc:
-        result["errors"].append(f"pcb export svg failed: {exc}")
+            if svg.returncode == 0 and svg_path.exists() and svg_path.stat().st_size:
+                brand_svg_warning = _brand_preview_svg(svg_path)
+                if brand_svg_warning is not None:
+                    result["warnings"].append(brand_svg_warning)
+                result["files"].append(svg_path.name)
+                if side == "top":
+                    legacy_svg_path = out_dir / "preview_top.svg"
+                    legacy_svg_path.write_text(
+                        svg_path.read_text(encoding="utf-8"),
+                        encoding="utf-8",
+                    )
+                    result["files"].append(legacy_svg_path.name)
+                raster_warning = _rasterize_svg_preview(svg_path, flat_png_path)
+                if raster_warning is None:
+                    result["files"].append(flat_png_path.name)
+                    brand_warning = _brand_preview_png(flat_png_path)
+                    if brand_warning is not None:
+                        result["warnings"].append(brand_warning)
+                else:
+                    result["warnings"].append(raster_warning)
+            else:
+                result["errors"].append(
+                    f"pcb export {side} svg exited {svg.returncode}: "
+                    f"{svg.stderr[-500:]}"
+                )
+        except sp.TimeoutExpired:
+            result["errors"].append(f"pcb export {side} svg timed out")
+        except OSError as exc:
+            result["errors"].append(f"pcb export {side} svg failed: {exc}")
 
     try:
         render = sp.run(
@@ -2219,6 +2254,147 @@ def _floorplan_apply_side(
     sides[ref] = side
 
 
+def _floorplan_cutout_items(floorplan: dict) -> list[dict]:
+    items: list[dict] = []
+    for key, default_shape in (
+        ("cutouts", None),
+        ("apertures", None),
+        ("slots", "slot"),
+    ):
+        for item in _floorplan_items(floorplan.get(key)):
+            if isinstance(item, dict):
+                normalized = dict(item)
+                normalized.setdefault("_source", key)
+                if default_shape is not None:
+                    normalized.setdefault("shape", default_shape)
+                items.append(normalized)
+    return items
+
+
+def _floorplan_vertices(value) -> list[tuple[float, float]]:
+    vertices = []
+    if not isinstance(value, list):
+        return vertices
+    for point in value:
+        if isinstance(point, dict):
+            try:
+                vertices.append((float(point["x"]), float(point["y"])))
+            except (TypeError, ValueError, KeyError):
+                return []
+        elif isinstance(point, (list, tuple)) and len(point) >= 2:
+            try:
+                vertices.append((float(point[0]), float(point[1])))
+            except (TypeError, ValueError):
+                return []
+    return vertices if len(vertices) >= 3 else []
+
+
+def _floorplan_cutout(item: dict):
+    from skidl.layout import BoardCutout
+
+    shape = str(
+        item.get("shape")
+        or item.get("kind")
+        or item.get("type")
+        or "rect"
+    ).strip().lower()
+    if shape in {"rectangle", "rectangular", "box"}:
+        shape = "rect"
+    elif shape in {"round", "circular", "hole"}:
+        shape = "circle"
+    elif shape in {"polygonal", "poly"}:
+        shape = "polygon"
+    elif shape in {"rounded_slot", "slotted"}:
+        shape = "slot"
+
+    name = str(item.get("name") or item.get("id") or item.get("ref") or "").strip()
+    vertices = _floorplan_vertices(item.get("vertices") or item.get("points"))
+    if vertices:
+        xs = [x for x, _ in vertices]
+        ys = [y for _, y in vertices]
+        return BoardCutout(
+            x_min=min(xs),
+            y_min=min(ys),
+            x_max=max(xs),
+            y_max=max(ys),
+            shape="polygon",
+            name=name,
+            vertices=vertices,
+        )
+
+    radius = _float_field(item, "radius_mm", "r_mm", "radius")
+    diameter = _float_field(item, "diameter_mm", "d_mm", "diameter")
+    if radius is None and diameter is not None:
+        radius = diameter / 2
+    center = _floorplan_numeric_pair(
+        item.get("center")
+        or item.get("center_mm")
+        or item.get("position")
+        or item.get("position_mm")
+    )
+    cx = _float_field(item, "center_x_mm", "cx_mm", "x_mm", "x")
+    cy = _float_field(item, "center_y_mm", "cy_mm", "y_mm", "y")
+    if center is not None:
+        cx, cy = center
+    if shape == "circle" or radius is not None:
+        if cx is None or cy is None or radius is None or radius <= 0:
+            raise ValueError("circle cutout requires center and positive radius")
+        return BoardCutout(
+            x_min=cx - radius,
+            y_min=cy - radius,
+            x_max=cx + radius,
+            y_max=cy + radius,
+            shape="circle",
+            name=name,
+            radius_mm=radius,
+        )
+
+    start = _floorplan_numeric_pair(item.get("start") or item.get("start_mm"))
+    end = _floorplan_numeric_pair(item.get("end") or item.get("end_mm"))
+    width = _float_field(item, "width_mm", "w_mm", "width")
+    height = _float_field(item, "height_mm", "h_mm", "height")
+    if shape == "slot" and start is not None and end is not None:
+        slot_w = width if width is not None else height
+        if slot_w is None or slot_w <= 0:
+            raise ValueError("slot cutout requires positive width_mm")
+        half = slot_w / 2
+        return BoardCutout(
+            x_min=min(start[0], end[0]) - half,
+            y_min=min(start[1], end[1]) - half,
+            x_max=max(start[0], end[0]) + half,
+            y_max=max(start[1], end[1]) + half,
+            shape="slot",
+            name=name,
+        )
+
+    if all(key in item for key in ("x_min", "y_min", "x_max", "y_max")):
+        x_min = float(item["x_min"])
+        y_min = float(item["y_min"])
+        x_max = float(item["x_max"])
+        y_max = float(item["y_max"])
+    else:
+        if width is None:
+            width = _float_field(item, "w", "dx_mm", "dx")
+        if height is None:
+            height = _float_field(item, "h", "dy_mm", "dy")
+        if cx is None or cy is None or width is None or height is None:
+            raise ValueError("rect cutout requires bounds or center plus size")
+        x_min = cx - width / 2
+        y_min = cy - height / 2
+        x_max = cx + width / 2
+        y_max = cy + height / 2
+    if x_max <= x_min or y_max <= y_min:
+        raise ValueError("cutout bounds must have positive area")
+    return BoardCutout(
+        x_min=x_min,
+        y_min=y_min,
+        x_max=x_max,
+        y_max=y_max,
+        shape=shape if shape in {"rect", "slot", "polygon"} else "rect",
+        name=name,
+    )
+
+
 def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
     """Build layout constraints from a submitted EDA_FLOORPLAN dict."""
     if not isinstance(floorplan, dict):
@@ -2228,6 +2404,7 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         AlignConstraint,
         AnchorZone,
         BoardOutline,
+        BoardCutout,
         DistributeConstraint,
         EdgeAnchor,
         FixedPosition,
@@ -2238,6 +2415,7 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
     fixed = []
     edge_anchors = []
     keepouts = []
+    cutouts: list[BoardCutout] = []
     zones = []
     align = []
     distribute = []
@@ -2325,6 +2503,12 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
             )
         except (TypeError, ValueError, KeyError) as exc:
             warnings.append(f"ignored keepout: {exc}")
+
+    for item in _floorplan_cutout_items(floorplan):
+        try:
+            cutouts.append(_floorplan_cutout(item))
+        except (TypeError, ValueError, KeyError) as exc:
+            warnings.append(f"ignored cutout: {exc}")
 
     for item in _floorplan_items(floorplan.get("zones") or floorplan.get("anchor_zones")):
         if not isinstance(item, dict):
@@ -2621,12 +2805,64 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
             ]
         )
 
-    inferred_outline = explicit_outline or _keepout_band_outline()
+    def _mounting_hole_outline() -> BoardOutline | None:
+        if explicit_outline is not None:
+            return None
+        hole_positions = [
+            item
+            for item in fixed
+            if re.match(r"^(H|MH)\d+$", str(item.ref), re.I)
+            or "mount" in str(item.ref).lower()
+        ]
+        if len(hole_positions) < 4:
+            return None
+        xs = sorted({round(float(item.x_mm), 3) for item in hole_positions})
+        ys = sorted({round(float(item.y_mm), 3) for item in hole_positions})
+        if len(xs) < 2 or len(ys) < 2:
+            return None
+        x_min, x_max = xs[0], xs[-1]
+        y_min, y_max = ys[0], ys[-1]
+        if x_min <= 0.0 or y_min <= 0.0 or x_max <= x_min or y_max <= y_min:
+            return None
+
+        tol = 1.0
+        corners = {
+            "tl": False,
+            "tr": False,
+            "bl": False,
+            "br": False,
+        }
+        for item in hole_positions:
+            x = float(item.x_mm)
+            y = float(item.y_mm)
+            if abs(x - x_min) <= tol and abs(y - y_min) <= tol:
+                corners["tl"] = True
+            elif abs(x - x_max) <= tol and abs(y - y_min) <= tol:
+                corners["tr"] = True
+            elif abs(x - x_min) <= tol and abs(y - y_max) <= tol:
+                corners["bl"] = True
+            elif abs(x - x_max) <= tol and abs(y - y_max) <= tol:
+                corners["br"] = True
+        if not all(corners.values()):
+            return None
+
+        width = x_min + x_max
+        height = y_min + y_max
+        if width <= x_max or height <= y_max:
+            return None
+        return BoardOutline(width, height)
+
+    keepout_outline = _keepout_band_outline()
+    mounting_outline = None if keepout_outline is not None else _mounting_hole_outline()
+    inferred_outline = explicit_outline or keepout_outline or mounting_outline
     metadata = {
         "fixed_positions": len(fixed),
         "edge_anchors": len(edge_anchors),
         "keepouts": len(keepouts),
+        "cutouts": len(cutouts),
     }
+    if explicit_fixed_refs:
+        metadata["fixed_refs"] = sorted(explicit_fixed_refs)
     if zones:
         metadata["zones"] = len(zones)
     if align:
@@ -2641,14 +2877,17 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         metadata["assembly_side_counts"] = _floorplan_side_counts(assembly_sides)
     if edge_anchor_attrs:
         metadata["edge_anchor_refs"] = edge_anchor_attrs
-    cutouts = floorplan.get("cutouts") or floorplan.get("apertures") or floorplan.get("slots")
     if cutouts:
-        metadata["cutouts"] = len(cutouts) if isinstance(cutouts, list) else 1
-        warnings.append("floorplan cutouts are metadata-only; Edge.Cuts support is pending")
+        metadata["cutout_shapes"] = [
+            cutout.to_dict() if hasattr(cutout, "to_dict") else {}
+            for cutout in cutouts
+        ]
     if explicit_outline is not None:
         metadata["outline"] = "explicit"
-    elif inferred_outline is not None:
+    elif keepout_outline is not None:
         metadata["outline"] = "keepout_bands"
+    elif mounting_outline is not None:
+        metadata["outline"] = "mounting_holes"
     if warnings:
         metadata["warnings"] = warnings
     constraints = LayoutConstraints(
@@ -2656,6 +2895,7 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         zones=zones,
         edge_anchors=edge_anchors,
         keepouts=keepouts,
+        cutouts=cutouts,
         align=align,
         distribute=distribute,
         outline=inferred_outline,
@@ -3580,6 +3820,7 @@ def _run_skidl_code(envelope: dict) -> dict:
         write_kicad_pcb(
             layout_result.placed_parts, circuit, fp_dirs,
             str(pcb_path), outline=layout_result.outline,
+            cutouts=getattr(layout_result, "cutouts", None),
         )
     except FileNotFoundError as exc:
         layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
@@ -3693,6 +3934,10 @@ def _run_skidl_code(envelope: dict) -> dict:
     metrics["manufacturable"] = manufacturable
     metrics["manufacturing_complete"] = manufacturable
     metrics["pipeline_goal"] = pipeline_goal
+    all_exceptions = _drop_clean_manufacturing_advisories(
+        all_exceptions,
+        manufacturable=manufacturable,
+    )
 
     return _json_result(
         run_id=run_id,
@@ -3869,6 +4114,7 @@ def run(envelope: dict) -> dict:
             fp_dirs,
             str(pcb_path),
             outline=layout_result.outline,
+            cutouts=getattr(layout_result, "cutouts", None),
         )
     except FileNotFoundError as exc:
         layout_dict = layout_result.to_dict() if hasattr(layout_result, "to_dict") else {}
@@ -3944,6 +4190,10 @@ def run(envelope: dict) -> dict:
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
     metrics["manufacturable"] = manufacturable
     metrics["manufacturing_complete"] = manufacturable
+    all_exceptions = _drop_clean_manufacturing_advisories(
+        all_exceptions,
+        manufacturable=manufacturable,
+    )
 
     return _json_result(
         run_id=run_id,

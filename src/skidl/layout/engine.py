@@ -9,7 +9,7 @@ from .candidates import (
     copy_constraints,
     generate_placement_candidates,
 )
-from .constraints import BoardOutline, EdgeAnchor, KeepOut, LayoutConstraints
+from .constraints import BoardCutout, BoardOutline, EdgeAnchor, KeepOut, LayoutConstraints
 from .context import LayoutContext
 from .decaps import refine_candidate_decaps
 from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometries
@@ -52,6 +52,7 @@ class LayoutResult:
     report: PlacementReport | None = None
     fp_geometries: dict[str, FootprintGeometry] | None = None
     routability: RoutabilityFeedback | None = None
+    cutouts: list[BoardCutout] | None = None
 
     @property
     def ok(self) -> bool:
@@ -77,6 +78,9 @@ class LayoutResult:
                 "overlaps": list(self.validation.overlaps),
                 "outline_violations": list(self.validation.outline_violations),
                 "keepout_violations": list(self.validation.keepout_violations),
+                "cutout_violations": list(
+                    getattr(self.validation, "cutout_violations", []) or []
+                ),
                 "missing_refs": list(self.validation.missing_refs),
                 "total_parts": self.validation.total_parts,
                 "placed_parts": self.validation.placed_parts,
@@ -98,6 +102,11 @@ class LayoutResult:
                 "height_mm": self.outline.height_mm,
                 "corner_radius_mm": getattr(self.outline, "corner_radius_mm", 0.0),
             }
+        if self.cutouts:
+            result["cutouts"] = [
+                cutout.to_dict() if hasattr(cutout, "to_dict") else dict(cutout)
+                for cutout in self.cutouts
+            ]
         return result
 
     def summary(self) -> str:
@@ -121,6 +130,17 @@ class LayoutResult:
                 ),
             )
         return "\n\n".join(lines)
+
+
+@dataclass
+class _FinalizedCandidate:
+    candidate: PlacementCandidate
+    placed_parts: list[PlacedPart]
+    outline: BoardOutline | None
+    constraints: LayoutConstraints
+    validation: ValidationResult
+    score: LayoutScore
+    keepouts: list[KeepOut]
 
 
 def _copy_constraints(
@@ -697,6 +717,21 @@ def _snap_edge_anchors_to_outline(
                 *mounting_keepouts,
             ],
         )
+        if placed.ref in pin_access_refs:
+            x_mm, y_mm, rot_deg, *_ = _prefer_parallel_edge_anchor_position(
+                final_anchor,
+                width,
+                height,
+                outline,
+                geometry=geometry,
+                ref=placed.ref,
+                footprint=placed.footprint,
+                keepouts=[
+                    *((constraints.keepouts if constraints else []) or []),
+                    *mounting_keepouts,
+                ],
+                current=(x_mm, y_mm, rot_deg),
+            )
         if (
             abs(x_mm - placed.x_mm) > 1e-6
             or abs(y_mm - placed.y_mm) > 1e-6
@@ -750,6 +785,18 @@ def _mounting_hole_keepouts(
     return keepouts
 
 
+def _cutout_keepouts(cutouts: list[BoardCutout] | None) -> list[KeepOut]:
+    return [
+        cutout.to_keepout() if hasattr(cutout, "to_keepout") else KeepOut(
+            cutout.x_min,
+            cutout.y_min,
+            cutout.x_max,
+            cutout.y_max,
+        )
+        for cutout in cutouts or []
+    ]
+
+
 def _effective_keepouts(
     constraints: LayoutConstraints | None,
     placed_parts: list[PlacedPart],
@@ -758,7 +805,10 @@ def _effective_keepouts(
     fp_geometries: dict[str, FootprintGeometry] | None,
     outline: BoardOutline | None = None,
 ) -> list[KeepOut]:
-    explicit_keepouts = list((constraints.keepouts if constraints else []) or [])
+    explicit_keepouts = [
+        *list((constraints.keepouts if constraints else []) or []),
+        *_cutout_keepouts((constraints.cutouts if constraints else []) or []),
+    ]
     if outline is not None and intent_plan is not None:
         mounting_refs = set(intent_plan.refs_with_kind("mounting_hole"))
         if mounting_refs:
@@ -953,6 +1003,98 @@ def _edge_anchor_position_avoiding_keepouts(
             best_key = candidate_key
             if overlap_area <= 1e-9 and hits == 0:
                 break
+    return best
+
+
+def _prefer_parallel_edge_anchor_position(
+    anchor: EdgeAnchor,
+    width: float,
+    height: float,
+    outline: BoardOutline,
+    *,
+    geometry: FootprintGeometry | None,
+    ref: str,
+    footprint: str,
+    keepouts: list | None,
+    current: tuple[float, float, float],
+) -> tuple[float, float, float, float, float, float, float]:
+    """Repair contradictory edge-anchor rotations for pin-access connectors."""
+
+    def _candidate_for(rotation: float):
+        candidate_anchor = EdgeAnchor(
+            ref=anchor.ref,
+            edge=anchor.edge,
+            offset_mm=anchor.offset_mm,
+            inset_mm=anchor.inset_mm,
+            rot_deg=rotation,
+        )
+        return _edge_anchor_position_avoiding_keepouts(
+            candidate_anchor,
+            width,
+            height,
+            outline,
+            geometry=geometry,
+            ref=ref,
+            footprint=footprint,
+            keepouts=keepouts,
+        )
+
+    def _candidate_bounds(candidate) -> tuple[float, float, float, float]:
+        x_mm, y_mm, rot_deg, *_ = candidate
+        return _placed_bounds(
+            PlacedPart(
+                ref=ref,
+                x_mm=x_mm,
+                y_mm=y_mm,
+                rot_deg=rot_deg,
+                footprint=footprint,
+            ),
+            {footprint: (width, height)},
+            {footprint: geometry} if geometry is not None else None,
+        )
+
+    edge = anchor.edge.lower()
+    current_full = (*current, current[0], current[1], width, height)
+    current_bounds = _candidate_bounds(current_full)
+    if _edge_parallel(edge, current_bounds):
+        return current_full
+
+    rotations: list[float] = []
+    for rotation in (
+        current[2] + 90.0,
+        current[2] - 90.0,
+        0.0,
+        90.0,
+        180.0,
+        270.0,
+    ):
+        normalized = float(rotation % 360)
+        if normalized not in rotations:
+            rotations.append(normalized)
+
+    best = current_full
+    best_key = (
+        1,
+        _edge_distance(edge, current_bounds, outline, anchor.inset_mm) or 0.0,
+        0.0,
+    )
+    for rotation in rotations:
+        candidate = _candidate_for(rotation)
+        bounds = _candidate_bounds(candidate)
+        parallel = _edge_parallel(edge, bounds)
+        distance = _edge_distance(edge, bounds, outline, anchor.inset_mm) or 0.0
+        rotation_delta = min(
+            abs(rotation - current[2]),
+            abs((rotation + 360.0) - current[2]),
+            abs(rotation - (current[2] + 360.0)),
+        )
+        key = (0 if parallel else 1, distance, rotation_delta)
+        if key < best_key:
+            best = candidate
+            best_key = key
+            if parallel and distance <= 1e-6:
+                break
+
     return best
 
 
@@ -1154,7 +1296,7 @@ def _legalize_small_parts_from_outline(
     protected_refs.update(
         intent_plan.refs_with_kind("mounting_hole") if intent_plan else []
     )
-    protected_refs.update(_constraint_floorplan_refs(constraints))
+    explicit_floorplan_refs = _constraint_floorplan_refs(constraints)
 
     placed_by_ref = {placed.ref: placed for placed in placed_parts}
     moved_refs: set[str] = set()
@@ -1255,6 +1397,8 @@ def _legalize_small_parts_from_outline(
             continue
         role = roles.get(ref)
         is_small = role is not None and role.role in small_roles
+        if ref in explicit_floorplan_refs and not is_small:
+            continue
 
         placed = placed_by_ref[ref]
         bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
@@ -1719,6 +1863,7 @@ def plan_layout(
             clearance_mm=clearance_mm,
             outline=resolved_outline,
             keepouts=candidate_keepouts,
+            cutouts=getattr(candidate_constraints, "cutouts", None),
             fp_geometries=fp_geometries,
         )
         if not candidate_validations[candidate.name].ok:
@@ -1728,6 +1873,7 @@ def plan_layout(
                 resolved_bboxes,
                 outline=resolved_outline,
                 keepouts=candidate_keepouts,
+                cutouts=getattr(candidate_constraints, "cutouts", None),
                 fp_geometries=fp_geometries,
                 clearance_mm=clearance_mm,
                 ctx=ctx,
@@ -1739,6 +1885,7 @@ def plan_layout(
                 resolved_bboxes,
                 outline=resolved_outline,
                 keepouts=candidate_keepouts,
+                cutouts=getattr(candidate_constraints, "cutouts", None),
                 fp_geometries=fp_geometries,
                 clearance_mm=clearance_mm,
                 board_layers=board_layers,
@@ -1775,6 +1922,7 @@ def plan_layout(
                 resolved_bboxes,
                 outline=resolved_outline,
                 keepouts=candidate_keepouts,
+                cutouts=getattr(candidate_constraints, "cutouts", None),
                 fp_geometries=fp_geometries,
                 clearance_mm=clearance_mm,
                 board_layers=board_layers,
@@ -1791,298 +1939,438 @@ def plan_layout(
             )
             candidate.score = candidate_scores[candidate.name].score
 
-    selected_candidate = max(
-        candidates,
-        key=lambda candidate: (
-            1 if candidate_scores.get(candidate.name, None) is not None
-            and candidate_scores[candidate.name].ok else 0,
-            candidate.score if candidate.score is not None else 0.0,
-            candidate.name,
-        ),
-    )
-    placed_parts = selected_candidate.placed_parts
-    selected_constraints = selected_candidate.constraints or resolved_constraints
+    def _note_move(
+        candidate: PlacementCandidate,
+        placed_parts: list[PlacedPart],
+        refs: list[str],
+        reason: str,
+        ref_reason: str,
+    ) -> None:
+        if not refs:
+            return
+        candidate.placed_parts = placed_parts
+        candidate.reasons.append(reason)
+        for ref in refs:
+            candidate.ref_reasons.setdefault(ref, []).append(ref_reason)
 
-    if auto_outline:
-        min_area = (
-            density_outline.width_mm * density_outline.height_mm
-            if density_outline is not None
-            else 0.0
+    def _finalize_candidate(candidate: PlacementCandidate) -> _FinalizedCandidate:
+        nonlocal density_outline
+
+        candidate_outline = resolved_outline
+        candidate_constraints = copy_constraints(
+            candidate.constraints or resolved_constraints
         )
-        resolved_outline = _derive_outline_for_edge_anchors(
+        placed_parts = list(candidate.placed_parts)
+
+        if auto_outline:
+            min_area = (
+                density_outline.width_mm * density_outline.height_mm
+                if density_outline is not None
+                else 0.0
+            )
+            candidate_outline = _derive_outline_for_edge_anchors(
+                placed_parts,
+                resolved_bboxes,
+                margin_mm=margin_mm,
+                form_factor=form_factor,
+                min_area_mm2=min_area,
+                max_min_area_growth=1.35,
+                intent_plan=intent_plan,
+                constraints=candidate_constraints,
+                fp_geometries=fp_geometries,
+            )
+            if corner_radius_mm is not None:
+                candidate_outline.corner_radius_mm = max(
+                    0.0, float(corner_radius_mm)
+                )
+            candidate_constraints.outline = candidate_outline
+
+            placed_parts, moved_mounting_refs = _snap_mounting_holes_to_outline_corners(
+                placed_parts,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_mounting_refs,
+                "mounting holes snapped to final auto-outline corners",
+                "snapped to final auto-outline corner",
+            )
+
+            placed_parts, moved_edge_refs = _snap_edge_anchors_to_outline(
+                placed_parts,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_edge_refs,
+                "edge connectors snapped to final auto-outline edges",
+                "snapped to final auto-outline edge",
+            )
+
+            placed_parts, gridded_passive_refs = _arrange_passive_grid_between_opposing_headers(
+                placed_parts,
+                circuit,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                gridded_passive_refs,
+                "simple passives arranged on an even grid between opposing headers",
+                "arranged on passive grid between opposing headers",
+            )
+
+            placed_parts, moved_neighbor_refs = _legalize_edge_anchor_neighbors(
+                placed_parts,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+                clearance_mm,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_neighbor_refs,
+                "near-edge parts nudged clear of final edge connectors",
+                "nudged clear of final edge connector",
+            )
+
+            placed_parts, moved_interior_refs = _legalize_small_parts_from_outline(
+                placed_parts,
+                circuit,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+                clearance_mm,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_interior_refs,
+                "small passive parts nudged away from board outline",
+                "nudged away from board outline",
+            )
+        elif candidate_outline is None and derive_outline_if_missing:
+            min_area = 0.0
+            if not form_factor:
+                density_outline = derive_outline_from_circuit(
+                    circuit, resolved_bboxes
+                )
+                min_area = density_outline.width_mm * density_outline.height_mm
+            candidate_outline = derive_outline(
+                placed_parts,
+                resolved_bboxes,
+                margin_mm=margin_mm,
+                form_factor=form_factor,
+                min_area_mm2=min_area,
+                max_min_area_growth=1.35,
+            )
+            if corner_radius_mm is not None:
+                candidate_outline.corner_radius_mm = max(
+                    0.0, float(corner_radius_mm)
+                )
+            candidate_constraints.outline = candidate_outline
+
+        if candidate_outline is not None and not auto_outline:
+            placed_parts, moved_mounting_refs = _snap_mounting_holes_to_outline_corners(
+                placed_parts,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_mounting_refs,
+                "mounting holes snapped to fixed-outline corners",
+                "snapped to fixed-outline corner",
+            )
+
+            placed_parts, moved_edge_refs = _snap_edge_anchors_to_outline(
+                placed_parts,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_edge_refs,
+                "edge connectors snapped to fixed-outline edges",
+                "snapped to fixed-outline edge",
+            )
+
+            placed_parts, moved_neighbor_refs = _legalize_edge_anchor_neighbors(
+                placed_parts,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+                clearance_mm,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_neighbor_refs,
+                "near-edge parts nudged clear of fixed-outline edge connectors",
+                "nudged clear of fixed-outline edge connector",
+            )
+
+            placed_parts, moved_interior_refs = _legalize_small_parts_from_outline(
+                placed_parts,
+                circuit,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+                clearance_mm,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_interior_refs,
+                "small passive parts nudged away from fixed board outline",
+                "nudged away from fixed board outline",
+            )
+
+        candidate_constraints = _final_outline_constraints(
+            candidate_constraints,
+            candidate_outline,
+            intent_plan,
+            lock_edge_anchors=not auto_outline,
+        )
+        placed_parts = _apply_assembly_sides(placed_parts, intent_plan)
+        candidate.placed_parts = placed_parts
+        candidate.constraints = candidate_constraints
+        post_refinement_constraints = _constraints_with_effective_keepouts(
+            candidate_constraints,
             placed_parts,
+            intent_plan,
             resolved_bboxes,
-            margin_mm=margin_mm,
-            form_factor=form_factor,
-            min_area_mm2=min_area,
-            max_min_area_growth=1.35,
-            intent_plan=intent_plan,
-            constraints=selected_constraints,
+            fp_geometries,
+            candidate_outline,
+        )
+        post_refinement = refine_placement(
+            placed_parts,
+            circuit,
+            resolved_bboxes,
+            constraints=post_refinement_constraints,
+            fp_geometries=fp_geometries,
+            clearance_mm=clearance_mm,
+            board_layers=board_layers,
+            max_passes=1,
+            max_movable_refs=32,
+            max_pair_swaps=8,
+        )
+        if post_refinement.accepted_count:
+            placed_parts = post_refinement.placed_parts
+            candidate.placed_parts = placed_parts
+            candidate.reasons.append(
+                (
+                    "post-anchor local refinement accepted "
+                    f"{post_refinement.accepted_count} score-gated adjustment(s): "
+                    f"{post_refinement.start_score:.1f} -> "
+                    f"{post_refinement.final_score:.1f}"
+                )
+            )
+            for ref, reasons in post_refinement.ref_reasons.items():
+                candidate.ref_reasons.setdefault(ref, []).extend(reasons)
+
+        if auto_outline:
+            min_area = (
+                density_outline.width_mm * density_outline.height_mm
+                if density_outline is not None
+                else 0.0
+            )
+            tightened_outline = _derive_outline_for_edge_anchors(
+                placed_parts,
+                resolved_bboxes,
+                margin_mm=margin_mm,
+                form_factor=form_factor,
+                min_area_mm2=min_area,
+                max_min_area_growth=1.35,
+                intent_plan=intent_plan,
+                constraints=candidate_constraints,
+                fp_geometries=fp_geometries,
+            )
+            if corner_radius_mm is not None:
+                tightened_outline.corner_radius_mm = max(
+                    0.0, float(corner_radius_mm)
+                )
+            candidate_outline = tightened_outline
+            candidate_constraints.outline = candidate_outline
+
+            placed_parts, moved_mounting_refs = _snap_mounting_holes_to_outline_corners(
+                placed_parts,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_mounting_refs,
+                "mounting holes snapped to tightened auto-outline corners",
+                "snapped to tightened auto-outline corner",
+            )
+
+            placed_parts, moved_edge_refs = _snap_edge_anchors_to_outline(
+                placed_parts,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_edge_refs,
+                "edge connectors snapped to tightened auto-outline edges",
+                "snapped to tightened auto-outline edge",
+            )
+
+            placed_parts, moved_neighbor_refs = _legalize_edge_anchor_neighbors(
+                placed_parts,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+                clearance_mm,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_neighbor_refs,
+                "near-edge parts nudged clear of tightened edge connectors",
+                "nudged clear of tightened edge connector",
+            )
+
+            placed_parts, moved_interior_refs = _legalize_small_parts_from_outline(
+                placed_parts,
+                circuit,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                resolved_bboxes,
+                fp_geometries,
+                clearance_mm,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                moved_interior_refs,
+                "small passive parts nudged away from tightened board outline",
+                "nudged away from tightened board outline",
+            )
+
+            placed_parts = _apply_assembly_sides(placed_parts, intent_plan)
+            candidate.placed_parts = placed_parts
+
+        candidate_keepouts = _effective_keepouts(
+            candidate_constraints,
+            placed_parts,
+            intent_plan,
+            resolved_bboxes,
+            fp_geometries,
+            candidate_outline,
+        )
+        validation = validate(
+            placed_parts,
+            circuit,
+            resolved_bboxes,
+            clearance_mm=clearance_mm,
+            outline=candidate_outline,
+            keepouts=candidate_keepouts,
+            cutouts=getattr(candidate_constraints, "cutouts", None),
             fp_geometries=fp_geometries,
         )
-        if corner_radius_mm is not None:
-            resolved_outline.corner_radius_mm = max(0.0, float(corner_radius_mm))
-        selected_constraints.outline = resolved_outline
-        placed_parts, moved_mounting_refs = _snap_mounting_holes_to_outline_corners(
-            placed_parts,
-            resolved_outline,
-            intent_plan,
-            resolved_constraints,
-            resolved_bboxes,
-            fp_geometries,
-        )
-        if moved_mounting_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "mounting holes snapped to final auto-outline corners"
-            )
-            for ref in moved_mounting_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "snapped to final auto-outline corner"
-                )
-        placed_parts, moved_edge_refs = _snap_edge_anchors_to_outline(
-            placed_parts,
-            resolved_outline,
-            intent_plan,
-            resolved_constraints,
-            resolved_bboxes,
-            fp_geometries,
-        )
-        if moved_edge_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "edge connectors snapped to final auto-outline edges"
-            )
-            for ref in moved_edge_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "snapped to final auto-outline edge"
-                )
-        placed_parts, gridded_passive_refs = _arrange_passive_grid_between_opposing_headers(
+        raw_score = score_placement(
             placed_parts,
             circuit,
-            resolved_outline,
-            intent_plan,
-            resolved_constraints,
             resolved_bboxes,
-            fp_geometries,
+            outline=candidate_outline,
+            keepouts=candidate_keepouts,
+            cutouts=getattr(candidate_constraints, "cutouts", None),
+            fp_geometries=fp_geometries,
+            clearance_mm=clearance_mm,
+            board_layers=board_layers,
+            ctx=ctx,
         )
-        if gridded_passive_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "simple passives arranged on an even grid between opposing headers"
-            )
-            for ref in gridded_passive_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "arranged on passive grid between opposing headers"
-                )
-        placed_parts, moved_neighbor_refs = _legalize_edge_anchor_neighbors(
-            placed_parts,
-            resolved_outline,
-            intent_plan,
-            resolved_constraints,
-            resolved_bboxes,
-            fp_geometries,
-            clearance_mm,
-        )
-        if moved_neighbor_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "near-edge parts nudged clear of final edge connectors"
-            )
-            for ref in moved_neighbor_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "nudged clear of final edge connector"
-                )
-        placed_parts, moved_interior_refs = _legalize_small_parts_from_outline(
-            placed_parts,
-            circuit,
-            resolved_outline,
-            intent_plan,
-            resolved_constraints,
-            resolved_bboxes,
-            fp_geometries,
-            clearance_mm,
-        )
-        if moved_interior_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "small passive parts nudged away from board outline"
-            )
-            for ref in moved_interior_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "nudged away from board outline"
-                )
-    elif resolved_outline is None and derive_outline_if_missing:
-        min_area = 0.0
-        if not form_factor:
-            density_outline = derive_outline_from_circuit(
-                circuit, resolved_bboxes
-            )
-            min_area = density_outline.width_mm * density_outline.height_mm
-        resolved_outline = derive_outline(
+        score = _apply_edge_intent_score(
+            raw_score,
             placed_parts,
             resolved_bboxes,
-            margin_mm=margin_mm,
-            form_factor=form_factor,
-            min_area_mm2=min_area,
-            max_min_area_growth=1.35,
+            candidate_outline,
+            intent_plan,
+            constraints=candidate_constraints,
+            fp_geometries=fp_geometries,
         )
-        if corner_radius_mm is not None:
-            resolved_outline.corner_radius_mm = max(0.0, float(corner_radius_mm))
+        candidate.score = score.score
+        return _FinalizedCandidate(
+            candidate=candidate,
+            placed_parts=placed_parts,
+            outline=candidate_outline,
+            constraints=candidate_constraints,
+            validation=validation,
+            score=score,
+            keepouts=candidate_keepouts,
+        )
 
-    if resolved_outline is not None and not auto_outline:
-        placed_parts, moved_mounting_refs = _snap_mounting_holes_to_outline_corners(
-            placed_parts,
-            resolved_outline,
-            intent_plan,
-            resolved_constraints,
-            resolved_bboxes,
-            fp_geometries,
-        )
-        if moved_mounting_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "mounting holes snapped to fixed-outline corners"
-            )
-            for ref in moved_mounting_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "snapped to fixed-outline corner"
-                )
-        placed_parts, moved_edge_refs = _snap_edge_anchors_to_outline(
-            placed_parts,
-            resolved_outline,
-            intent_plan,
-            selected_constraints,
-            resolved_bboxes,
-            fp_geometries,
-        )
-        if moved_edge_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "edge connectors snapped to fixed-outline edges"
-            )
-            for ref in moved_edge_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "snapped to fixed-outline edge"
-                )
-        placed_parts, moved_neighbor_refs = _legalize_edge_anchor_neighbors(
-            placed_parts,
-            resolved_outline,
-            intent_plan,
-            selected_constraints,
-            resolved_bboxes,
-            fp_geometries,
-            clearance_mm,
-        )
-        if moved_neighbor_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "near-edge parts nudged clear of fixed-outline edge connectors"
-            )
-            for ref in moved_neighbor_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "nudged clear of fixed-outline edge connector"
-                )
-        placed_parts, moved_interior_refs = _legalize_small_parts_from_outline(
-            placed_parts,
-            circuit,
-            resolved_outline,
-            intent_plan,
-            resolved_constraints,
-            resolved_bboxes,
-            fp_geometries,
-            clearance_mm,
-        )
-        if moved_interior_refs:
-            selected_candidate.placed_parts = placed_parts
-            selected_candidate.reasons.append(
-                "small passive parts nudged away from fixed board outline"
-            )
-            for ref in moved_interior_refs:
-                selected_candidate.ref_reasons.setdefault(ref, []).append(
-                    "nudged away from fixed board outline"
-                )
+    finalized_candidates = {
+        candidate.name: _finalize_candidate(candidate)
+        for candidate in candidates
+    }
+    candidate_validations = {
+        name: finalized.validation
+        for name, finalized in finalized_candidates.items()
+    }
+    candidate_scores = {
+        name: finalized.score
+        for name, finalized in finalized_candidates.items()
+    }
 
-    selected_constraints = _final_outline_constraints(
-        selected_constraints,
-        resolved_outline,
-        intent_plan,
-        lock_edge_anchors=not auto_outline,
+    selected_final = max(
+        finalized_candidates.values(),
+        key=lambda finalized: (
+            1 if finalized.score.ok else 0,
+            finalized.score.score,
+            finalized.candidate.name,
+        ),
     )
-    placed_parts = _apply_assembly_sides(placed_parts, intent_plan)
-    selected_candidate.placed_parts = placed_parts
-    post_refinement_constraints = _constraints_with_effective_keepouts(
-        selected_constraints,
-        placed_parts,
-        intent_plan,
-        resolved_bboxes,
-        fp_geometries,
-        resolved_outline,
-    )
-    post_refinement = refine_placement(
-        placed_parts,
-        circuit,
-        resolved_bboxes,
-        constraints=post_refinement_constraints,
-        fp_geometries=fp_geometries,
-        clearance_mm=clearance_mm,
-        board_layers=board_layers,
-        max_passes=1,
-        max_movable_refs=32,
-        max_pair_swaps=8,
-    )
-    if post_refinement.accepted_count:
-        placed_parts = post_refinement.placed_parts
-        selected_candidate.placed_parts = placed_parts
-        selected_candidate.reasons.append(
-            (
-                "post-anchor local refinement accepted "
-                f"{post_refinement.accepted_count} score-gated adjustment(s): "
-                f"{post_refinement.start_score:.1f} -> "
-                f"{post_refinement.final_score:.1f}"
-            )
-        )
-        for ref, reasons in post_refinement.ref_reasons.items():
-            selected_candidate.ref_reasons.setdefault(ref, []).extend(reasons)
-    selected_keepouts = _effective_keepouts(
-        selected_constraints,
-        placed_parts,
-        intent_plan,
-        resolved_bboxes,
-        fp_geometries,
-        resolved_outline,
-    )
-
-    validation = validate(
-        placed_parts,
-        circuit,
-        resolved_bboxes,
-        clearance_mm=clearance_mm,
-        outline=resolved_outline,
-        keepouts=selected_keepouts,
-        fp_geometries=fp_geometries,
-    )
-    raw_score = score_placement(
-        placed_parts,
-        circuit,
-        resolved_bboxes,
-        outline=resolved_outline,
-        keepouts=selected_keepouts,
-        fp_geometries=fp_geometries,
-        clearance_mm=clearance_mm,
-        board_layers=board_layers,
-        ctx=ctx,
-    )
-    score = _apply_edge_intent_score(
-        raw_score,
-        placed_parts,
-        resolved_bboxes,
-        resolved_outline,
-        intent_plan,
-        constraints=selected_constraints,
-        fp_geometries=fp_geometries,
-    )
-    selected_candidate.score = score.score
+    selected_candidate = selected_final.candidate
+    placed_parts = selected_final.placed_parts
+    selected_constraints = selected_final.constraints
+    resolved_outline = selected_final.outline
+    validation = selected_final.validation
+    score = selected_final.score
     power_plan = plan_power_routes(
         circuit,
         placed_parts,
@@ -2112,4 +2400,5 @@ def plan_layout(
         report=report,
         fp_geometries=fp_geometries,
         routability=routability,
+        cutouts=list(getattr(selected_constraints, "cutouts", []) or []),
     )

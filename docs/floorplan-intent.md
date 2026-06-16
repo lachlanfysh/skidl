@@ -31,6 +31,10 @@ EDA_FLOORPLAN = {
     "distribute": [{"refs": ["LED1", "LED2", "LED3"], "axis": "x"}],
     "assembly_sides": {"U_REG": "back", "J_BAT": "back"},
     "keepouts": [{"x_min": 0, "y_min": 0, "x_max": 120, "y_max": 8}],
+    "cutouts": [
+        {"name": "sensor_window", "x_min": 40, "y_min": 70, "x_max": 80, "y_max": 110},
+        {"name": "cable_slot", "shape": "slot", "start": [20, 150], "end": [55, 150], "width_mm": 3},
+    ],
 }
 ```
 
@@ -41,6 +45,9 @@ MR-1 controls, displays, mounting holes, batteries, and daughterboards. Use
 `edge_anchors` for cable-facing connectors whose exact origin should remain
 footprint-aware. Use `assembly_sides` or per-entry `side` for front/back policy.
 
-`cutouts`, `apertures`, and `slots` are accepted only as intent metadata today;
-they are not yet emitted as internal `Edge.Cuts` geometry. Keep them in the
-floorplan so later cutout support can preserve the original mechanical record.
+Use `cutouts`, `apertures`, and `slots` for physical board voids such as sensor
+windows, display apertures, cable slots, and ventilation holes. These are not
+generic keepouts: they are emitted as internal `Edge.Cuts`, appear in layout
+metadata/previews, and are treated as no-place geometry during placement.
+Supported compact forms are rectangle bounds, center plus size, circle
+center plus radius/diameter, polygon vertices, and slot start/end plus width.

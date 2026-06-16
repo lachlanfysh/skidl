@@ -16,6 +16,7 @@ from .constraints import (
 )
 from .grid import grid_rows_for_refs
 from .connector_metadata import (
+    TERMINAL_BLOCK_RE,
     infer_connector_mating_face,
     infer_edge_mating_rotation,
     rotation_for_local_exit,
@@ -66,7 +67,11 @@ SENSOR_RE = re.compile(
     re.I,
 )
 COAX_RE = re.compile(r"(?:^|[\s_/:.,-])(coax|coaxial|sma|u\.?fl|ipex|antenna|rf.?conn)(?:[\s_/:.,-]|$)", re.I)
-XTAL_PIN_RE = re.compile(r"^(XTAL|OSC|XTALI|XTALO|XIN|XOUT)$", re.I)
+XTAL_PIN_RE = re.compile(
+    r"(?:^|[/_.\s-])(?:XTAL(?:I|O|IN|OUT)?\d*|EXTAL\d*|XIN\d*|XOUT\d*|"
+    r"XI\d*|XO\d*|OSC(?:_?IN|_?OUT)?\d*|HFXTAL_[IO])(?:$|[/_.\s-])",
+    re.I,
+)
 AUDIO_IC_RE = re.compile(r"\b(dac|codec|audio|i2s|pcm510|wm874|max9814|sgtl5000|tlv320)\b", re.I)
 DISPLAY_NET_RE = re.compile(r"(?:^|[_/.\s-])(eink|e.ink|oled|lcd|disp|tft|epd|dc|busy)(?:[_/.\s-]|$)", re.I)
 NAV_RE = re.compile(r"\b(nav|joystick|d-pad|dpad|5.?way|4.?way)\b", re.I)
@@ -562,6 +567,17 @@ def _mating_intent_for_part(
             allowed_rotations=(0.0, 90.0, 180.0, 270.0),
             confidence=0.9,
             reasons=["barrel/power jack metadata"],
+        )
+    if role_name == "connector" and TERMINAL_BLOCK_RE.search(text):
+        edge = _edge_for_part(text, role or PartRole(ref, "connector", 0.5), nets)
+        return MatingIntent(
+            ref=ref,
+            kind="terminal_block",
+            edge_preference=edge,
+            mating_side="cable_exit",
+            allowed_rotations=(0.0, 90.0, 180.0, 270.0),
+            confidence=0.86,
+            reasons=["terminal block wire-entry metadata"],
         )
     if JST_RE.search(text):
         return MatingIntent(
@@ -1200,10 +1216,29 @@ def _add_simple_ic_passive_near_constraints(
         existing.add(key)
 
 
-def _is_coax_connector(part) -> bool:
+def _is_coax_connector(part, role: PartRole | None = None) -> bool:
     """Return True if *part* looks like a coaxial/antenna connector."""
     text = _part_text(part)
-    return bool(COAX_RE.search(text))
+    if not COAX_RE.search(text):
+        return False
+
+    ref = str(getattr(part, "ref", "") or "").upper()
+    connector_role = role is not None and role.role in {"connector", "panel_jack"}
+    connector_ref = ref.startswith(("J", "P", "CN", "CON", "ANT"))
+    connector_metadata = bool(
+        re.search(
+            r"(connector|conn[_\s:/-]*coax|coaxial|sma|u\.?fl|ipex)",
+            text,
+            re.I,
+        )
+    )
+    module_metadata = bool(
+        ref.startswith("U")
+        or re.search(r"\b(rf[_\s:/-]*module|module|transceiver|receiver|esp32)\b", text, re.I)
+    )
+    if module_metadata and not (connector_role or connector_ref or connector_metadata):
+        return False
+    return connector_role or connector_ref or connector_metadata
 
 
 def _find_rf_ic(antenna_part, circuit):
@@ -1252,7 +1287,7 @@ def _find_crystal_for_ic(ic_part, circuit):
     """Find a crystal connected to the IC's XTAL/OSC pins."""
     for pin in ic_part.pins:
         pin_name = getattr(pin, "name", None) or ""
-        if not XTAL_PIN_RE.match(pin_name):
+        if not XTAL_PIN_RE.search(pin_name):
             continue
         net = getattr(pin, "net", None)
         if net is None:
@@ -1285,32 +1320,41 @@ def _find_audio_ics(circuit):
     return audio_parts
 
 
-def _infer_rf_intents(circuit, plan: PlacementIntentPlan, outline) -> None:
+def _infer_rf_intents(
+    circuit,
+    plan: PlacementIntentPlan,
+    outline,
+    roles: dict[str, PartRole],
+) -> None:
     """Detect antenna connectors and emit RF path constraints."""
+    explicit_refs = set(plan.refs_with_kind("explicit_edge_anchor"))
     for part in circuit.parts:
-        if not _is_coax_connector(part):
+        ref = str(getattr(part, "ref", ""))
+        if not _is_coax_connector(part, roles.get(ref)):
             continue
 
-        ref = str(getattr(part, "ref", ""))
-
-        # EdgeAnchor for the antenna connector — replace any generic
-        # connector anchor that was already emitted for this ref.
-        offset = None
-        if outline is not None:
+        existing_anchor = next((a for a in plan.edge_anchors if a.ref == ref), None)
+        edge = existing_anchor.edge if ref in explicit_refs and existing_anchor else "top"
+        offset = existing_anchor.offset_mm if existing_anchor is not None else None
+        if offset is None and outline is not None and ref not in explicit_refs:
             offset = (outline.x_min + outline.x_max) / 2
-        plan.edge_anchors = [a for a in plan.edge_anchors if a.ref != ref]
-        plan.edge_anchors.append(
-            EdgeAnchor(ref=ref, edge="top", offset_mm=offset)
-        )
-        plan.face_edges = [f for f in plan.face_edges if f.ref != ref]
-        plan.face_edges.append(FaceEdgeConstraint(ref=ref, edge="top"))
+
+        if ref not in explicit_refs:
+            # EdgeAnchor for the antenna connector — replace any generic
+            # connector anchor that was already emitted for this ref.
+            plan.edge_anchors = [a for a in plan.edge_anchors if a.ref != ref]
+            plan.edge_anchors.append(
+                EdgeAnchor(ref=ref, edge=edge, offset_mm=offset)
+            )
+            plan.face_edges = [f for f in plan.face_edges if f.ref != ref]
+            plan.face_edges.append(FaceEdgeConstraint(ref=ref, edge=edge))
 
         # Mating intent for the coaxial connector
         plan.mating_intents.append(
             MatingIntent(
                 ref=ref,
                 kind="coaxial",
-                edge_preference="top",
+                edge_preference=edge,
                 mating_side="outside_board",
                 allowed_rotations=(0.0, 90.0, 180.0, 270.0),
                 confidence=0.9,
@@ -1370,6 +1414,40 @@ def _infer_rf_intents(circuit, plan: PlacementIntentPlan, outline) -> None:
                 75,
                 f"audio IC separated from RF IC {rf_ic_ref}",
             )
+
+
+def _infer_crystal_intents(
+    circuit,
+    plan: PlacementIntentPlan,
+    roles: dict[str, PartRole],
+) -> None:
+    """Keep crystals and resonators close to IC clock pins."""
+
+    existing = {(c.ref, c.target_ref) for c in plan.near_constraints}
+    for part in circuit.parts:
+        ref = str(getattr(part, "ref", "") or "")
+        role = roles.get(ref)
+        if role is None or role.role != "ic":
+            continue
+        crystal = _find_crystal_for_ic(part, circuit)
+        if crystal is None:
+            continue
+        xtal_ref = str(getattr(crystal, "ref", "") or "")
+        if not xtal_ref or xtal_ref == ref:
+            continue
+        key = (xtal_ref, ref)
+        if key not in existing:
+            plan.near_constraints.append(
+                NearConstraint(ref=xtal_ref, target_ref=ref, distance_mm=4.0)
+            )
+            existing.add(key)
+        _add_intent(
+            plan,
+            xtal_ref,
+            "crystal_network",
+            86,
+            f"crystal near clock pins on {ref}",
+        )
 
 
 def _slot_for_channel(
@@ -1987,11 +2065,6 @@ def infer_placement_intents(
                 mating_intent.kind if mating_intent is not None else None,
                 part=part,
             )
-            if offset is None and outline is not None:
-                if edge in {"top", "bottom"}:
-                    offset = (outline.x_min + outline.x_max) / 2
-                else:
-                    offset = (outline.y_min + outline.y_max) / 2
             plan.edge_anchors = [
                 anchor for anchor in plan.edge_anchors if anchor.ref != ref
             ]
@@ -2081,7 +2154,8 @@ def infer_placement_intents(
 
     plan.repeated_channels = _infer_repeated_channels(circuit, roles)
     _add_repeated_channel_near_constraints(plan, roles)
-    _infer_rf_intents(circuit, plan, outline)
+    _infer_rf_intents(circuit, plan, outline, roles)
+    _infer_crystal_intents(circuit, plan, roles)
     _add_simple_ic_passive_near_constraints(circuit, plan, roles)
     _colocate_display_and_controls(plan, outline)
     _place_opposing_header_pair(plan)

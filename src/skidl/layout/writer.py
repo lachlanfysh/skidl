@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from simp_sexp import Sexp
 
-from .constraints import BoardOutline
+from .constraints import BoardCutout, BoardOutline
 
 logger = logging.getLogger(__name__)
 
@@ -655,6 +655,15 @@ def _is_rectangular_outline(outline: BoardOutline) -> bool:
     return set(outline.vertices) == expected
 
 
+def _points_coincident(
+    a: tuple[float, float],
+    b: tuple[float, float],
+    *,
+    tol: float = 1e-6,
+) -> bool:
+    return abs(a[0] - b[0]) <= tol and abs(a[1] - b[1]) <= tol
+
+
 def _append_rounded_rect_outline(board: Sexp, outline: BoardOutline, radius: float):
     x0, y0 = outline.x_min, outline.y_min
     x1, y1 = outline.x_max, outline.y_max
@@ -683,7 +692,7 @@ def _append_rounded_rect_outline(board: Sexp, outline: BoardOutline, radius: flo
             )
 
     for idx, (start, end) in enumerate(zip(points, points[1:] + points[:1])):
-        if start == end:
+        if _points_coincident(start, end):
             continue
         board.append(Sexp([
             "gr_line",
@@ -717,6 +726,8 @@ def _append_outline(board: Sexp, outline: BoardOutline):
 
     vertices = outline.vertices
     for idx, (start, end) in enumerate(zip(vertices, vertices[1:] + vertices[:1])):
+        if _points_coincident(start, end):
+            continue
         board.append(Sexp([
             "gr_line",
             ["start", start[0], start[1]],
@@ -727,12 +738,56 @@ def _append_outline(board: Sexp, outline: BoardOutline):
         ]))
 
 
+def _append_cutouts(board: Sexp, cutouts: list[BoardCutout] | None):
+    for idx, cutout in enumerate(cutouts or []):
+        seed = f"cutout:{idx}:{getattr(cutout, 'name', '')}"
+        shape = str(getattr(cutout, "shape", "rect") or "rect").lower()
+        vertices = list(getattr(cutout, "vertices", []) or [])
+        if vertices:
+            for line_idx, (start, end) in enumerate(zip(vertices, vertices[1:] + vertices[:1])):
+                if _points_coincident(start, end):
+                    continue
+                board.append(Sexp([
+                    "gr_line",
+                    ["start", start[0], start[1]],
+                    ["end", end[0], end[1]],
+                    ["stroke", ["width", 0.1], ["type", "solid"]],
+                    ["layer", _q("Edge.Cuts")],
+                    ["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, f"{seed}:line:{line_idx}"))],
+                ]))
+            continue
+        if shape == "circle" and getattr(cutout, "radius_mm", None):
+            cx = cutout.center_x_mm
+            cy = cutout.center_y_mm
+            radius = float(cutout.radius_mm)
+            board.append(Sexp([
+                "gr_circle",
+                ["center", cx, cy],
+                ["end", cx + radius, cy],
+                ["stroke", ["width", 0.1], ["type", "solid"]],
+                ["fill", "no"],
+                ["layer", _q("Edge.Cuts")],
+                ["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, seed))],
+            ]))
+            continue
+        board.append(Sexp([
+            "gr_rect",
+            ["start", cutout.x_min, cutout.y_min],
+            ["end", cutout.x_max, cutout.y_max],
+            ["stroke", ["width", 0.1], ["type", "solid"]],
+            ["fill", "no"],
+            ["layer", _q("Edge.Cuts")],
+            ["uuid", _q(uuid.uuid5(_NAMESPACE_UUID, seed))],
+        ]))
+
+
 def write_kicad_pcb(
     placed_parts: list,
     circuit,
     fp_lib_dirs: list[str],
     output_path: str,
     outline: BoardOutline = None,
+    cutouts: list[BoardCutout] | None = None,
     version: int = 20241229,
     strict_missing_footprints: bool = True,
     lib_table: dict[str, str] = None,
@@ -797,6 +852,7 @@ def write_kicad_pcb(
             raise FileNotFoundError(message)
 
     _append_outline(board, outline)
+    _append_cutouts(board, cutouts)
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w") as f:

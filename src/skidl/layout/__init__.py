@@ -2,6 +2,7 @@ from .constraints import (
     AnchorZone,
     AlignConstraint,
     BoardOutline,
+    BoardCutout,
     DistributeConstraint,
     EdgeAnchor,
     FaceEdgeConstraint,

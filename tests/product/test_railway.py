@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import tempfile
+import traceback
 import zipfile
 from io import BytesIO
 from pathlib import Path
@@ -19,7 +20,12 @@ os.environ.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
 
 from mcp_server.db import DB
 from mcp_server.pipeline import DesignResponse
-from mcp_server.worker import _execute_job, _find_artifacts, worker_loop
+from mcp_server.worker import (
+    _execute_job,
+    _find_artifacts,
+    _worker_exception_result,
+    worker_loop,
+)
 
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 needs_postgres = pytest.mark.skipif(
@@ -312,6 +318,25 @@ class TestDB:
         assert job["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
         assert job["result"]["exceptions"][0]["subject"]["stage"] == "worker_lost"
         assert job["result"]["exceptions"][0]["candidates"][0]["action"] == "regenerate"
+
+    @pytest.mark.asyncio
+    async def test_default_stale_reaping_uses_job_timeout(self, db):
+        job_id = await db.create_job(SIMPLE_SPEC, {"timeout_s": 1})
+        await db.claim_job("dead-worker")
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE jobs SET started_at = NOW() - INTERVAL '3 minutes' WHERE id = $1",
+                job_id,
+            )
+
+        counts = await db.job_status_counts(stale_grace_seconds=0)
+        assert counts["stale_running"] >= 1
+
+        failed = await db.fail_stale_running_jobs(stale_grace_seconds=0)
+        assert failed == 1
+        job = await db.get_job(job_id)
+        assert job["status"] == "crashed"
+        assert job["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
 
     @pytest.mark.asyncio
     async def test_worker_loss_probe_only_updates_ops_probe_job(self, db):
@@ -649,7 +674,7 @@ class TestWorkerLoop:
 
     @pytest.mark.asyncio
     async def test_crashed_job_records_error(self, db):
-        """If _execute_job raises, the worker loop should store the error."""
+        """If _execute_job raises, the worker should store structured crash feedback."""
         # Use a spec that will cause _execute_job to fail during validation
         bad_spec = {"board": {"name": "x"}, "parts": "not-a-list", "nets": []}
         job_id = await db.create_job(bad_spec, {"timeout_s": 30})
@@ -657,11 +682,23 @@ class TestWorkerLoop:
         try:
             await asyncio.to_thread(_execute_job, claimed)
         except Exception as exc:
-            await db.complete_job(job_id, "failed", error=str(exc))
+            result = _worker_exception_result(
+                claimed,
+                job_id,
+                "worker-test",
+                exc,
+                traceback.format_exc(),
+            )
+            await db.complete_job(job_id, "crashed", result=result, error=str(exc))
 
         job = await db.get_job(job_id)
-        assert job["status"] == "failed"
+        assert job["status"] == "crashed"
         assert job["error"]
+        assert job["result"]["status"] == "crashed"
+        assert job["result"]["stage"] == "worker_exception"
+        assert job["result"]["decision_kind"] == "backend_failure"
+        assert job["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
+        assert job["result"]["exceptions"][0]["subject"]["job_id"] == job_id
 
 
 # ── HTTP server + auth ────────────────────────────────────────────────

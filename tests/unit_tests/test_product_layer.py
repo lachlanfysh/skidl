@@ -532,6 +532,21 @@ class TestDesignReviewExceptions:
         assert "USB-C connector" in feature_names
         assert "STEMMA QT/Qwiic connector" in feature_names
 
+    def test_marketing_i2c_accepts_prefixed_sda_scl_nets(self, ic_spec_dict):
+        ic_spec_dict["nets"][2]["name"] = "I2C_SDA"
+        ic_spec_dict["nets"][3]["name"] = "I2C_SCL"
+
+        exceptions = design_review_exceptions(
+            ic_spec_dict,
+            marketing_text="I2C sensor breakout",
+        )
+
+        assert not any(
+            e.code == ExcCode.DESIGN_MISSING_FEATURE
+            and e.subject.get("feature") == "I2C interface"
+            for e in exceptions
+        )
+
     def test_marketing_no_false_positive(self, ic_spec_dict):
         exceptions = design_review_exceptions(ic_spec_dict, marketing_text="temperature sensor breakout")
         features = [e for e in exceptions if e.code == ExcCode.DESIGN_MISSING_FEATURE]

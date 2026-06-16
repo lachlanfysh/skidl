@@ -10,6 +10,7 @@ from skidl.layout.constraints import (
     EdgeAnchor,
     FaceEdgeConstraint,
     LayoutConstraints,
+    NearConstraint,
 )
 from skidl.layout.hierarchy import PlacementGroup
 from skidl.layout.intent import (
@@ -134,6 +135,76 @@ def test_repeated_channel_candidate_distributes_channel_refs():
     assert "placement zone" in "; ".join(array_candidate.ref_reasons["U2"])
     assert "channel slot: CH0" in "; ".join(array_candidate.ref_reasons["U2"])
     assert any(zone.refs == ["U2"] for zone in array_candidate.constraints.zones)
+
+
+def test_repeated_channel_grid_anchors_sensors_before_local_passives():
+    sensor_0 = _Part("U2", "Sensor:S", pins=3)
+    cap_0 = _Part("C2", "Capacitor:C_0603", pins=2)
+    sensor_1 = _Part("U3", "Sensor:S", pins=3)
+    cap_1 = _Part("C3", "Capacitor:C_0603", pins=2)
+    group = PlacementGroup(
+        name="",
+        parts=[sensor_0, cap_0, sensor_1, cap_1],
+        adjacency={},
+    )
+    constraints = LayoutConstraints(outline=BoardOutline(100.0, 50.0))
+    intent = PlacementIntentPlan(
+        repeated_channels=[
+            RepeatedChannelIntent(
+                name="channel",
+                refs=["U2", "C2", "U3", "C3"],
+                channel_numbers=[0, 1],
+                refs_by_channel={0: ["U2", "C2"], 1: ["U3", "C3"]},
+                pattern="test",
+                slots=[
+                    ChannelSlot(
+                        channel_number=0,
+                        slot_index=0,
+                        refs=["U2", "C2"],
+                        sensor_refs=["U2"],
+                        passive_refs=["C2"],
+                    ),
+                    ChannelSlot(
+                        channel_number=1,
+                        slot_index=1,
+                        refs=["U3", "C3"],
+                        sensor_refs=["U3"],
+                        passive_refs=["C3"],
+                    ),
+                ],
+            )
+        ],
+        near_constraints=[
+            NearConstraint(ref="C2", target_ref="U2", distance_mm=5.0),
+            NearConstraint(ref="C3", target_ref="U3", distance_mm=5.0),
+        ],
+    )
+
+    candidates = generate_placement_candidates(
+        {None: group},
+        constraints,
+        {
+            "Sensor:S": (4.0, 4.0),
+            "Capacitor:C_0603": (1.6, 0.8),
+        },
+        intent_plan=intent,
+    )
+    array_candidate = next(
+        candidate for candidate in candidates if candidate.name == "repeated_channel_array"
+    )
+    placed = {part.ref: part for part in array_candidate.placed_parts}
+    distribute_refs = {
+        tuple(constraint.refs)
+        for constraint in array_candidate.constraints.distribute
+        if constraint.axis == "x"
+    }
+
+    assert ("U2", "U3") in distribute_refs
+    assert all("C" not in ref for refs in distribute_refs for ref in refs)
+    assert placed["U2"].x_mm == pytest.approx(12.0)
+    assert placed["U3"].x_mm == pytest.approx(88.0)
+    assert abs(placed["C2"].x_mm - placed["U2"].x_mm) <= 5.0
+    assert abs(placed["C3"].x_mm - placed["U3"].x_mm) <= 5.0
 
 
 def test_inferred_grid_constraints_do_not_override_explicit_floorplan_refs():

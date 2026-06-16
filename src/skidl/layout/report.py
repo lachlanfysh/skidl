@@ -17,6 +17,7 @@ class CandidateReport:
     overlap_count: int = 0
     outline_violation_count: int = 0
     keepout_violation_count: int = 0
+    cutout_violation_count: int = 0
     total_hpwl_mm: float = 0.0
     reasons: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -28,6 +29,7 @@ class CandidateReport:
             "overlap_count": self.overlap_count,
             "outline_violation_count": self.outline_violation_count,
             "keepout_violation_count": self.keepout_violation_count,
+            "cutout_violation_count": self.cutout_violation_count,
             "total_hpwl_mm": self.total_hpwl_mm,
             "reasons": list(self.reasons),
             "warnings": list(self.warnings),
@@ -370,6 +372,7 @@ def build_placement_report(
                 overlap_count=score.overlap_count,
                 outline_violation_count=score.outline_violation_count,
                 keepout_violation_count=score.keepout_violation_count,
+                cutout_violation_count=score.cutout_violation_count,
                 total_hpwl_mm=score.total_hpwl_mm,
                 reasons=(
                     list(selected.reasons[:10])
@@ -386,6 +389,10 @@ def build_placement_report(
         *(f"overlap: {a} <-> {b}" for a, b in selected_validation.overlaps),
         *(f"outside outline: {ref}" for ref in selected_validation.outline_violations),
         *(f"inside keepout: {ref}" for ref in selected_validation.keepout_violations),
+        *(
+            f"intersects cutout: {ref}"
+            for ref in getattr(selected_validation, "cutout_violations", []) or []
+        ),
     ]
     reasons = list(selected.reasons)
     valid_count = sum(1 for s in candidate_scores.values() if s.ok)

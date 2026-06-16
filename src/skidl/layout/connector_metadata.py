@@ -24,7 +24,10 @@ HEADER_RE = re.compile(
 )
 HORIZONTAL_RE = re.compile(r"(horizontal|right.?angle|angled|90.?degree|90deg)", re.I)
 JST_RE = re.compile(r"\b(jst|qwiic|stemma\s*qt|stemmaqt)\b", re.I)
-TERMINAL_BLOCK_RE = re.compile(r"(terminal.?block|bornier|mkds|tb\d|4ucon|ctbp)", re.I)
+TERMINAL_BLOCK_RE = re.compile(
+    r"(terminal.?block|screw.?terminal|bornier|phoenix|mkds|tb\d|4ucon|ctbp)",
+    re.I,
+)
 USB_RE = re.compile(
     r"(connector[_\s:/-]*usb|usb[_\s-]*(?:c|micro|mini|a|b)?[_\s-]*"
     r"(?:connector|receptacle|socket)|type[_\s-]?c|usb\d+|usb_c_receptacle|"

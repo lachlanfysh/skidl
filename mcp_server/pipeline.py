@@ -152,6 +152,9 @@ def _attach_layout_quality(response: DesignResponse, run_dir: Path) -> DesignRes
     response.metrics["visual_review_ready"] = bool(
         quality.get("gates", {}).get("visual_review_ready")
     )
+    response.metrics["review_state"] = str(
+        quality.get("review", {}).get("state") or ""
+    )
     return response
 
 
@@ -476,13 +479,22 @@ def run_pipeline(
             timed_out = True
             _kill_process_group(proc)
             stdout, stderr = proc.communicate()
-            exceptions = [timeout_exception(timeout_s)]
+            artifact_keys = _partial_artifact_names(run_dir)
+            exceptions = [
+                timeout_exception(
+                    timeout_s,
+                    artifact_keys=artifact_keys,
+                    stderr=stderr,
+                )
+            ]
             response = DesignResponse(
                 run_id=run_id,
                 ok=False,
                 status="timeout",
                 stage="timeout",
                 exceptions=exceptions,
+                outputs={"partial_artifacts": artifact_keys},
+                artifacts={"partial_artifacts": artifact_keys},
                 metrics=_manufacturing_metrics({}, exceptions, False),
                 stderr=stderr[-4000:],
             )
@@ -614,10 +626,19 @@ def run_pipeline_code(
         timed_out = True
         _kill_process_group(proc)
         stdout, stderr = proc.communicate()
-        exceptions = [timeout_exception(timeout_s)]
+        artifact_keys = _partial_artifact_names(run_dir)
+        exceptions = [
+            timeout_exception(
+                timeout_s,
+                artifact_keys=artifact_keys,
+                stderr=stderr,
+            )
+        ]
         response = DesignResponse(
             run_id=run_id, ok=False, status="timeout", stage="timeout",
             exceptions=exceptions,
+            outputs={"partial_artifacts": artifact_keys},
+            artifacts={"partial_artifacts": artifact_keys},
             metrics=_manufacturing_metrics({}, exceptions, False),
             stderr=stderr[-4000:],
         )

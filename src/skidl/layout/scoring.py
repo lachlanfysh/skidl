@@ -20,6 +20,7 @@ class LayoutScore:
     overlap_count: int = 0
     outline_violation_count: int = 0
     keepout_violation_count: int = 0
+    cutout_violation_count: int = 0
     missing_count: int = 0
     warning_count: int = 0
     weighted_hpwl_mm: float = 0.0
@@ -30,6 +31,14 @@ class LayoutScore:
     power_net_count: int = 0
     congestion_regions: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    footprint_envelope_bbox_mm: dict[str, float] = field(default_factory=dict)
+    footprint_envelope_area_ratio: float = 0.0
+    compact_outline_mm: dict[str, float] = field(default_factory=dict)
+    compact_outline_area_ratio: float = 0.0
+    empty_margin_ratios: dict[str, float] = field(default_factory=dict)
+    max_empty_margin_ratio: float = 0.0
+    front_panel_trace_count: int = 0
+    front_panel_trace_mm: float = 0.0
 
     @property
     def ok(self) -> bool:
@@ -37,6 +46,7 @@ class LayoutScore:
             self.overlap_count == 0
             and self.outline_violation_count == 0
             and self.keepout_violation_count == 0
+            and self.cutout_violation_count == 0
             and self.missing_count == 0
         )
 
@@ -47,6 +57,7 @@ class LayoutScore:
             "overlap_count": self.overlap_count,
             "outline_violation_count": self.outline_violation_count,
             "keepout_violation_count": self.keepout_violation_count,
+            "cutout_violation_count": self.cutout_violation_count,
             "missing_count": self.missing_count,
             "warning_count": self.warning_count,
             "weighted_hpwl_mm": self.weighted_hpwl_mm,
@@ -57,6 +68,14 @@ class LayoutScore:
             "power_net_count": self.power_net_count,
             "congestion_regions": list(self.congestion_regions),
             "warnings": list(self.warnings),
+            "footprint_envelope_bbox_mm": dict(self.footprint_envelope_bbox_mm),
+            "footprint_envelope_area_ratio": self.footprint_envelope_area_ratio,
+            "compact_outline_mm": dict(self.compact_outline_mm),
+            "compact_outline_area_ratio": self.compact_outline_area_ratio,
+            "empty_margin_ratios": dict(self.empty_margin_ratios),
+            "max_empty_margin_ratio": self.max_empty_margin_ratio,
+            "front_panel_trace_count": self.front_panel_trace_count,
+            "front_panel_trace_mm": self.front_panel_trace_mm,
             "ok": self.ok,
         }
 
@@ -69,6 +88,8 @@ class LayoutScore:
             lines.append(f"Outside outline: {self.outline_violation_count}")
         if self.keepout_violation_count:
             lines.append(f"Inside keepout: {self.keepout_violation_count}")
+        if self.cutout_violation_count:
+            lines.append(f"Intersects cutout: {self.cutout_violation_count}")
         if self.missing_count:
             lines.append(f"Missing placements: {self.missing_count}")
         if self.crossing_count:
@@ -81,6 +102,18 @@ class LayoutScore:
                 lines.append(f"  {region}")
         if self.power_corridor_count:
             lines.append(f"Power corridors: {self.power_corridor_count}")
+        if self.front_panel_trace_count:
+            lines.append(
+                f"Visible front-panel trace spans: {self.front_panel_trace_count} "
+                f"({self.front_panel_trace_mm:.1f}mm)"
+            )
+        if self.compact_outline_mm and self.compact_outline_area_ratio:
+            lines.append(
+                "Compact outline estimate: "
+                f"{self.compact_outline_mm.get('width', 0.0):.1f}mm x "
+                f"{self.compact_outline_mm.get('height', 0.0):.1f}mm "
+                f"({self.compact_outline_area_ratio * 100:.0f}% of outline)"
+            )
         if self.warnings:
             lines.append("Warnings:")
             for warning in self.warnings[:20]:
@@ -243,6 +276,20 @@ def _placement_envelope(
     fp_bboxes: dict[str, tuple[float, float]],
     margin_mm: float = 3.0,
 ) -> tuple[float, float, float] | None:
+    bounds = _placement_bounds(placed_parts, fp_bboxes)
+    if bounds is None:
+        return None
+
+    x_min, y_min, x_max, y_max = bounds
+    width = max(0.0, x_max - x_min + 2 * margin_mm)
+    height = max(0.0, y_max - y_min + 2 * margin_mm)
+    return width, height, width * height
+
+
+def _placement_bounds(
+    placed_parts: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+) -> tuple[float, float, float, float] | None:
     if len(placed_parts) < 2:
         return None
 
@@ -258,10 +305,57 @@ def _placement_envelope(
         y_min = min(y_min, pp.y_mm - h / 2)
         x_max = max(x_max, pp.x_mm + w / 2)
         y_max = max(y_max, pp.y_mm + h / 2)
+    if not all(math.isfinite(value) for value in (x_min, y_min, x_max, y_max)):
+        return None
+    return x_min, y_min, x_max, y_max
 
-    width = max(0.0, x_max - x_min + 2 * margin_mm)
-    height = max(0.0, y_max - y_min + 2 * margin_mm)
-    return width, height, width * height
+
+def _outline_utilization_metrics(
+    placed_parts: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    outline,
+    *,
+    compact_margin_mm: float = 3.0,
+) -> dict:
+    if outline is None:
+        return {}
+    bounds = _placement_bounds(placed_parts, fp_bboxes)
+    if bounds is None:
+        return {}
+
+    x_min, y_min, x_max, y_max = bounds
+    body_w = max(0.0, x_max - x_min)
+    body_h = max(0.0, y_max - y_min)
+    body_area = body_w * body_h
+    compact_w = body_w + 2 * compact_margin_mm
+    compact_h = body_h + 2 * compact_margin_mm
+    compact_area = compact_w * compact_h
+    outline_area = max(0.0, outline.width_mm) * max(0.0, outline.height_mm)
+    if outline_area <= 0.0:
+        return {}
+
+    margin_ratios = {
+        "left": max(0.0, x_min - outline.x_min) / max(outline.width_mm, 0.001),
+        "right": max(0.0, outline.x_max - x_max) / max(outline.width_mm, 0.001),
+        "top": max(0.0, y_min - outline.y_min) / max(outline.height_mm, 0.001),
+        "bottom": max(0.0, outline.y_max - y_max) / max(outline.height_mm, 0.001),
+    }
+    return {
+        "footprint_envelope_bbox_mm": {
+            "width": body_w,
+            "height": body_h,
+            "area": body_area,
+        },
+        "footprint_envelope_area_ratio": min(body_area / outline_area, 1.0),
+        "compact_outline_mm": {
+            "width": compact_w,
+            "height": compact_h,
+            "area": compact_area,
+        },
+        "compact_outline_area_ratio": min(compact_area / outline_area, 1.0),
+        "empty_margin_ratios": margin_ratios,
+        "max_empty_margin_ratio": max(margin_ratios.values()),
+    }
 
 
 def _outline_oversize_warning(
@@ -271,12 +365,15 @@ def _outline_oversize_warning(
 ) -> str | None:
     if outline is None:
         return None
-    envelope = _placement_envelope(placed_parts, fp_bboxes)
-    if envelope is None:
+    metrics = _outline_utilization_metrics(placed_parts, fp_bboxes, outline)
+    compact = metrics.get("compact_outline_mm", {})
+    envelope_area = float(compact.get("area", 0.0) or 0.0)
+    if not metrics or envelope_area <= 0.0:
         return None
-    envelope_w, envelope_h, envelope_area = envelope
+    envelope_w = float(compact.get("width", 0.0) or 0.0)
+    envelope_h = float(compact.get("height", 0.0) or 0.0)
     outline_area = max(0.0, outline.width_mm) * max(0.0, outline.height_mm)
-    if envelope_area <= 0.0 or outline_area <= 0.0:
+    if outline_area <= 0.0:
         return None
 
     area_ratio = outline_area / envelope_area
@@ -286,9 +383,9 @@ def _outline_oversize_warning(
         return None
 
     return (
-        f"board outline is {area_ratio:.1f}x larger than placed footprint "
+        f"board outline is {area_ratio:.1f}x larger than compact footprint "
         f"envelope (estimated compact outline {envelope_w:.1f}x{envelope_h:.1f}mm); "
-        "consider a smaller outline or explicit mechanical constraints"
+        "shrink auto-sized boards or redistribute parts if this outline is mechanically fixed"
     )
 
 
@@ -302,12 +399,15 @@ def _outline_oversize_penalty(
         return 0.0
     if len(placed_parts) < 4:
         return 0.0
-    envelope = _placement_envelope(placed_parts, fp_bboxes)
-    if envelope is None:
+    metrics = _outline_utilization_metrics(placed_parts, fp_bboxes, outline)
+    compact = metrics.get("compact_outline_mm", {})
+    envelope_area = float(compact.get("area", 0.0) or 0.0)
+    if not metrics or envelope_area <= 0.0:
         return 0.0
-    envelope_w, envelope_h, envelope_area = envelope
+    envelope_w = float(compact.get("width", 0.0) or 0.0)
+    envelope_h = float(compact.get("height", 0.0) or 0.0)
     outline_area = max(0.0, outline.width_mm) * max(0.0, outline.height_mm)
-    if envelope_area <= 0.0 or outline_area <= 0.0:
+    if outline_area <= 0.0:
         return 0.0
 
     area_ratio = outline_area / envelope_area
@@ -327,6 +427,86 @@ def _role_counts(roles: dict[str, PartRole]) -> dict[str, int]:
     for role in roles.values():
         counts[role.role] = counts.get(role.role, 0) + 1
     return counts
+
+
+def _front_panel_trace_metrics(
+    placed_parts: list[PlacedPart],
+    circuit,
+    roles: dict[str, PartRole],
+    *,
+    long_span_mm: float = 28.0,
+) -> dict:
+    if circuit is None:
+        return {"count": 0, "span_mm": 0.0, "warnings": []}
+
+    placed_by_ref = {pp.ref: pp for pp in placed_parts}
+    has_panel_context = any(
+        role.role == "panel_jack" and ref in placed_by_ref
+        for ref, role in roles.items()
+    )
+    has_back_side_service = any(
+        str(getattr(pp, "side", "front") or "front").lower() == "back"
+        for pp in placed_parts
+    )
+    if not (has_panel_context or has_back_side_service):
+        return {"count": 0, "span_mm": 0.0, "warnings": []}
+
+    front_panel_refs = {
+        ref
+        for ref, role in roles.items()
+        if role.role in {"panel_jack", "control"}
+        and ref in placed_by_ref
+        and str(getattr(placed_by_ref[ref], "side", "front") or "front").lower()
+        == "front"
+    }
+    if not front_panel_refs:
+        return {"count": 0, "span_mm": 0.0, "warnings": []}
+
+    try:
+        from skidl.net import NCNet
+    except Exception:
+        NCNet = None
+
+    count = 0
+    total_span = 0.0
+    warnings: list[str] = []
+    for net in circuit.get_nets():
+        if NCNet is not None and isinstance(net, NCNet):
+            continue
+        refs: list[str] = []
+        for pin in net.get_pins():
+            ref = getattr(getattr(pin, "part", None), "ref", None)
+            if ref in placed_by_ref and ref not in refs:
+                refs.append(ref)
+        panel_refs = [ref for ref in refs if ref in front_panel_refs]
+        if not panel_refs:
+            continue
+        front_non_panel_refs = [
+            ref
+            for ref in refs
+            if ref not in front_panel_refs
+            and str(getattr(placed_by_ref[ref], "side", "front") or "front").lower()
+            == "front"
+        ]
+        if not front_non_panel_refs:
+            continue
+
+        span = max(
+            _distance(placed_by_ref[panel_ref], placed_by_ref[other_ref])
+            for panel_ref in panel_refs
+            for other_ref in front_non_panel_refs
+        )
+        if span < long_span_mm:
+            continue
+        count += 1
+        total_span += span
+        warnings.append(
+            f"{getattr(net, 'name', 'net')}: front-panel trace span is "
+            f"{span:.1f}mm; move service electronics to the back or route away "
+            "from the control face"
+        )
+
+    return {"count": count, "span_mm": total_span, "warnings": warnings}
 
 
 def _role_warnings(
@@ -493,12 +673,20 @@ def _role_warnings(
     return warnings
 
 
+def _warning_penalty(warnings: list[str]) -> float:
+    penalty = min(len(warnings) * 5.0, 25.0)
+    if any("bunched instead of distributed" in warning for warning in warnings):
+        penalty += 18.0
+    return penalty
+
+
 def score_placement_quick(
     placed_parts: list[PlacedPart],
     circuit,
     fp_bboxes: dict[str, tuple[float, float]],
     outline=None,
     keepouts=None,
+    cutouts=None,
     fp_geometries: dict[str, FootprintGeometry] | None = None,
     clearance_mm: float = 0.5,
     ctx=None,
@@ -515,6 +703,7 @@ def score_placement_quick(
         clearance_mm=clearance_mm,
         outline=outline,
         keepouts=keepouts,
+        cutouts=cutouts,
         fp_geometries=fp_geometries,
     )
     roles = ctx.roles if ctx is not None else (classify_parts(circuit) if circuit is not None else {})
@@ -526,15 +715,20 @@ def score_placement_quick(
         outline,
         fp_geometries=fp_geometries,
     )
+    front_panel_trace = _front_panel_trace_metrics(placed_parts, circuit, roles)
+    warnings.extend(front_panel_trace["warnings"])
+    outline_metrics = _outline_utilization_metrics(placed_parts, fp_bboxes, outline)
     total_hpwl = _total_hpwl(placed_parts, circuit)
 
     penalty = 0.0
     penalty += len(validation.overlaps) * 25.0
     penalty += len(validation.outline_violations) * 20.0
     penalty += len(validation.keepout_violations) * 25.0
+    penalty += len(validation.cutout_violations) * 30.0
     penalty += len(validation.missing_refs) * 10.0
     penalty += min(total_hpwl / 50.0, 30.0)
-    penalty += min(len(warnings) * 5.0, 25.0)
+    penalty += min(float(front_panel_trace["span_mm"]) / 12.0, 12.0)
+    penalty += _warning_penalty(warnings)
     penalty += _outline_oversize_penalty(placed_parts, fp_bboxes, outline)
 
     return LayoutScore(
@@ -543,10 +737,19 @@ def score_placement_quick(
         overlap_count=len(validation.overlaps),
         outline_violation_count=len(validation.outline_violations),
         keepout_violation_count=len(validation.keepout_violations),
+        cutout_violation_count=len(validation.cutout_violations),
         missing_count=len(validation.missing_refs),
         warning_count=len(warnings),
         role_counts=_role_counts(roles),
         warnings=warnings,
+        footprint_envelope_bbox_mm=dict(outline_metrics.get("footprint_envelope_bbox_mm", {})),
+        footprint_envelope_area_ratio=float(outline_metrics.get("footprint_envelope_area_ratio", 0.0) or 0.0),
+        compact_outline_mm=dict(outline_metrics.get("compact_outline_mm", {})),
+        compact_outline_area_ratio=float(outline_metrics.get("compact_outline_area_ratio", 0.0) or 0.0),
+        empty_margin_ratios=dict(outline_metrics.get("empty_margin_ratios", {})),
+        max_empty_margin_ratio=float(outline_metrics.get("max_empty_margin_ratio", 0.0) or 0.0),
+        front_panel_trace_count=int(front_panel_trace["count"]),
+        front_panel_trace_mm=float(front_panel_trace["span_mm"]),
     )
 
 
@@ -556,6 +759,7 @@ def score_placement(
     fp_bboxes: dict[str, tuple[float, float]],
     outline=None,
     keepouts=None,
+    cutouts=None,
     fp_geometries: dict[str, FootprintGeometry] | None = None,
     clearance_mm: float = 0.5,
     board_layers: int = 2,
@@ -568,6 +772,7 @@ def score_placement(
         clearance_mm=clearance_mm,
         outline=outline,
         keepouts=keepouts,
+        cutouts=cutouts,
         fp_geometries=fp_geometries,
     )
     roles = ctx.roles if ctx is not None else (classify_parts(circuit) if circuit is not None else {})
@@ -579,10 +784,13 @@ def score_placement(
         outline,
         fp_geometries=fp_geometries,
     )
+    front_panel_trace = _front_panel_trace_metrics(placed_parts, circuit, roles)
+    warnings.extend(front_panel_trace["warnings"])
     power_plan = None
     if circuit is not None:
         power_plan = plan_power_routes(circuit, placed_parts, board_layers=board_layers)
         warnings.extend(power_plan.warnings)
+    outline_metrics = _outline_utilization_metrics(placed_parts, fp_bboxes, outline)
     total_hpwl = _total_hpwl(placed_parts, circuit)
     weighted_hpwl = _weighted_hpwl(placed_parts, circuit)
     crossing_count = _estimate_crossings(placed_parts, circuit)
@@ -608,12 +816,14 @@ def score_placement(
     penalty += len(validation.overlaps) * 25.0
     penalty += len(validation.outline_violations) * 20.0
     penalty += len(validation.keepout_violations) * 25.0
+    penalty += len(validation.cutout_violations) * 30.0
     penalty += len(validation.missing_refs) * 10.0
     penalty += min(total_hpwl / 50.0, 30.0)
     penalty += min(weighted_hpwl / 120.0, 20.0)
     penalty += min(crossing_count * 2.0, 20.0)
     penalty += min(congestion_score / 8.0, 15.0)
-    penalty += min(len(warnings) * 5.0, 25.0)
+    penalty += min(float(front_panel_trace["span_mm"]) / 12.0, 12.0)
+    penalty += _warning_penalty(warnings)
     penalty += _outline_oversize_penalty(placed_parts, fp_bboxes, outline)
     if power_plan is not None:
         for intent in power_plan.route_intents:
@@ -627,6 +837,7 @@ def score_placement(
         overlap_count=len(validation.overlaps),
         outline_violation_count=len(validation.outline_violations),
         keepout_violation_count=len(validation.keepout_violations),
+        cutout_violation_count=len(validation.cutout_violations),
         missing_count=len(validation.missing_refs),
         warning_count=len(warnings),
         weighted_hpwl_mm=weighted_hpwl,
@@ -639,4 +850,12 @@ def score_placement(
             len(power_plan.corridors) if power_plan is not None else 0
         ),
         warnings=warnings,
+        footprint_envelope_bbox_mm=dict(outline_metrics.get("footprint_envelope_bbox_mm", {})),
+        footprint_envelope_area_ratio=float(outline_metrics.get("footprint_envelope_area_ratio", 0.0) or 0.0),
+        compact_outline_mm=dict(outline_metrics.get("compact_outline_mm", {})),
+        compact_outline_area_ratio=float(outline_metrics.get("compact_outline_area_ratio", 0.0) or 0.0),
+        empty_margin_ratios=dict(outline_metrics.get("empty_margin_ratios", {})),
+        max_empty_margin_ratio=float(outline_metrics.get("max_empty_margin_ratio", 0.0) or 0.0),
+        front_panel_trace_count=int(front_panel_trace["count"]),
+        front_panel_trace_mm=float(front_panel_trace["span_mm"]),
     )

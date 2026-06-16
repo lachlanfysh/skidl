@@ -34,6 +34,18 @@ Railway endpoint: `https://mcp-server-production-5d58.up.railway.app/mcp`
 | Custom footprints | hosted verified | Noether `019ecfa8-f142-7c70-9fae-fe842b6dcaae` | MCP server upload/preflight path | Hosted MCP accepts project footprints/libs so MR-1 and 45lux do not fail footprint preflight. | Integrated product/layout tests passed; hosted custom footprint smoke `29fd14ca8339` / run `f523ceafb570` reported `inline_footprints={"count": 1, "footprints": ["CustomLib:Tiny_2Pad"]}`. |
 | Floorplan API | hosted verified | Zeno `019ecfa8-f179-7fa0-a994-e735921e8490` | `submit_skidl_code` envelope and docs | Agents can pass fixed positions, edge anchors, grids, sides, keepouts, outline, and later cutouts explicitly. | Integrated product/layout tests passed; hosted `EDA_FLOORPLAN` smoke `cedd87015056` / run `dac9edcbfe78` preserved grid, edge anchor, keepout, outline, and side metadata. |
 
+## Wave 3 Tasks
+
+Wave 3 is the five-board product regression loop and bug-burn-down tranche. The current checkout already has substantial dirty layout-engine edits, so these agents must inspect `git status`/`git diff` first and avoid overwriting unrelated local hunks.
+
+| Lane | Status | Agent | Primary Scope | Goal | Acceptance Checks |
+| --- | --- | --- | --- | --- | --- |
+| Connector and mounting semantics | active | Worker A `019ed05d-1ac9-7430-b480-0dbf6906632b` | connector metadata/orientation/intent/constraints/validator tests | Jacks, USB, terminal blocks, pin headers, and mounting holes should land at sensible mechanical edges/corners and face the right way. | Focused tests plus regenerated boards showing edge connectors outward, centered headers, parallel terminal blocks, and corner-clear mounting holes. |
+| Board sizing and utilization | active | Worker B `019ed05d-7c3d-7ef3-aa2b-5f53fa592597` | layout engine/placer/scoring/report/validator/layout quality | Auto outlines should shrink; fixed outlines should be used intentionally; sparse boards should prefer shrink/redistribute before outline growth. | Product metrics and exceptions flag huge/sparse boards; five-board pack no longer accepts oversized layouts as `product_layout_ok`. |
+| Grid and passive gravity | active | Worker C `019ed05d-db37-7893-b421-9f9c17651e4c` | grid/refinement/hierarchy/roles/scoring tests | Repeated controls use grids/rows by default and passives cluster around their electrical parents after hard mechanical placement. | Focused tests plus generated boards with aligned UI/control patterns and no arbitrary passive clouds. |
+| Side policy, previews, routing feedback | active | Worker D `019ed05e-4f6b-76a1-9732-b7bf5e6be45d` | writer/validator/scoring/MCP layout quality/exception mapper/engine worker | Front/back assembly, visual artifacts, and failed-route diagnostics should produce actionable feedback instead of vague outline growth. | Top/bottom/combined previews are reported; side-aware collisions and front-panel trace/routing defects affect gates. |
+| Five-board regression loop | active | Worker E `019ed05b-50f6-7502-b616-a2b38e4c3d36` | corpus runner/quality score/product tests | Make the five-board loop concrete with per-board artifacts and explicit quality gates. | One command emits `response.json`, preview paths, `layout_quality.json`, issue tags, and gates for five boards. |
+
 ## Standard Test Boards
 
 - MCP9808 or ADS1115 breakout with pin header and optional mounting holes.

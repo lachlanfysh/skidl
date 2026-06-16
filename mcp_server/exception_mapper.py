@@ -152,6 +152,7 @@ def _layout_snapshot(layout) -> dict:
             "overlaps": getattr(validation, "overlaps", []) or [],
             "outline_violations": getattr(validation, "outline_violations", []) or [],
             "keepout_violations": getattr(validation, "keepout_violations", []) or [],
+            "cutout_violations": getattr(validation, "cutout_violations", []) or [],
             "missing_refs": getattr(validation, "missing_refs", []) or [],
         },
         "score": {
@@ -199,6 +200,7 @@ def _edge_geometry_warning_present(layout: dict, ref: str, edge: str) -> bool:
 def _placement_density(layout: dict, metrics: dict | None) -> dict:
     metrics = metrics or {}
     outline = _outline_from_layout(layout)
+    score = layout.get("score") if isinstance(layout.get("score"), dict) else {}
     width = _obj_float(outline, "width_mm")
     height = _obj_float(outline, "height_mm")
     area = width * height if width and height else _obj_float(metrics, "board_area_mm2")
@@ -207,6 +209,11 @@ def _placement_density(layout: dict, metrics: dict | None) -> dict:
     ys = [_obj_float(part, "y_mm") for part in parts if part.get("y_mm") is not None]
     spread_ratio = 0.0
     max_margin_ratio = 1.0
+    compact_outline_area_ratio = _obj_float(score, "compact_outline_area_ratio")
+    footprint_envelope_area_ratio = _obj_float(score, "footprint_envelope_area_ratio")
+    has_compact_metrics = bool(
+        compact_outline_area_ratio or footprint_envelope_area_ratio
+    )
     if xs and ys and width > 0 and height > 0:
         spread_w = max(xs) - min(xs)
         spread_h = max(ys) - min(ys)
@@ -221,23 +228,38 @@ def _placement_density(layout: dict, metrics: dict | None) -> dict:
             max(0.0, min(ys) - y_min) / height,
             max(0.0, y_max - max(ys)) / height,
         )
-        max_margin_ratio = max(margins)
+        max_margin_ratio = _obj_float(score, "max_empty_margin_ratio") or max(margins)
+    effective_spread_ratio = (
+        footprint_envelope_area_ratio
+        or compact_outline_area_ratio
+        or spread_ratio
+    )
     return {
         "part_count": len(parts),
         "width_mm": width,
         "height_mm": height,
         "area_mm2": area,
         "spread_area_ratio": spread_ratio,
+        "effective_spread_area_ratio": effective_spread_ratio,
+        "compact_outline_area_ratio": compact_outline_area_ratio,
+        "footprint_envelope_area_ratio": footprint_envelope_area_ratio,
         "max_margin_ratio": max_margin_ratio,
         "spacious": area >= 3000.0 or max(width, height) >= 80.0,
         "clustered_on_spacious_outline": bool(
             len(parts) >= 4 and area >= 1000.0 and 0.0 < spread_ratio < 0.25
         ),
+        "sparse_on_large_outline": bool(
+            has_compact_metrics
+            and len(parts) >= 4
+            and area >= 1000.0
+            and 0.0 < effective_spread_ratio < 0.30
+            and max_margin_ratio >= 0.30
+        ),
         "tight_outline": bool(
             len(parts) >= 4
             and area > 0
             and area < 3000.0
-            and (spread_ratio >= 0.65 or max_margin_ratio <= 0.10)
+            and (effective_spread_ratio >= 0.65 or max_margin_ratio <= 0.10)
         ),
     }
 
@@ -423,6 +445,7 @@ def classify_routing_failure(
         "overlaps": _layout_list(layout_data, "validation", "overlaps"),
         "outline_violations": _layout_list(layout_data, "validation", "outline_violations"),
         "keepout_violations": _layout_list(layout_data, "validation", "keepout_violations"),
+        "cutout_violations": _layout_list(layout_data, "validation", "cutout_violations"),
         "missing_refs": _layout_list(layout_data, "validation", "missing_refs"),
     }
     edge_drift = _edge_anchor_drift(layout_data)
@@ -476,6 +499,18 @@ def classify_routing_failure(
     congestion = _obj_float(metrics or {}, "congestion_score")
     score = layout_data.get("score") if isinstance(layout_data.get("score"), dict) else {}
     congestion = max(congestion, _obj_float(score, "congestion_score"))
+
+    if density["sparse_on_large_outline"]:
+        return {
+            "classification": "sparse_or_underused_outline",
+            "reason": "the board is sparse relative to its compact placement envelope",
+            "evidence": {"density": density, "congestion_score": congestion},
+            "recommendation": (
+                "Shrink auto-sized boards toward the compact outline estimate, "
+                "or redistribute fixed-outline UI/mechanical parts across the "
+                "available area, before considering any outline growth."
+            ),
+        }
 
     if density["spacious"] or density["clustered_on_spacious_outline"]:
         return {
@@ -556,10 +591,15 @@ def _retune_routing_candidates(exc: DesignException, diagnosis: dict) -> None:
                 )
             else:
                 candidate.confidence = min(candidate.confidence, 0.2)
-                candidate.human_summary = (
-                    "Defer outline growth; use only after fixing the diagnosed "
-                    f"{classification.replace('_', ' ')} cause"
-                )
+                if classification == "sparse_or_underused_outline":
+                    candidate.human_summary = (
+                        "Defer outline growth; shrink or redistribute the sparse board first"
+                    )
+                else:
+                    candidate.human_summary = (
+                        "Defer outline growth; use only after fixing the diagnosed "
+                        f"{classification.replace('_', ' ')} cause"
+                    )
         elif candidate.action == ActionType.SET_LAYERS and classification == "congestion_router_limitation":
             candidate.confidence = max(candidate.confidence, 0.6)
             candidate.human_summary = (
@@ -581,6 +621,10 @@ def _retune_routing_candidates(exc: DesignException, diagnosis: dict) -> None:
             elif classification == "congestion_router_limitation":
                 candidate.human_summary = (
                     "Retry routing after local congestion-aware placement changes"
+                )
+            elif classification == "sparse_or_underused_outline":
+                candidate.human_summary = (
+                    "Shrink auto outline or redistribute fixed-outline parts before retrying routing"
                 )
     exc.candidates = sorted(
         exc.candidates,
@@ -662,22 +706,40 @@ def _placement_candidates(
     return [scale, regenerate]
 
 
-def timeout_exception(timeout_s: float) -> DesignException:
+def timeout_exception(
+    timeout_s: float,
+    *,
+    artifact_keys: list[str] | None = None,
+    stderr: str = "",
+) -> DesignException:
+    subject = {
+        "timeout_s": timeout_s,
+        "stage": "timeout",
+        "partial_artifacts": sorted(artifact_keys or []),
+    }
+    if stderr:
+        subject["stderr_tail"] = stderr[-4000:]
     return DesignException(
         id="e-timeout",
         code=ExcCode.ENGINE_TIMEOUT,
         severity=Severity.FATAL,
         message=f"engine worker exceeded timeout ({timeout_s:.1f}s)",
-        subject={"timeout_s": timeout_s},
+        subject=subject,
         candidates=[
             _candidate(
                 "c1",
                 ActionType.REGENERATE,
                 {},
-                "retry unchanged with a larger timeout or after reducing complexity",
+                "retry unchanged with a larger timeout; this is backend/runtime feedback",
                 "cheap",
             )
         ],
+        retry_hint=(
+            "Retry once unchanged with a larger timeout. If partial_artifacts "
+            "contains a schematic or PCB, inspect those files before changing "
+            "the circuit; if it is empty, report the timeout as a backend "
+            "progress/checkpointing issue."
+        ),
     )
 
 
@@ -935,6 +997,36 @@ def layout_exceptions(layout_result) -> list[DesignException]:
                 )
             )
 
+        for idx, ref in enumerate(
+            getattr(validation, "cutout_violations", []) or [], start=1
+        ):
+            out.append(
+                DesignException(
+                    id=f"e-layout-cutout-{idx}",
+                    code=ExcCode.LAYOUT_CUTOUT,
+                    severity=Severity.ERROR,
+                    message=f"{ref} intersects a physical board cutout/aperture",
+                    subject={"ref": ref},
+                    candidates=[
+                        _candidate(
+                            "c1",
+                            ActionType.REGENERATE,
+                            {},
+                            "retry placement with the cutout preserved",
+                            "free",
+                        )
+                    ],
+                    retry_hint=(
+                        "A footprint intersects physical board-void geometry "
+                        "from EDA_FLOORPLAN['cutouts'], ['apertures'], or "
+                        "['slots']. Preserve the cutout as mechanical intent; "
+                        "move components, adjust the floorplan grid, or change "
+                        "the outline around the aperture instead of deleting "
+                        "the cutout."
+                    ),
+                )
+            )
+
         for idx, ref in enumerate(getattr(validation, "missing_refs", []) or [], start=1):
             out.append(
                 DesignException(
@@ -973,7 +1065,7 @@ def layout_exceptions(layout_result) -> list[DesignException]:
 
     if score is not None:
         congestion = float(getattr(score, "congestion_score", 0.0) or 0.0)
-        if congestion >= 40.0:
+        if congestion >= 80.0:
             out.append(
                 DesignException(
                     id="e-high-congestion",
@@ -1000,7 +1092,11 @@ def layout_exceptions(layout_result) -> list[DesignException]:
             )
 
         for idx, warning in enumerate(getattr(score, "warnings", []) or [], start=1):
-            if "larger than placed footprint envelope" in warning.lower():
+            warning_l = warning.lower()
+            if (
+                "larger than placed footprint envelope" in warning_l
+                or "larger than compact footprint envelope" in warning_l
+            ):
                 candidates = [
                     _candidate(
                         "c2",

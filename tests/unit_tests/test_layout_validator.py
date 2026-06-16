@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from skidl.layout.constraints import BoardOutline, KeepOut
+from skidl.layout.constraints import BoardCutout, BoardOutline, KeepOut
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
 from skidl.layout.writer import PlacedPart
 from skidl.layout.validator import validate, ValidationResult, run_kicad_drc
@@ -53,6 +53,33 @@ def test_overlap_detected():
     assert len(result.overlaps) > 0
     pair = result.overlaps[0]
     assert set(pair) == {"R1", "R2"}
+
+
+def test_courtyard_overlap_without_body_or_pad_collision_is_not_hard_overlap():
+    parts = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Demo:Module"),
+        PlacedPart("C1", 8.0, 20.0, 0.0, "Demo:Cap"),
+    ]
+    geometries = {
+        "Demo:Module": FootprintGeometry(
+            "Demo:Module",
+            pads=[PadGeometry("1", -8.0, 0.0, 1.0, 1.0)],
+            body_bounds=(-6.0, -5.0, 6.0, 5.0),
+            courtyard_bounds=(-20.0, -8.0, 20.0, 8.0),
+        ),
+        "Demo:Cap": FootprintGeometry(
+            "Demo:Cap",
+            pads=[
+                PadGeometry("1", -0.6, 0.0, 0.4, 0.4),
+                PadGeometry("2", 0.6, 0.0, 0.4, 0.4),
+            ],
+            body_bounds=(-1.0, -0.6, 1.0, 0.6),
+        ),
+    }
+
+    result = validate(parts, None, {}, clearance_mm=0.5, fp_geometries=geometries)
+
+    assert result.overlaps == []
 
 
 def test_front_and_back_parts_may_share_xy_without_overlap():
@@ -312,6 +339,33 @@ def test_keepout_allows_named_source_ref_only():
     )
 
     assert result.keepout_violations == ["R1"]
+
+
+def test_cutout_violation_is_distinct_from_keepout():
+    parts = [
+        PlacedPart("U1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+        PlacedPart("U2", 30.0, 10.0, 0.0, "Resistor_SMD:R_0805"),
+    ]
+
+    result = validate(
+        parts,
+        None,
+        BBOXES_0805,
+        cutouts=[
+            BoardCutout(
+                x_min=8.0,
+                y_min=8.0,
+                x_max=12.0,
+                y_max=12.0,
+                name="sensor_window",
+            )
+        ],
+    )
+
+    assert result.cutout_violations == ["U1"]
+    assert result.keepout_violations == []
+    assert result.ok is False
+    assert "INTERSECTS CUTOUT" in result.summary()
 
 
 def test_polygon_outline_containment_checks_corners():

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from .candidates import PlacementCandidate
 from .constraints import LayoutConstraints
 from .geometry import FootprintGeometry, PadGeometry, transform_point
-from .placer import _find_clear_position
+from .placer import _find_clear_position, _overlaps_any
 from .roles import GND_NET_RE, POWER_NET_RE, classify_parts, is_ui_grid_part
 from .scoring import LayoutScore, score_placement
 from .validator import _same_physical_side, _through_board_pads_collide, validate
@@ -26,6 +26,25 @@ class RefinementResult:
     @property
     def accepted_count(self) -> int:
         return self.accepted_moves + self.accepted_rotations + self.accepted_swaps
+
+
+@dataclass(frozen=True)
+class _TargetPadCandidate:
+    role_sort: float
+    origin_distance: float
+    pad_xy: tuple[float, float]
+    reason: str
+    ref: str
+    center_xy: tuple[float, float]
+
+
+@dataclass(frozen=True)
+class _PassiveGravityTarget:
+    xy: tuple[float, float]
+    reason: str
+    parent_ref: str | None = None
+    parent_center: tuple[float, float] | None = None
+    side: str | None = None
 
 
 def _clone_placed(placed_parts: list[PlacedPart]) -> list[PlacedPart]:
@@ -240,8 +259,8 @@ def _target_pad_candidates_for_net(
     placed_by_ref: dict[str, PlacedPart],
     fp_geometries: dict[str, FootprintGeometry],
     roles: dict,
-) -> list[tuple[float, float, tuple[float, float], str]]:
-    candidates: list[tuple[float, float, tuple[float, float], str]] = []
+) -> list[_TargetPadCandidate]:
+    candidates: list[_TargetPadCandidate] = []
     for part in getattr(circuit, "parts", []) or []:
         ref = getattr(part, "ref", None)
         if not ref or ref == skip_ref or ref not in placed_by_ref:
@@ -277,17 +296,45 @@ def _target_pad_candidates_for_net(
                 pad_xy[1] - center[1],
             )
             candidates.append(
-                (
-                    -role_weight,
-                    origin_distance,
-                    pad_xy,
-                    (
+                _TargetPadCandidate(
+                    role_sort=-role_weight,
+                    origin_distance=origin_distance,
+                    pad_xy=pad_xy,
+                    reason=(
                         f"{ref}.{pad.number} on {net_name} "
                         f"({role_name}, pad offset {distance_from_center:.1f}mm)"
                     ),
+                    ref=ref,
+                    center_xy=center,
                 )
             )
-    return sorted(candidates, key=lambda item: (item[0], item[1], item[3]))
+    return sorted(
+        candidates,
+        key=lambda item: (item.role_sort, item.origin_distance, item.reason),
+    )
+
+
+def _target_side(
+    parent_center: tuple[float, float],
+    target_xy: tuple[float, float],
+) -> str:
+    dx = target_xy[0] - parent_center[0]
+    dy = target_xy[1] - parent_center[1]
+    if abs(dx) >= abs(dy):
+        return "right" if dx >= 0 else "left"
+    return "bottom" if dy >= 0 else "top"
+
+
+def _slot_tangent(
+    parent_center: tuple[float, float],
+    target_xy: tuple[float, float],
+) -> tuple[float, float]:
+    dx = target_xy[0] - parent_center[0]
+    dy = target_xy[1] - parent_center[1]
+    distance = math.hypot(dx, dy)
+    if distance <= 1e-6:
+        return 0.0, 1.0
+    return -dy / distance, dx / distance
 
 
 def _passive_pin_gravity_target(
@@ -297,7 +344,7 @@ def _passive_pin_gravity_target(
     fp_geometries: dict[str, FootprintGeometry] | None,
     roles: dict,
     constraints: LayoutConstraints | None = None,
-) -> tuple[tuple[float, float], str] | None:
+) -> _PassiveGravityTarget | None:
     if circuit is None:
         return None
     part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
@@ -320,12 +367,14 @@ def _passive_pin_gravity_target(
         if constraint.ref != ref or constraint.target_ref not in placed_by_ref:
             continue
         target = placed_by_ref[constraint.target_ref]
-        return (
-            (target.x_mm, target.y_mm),
-            (
+        return _PassiveGravityTarget(
+            xy=(target.x_mm, target.y_mm),
+            reason=(
                 f"near constraint to {constraint.target_ref} "
                 f"within {constraint.distance_mm:.1f}mm"
             ),
+            parent_ref=constraint.target_ref,
+            parent_center=(target.x_mm, target.y_mm),
         )
 
     if not fp_geometries:
@@ -336,6 +385,8 @@ def _passive_pin_gravity_target(
 
     target_points: list[tuple[float, float]] = []
     reasons: list[str] = []
+    parent_votes: dict[str, float] = {}
+    parent_centers: dict[str, tuple[float, float]] = {}
     for net_name in sorted(set(_part_pin_nets_by_number(part).values())):
         if GND_NET_RE.match(net_name) or POWER_NET_RE.match(net_name):
             # Rails are useful context but terrible global attractors. Let the
@@ -355,20 +406,105 @@ def _passive_pin_gravity_target(
         )
         if not candidates:
             continue
-        _, _, pad_xy, reason = candidates[0]
+        candidate = candidates[0]
         repeat = max(1, round(net_weight * 4))
-        target_points.extend([pad_xy] * repeat)
-        reasons.append(reason)
+        target_points.extend([candidate.pad_xy] * repeat)
+        reasons.append(candidate.reason)
+        parent_votes[candidate.ref] = parent_votes.get(candidate.ref, 0.0) + repeat
+        parent_centers[candidate.ref] = candidate.center_xy
 
     if not target_points:
         return None
-    return (
-        (
-            sum(point[0] for point in target_points) / len(target_points),
-            sum(point[1] for point in target_points) / len(target_points),
-        ),
-        "; ".join(reasons[:3]),
+    target_xy = (
+        sum(point[0] for point in target_points) / len(target_points),
+        sum(point[1] for point in target_points) / len(target_points),
     )
+    parent_ref = None
+    parent_center = None
+    side = None
+    if parent_votes:
+        parent_ref = min(
+            parent_votes,
+            key=lambda item: (-parent_votes[item], item),
+        )
+        parent_center = parent_centers.get(parent_ref)
+        if parent_center is not None:
+            side = _target_side(parent_center, target_xy)
+    return _PassiveGravityTarget(
+        xy=target_xy,
+        reason="; ".join(reasons[:3]),
+        parent_ref=parent_ref,
+        parent_center=parent_center,
+        side=side,
+    )
+
+
+def _composed_passive_pin_gravity_targets(
+    placed_parts: list[PlacedPart],
+    circuit,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    roles: dict,
+    constraints: LayoutConstraints | None,
+    clearance_mm: float,
+) -> dict[str, _PassiveGravityTarget]:
+    placed_by_ref = {part.ref: part for part in placed_parts}
+    targets: dict[str, _PassiveGravityTarget] = {}
+    grouped: dict[tuple[str, str], list[tuple[str, _PassiveGravityTarget]]] = {}
+    for part in sorted(placed_parts, key=lambda item: item.ref):
+        target = _passive_pin_gravity_target(
+            part.ref,
+            placed_by_ref,
+            circuit,
+            fp_geometries,
+            roles,
+            constraints,
+        )
+        if target is None:
+            continue
+        targets[part.ref] = target
+        if target.parent_ref is not None and target.side is not None:
+            grouped.setdefault((target.parent_ref, target.side), []).append(
+                (part.ref, target)
+            )
+
+    for (parent_ref, side), entries in grouped.items():
+        if len(entries) < 2:
+            continue
+        parent_center = entries[0][1].parent_center
+        if parent_center is None:
+            continue
+        tangent = _slot_tangent(parent_center, entries[0][1].xy)
+        axis_index = 0 if abs(tangent[0]) >= abs(tangent[1]) else 1
+        entries.sort(key=lambda item: (item[1].xy[axis_index], item[0]))
+        spacing = max(1.8, clearance_mm + 0.6)
+        for ref, _target in entries:
+            placed = placed_by_ref.get(ref)
+            if placed is None:
+                continue
+            width_mm, height_mm = _part_dimensions(placed, fp_bboxes, fp_geometries)
+            spacing = max(
+                spacing,
+                min(max(width_mm, height_mm) + clearance_mm + 0.8, 5.0),
+            )
+        mid = (len(entries) - 1) / 2
+        for index, (ref, target) in enumerate(entries):
+            offset = (index - mid) * spacing
+            slot_xy = (
+                target.xy[0] + tangent[0] * offset,
+                target.xy[1] + tangent[1] * offset,
+            )
+            targets[ref] = _PassiveGravityTarget(
+                xy=slot_xy,
+                reason=(
+                    f"{target.reason}; composed passive group slot "
+                    f"{index + 1}/{len(entries)} around {parent_ref} {side} side"
+                ),
+                parent_ref=target.parent_ref,
+                parent_center=target.parent_center,
+                side=target.side,
+            )
+    return targets
 
 
 def _net_weight(name: str) -> float:
@@ -636,6 +772,14 @@ def _best_pin_gravity_trial(
             clearance_mm,
         ):
             continue
+        if not _ref_is_clear_of_drc_courtyards(
+            ref,
+            trial_parts,
+            fp_bboxes,
+            constraints,
+            fp_geometries,
+        ):
+            continue
         key = (target_distance, -trial_score.score)
         if best is None or key < best[0]:
             best = (key, trial_parts, trial_score, trial)
@@ -672,6 +816,34 @@ def _ref_is_clear_of_hard_violations(
     if ref in validation.missing_refs:
         return False
     return True
+
+
+def _ref_is_clear_of_drc_courtyards(
+    ref: str,
+    placed_parts: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    constraints: LayoutConstraints | None,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> bool:
+    placed = next((part for part in placed_parts if part.ref == ref), None)
+    if placed is None:
+        return True
+    width_mm, height_mm = _part_dimensions(placed, fp_bboxes, fp_geometries)
+    occupied = _occupied_without_ref(
+        placed_parts,
+        ref,
+        fp_bboxes,
+        fp_geometries,
+        constraints,
+    )
+    return not _overlaps_any(
+        placed.x_mm,
+        placed.y_mm,
+        width_mm,
+        height_mm,
+        occupied,
+        clearance=0.0,
+    )
 
 
 def _occupied_without_ref(
@@ -837,6 +1009,7 @@ def refine_placement(
     max_movable_refs: int = 32,
     max_pair_swaps: int = 16,
     max_legalization_moves: int = 64,
+    preanchored_refs: set[str] | None = None,
 ) -> RefinementResult:
     """Apply deterministic score-gated local placement adjustments."""
     current_parts = _clone_placed(placed_parts)
@@ -852,17 +1025,28 @@ def refine_placement(
     start_score = current_score.score
     position_locked = _locked_position_refs(constraints, circuit)
     rotation_locked = _locked_rotation_refs(constraints)
+    preanchored_refs = set(preanchored_refs or ())
+    rotation_locked.update(preanchored_refs)
     roles = classify_parts(circuit) if circuit is not None else {}
     accepted_moves = 0
     accepted_rotations = 0
     accepted_swaps = 0
     ref_reasons: dict[str, list[str]] = {}
-    pin_gravity_anchored_refs: set[str] = set()
+    pin_gravity_anchored_refs: set[str] = set(preanchored_refs)
 
     for _ in range(max_passes):
         changed = False
         placed_by_ref = {part.ref: part for part in current_parts}
         neighbors, degrees = _ref_neighbors(circuit, placed_by_ref)
+        pin_targets = _composed_passive_pin_gravity_targets(
+            current_parts,
+            circuit,
+            fp_bboxes,
+            fp_geometries,
+            roles,
+            constraints,
+            clearance_mm,
+        )
         movable_refs = [
             part.ref for part in current_parts if part.ref not in position_locked
         ]
@@ -877,17 +1061,11 @@ def refine_placement(
                 fp_bboxes,
                 fp_geometries,
             )
-            pin_target = _passive_pin_gravity_target(
-                ref,
-                placed_by_ref,
-                circuit,
-                fp_geometries,
-                roles,
-                constraints,
-            )
+            pin_target = None if ref in preanchored_refs else pin_targets.get(ref)
             if pin_target is not None:
                 pin_gravity_anchored_refs.add(ref)
-                target_xy, target_reason = pin_target
+                target_xy = pin_target.xy
+                target_reason = pin_target.reason
                 bounds = _bounds_for_ref(ref, constraints)
                 move_trials = _targeted_clear_move_trials(
                     current_parts,
@@ -1100,6 +1278,7 @@ def refine_candidate_placement(
         fp_geometries=fp_geometries,
         clearance_mm=clearance_mm,
         board_layers=board_layers,
+        preanchored_refs=set(candidate.pin_gravity_anchored_refs),
     )
     if result.accepted_count == 0:
         return result

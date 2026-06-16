@@ -12,7 +12,12 @@ from skidl.layout.constraints import (
     NearConstraint,
 )
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
-from skidl.layout.refinement import _is_better, refine_candidate_placement, refine_placement
+from skidl.layout.refinement import (
+    _best_pin_gravity_trial,
+    _is_better,
+    refine_candidate_placement,
+    refine_placement,
+)
 from skidl.layout.scoring import LayoutScore, score_placement
 from skidl.layout.writer import PlacedPart
 
@@ -66,6 +71,7 @@ BBOXES = {
     "Resistor_SMD:R_0603": (1.6, 0.8),
     "Capacitor_SMD:C_0603": (1.6, 0.8),
     "Capacitor_SMD:C_0805": (2.0, 1.25),
+    "Package_TO_SOT_SMD:SOT-23-5": (3.0, 3.0),
 }
 
 
@@ -107,6 +113,28 @@ def _mcu_cap_geometries():
             ],
         ),
     }
+
+
+def _regulator_cap_geometries():
+    geometries = _mcu_cap_geometries()
+    geometries["Package_TO_SOT_SMD:SOT-23-5"] = FootprintGeometry(
+        footprint="Package_TO_SOT_SMD:SOT-23-5",
+        courtyard_bounds=(-1.5, -1.5, 1.5, 1.5),
+        pads=[
+            PadGeometry("1", -1.5, -0.9, 0.4, 0.6),
+            PadGeometry("2", 0.0, 1.2, 0.4, 0.6),
+            PadGeometry("3", 1.5, -0.9, 0.4, 0.6),
+        ],
+    )
+    geometries["Capacitor_SMD:C_0805"] = FootprintGeometry(
+        footprint="Capacitor_SMD:C_0805",
+        courtyard_bounds=(-1.0, -0.625, 1.0, 0.625),
+        pads=[
+            PadGeometry("1", -0.5, 0.0, 0.4, 0.6),
+            PadGeometry("2", 0.5, 0.0, 0.4, 0.6),
+        ],
+    )
+    return geometries
 
 
 def _distance(point_a, point_b):
@@ -341,6 +369,39 @@ def test_refinement_moves_decap_toward_nearby_common_rail_ic_group():
     assert "passive pin gravity" in reasons
 
 
+def test_refinement_preanchored_decap_skips_generic_pin_gravity():
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    u2 = _Part("U2", "Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    c1 = _Part("C1", "Capacitor_SMD:C_0603", value="100nF", nets=[vcc, gnd])
+    circuit = _Circuit([u1, u2, c1], [vcc, gnd])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(110.0, 45.0),
+        fixed=[FixedPosition("U1", 20.0, 20.0), FixedPosition("U2", 80.0, 20.0)],
+    )
+    geometries = _mcu_cap_geometries()
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("U2", 80.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("C1", 68.0, 20.0, 0.0, "Capacitor_SMD:C_0603"),
+    ]
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=geometries,
+        preanchored_refs={"C1"},
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+
+    assert by_ref["C1"].x_mm == pytest.approx(68.0)
+    assert by_ref["C1"].y_mm == pytest.approx(20.0)
+    assert "C1" not in result.ref_reasons
+
+
 def test_refinement_uses_near_constraint_for_passive_without_pad_geometry():
     vcc = _Net("3V3")
     gnd = _Net("GND")
@@ -367,6 +428,83 @@ def test_refinement_uses_near_constraint_for_passive_without_pad_geometry():
     assert result.accepted_moves >= 1
     assert _distance(cap_xy, (80.0, 20.0)) < _distance((50.0, 20.0), (80.0, 20.0))
     assert "near constraint to U2" in reasons
+
+
+def test_refinement_composes_named_regulator_caps_around_parent_pins():
+    vin = _Net("VIN")
+    vout = _Net("3V3")
+    gnd = _Net("GND")
+    u1 = _Part(
+        "U1",
+        "Package_TO_SOT_SMD:SOT-23-5",
+        name="AP2112 regulator",
+        nets=[vin, gnd, vout],
+        pins=5,
+    )
+    cin = _Part("CIN", "Capacitor_SMD:C_0603", value="100nF", nets=[vin, gnd])
+    cbulk = _Part("CBULK", "Capacitor_SMD:C_0805", value="10uF", nets=[vin, gnd])
+    cout = _Part("COUT", "Capacitor_SMD:C_0603", value="100nF", nets=[vout, gnd])
+    h1 = _Part(
+        "H1",
+        "Mechanical:MountingHole_3.2mm_M3",
+        name="mounting hole",
+        pins=0,
+    )
+    circuit = _Circuit([u1, cin, cbulk, cout, h1], [vin, vout, gnd])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(80.0, 50.0),
+        fixed=[
+            FixedPosition("U1", 40.0, 25.0),
+            FixedPosition("H1", 35.0, 25.0),
+        ],
+    )
+    placed = [
+        PlacedPart("U1", 40.0, 25.0, 0.0, "Package_TO_SOT_SMD:SOT-23-5"),
+        PlacedPart("H1", 35.0, 25.0, 0.0, "Mechanical:MountingHole_3.2mm_M3"),
+        PlacedPart("CIN", 72.0, 10.0, 0.0, "Capacitor_SMD:C_0603"),
+        PlacedPart("CBULK", 70.0, 40.0, 0.0, "Capacitor_SMD:C_0805"),
+        PlacedPart("COUT", 10.0, 35.0, 0.0, "Capacitor_SMD:C_0603"),
+    ]
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=_regulator_cap_geometries(),
+        max_passes=4,
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+    score = score_placement(
+        result.placed_parts,
+        circuit,
+        BBOXES,
+        outline=constraints.outline,
+        fp_geometries=_regulator_cap_geometries(),
+    )
+    input_cap_spacing = _distance(
+        (by_ref["CIN"].x_mm, by_ref["CIN"].y_mm),
+        (by_ref["CBULK"].x_mm, by_ref["CBULK"].y_mm),
+    )
+
+    assert result.accepted_moves >= 3
+    assert by_ref["H1"].x_mm == pytest.approx(35.0)
+    assert by_ref["H1"].y_mm == pytest.approx(25.0)
+    assert score.overlap_count == 0
+    assert (
+        _distance((by_ref["CIN"].x_mm, by_ref["CIN"].y_mm), (40.0, 25.0))
+        < 4.0
+    )
+    assert (
+        _distance((by_ref["CBULK"].x_mm, by_ref["CBULK"].y_mm), (40.0, 25.0))
+        < 4.0
+    )
+    assert by_ref["CIN"].x_mm <= by_ref["U1"].x_mm + 0.5
+    assert by_ref["CBULK"].x_mm <= by_ref["U1"].x_mm + 0.5
+    assert by_ref["COUT"].x_mm > by_ref["U1"].x_mm
+    assert input_cap_spacing > 2.0
+    assert "composed passive group slot" in "; ".join(result.ref_reasons["CIN"])
+    assert "passive pin gravity" in "; ".join(result.ref_reasons["COUT"])
 
 
 def test_refinement_passive_pin_gravity_avoids_mounting_hole_and_edge_keepouts():
@@ -545,6 +683,76 @@ def test_refinement_legalizes_multiple_independent_overlaps():
 
     assert result.accepted_moves >= 3
     assert score.overlap_count == 0
+
+
+def test_pin_gravity_rejects_module_courtyard_overlap():
+    sig = _Net("EN")
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    u1 = _Part("U1", "RF_Module:LargeModule", name="ESP32 module", nets=[sig, vcc, gnd], pins=8)
+    r1 = _Part("REN", "Resistor_SMD:R_0402", value="100K", nets=[sig, vcc])
+    circuit = _Circuit([u1, r1], [sig, vcc, gnd])
+    fp_geometries = {
+        "RF_Module:LargeModule": FootprintGeometry(
+            footprint="RF_Module:LargeModule",
+            body_bounds=(-3.0, -3.0, 3.0, 3.0),
+            courtyard_bounds=(-10.0, -5.0, 10.0, 5.0),
+            pads=[
+                PadGeometry("1", -4.0, 0.0, 0.5, 0.5),
+                PadGeometry("2", 4.0, 0.0, 0.5, 0.5),
+            ],
+        ),
+        "Resistor_SMD:R_0402": FootprintGeometry(
+            footprint="Resistor_SMD:R_0402",
+            body_bounds=(-0.35, -0.2, 0.35, 0.2),
+            courtyard_bounds=(-0.55, -0.3, 0.55, 0.3),
+            pads=[
+                PadGeometry("1", -0.25, 0.0, 0.25, 0.25),
+                PadGeometry("2", 0.25, 0.0, 0.25, 0.25),
+            ],
+        ),
+    }
+    fp_bboxes = {
+        name: (
+            geom.bounds[2] - geom.bounds[0],
+            geom.bounds[3] - geom.bounds[1],
+        )
+        for name, geom in fp_geometries.items()
+    }
+    constraints = LayoutConstraints(outline=BoardOutline(40.0, 30.0))
+    placed = [
+        PlacedPart("U1", 20.0, 15.0, 0.0, "RF_Module:LargeModule"),
+        PlacedPart("REN", 5.0, 15.0, 0.0, "Resistor_SMD:R_0402"),
+    ]
+    current_score = score_placement(
+        placed,
+        circuit,
+        fp_bboxes,
+        outline=constraints.outline,
+        fp_geometries=fp_geometries,
+    )
+
+    best = _best_pin_gravity_trial(
+        placed,
+        current_score,
+        "REN",
+        placed[1],
+        (16.0, 15.0),
+        [
+            PlacedPart("REN", 16.0, 15.0, 0.0, "Resistor_SMD:R_0402"),
+            PlacedPart("REN", 8.5, 15.0, 0.0, "Resistor_SMD:R_0402"),
+        ],
+        circuit,
+        fp_bboxes,
+        constraints,
+        fp_geometries,
+        clearance_mm=0.5,
+        board_layers=2,
+    )
+
+    assert best is not None
+    _parts, _score, trial = best
+    assert trial.x_mm == pytest.approx(8.5)
 
 
 def test_refinement_legalizes_more_than_sixteen_overlaps_by_default():

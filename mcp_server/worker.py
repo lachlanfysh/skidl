@@ -58,9 +58,17 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
             # Extract artifact file contents before storing — they bloat
             # the jobs.result column and can cause tool response truncation.
             artifacts = _collect_artifacts(result)
-            status = "succeeded" if result["ok"] else "failed"
-            if result.get("status") == "timeout":
-                status = "timeout"
+            pipeline_status = str(result.get("status") or "")
+            if pipeline_status in {
+                "succeeded",
+                "succeeded_with_warnings",
+                "failed",
+                "timeout",
+                "crashed",
+            }:
+                status = pipeline_status
+            else:
+                status = "succeeded" if result["ok"] else "failed"
             await db.complete_job(job_id, status, result=result)
 
             if result.get("run_id"):
@@ -84,7 +92,8 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
         except Exception as exc:
             tb = traceback.format_exc()
             print(f"{label}: job {job_id} crashed: {exc}\n{tb}", flush=True)
-            await db.complete_job(job_id, "failed", error=str(exc))
+            result = _worker_exception_result(job, job_id, label, exc, tb)
+            await db.complete_job(job_id, "crashed", result=result, error=str(exc))
 
 
 async def _reap_stale_jobs(db: DB, label: str) -> int:
@@ -216,6 +225,69 @@ def _job_log_summary(
         "exceptions": exc_summaries,
         "artifact_count": len(artifacts),
         "artifact_keys": sorted(artifacts)[:20],
+    }
+
+
+def _worker_exception_result(
+    job: dict,
+    job_id: str,
+    worker_id: str,
+    exc: Exception,
+    traceback_text: str,
+) -> dict[str, Any]:
+    """Structured result for crashes outside the engine subprocess."""
+    raw = job.get("spec") or {}
+    mode = raw.get("_mode") if isinstance(raw, dict) else None
+    timeout_s = (job.get("options") or {}).get("timeout_s", 300)
+    traceback_tail = "\n".join(traceback_text.splitlines()[-40:])
+    return {
+        "run_id": None,
+        "ok": False,
+        "status": "crashed",
+        "stage": "worker_exception",
+        "decision_required": True,
+        "decision_kind": "backend_failure",
+        "recommended_next_tool": "submit_skidl_code",
+        "exceptions": [
+            {
+                "id": "e-worker-exception",
+                "code": "ENGINE_CRASH",
+                "severity": "fatal",
+                "message": (
+                    "worker crashed while handling the job; retry once unchanged"
+                ),
+                "subject": {
+                    "stage": "worker_exception",
+                    "job_id": job_id,
+                    "worker_id": worker_id,
+                    "mode": mode or "circuit_spec",
+                    "timeout_s": timeout_s,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                    "traceback_tail": traceback_tail,
+                },
+                "candidates": [
+                    {
+                        "id": "c1",
+                        "action": "regenerate",
+                        "params": {},
+                        "human_summary": (
+                            "retry unchanged; this is a backend worker failure, "
+                            "not circuit feedback"
+                        ),
+                        "cost_hint": "cheap",
+                        "confidence": 0.8,
+                        "source": "deterministic",
+                    }
+                ],
+                "retry_hint": (
+                    "Retry once unchanged. If the crash repeats, report the "
+                    "job_id and traceback tail instead of rewriting the circuit."
+                ),
+            }
+        ],
+        "summary": f"Worker crashed before returning an engine result: {exc}",
+        "metrics": {"manufacturable": False, "manufacturing_complete": False},
     }
 
 

@@ -20,6 +20,7 @@ from mcp_server.exception_mapper import (
     layout_exceptions,
     order_exceptions_for_agent,
     suppress_waived,
+    timeout_exception,
 )
 from mcp_server.engine_worker import (
     PREVIEW_BACKGROUND,
@@ -30,6 +31,7 @@ from mcp_server.engine_worker import (
     _code_exception_from_syntax,
     _circuit_to_spec_dict,
     _drc_to_exceptions,
+    _drop_clean_manufacturing_advisories,
     _ensure_kicad_project_profile,
     _exec_skidl,
     _export_dsn_with_pcbnew,
@@ -179,9 +181,117 @@ class TestLayoutQuality:
         issue_codes = {issue["code"] for issue in quality["issues"]}
         assert "LOW_PART_SPREAD" in issue_codes
         assert "UNUSED_OUTLINE_REGION" in issue_codes
+        assert "OVERSIZED_BOARD_OUTLINE" in issue_codes
         assert quality["gates"]["manufacturable"] is True
         assert quality["gates"]["visual_review_ready"] is True
         assert quality["gates"]["product_layout_ok"] is False
+
+    def test_build_layout_quality_recommends_shrink_for_sparse_auto_outline(self):
+        quality = build_layout_quality(
+            run_id="sparse-auto-outline",
+            status="succeeded",
+            stage="complete",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 120.0, "height_mm": 80.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 20.0, "y_mm": 20.0},
+                    {"ref": "J1", "x_mm": 26.0, "y_mm": 20.0},
+                    {"ref": "R1", "x_mm": 22.0, "y_mm": 24.0},
+                    {"ref": "R2", "x_mm": 24.0, "y_mm": 24.0},
+                    {"ref": "C1", "x_mm": 23.0, "y_mm": 27.0},
+                ],
+                "score": {
+                    "footprint_envelope_area_ratio": 0.035,
+                    "compact_outline_mm": {
+                        "width": 24.0,
+                        "height": 18.0,
+                        "area": 432.0,
+                    },
+                    "compact_outline_area_ratio": 0.045,
+                    "empty_margin_ratios": {
+                        "left": 0.10,
+                        "right": 0.72,
+                        "top": 0.12,
+                        "bottom": 0.61,
+                    },
+                    "max_empty_margin_ratio": 0.72,
+                },
+                "validation": {"ok": True},
+            },
+            metrics={
+                "manufacturable": True,
+                "manufacturing_complete": True,
+                "board_area_mm2": 9600.0,
+            },
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue = next(
+            issue for issue in quality["issues"]
+            if issue["code"] == "OVERSIZED_BOARD_OUTLINE"
+        )
+
+        assert quality["placement"]["outline_intent"] == "auto_or_unknown"
+        assert quality["placement"]["compact_outline_area_ratio"] == pytest.approx(0.045)
+        assert "shrinking" in issue["recommendation"]
+        assert "Do not treat routing" in issue["recommendation"]
+
+    def test_build_layout_quality_recommends_redistribution_for_fixed_outline(self):
+        quality = build_layout_quality(
+            run_id="fixed-outline-underused",
+            status="succeeded",
+            stage="placement_review",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 120.0, "height_mm": 80.0},
+                "floorplan": {"outline": "explicit", "fixed_positions": 4},
+                "placed_parts": [
+                    {"ref": "SW1", "x_mm": 55.0, "y_mm": 38.0},
+                    {"ref": "SW2", "x_mm": 60.0, "y_mm": 38.0},
+                    {"ref": "J1", "x_mm": 58.0, "y_mm": 44.0},
+                    {"ref": "J2", "x_mm": 63.0, "y_mm": 44.0},
+                    {"ref": "U1", "x_mm": 59.0, "y_mm": 48.0},
+                ],
+                "score": {
+                    "footprint_envelope_area_ratio": 0.04,
+                    "compact_outline_mm": {
+                        "width": 28.0,
+                        "height": 22.0,
+                        "area": 616.0,
+                    },
+                    "compact_outline_area_ratio": 0.064,
+                    "empty_margin_ratios": {
+                        "left": 0.42,
+                        "right": 0.36,
+                        "top": 0.40,
+                        "bottom": 0.30,
+                    },
+                    "max_empty_margin_ratio": 0.42,
+                },
+                "validation": {"ok": True},
+            },
+            metrics={
+                "manufacturable": True,
+                "manufacturing_complete": True,
+                "pipeline_goal": "placement_review",
+                "board_area_mm2": 9600.0,
+            },
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = {issue["code"] for issue in quality["issues"]}
+        issue = next(
+            issue for issue in quality["issues"]
+            if issue["code"] == "FIXED_OUTLINE_UNDERUSED"
+        )
+
+        assert "OVERSIZED_BOARD_OUTLINE" not in issue_codes
+        assert quality["placement"]["outline_intent"] == "mechanical"
+        assert "Do not shrink or grow" in issue["recommendation"]
+        assert "redistribute UI" in issue["recommendation"]
 
     def test_build_layout_quality_blocks_validation_failures(self):
         quality = build_layout_quality(
@@ -266,6 +376,127 @@ class TestLayoutQuality:
         assert issue_codes.count("LAYOUT_OVERLAP") == 1
         assert issue_codes.count("HIGH_CONGESTION") == 1
         assert quality["gates"]["product_layout_ok"] is False
+
+    def test_build_layout_quality_does_not_block_clean_routed_board_on_congestion_only(self):
+        quality = build_layout_quality(
+            run_id="advisory-only",
+            status="succeeded_with_warnings",
+            stage="complete",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 66.3, "height_mm": 32.8},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 6.0, "y_mm": 5.0},
+                    {"ref": "U2", "x_mm": 32.0, "y_mm": 5.5},
+                    {"ref": "U3", "x_mm": 60.0, "y_mm": 6.0},
+                    {"ref": "U4", "x_mm": 8.0, "y_mm": 26.0},
+                    {"ref": "U5", "x_mm": 34.0, "y_mm": 27.0},
+                    {"ref": "U6", "x_mm": 58.0, "y_mm": 26.5},
+                    {"ref": "U7", "x_mm": 31.0, "y_mm": 16.0},
+                ],
+                "validation": {"ok": True},
+            },
+            metrics={
+                "congestion_score": 85.0,
+                "manufacturable": True,
+                "manufacturing_complete": True,
+                "board_area_mm2": 2175.0,
+            },
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        assert quality["issues"] == []
+        assert quality["gates"]["manufacturable"] is True
+        assert quality["gates"]["visual_review_ready"] is True
+        assert quality["gates"]["product_layout_ok"] is True
+
+    def test_build_layout_quality_keeps_congestion_actionable_before_manufacturing(self):
+        quality = build_layout_quality(
+            run_id="congestion-unrouted",
+            status="succeeded_with_warnings",
+            stage="complete",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 66.3, "height_mm": 32.8},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 6.0, "y_mm": 5.0},
+                    {"ref": "U2", "x_mm": 32.0, "y_mm": 5.5},
+                    {"ref": "U3", "x_mm": 60.0, "y_mm": 6.0},
+                    {"ref": "U4", "x_mm": 8.0, "y_mm": 26.0},
+                    {"ref": "U5", "x_mm": 34.0, "y_mm": 27.0},
+                    {"ref": "U6", "x_mm": 58.0, "y_mm": 26.5},
+                    {"ref": "U7", "x_mm": 31.0, "y_mm": 16.0},
+                ],
+                "validation": {"ok": True},
+            },
+            metrics={
+                "congestion_score": 85.0,
+                "manufacturable": False,
+                "manufacturing_complete": False,
+                "board_area_mm2": 2175.0,
+            },
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        assert [issue["code"] for issue in quality["issues"]] == ["HIGH_CONGESTION"]
+        assert quality["gates"]["product_layout_ok"] is False
+
+    def test_worker_drops_clean_manufacturing_congestion_advisory(self):
+        high = DesignException(
+            id="e-high",
+            code=ExcCode.HIGH_CONGESTION,
+            severity=Severity.ADVISORY,
+            message="layout congestion is high",
+        )
+        other = DesignException(
+            id="e-review",
+            code=ExcCode.PLACEMENT_REVIEW_ONLY,
+            severity=Severity.ADVISORY,
+            message="placement review only",
+        )
+
+        assert _drop_clean_manufacturing_advisories(
+            [high, other],
+            manufacturable=True,
+        ) == [other]
+        assert _drop_clean_manufacturing_advisories(
+            [high, other],
+            manufacturable=False,
+        ) == [high, other]
+
+    def test_build_layout_quality_surfaces_front_panel_trace_span(self):
+        quality = build_layout_quality(
+            run_id="front-panel-traces",
+            status="succeeded_with_warnings",
+            stage="complete",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 80.0, "height_mm": 30.0},
+                "placed_parts": [
+                    {"ref": "J1", "x_mm": 8.0, "y_mm": 14.0, "side": "front"},
+                    {"ref": "U1", "x_mm": 72.0, "y_mm": 14.0, "side": "front"},
+                ],
+                "score": {
+                    "front_panel_trace_count": 1,
+                    "front_panel_trace_mm": 64.0,
+                },
+                "validation": {"ok": True},
+            },
+            metrics={"manufacturable": True, "manufacturing_complete": True},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue = next(
+            issue for issue in quality["issues"]
+            if issue["code"] == "FRONT_PANEL_TRACE_SPAN"
+        )
+
+        assert issue["severity"] == "warning"
+        assert issue["evidence"]["front_panel_trace_mm"] == pytest.approx(64.0)
+        assert "move service electronics to the back" in issue["recommendation"]
 
     @pytest.mark.parametrize(
         "code",
@@ -361,6 +592,108 @@ class TestLayoutQuality:
         assert "GRID_ALIGNMENT_DRIFT" in issue_codes
         assert quality["gates"]["visual_review_ready"] is True
         assert quality["gates"]["product_layout_ok"] is False
+
+    def test_build_layout_quality_marks_failed_preview_as_reviewable(self):
+        quality = build_layout_quality(
+            run_id="failed-but-previewable",
+            status="failed",
+            stage="placement_review",
+            ok=False,
+            exceptions=[
+                DesignException(
+                    id="e-overlap",
+                    code=ExcCode.LAYOUT_OVERLAP,
+                    severity=Severity.ERROR,
+                    message="footprint overlaps remain",
+                    subject={"count": 2},
+                )
+            ],
+            layout={
+                "ok": False,
+                "outline": {"width_mm": 65.0, "height_mm": 40.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 20.0, "y_mm": 20.0},
+                    {"ref": "J1", "x_mm": 20.0, "y_mm": 20.0},
+                ],
+                "validation": {"ok": False, "overlaps": ["J1/U1"]},
+            },
+            metrics={"manufacturable": False, "manufacturing_complete": False},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        assert quality["gates"]["visual_review_ready"] is True
+        assert quality["gates"]["product_layout_ok"] is False
+        assert quality["gates"]["reviewable_failure"] is True
+        assert quality["review"]["state"] == "failed_reviewable"
+        assert quality["review"]["requires_human_feedback"] is True
+        assert "preview artifacts are available" in quality["review"]["message"]
+
+    def test_build_layout_quality_respects_explicit_fixed_floorplan_over_inferred_grid(self):
+        quality = build_layout_quality(
+            run_id="fixed-floorplan-grid-default",
+            status="succeeded",
+            stage="complete",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 100.0, "height_mm": 80.0},
+                "floorplan": {
+                    "fixed_positions": 2,
+                    "fixed_refs": ["RV1", "RV2"],
+                },
+                "placed_parts": [
+                    {"ref": "RV1", "x_mm": 20.0, "y_mm": 20.0},
+                    {"ref": "RV2", "x_mm": 40.0, "y_mm": 28.0},
+                    {"ref": "U1", "x_mm": 70.0, "y_mm": 50.0},
+                ],
+                "validation": {"ok": True},
+                "intent_plan": {
+                    "align_constraints": [
+                        {"refs": ["RV1", "RV2"], "axis": "y", "value_mm": 20.0}
+                    ],
+                },
+            },
+            metrics={"manufacturable": True, "manufacturing_complete": True},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = {issue["code"] for issue in quality["issues"]}
+
+        assert "GRID_ALIGNMENT_DRIFT" not in issue_codes
+
+    def test_build_layout_quality_keeps_explicit_floorplan_grid_drift(self):
+        quality = build_layout_quality(
+            run_id="explicit-floorplan-grid-drift",
+            status="succeeded",
+            stage="complete",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 100.0, "height_mm": 80.0},
+                "floorplan": {
+                    "fixed_positions": 2,
+                    "fixed_refs": ["RV1", "RV2"],
+                    "align_constraints": 1,
+                },
+                "placed_parts": [
+                    {"ref": "RV1", "x_mm": 20.0, "y_mm": 20.0},
+                    {"ref": "RV2", "x_mm": 40.0, "y_mm": 28.0},
+                    {"ref": "U1", "x_mm": 70.0, "y_mm": 50.0},
+                ],
+                "validation": {"ok": True},
+                "intent_plan": {
+                    "align_constraints": [
+                        {"refs": ["RV1", "RV2"], "axis": "y", "value_mm": 20.0}
+                    ],
+                },
+            },
+            metrics={"manufacturable": True, "manufacturing_complete": True},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = {issue["code"] for issue in quality["issues"]}
+
+        assert "GRID_ALIGNMENT_DRIFT" in issue_codes
 
     def test_build_layout_quality_avoids_origin_false_positive_for_edge_header(self):
         quality = build_layout_quality(
@@ -535,6 +868,59 @@ class TestLayoutQuality:
 
         assert issue["evidence"]["classification"] == "placement_blocked"
         assert "outline size" in issue["recommendation"]
+
+    def test_build_layout_quality_classifies_cutout_blocked_route_as_placement_blocked(self):
+        quality = build_layout_quality(
+            run_id="route-cutout-blocked",
+            status="failed",
+            stage="complete",
+            ok=False,
+            exceptions=[
+                DesignException(
+                    id="route",
+                    code=ExcCode.ROUTE_UNCONNECTED,
+                    severity=Severity.ERROR,
+                    message="1 net could not be routed",
+                    candidates=[
+                        Candidate(
+                            id="c1",
+                            action=ActionType.REGENERATE,
+                            params={},
+                            human_summary="retry placement",
+                        ),
+                        Candidate(
+                            id="c2",
+                            action=ActionType.SCALE_OUTLINE,
+                            params={"area_factor": 1.2},
+                            human_summary="grow",
+                        ),
+                    ],
+                )
+            ],
+            layout={
+                "ok": False,
+                "outline": {"width_mm": 100.0, "height_mm": 80.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 20.0, "y_mm": 20.0},
+                    {"ref": "J1", "x_mm": 50.0, "y_mm": 20.0},
+                ],
+                "validation": {
+                    "ok": False,
+                    "cutout_violations": ["U1"],
+                },
+            },
+            metrics={"manufacturable": False, "manufacturing_complete": False},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue = next(
+            issue for issue in quality["issues"]
+            if issue["code"] == "ROUTING_FAILURE_DIAGNOSIS"
+        )
+
+        assert issue["evidence"]["classification"] == "placement_blocked"
+        assert issue["evidence"]["cutout_violations"] == ["U1"]
+        assert "before changing outline size" in issue["recommendation"]
 
     def test_build_layout_quality_classifies_routing_failure_as_footprint_issue(self):
         quality = build_layout_quality(
@@ -892,12 +1278,20 @@ class TestBoardPreviews:
 
         assert previews["ok"] is True
         assert set(previews["files"]) == {
+            "preview_2d_bottom.png",
+            "preview_2d_bottom.svg",
+            "preview_2d_combined.png",
+            "preview_2d_combined.svg",
             "preview_2d_top.png",
+            "preview_2d_top.svg",
             "preview_top.png",
             "preview_top.svg",
         }
+        assert (tmp_path / "preview_2d_bottom.png").read_bytes().startswith(b"\x89PNG")
+        assert (tmp_path / "preview_2d_combined.png").read_bytes().startswith(b"\x89PNG")
         assert (tmp_path / "preview_2d_top.png").read_bytes().startswith(b"\x89PNG")
         assert (tmp_path / "preview_top.png").read_bytes().startswith(b"\x89PNG")
+        assert (tmp_path / "preview_2d_top.svg").read_text().startswith("<svg")
         assert (tmp_path / "preview_top.svg").read_text().startswith("<svg")
 
     def test_generate_board_previews_without_kicad_is_nonfatal(self, monkeypatch, tmp_path):
@@ -1190,6 +1584,57 @@ class TestExceptionMapper:
         assert enriched.candidates[-1].action == ActionType.SCALE_OUTLINE
         assert enriched.candidates[-1].confidence <= 0.2
 
+    def test_routing_diagnosis_recommends_shrink_or_redistribute_for_sparse_board(self):
+        exc = DesignException(
+            id="route",
+            code=ExcCode.DRC_UNCONNECTED,
+            severity=Severity.ERROR,
+            message="unconnected",
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.REGENERATE,
+                    params={},
+                    human_summary="retry",
+                ),
+                Candidate(
+                    id="c2",
+                    action=ActionType.SCALE_OUTLINE,
+                    params={"area_factor": 1.2},
+                    human_summary="grow",
+                    confidence=0.4,
+                ),
+            ],
+        )
+        layout = {
+            "ok": True,
+            "outline": {"width_mm": 120.0, "height_mm": 80.0},
+            "placed_parts": [
+                {"ref": "U1", "x_mm": 20.0, "y_mm": 20.0},
+                {"ref": "J1", "x_mm": 26.0, "y_mm": 20.0},
+                {"ref": "R1", "x_mm": 22.0, "y_mm": 24.0},
+                {"ref": "R2", "x_mm": 24.0, "y_mm": 24.0},
+            ],
+            "score": {
+                "compact_outline_area_ratio": 0.08,
+                "footprint_envelope_area_ratio": 0.05,
+                "max_empty_margin_ratio": 0.70,
+            },
+            "validation": {"ok": True},
+        }
+
+        diagnosis = classify_routing_failure([exc], layout=layout)
+        enriched = enrich_routing_failure_exceptions([exc], layout=layout)[0]
+
+        assert diagnosis["classification"] == "sparse_or_underused_outline"
+        assert "Shrink auto-sized boards" in diagnosis["recommendation"]
+        assert "redistribute fixed-outline" in diagnosis["recommendation"]
+        assert enriched.candidates[0].action == ActionType.REGENERATE
+        assert "Shrink auto outline" in enriched.candidates[0].human_summary
+        assert enriched.candidates[-1].action == ActionType.SCALE_OUTLINE
+        assert enriched.candidates[-1].confidence <= 0.2
+        assert "shrink or redistribute" in enriched.candidates[-1].human_summary
+
     def test_routing_diagnosis_promotes_outline_growth_only_when_tight(self):
         exc = DesignException(
             id="route",
@@ -1263,6 +1708,32 @@ class TestExceptionMapper:
         assert exceptions[0].candidates[0].params == {"w_mm": 22.0, "h_mm": 14.0}
         assert exceptions[0].candidates[1].action == ActionType.ACCEPT_ADVISORY
         assert "enclosure" in exceptions[0].retry_hint
+
+    def test_layout_compact_oversized_warning_maps_to_outline_advisory(self):
+        class Validation:
+            overlaps = []
+            outline_violations = []
+            keepout_violations = []
+            missing_refs = []
+
+        class Score:
+            congestion_score = 0.0
+            warnings = [
+                "board outline is 3.4x larger than compact footprint envelope "
+                "(estimated compact outline 22.0x14.0mm); shrink auto-sized boards "
+                "or redistribute parts if this outline is mechanically fixed"
+            ]
+
+        class Result:
+            validation = Validation()
+            score = Score()
+            outline = None
+
+        exceptions = layout_exceptions(Result())
+
+        assert exceptions[0].code == ExcCode.LAYOUT_OVERSIZED
+        assert exceptions[0].candidates[0].action == ActionType.SET_OUTLINE
+        assert exceptions[0].candidates[0].params == {"w_mm": 22.0, "h_mm": 14.0}
 
     def test_outline_for_spec_defaults_to_rounded_product_corners(self):
         spec = CircuitSpec.model_validate(trivial_spec())
@@ -1898,6 +2369,24 @@ class TestHelpfulFailures:
         assert exc.candidates[0].action == ActionType.REGENERATE
         assert "Fetch the run artifacts" in exc.retry_hint
 
+    def test_timeout_exception_keeps_partial_artifact_context(self):
+        exc = timeout_exception(
+            240.0,
+            artifact_keys=["board.kicad_sch", "board.kicad_pcb"],
+            stderr="worker log tail",
+        )
+
+        assert exc.code == ExcCode.ENGINE_TIMEOUT
+        assert exc.subject["stage"] == "timeout"
+        assert exc.subject["timeout_s"] == 240.0
+        assert exc.subject["partial_artifacts"] == [
+            "board.kicad_pcb",
+            "board.kicad_sch",
+        ]
+        assert "worker log tail" in exc.subject["stderr_tail"]
+        assert "backend/runtime feedback" in exc.candidates[0].human_summary
+        assert "partial_artifacts" in exc.retry_hint
+
     def test_post_artifact_failure_metrics_are_definitive(self):
         exc = DesignException(
             id="e-post",
@@ -2258,7 +2747,7 @@ class TestRoutingExceptions:
         }
         assert "route_timeout_s=240" in exc.retry_hint
 
-    def test_route_unconnected_does_not_scale_outline_first(self, monkeypatch, tmp_path):
+    def test_route_unrouted_stdout_defers_to_drc_after_ses_import(self, monkeypatch, tmp_path):
         original_exists = Path.exists
         pcb_path = tmp_path / "unrouted.kicad_pcb"
         dsn_path = tmp_path / "unrouted.dsn"
@@ -2288,16 +2777,7 @@ class TestRoutingExceptions:
 
         exceptions = _route_pcb(str(pcb_path), timeout_s=120)
 
-        assert len(exceptions) == 1
-        exc = exceptions[0]
-        assert exc.code == ExcCode.ROUTE_UNCONNECTED
-        assert [c.action for c in exc.candidates] == [
-            ActionType.REGENERATE,
-            ActionType.SET_LAYERS,
-            ActionType.SCALE_OUTLINE,
-        ]
-        assert exc.candidates[-1].confidence < 0.5
-        assert "Do not blindly grow" in exc.retry_hint
+        assert exceptions == []
 
     def test_dsn_export_segfault_is_route_unavailable(self, monkeypatch, tmp_path):
         def fake_run(cmd, **kwargs):
@@ -2499,6 +2979,7 @@ class TestFloorplanParsing:
                 "distribute",
                 "assembly_sides",
                 "keepouts",
+                "cutouts",
                 "outline",
             ):
                 assert needle in text
@@ -2583,6 +3064,7 @@ class TestFloorplanParsing:
         assert len(constraints.distribute) == 5
 
         assert meta["fixed_positions"] == 5
+        assert meta["fixed_refs"] == ["U1"]
         assert meta["edge_anchors"] == 1
         assert meta["keepouts"] == 1
         assert meta["outline"] == "explicit"
@@ -2594,6 +3076,61 @@ class TestFloorplanParsing:
         assert meta["assembly_sides"]["U2"] == "back"
         assert meta["assembly_sides"]["SW4"] == "front"
         assert meta["assembly_side_counts"] == {"back": 2, "front": 5}
+
+    def test_floorplan_parses_cutouts_apertures_and_slots_as_geometry(self):
+        constraints, meta = engine_worker_mod._floorplan_constraints(
+            {
+                "cutouts": [
+                    {
+                        "name": "sensor_lattice_window",
+                        "x_min": 10.0,
+                        "y_min": 12.0,
+                        "x_max": 18.0,
+                        "y_max": 22.0,
+                    },
+                    {
+                        "name": "polygon_window",
+                        "vertices": [
+                            [30.0, 10.0],
+                            [40.0, 12.0],
+                            [38.0, 22.0],
+                            [30.0, 20.0],
+                        ],
+                    },
+                ],
+                "apertures": [
+                    {
+                        "shape": "circle",
+                        "center_x_mm": 55.0,
+                        "center_y_mm": 16.0,
+                        "diameter_mm": 6.0,
+                    }
+                ],
+                "slots": [
+                    {
+                        "name": "oled_ribbon_slot",
+                        "start": [70.0, 12.0],
+                        "end": [82.0, 12.0],
+                        "width_mm": 3.0,
+                    }
+                ],
+            }
+        )
+
+        assert constraints is not None
+        assert len(constraints.cutouts) == 4
+        assert meta["cutouts"] == 4
+        assert [item["shape"] for item in meta["cutout_shapes"]] == [
+            "rect",
+            "polygon",
+            "circle",
+            "slot",
+        ]
+        circle = constraints.cutouts[2]
+        assert circle.radius_mm == pytest.approx(3.0)
+        slot = constraints.cutouts[3]
+        assert slot.x_min == pytest.approx(68.5)
+        assert slot.x_max == pytest.approx(83.5)
 
     def test_floorplan_keepout_bands_imply_coordinate_frame_outline(self):
         constraints, meta = engine_worker_mod._floorplan_constraints(
@@ -2617,6 +3154,30 @@ class TestFloorplanParsing:
         assert constraints.outline.x_max == pytest.approx(115.0)
         assert constraints.outline.y_max == pytest.approx(65.0)
         assert meta["outline"] == "keepout_bands"
+
+    def test_floorplan_corner_mounting_holes_imply_board_outline(self):
+        constraints, meta = engine_worker_mod._floorplan_constraints(
+            {
+                "fixed_positions": [
+                    {"ref": "U1", "x_mm": 38.0, "y_mm": 30.0},
+                    {"ref": "H1", "x_mm": 2.7, "y_mm": 2.7},
+                    {"ref": "H2", "x_mm": 87.3, "y_mm": 2.7},
+                    {"ref": "H3", "x_mm": 2.7, "y_mm": 67.3},
+                    {"ref": "H4", "x_mm": 87.3, "y_mm": 67.3},
+                ],
+                "edge_anchors": [
+                    {"ref": "J1", "edge": "right", "offset_mm": 18.0},
+                ],
+            }
+        )
+
+        assert constraints is not None
+        assert constraints.outline is not None
+        assert constraints.outline.x_min == pytest.approx(0.0)
+        assert constraints.outline.y_min == pytest.approx(0.0)
+        assert constraints.outline.x_max == pytest.approx(90.0)
+        assert constraints.outline.y_max == pytest.approx(70.0)
+        assert meta["outline"] == "mounting_holes"
 
     def test_floorplan_single_internal_keepout_does_not_imply_outline(self):
         constraints, meta = engine_worker_mod._floorplan_constraints(
@@ -2658,6 +3219,9 @@ class TestFloorplanParsing:
             "align": [{"refs": ["D1", "D2"], "axis": "y"}],
             "distribute": [{"refs": ["D1", "D2", "D3"], "axis": "x"}],
             "keepouts": [{"x_min": 0.0, "y_min": 0.0, "x_max": 3.0, "y_max": 24.0}],
+            "cutouts": [
+                {"name": "sensor_window", "x_min": 10.0, "y_min": 8.0, "x_max": 16.0, "y_max": 14.0}
+            ],
             "assembly_sides": {"U2": "back"},
         }
         refs = ["U1", "U2", "J1", "SW1", "SW2", "SW3", "SW4", "D1", "D2", "D3"]
@@ -2690,6 +3254,7 @@ class TestFloorplanParsing:
 
             def __init__(self, outline):
                 self.outline = outline
+                self.cutouts = list(captured["constraints"].cutouts)
                 self.placed_parts = [
                     SimpleNamespace(
                         ref=part.ref,
@@ -2713,6 +3278,7 @@ class TestFloorplanParsing:
                         {"ref": part.ref, "side": part.side}
                         for part in self.placed_parts
                     ],
+                    "cutouts": [cutout.to_dict() for cutout in self.cutouts],
                     "intent_plan": {
                         "assembly_sides": {
                             part.ref: getattr(part, "assembly_side", "front")
@@ -2747,6 +3313,9 @@ class TestFloorplanParsing:
             }
             return FakeLayoutResult(constraints.outline)
 
+        def fake_write_kicad_pcb(_placed, _circuit, _fp_dirs, _output_path, **kwargs):
+            captured["write_cutouts"] = kwargs.get("cutouts")
+
         monkeypatch.setattr(
             engine_worker_mod,
             "_exec_skidl_with_namespace",
@@ -2762,7 +3331,7 @@ class TestFloorplanParsing:
         monkeypatch.setattr(engine_worker_mod, "layout_exceptions", lambda *a, **k: [])
         monkeypatch.setattr(engine_worker_mod, "_skidl_layout_intent_advisories", lambda *a, **k: [])
         monkeypatch.setattr(layout_mod, "plan_layout", fake_plan_layout)
-        monkeypatch.setattr(layout_mod, "write_kicad_pcb", lambda *a, **k: None)
+        monkeypatch.setattr(layout_mod, "write_kicad_pcb", fake_write_kicad_pcb)
         monkeypatch.setattr(engine_worker_mod, "_generate_board_previews", lambda *a, **k: {})
         monkeypatch.setattr(engine_worker_mod, "_write_layout_mockup_svg", lambda *a, **k: None)
         monkeypatch.setattr(engine_worker_mod, "_add_layout_mockup_preview", lambda *a, **k: None)
@@ -2786,6 +3355,7 @@ class TestFloorplanParsing:
         assert len(constraints.fixed) == 5
         assert len(constraints.edge_anchors) == 1
         assert len(constraints.keepouts) == 1
+        assert len(constraints.cutouts) == 1
         assert len(constraints.align) == 5
         assert len(constraints.distribute) == 5
         assert captured["part_sides"]["U1"] == "back"
@@ -2794,6 +3364,9 @@ class TestFloorplanParsing:
         assert captured["part_edges"]["J1"] == "right"
         assert result["layout"]["floorplan"]["outline"] == "explicit"
         assert result["layout"]["floorplan"]["fixed_positions"] == 5
+        assert result["layout"]["floorplan"]["cutouts"] == 1
+        assert result["layout"]["cutouts"][0]["name"] == "sensor_window"
+        assert captured["write_cutouts"][0].name == "sensor_window"
         assert result["layout"]["floorplan"]["assembly_side_counts"] == {
             "back": 2,
             "front": 5,

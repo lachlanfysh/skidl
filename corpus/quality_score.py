@@ -30,6 +30,15 @@ GRADE_THRESHOLDS = [
     (0.25, "D"),
 ]
 
+QUALITY_GATES = (
+    "schematic_ok",
+    "placement_ok",
+    "drc_ok",
+    "manufacturable",
+    "visual_review_ready",
+    "product_layout_ok",
+)
+
 
 def _grade(score: float) -> str:
     for threshold, letter in GRADE_THRESHOLDS:
@@ -159,6 +168,32 @@ def format_matrix(scores: list[CircuitScore]) -> str:
         lines.append(row)
 
     return "\n".join(lines)
+
+
+def quality_gate_summary(layout_quality: dict) -> dict:
+    """Return stable gate and issue-class tags for a layout quality report."""
+    gates = layout_quality.get("gates") if isinstance(layout_quality, dict) else {}
+    issues = layout_quality.get("issues") if isinstance(layout_quality, dict) else []
+    normalized_gates = {
+        gate: bool(gates.get(gate))
+        for gate in QUALITY_GATES
+    }
+    failed_gates = [
+        gate
+        for gate in QUALITY_GATES
+        if not normalized_gates[gate]
+    ]
+    issue_classes = sorted({
+        str(issue.get("code"))
+        for issue in issues
+        if isinstance(issue, dict) and issue.get("code")
+    })
+    return {
+        "gates": normalized_gates,
+        "failed_gates": failed_gates,
+        "issue_classes": issue_classes,
+        "issue_counts": dict(layout_quality.get("issue_counts") or {}),
+    }
 
 
 _BATCH_FILENAME_RE = re.compile(r"^(.+?)_([^_].+)\.json$")

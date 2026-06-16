@@ -90,6 +90,38 @@ def test_score_warns_when_outline_is_much_larger_than_placed_envelope():
     assert score.score < 100.0
 
 
+def test_score_exports_compact_outline_and_margin_metrics():
+    parts = [
+        _Part("U1", name="MCU", footprint="Package_QFP:MCU"),
+        _Part("R1", value="10K", footprint="Capacitor:C_0805"),
+        _Part("R2", value="10K", footprint="Capacitor:C_0805"),
+        _Part("C1", value="100nF", footprint="Capacitor:C_0805"),
+        _Part("J1", name="header", footprint="Connector:Header"),
+    ]
+    circuit = _Circuit(parts, [])
+    placed = [
+        PlacedPart("U1", 22.0, 18.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("R1", 31.0, 18.0, 0.0, "Capacitor:C_0805"),
+        PlacedPart("R2", 31.0, 21.0, 0.0, "Capacitor:C_0805"),
+        PlacedPart("C1", 24.0, 25.0, 0.0, "Capacitor:C_0805"),
+        PlacedPart("J1", 33.0, 25.0, 0.0, "Connector:Header"),
+    ]
+
+    score = score_placement(
+        placed,
+        circuit,
+        BBOXES,
+        outline=BoardOutline(100.0, 70.0),
+    )
+    data = score.to_dict()
+
+    assert score.compact_outline_mm["width"] < 40.0
+    assert score.compact_outline_area_ratio < 0.25
+    assert score.max_empty_margin_ratio > 0.4
+    assert data["footprint_envelope_bbox_mm"]["width"] > 0.0
+    assert data["empty_margin_ratios"]["right"] > 0.5
+
+
 def test_score_prefers_better_use_of_generous_outline():
     ic = _Part("U1", name="MCU", footprint="Package_QFP:MCU")
     cap = _Part("C1", value="1uF", footprint="Capacitor:C_0805")
@@ -219,6 +251,89 @@ def test_score_accepts_clean_panel_grid_without_alignment_warning():
 
     assert not any("not aligned" in warning for warning in score.warnings)
     assert not any("bunched" in warning for warning in score.warnings)
+
+
+def test_score_penalizes_long_visible_front_panel_trace():
+    sig = _Net("SIG")
+    gnd = _Net("GND")
+    jack = _Part(
+        "J1",
+        name="Thonkiconn PJ398SM panel jack",
+        footprint="Connector_Audio:Thonkiconn_PJ398SM",
+        nets=[sig, gnd],
+    )
+    ic = _Part("U1", name="audio processor", footprint="Package_QFP:MCU", nets=[sig, gnd])
+    circuit = _Circuit([jack, ic], [sig, gnd])
+    placed = [
+        PlacedPart("J1", 8.0, 14.0, 0.0, "Connector_Audio:Thonkiconn_PJ398SM", side="front"),
+        PlacedPart("U1", 72.0, 14.0, 0.0, "Package_QFP:MCU", side="front"),
+    ]
+
+    score = score_placement(
+        placed,
+        circuit,
+        BBOXES,
+        outline=BoardOutline(80.0, 30.0),
+    )
+
+    assert score.front_panel_trace_count == 2
+    assert score.front_panel_trace_mm > 120.0
+    assert any("front-panel trace span" in warning for warning in score.warnings)
+    assert score.to_dict()["front_panel_trace_count"] == 2
+
+
+def test_score_ignores_back_side_service_electronics_for_front_panel_trace():
+    sig = _Net("SIG")
+    gnd = _Net("GND")
+    jack = _Part(
+        "J1",
+        name="Thonkiconn PJ398SM panel jack",
+        footprint="Connector_Audio:Thonkiconn_PJ398SM",
+        nets=[sig, gnd],
+    )
+    ic = _Part("U1", name="audio processor", footprint="Package_QFP:MCU", nets=[sig, gnd])
+    circuit = _Circuit([jack, ic], [sig, gnd])
+    placed = [
+        PlacedPart("J1", 8.0, 14.0, 0.0, "Connector_Audio:Thonkiconn_PJ398SM", side="front"),
+        PlacedPart("U1", 72.0, 14.0, 0.0, "Package_QFP:MCU", side="back"),
+    ]
+
+    score = score_placement(
+        placed,
+        circuit,
+        BBOXES,
+        outline=BoardOutline(80.0, 30.0),
+    )
+
+    assert score.front_panel_trace_count == 0
+    assert not any("front-panel trace span" in warning for warning in score.warnings)
+
+
+def test_score_does_not_treat_generic_single_sided_buttons_as_front_panel():
+    en = _Net("EN")
+    gnd = _Net("GND")
+    switch = _Part(
+        "SW1",
+        name="tactile reset switch",
+        footprint="Button_Switch_SMD:SW_Push",
+        nets=[en, gnd],
+    )
+    ic = _Part("U1", name="ESP32 module", footprint="RF_Module:ESP32", nets=[en, gnd])
+    circuit = _Circuit([switch, ic], [en, gnd])
+    placed = [
+        PlacedPart("SW1", 8.0, 14.0, 0.0, "Button_Switch_SMD:SW_Push", side="front"),
+        PlacedPart("U1", 72.0, 14.0, 0.0, "RF_Module:ESP32", side="front"),
+    ]
+
+    score = score_placement(
+        placed,
+        circuit,
+        BBOXES,
+        outline=BoardOutline(80.0, 30.0),
+    )
+
+    assert score.front_panel_trace_count == 0
+    assert not any("front-panel trace span" in warning for warning in score.warnings)
 
 
 def test_score_counts_hard_validation_failures():

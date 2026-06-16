@@ -148,6 +148,106 @@ def test_engine_only_runner_records_board_level_telemetry(tmp_path, monkeypatch)
     assert all(record.total_tokens == 0 for record in records)
 
 
+def test_five_board_product_pack_writes_artifact_contract(tmp_path, monkeypatch):
+    telemetry = tmp_path / "runs.jsonl"
+    calls = []
+
+    def fake_run_pipeline(spec, out_dir, timeout_s=300, **kwargs):
+        circuit_spec = CircuitSpec.model_validate(spec)
+        board_id = kwargs["board_id"]
+        run_id = f"run-{board_id}"
+        run_dir = tmp_path / "artifacts" / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "board.kicad_pcb").write_text("(kicad_pcb)\n", encoding="utf-8")
+        (run_dir / "preview_top.svg").write_text("<svg></svg>\n", encoding="utf-8")
+        calls.append((board_id, circuit_spec.board.name, kwargs))
+        return DesignResponse(
+            run_id=run_id,
+            ok=True,
+            status="succeeded",
+            stage="complete",
+            outputs={
+                "run_dir": str(run_dir),
+                "pcb": str(run_dir / "board.kicad_pcb"),
+                "previews": {"files": ["preview_top.svg"]},
+            },
+            artifacts={
+                "run_dir": str(run_dir),
+                "pcb": str(run_dir / "board.kicad_pcb"),
+                "previews": {"files": ["preview_top.svg"]},
+            },
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 55.0, "height_mm": 40.0},
+                "placed_parts": [
+                    {"ref": f"U{i}", "x_mm": 8.0 + i * 5.0, "y_mm": 10.0 + i}
+                    for i in range(1, 6)
+                ],
+                "validation": {"ok": True},
+            },
+            metrics={
+                "manufacturable": True,
+                "manufacturing_complete": True,
+                "congestion_score": 90.0,
+                "board_area_mm2": 2200.0,
+            },
+        )
+
+    monkeypatch.setattr(run_corpus, "run_pipeline", fake_run_pipeline)
+    cfg = run_corpus.RunnerConfig(
+        artifacts=tmp_path / "artifacts",
+        telemetry=telemetry,
+        spend_log=tmp_path / "spend.jsonl",
+        pid_file=tmp_path / "runner.pid",
+        mode="engine_only",
+        concurrency=1,
+        max_runtime_hours=1,
+        no_mcp=True,
+        force=True,
+        product_pack=run_corpus.PRODUCT_PACK_NAME,
+    )
+
+    results = asyncio.run(run_corpus.run_manifest(cfg))
+
+    assert [result.board_id for result in results] == list(run_corpus.PRODUCT_PACK_BOARDS)
+    assert len(calls) == 5
+    assert all(call[2]["validation_mode"] == "internal" for call in calls)
+    for result in results:
+        run_dir = tmp_path / "artifacts" / result.run_id
+        response_json = run_dir / "response.json"
+        quality_json = run_dir / "layout_quality.json"
+        assert response_json.exists()
+        assert quality_json.exists()
+        quality = json.loads(quality_json.read_text(encoding="utf-8"))
+        assert quality["gates"]["schematic_ok"] is True
+        assert quality["gates"]["manufacturable"] is True
+        assert quality["gates"]["visual_review_ready"] is True
+        assert quality["gates"]["product_layout_ok"] is False
+        assert {
+            "LOW_PART_SPREAD",
+            "OVERSIZED_BOARD_OUTLINE",
+            "UNUSED_OUTLINE_REGION",
+        }.issubset(set(result.quality_summary["issue_classes"]))
+        assert result.quality_summary["response_json"] == str(response_json)
+        assert result.quality_summary["layout_quality"] == str(quality_json)
+        assert result.quality_summary["preview_paths"]["preview_top.svg"] == str(
+            run_dir / "preview_top.svg"
+        )
+
+    report = json.loads(
+        (tmp_path / "artifacts" / run_corpus.PRODUCT_PACK_REPORT).read_text(encoding="utf-8")
+    )
+    assert report["pack"] == "five-board"
+    assert report["board_count"] == 5
+    assert report["gate_failures"]["product_layout_ok"] == list(run_corpus.PRODUCT_PACK_BOARDS)
+    for issue_class in (
+        "LOW_PART_SPREAD",
+        "OVERSIZED_BOARD_OUTLINE",
+        "UNUSED_OUTLINE_REGION",
+    ):
+        assert report["issue_classes"][issue_class] == list(run_corpus.PRODUCT_PACK_BOARDS)
+
+
 def test_deterministic_c1_choice_applies_candidate():
     spec = CircuitSpec.model_validate(trivial_spec())
     exc = DesignException(

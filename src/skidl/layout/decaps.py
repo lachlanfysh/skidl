@@ -521,9 +521,33 @@ def measure_decap_pad_distances(
 def _locked_refs(constraints: LayoutConstraints | None) -> set[str]:
     if constraints is None:
         return set()
-    locked = {fixed.ref for fixed in constraints.fixed or []}
-    locked.update(anchor.ref for anchor in constraints.edge_anchors or [])
-    return locked
+    # This decap-only refinement pass only moves capacitors already classified
+    # as local decoupling caps. Floorplan fixed positions for those caps are
+    # useful seed coordinates, but electrical proximity to the parent IC/reg
+    # is stronger product intent. Edge anchors remain hard mechanical locks.
+    return {anchor.ref for anchor in constraints.edge_anchors or []}
+
+
+def _transformed_bounds(
+    bounds: tuple[float, float, float, float],
+    placed: PlacedPart,
+) -> tuple[float, float, float, float]:
+    x_min, y_min, x_max, y_max = bounds
+    points = [
+        transform_point(placed.x_mm, placed.y_mm, placed.rot_deg, x, y)
+        for x, y in (
+            (x_min, y_min),
+            (x_max, y_min),
+            (x_max, y_max),
+            (x_min, y_max),
+        )
+    ]
+    return (
+        min(point[0] for point in points),
+        min(point[1] for point in points),
+        max(point[0] for point in points),
+        max(point[1] for point in points),
+    )
 
 
 def _occupied_without(
@@ -533,6 +557,7 @@ def _occupied_without(
     fp_bboxes: dict,
     keepouts,
     fp_geometries: dict[str, FootprintGeometry] | None = None,
+    parent_ref: str | None = None,
 ) -> list[tuple[float, float, float, float]]:
     part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
     occupied = _occupied_from_keepouts(keepouts)
@@ -541,7 +566,18 @@ def _occupied_without(
             continue
         geometry = (fp_geometries or {}).get(placed.footprint)
         if geometry is not None:
-            x_min, y_min, x_max, y_max = geometry.transformed_bounds(placed)
+            if ref == parent_ref and geometry.body_bounds is not None:
+                # Parent courtyards for modules often include keepout or antenna
+                # envelopes that are much larger than the physical package edge.
+                # A local decap should be able to sit just outside the body near
+                # castellated/module power pads. Final exact-geometry nudging
+                # below still prevents physical pad/package clearance failures.
+                x_min, y_min, x_max, y_max = _transformed_bounds(
+                    geometry.body_bounds,
+                    placed,
+                )
+            else:
+                x_min, y_min, x_max, y_max = geometry.transformed_bounds(placed)
             occupied.append(
                 (
                     (x_min + x_max) / 2,
@@ -558,6 +594,145 @@ def _occupied_without(
             width, height = fp_bboxes.get(placed.footprint, (2.0, 2.0))
         occupied.append((placed.x_mm, placed.y_mm, width, height))
     return occupied
+
+
+def _rects_overlap(
+    a: tuple[float, float, float, float],
+    b: tuple[float, float, float, float],
+    clearance_mm: float = 0.0,
+) -> bool:
+    ax_min, ay_min, ax_max, ay_max = a
+    bx_min, by_min, bx_max, by_max = b
+    return (
+        ax_min < bx_max + clearance_mm
+        and ax_max > bx_min - clearance_mm
+        and ay_min < by_max + clearance_mm
+        and ay_max > by_min - clearance_mm
+    )
+
+
+def _fallback_part_bounds(
+    placed: PlacedPart,
+    fp_bboxes: dict[str, tuple[float, float]],
+) -> tuple[float, float, float, float]:
+    width, height = fp_bboxes.get(placed.footprint, (2.0, 2.0))
+    if placed.rot_deg % 180 == 90:
+        width, height = height, width
+    return (
+        placed.x_mm - width / 2,
+        placed.y_mm - height / 2,
+        placed.x_mm + width / 2,
+        placed.y_mm + height / 2,
+    )
+
+
+def _occupied_bounds_without(
+    placed_by_ref: dict[str, PlacedPart],
+    skip_ref: str,
+    fp_bboxes: dict[str, tuple[float, float]],
+    keepouts,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
+) -> list[tuple[float, float, float, float]]:
+    occupied: list[tuple[float, float, float, float]] = []
+    for keepout in keepouts or []:
+        occupied.append((keepout.x_min, keepout.y_min, keepout.x_max, keepout.y_max))
+    for ref, placed in placed_by_ref.items():
+        if ref == skip_ref:
+            continue
+        geometry = (fp_geometries or {}).get(placed.footprint)
+        if geometry is not None:
+            occupied.append(geometry.transformed_physical_bounds(placed))
+        else:
+            occupied.append(_fallback_part_bounds(placed, fp_bboxes))
+    return occupied
+
+
+def _bounds_fit_outline(
+    bounds: tuple[float, float, float, float],
+    outline,
+) -> bool:
+    if outline is None:
+        return True
+    x_min, y_min, x_max, y_max = bounds
+    return (
+        x_min >= outline.x_min
+        and y_min >= outline.y_min
+        and x_max <= outline.x_max
+        and y_max <= outline.y_max
+    )
+
+
+def _candidate_bounds(
+    placed: PlacedPart,
+    geometry: FootprintGeometry | None,
+    fp_bboxes: dict[str, tuple[float, float]],
+) -> tuple[float, float, float, float]:
+    if geometry is not None:
+        return geometry.transformed_physical_bounds(placed)
+    return _fallback_part_bounds(placed, fp_bboxes)
+
+
+def _is_clear_bounds(
+    bounds: tuple[float, float, float, float],
+    occupied_bounds: list[tuple[float, float, float, float]],
+    outline,
+    clearance_mm: float,
+) -> bool:
+    return _bounds_fit_outline(bounds, outline) and not any(
+        _rects_overlap(bounds, occupied, clearance_mm)
+        for occupied in occupied_bounds
+    )
+
+
+def _find_clear_geometry_position(
+    placed: PlacedPart,
+    geometry: FootprintGeometry | None,
+    fp_bboxes: dict[str, tuple[float, float]],
+    occupied_bounds: list[tuple[float, float, float, float]],
+    outline,
+    *,
+    clearance_mm: float = 0.5,
+    step: float = 0.25,
+    max_radius: float = 18.0,
+) -> tuple[float, float]:
+    def bounds_at(x: float, y: float) -> tuple[float, float, float, float]:
+        return _candidate_bounds(
+            PlacedPart(
+                placed.ref,
+                x,
+                y,
+                placed.rot_deg,
+                placed.footprint,
+                placed.side,
+            ),
+            geometry,
+            fp_bboxes,
+        )
+
+    if _is_clear_bounds(
+        bounds_at(placed.x_mm, placed.y_mm),
+        occupied_bounds,
+        outline,
+        clearance_mm,
+    ):
+        return placed.x_mm, placed.y_mm
+
+    steps = max(1, int(max_radius / step))
+    for i in range(1, steps + 1):
+        radius = step * i
+        angle_count = max(8, int(radius * 2 * math.pi))
+        for j in range(angle_count):
+            angle = j * (2 * math.pi / angle_count)
+            x = placed.x_mm + radius * math.cos(angle)
+            y = placed.y_mm + radius * math.sin(angle)
+            if _is_clear_bounds(
+                bounds_at(x, y),
+                occupied_bounds,
+                outline,
+                clearance_mm,
+            ):
+                return x, y
+    return placed.x_mm, placed.y_mm
 
 
 def refine_decaps(
@@ -612,6 +787,7 @@ def refine_decaps(
             fp_bboxes,
             constraints.keepouts if constraints is not None else None,
             fp_geometries,
+            parent_ref=intent.parent_ref,
         )
         x, y = _find_clear_position(
             target_x,
@@ -645,6 +821,58 @@ def refine_decaps(
             rot_deg=rotation,
             footprint=cap_placed.footprint,
         )
+        occupied_bounds = _occupied_bounds_without(
+            placed_by_ref,
+            intent.ref,
+            fp_bboxes,
+            constraints.keepouts if constraints is not None else None,
+            fp_geometries,
+        )
+        exact_x, exact_y = _find_clear_geometry_position(
+            refined,
+            cap_geometry,
+            fp_bboxes,
+            occupied_bounds,
+            bounds,
+        )
+        if (exact_x, exact_y) != (refined.x_mm, refined.y_mm):
+            refined = PlacedPart(
+                ref=refined.ref,
+                x_mm=exact_x,
+                y_mm=exact_y,
+                rot_deg=refined.rot_deg,
+                footprint=refined.footprint,
+                side=refined.side,
+            )
+            rotation, distance_mm = _best_cap_rotation(
+                refined,
+                cap_part,
+                cap_geometry,
+                intent,
+            )
+            refined = PlacedPart(
+                ref=refined.ref,
+                x_mm=refined.x_mm,
+                y_mm=refined.y_mm,
+                rot_deg=rotation,
+                footprint=refined.footprint,
+                side=refined.side,
+            )
+            exact_x, exact_y = _find_clear_geometry_position(
+                refined,
+                cap_geometry,
+                fp_bboxes,
+                occupied_bounds,
+                bounds,
+            )
+            refined = PlacedPart(
+                ref=refined.ref,
+                x_mm=exact_x,
+                y_mm=exact_y,
+                rot_deg=refined.rot_deg,
+                footprint=refined.footprint,
+                side=refined.side,
+            )
         placed_by_ref[intent.ref] = refined
         distance_text = (
             f", avg pad distance {distance_mm:.1f}mm"
@@ -682,5 +910,6 @@ def refine_candidate_decaps(
         return
     candidate.placed_parts = result.placed_parts
     candidate.reasons.append("decaps refined near actual parent power pins")
+    candidate.pin_gravity_anchored_refs.update(result.ref_reasons)
     for ref, reasons in result.ref_reasons.items():
         candidate.ref_reasons.setdefault(ref, []).extend(reasons)

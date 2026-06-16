@@ -56,7 +56,7 @@ GROUND_NET_RE = re.compile(
 
 RESET_PIN_RE = re.compile(r"^[/~]?(N?RST|RESET|RSTN|nRESET)$", re.IGNORECASE)
 BOOT_PIN_RE = re.compile(r"^BOOT[0-1]?$|^BOOTSEL$", re.IGNORECASE)
-I2C_NET_RE = re.compile(r"^(SDA|SCL)\d*$", re.IGNORECASE)
+I2C_NET_RE = re.compile(r"^(?:SDA|SCL)\d*$|^.+[_./-](?:SDA|SCL)\d*$", re.IGNORECASE)
 SPI_CS_RE = re.compile(r"^[/~]?(CS[BN]?|SS|NSS|CE[0-9]?)$", re.IGNORECASE)
 OPEN_DRAIN_RE = re.compile(
     r"^[/~]?(INT|IRQ|ALERT|DRDY|RDY|ALARM|SQW|nINT|INT_N)$", re.IGNORECASE
@@ -1398,9 +1398,22 @@ def _design_review_marketing(parts, nets, marketing_text, exceptions, eid_counte
         Candidate, DesignException, ExcCode, Severity, ActionType,
     )
 
+    def has_i2c_interface() -> bool:
+        net_names = [str(n.get("name", "") or "") for n in nets]
+        has_sda = any(re.search(r"(?:^|[_./-])SDA\d*$", name, re.I) for name in net_names)
+        has_scl = any(re.search(r"(?:^|[_./-])SCL\d*$", name, re.I) for name in net_names)
+        if has_sda and has_scl:
+            return True
+        return any(
+            "JST_SH" in str(p.get("footprint", "") or "")
+            or "STEMMA" in str(p.get("value", "") or "").upper()
+            or "QWIIC" in str(p.get("value", "") or "").upper()
+            for p in parts
+        )
+
     checks = [
         (["i2c", "i²c"], "I2C interface",
-         lambda: any(I2C_NET_RE.match(n.get("name", "")) for n in nets)),
+         has_i2c_interface),
         (["spi"], "SPI interface",
          lambda: any(n.get("name", "").upper() in {"MOSI", "MISO", "SCK", "SCLK", "SDI", "SDO", "COPI", "CIPO"} for n in nets)),
         (["lipo", "lipoly", "battery charg", "rechargeable"], "Battery/LiPo charger",

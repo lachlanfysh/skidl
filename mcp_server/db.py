@@ -121,7 +121,7 @@ class DB:
         self,
         *,
         stale_grace_seconds: float = 120.0,
-        min_stale_seconds: float = 1800.0,
+        min_stale_seconds: float = 0.0,
     ) -> dict[str, int]:
         """Return queue counters, including orphaned running jobs."""
 
@@ -135,12 +135,18 @@ class DB:
                         WHERE status = 'running'
                         AND started_at IS NOT NULL
                         AND started_at < NOW() - make_interval(
-                            secs => GREATEST(
-                                COALESCE((options->>'timeout_s')::double precision, 300.0)
-                                    + $1::double precision,
-                                $2::double precision
+                            secs => CASE
+                                WHEN $2::double precision > 0 THEN GREATEST(
+                                    COALESCE((options->>'timeout_s')::double precision, 300.0)
+                                        + $1::double precision,
+                                    $2::double precision
+                                )
+                                ELSE (
+                                    COALESCE((options->>'timeout_s')::double precision, 300.0)
+                                        + $1::double precision
+                                )
+                            END
                             )
-                        )
                     ) AS stale_running
                 FROM jobs
                 """,
@@ -162,7 +168,7 @@ class DB:
         self,
         *,
         stale_grace_seconds: float = 120.0,
-        min_stale_seconds: float = 1800.0,
+        min_stale_seconds: float = 0.0,
     ) -> int:
         """Mark orphaned running jobs failed after deploys/worker loss."""
 
@@ -225,12 +231,18 @@ class DB:
                 WHERE status = 'running'
                   AND started_at IS NOT NULL
                   AND started_at < NOW() - make_interval(
-                      secs => GREATEST(
-                          COALESCE((options->>'timeout_s')::double precision, 300.0)
-                              + $1::double precision,
-                          $2::double precision
+                      secs => CASE
+                          WHEN $2::double precision > 0 THEN GREATEST(
+                              COALESCE((options->>'timeout_s')::double precision, 300.0)
+                                  + $1::double precision,
+                              $2::double precision
+                          )
+                          ELSE (
+                              COALESCE((options->>'timeout_s')::double precision, 300.0)
+                                  + $1::double precision
+                          )
+                      END
                       )
-                  )
                 """,
                 float(stale_grace_seconds),
                 float(min_stale_seconds),

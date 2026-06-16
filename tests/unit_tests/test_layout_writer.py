@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import pytest
 from simp_sexp import Sexp
@@ -11,7 +12,7 @@ from skidl.layout.writer import (
     load_footprint_bboxes,
     write_kicad_pcb,
 )
-from skidl.layout.constraints import BoardOutline
+from skidl.layout.constraints import BoardCutout, BoardOutline
 
 _FP_DIRS: list[str] = []
 _KICAD_FP = os.environ.get("KICAD9_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
@@ -491,6 +492,37 @@ def test_write_rounded_rect_outline_as_edge_lines(tmp_path):
     assert len(list(board.search("gr_line"))) > 8
 
 
+def test_write_rounded_rect_outline_skips_degenerate_closing_segment(tmp_path):
+    lib_root = _make_minimal_fp_lib(tmp_path)
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(ref="R1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint="TestLib:R_Test")
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+    write_kicad_pcb(
+        parts,
+        circuit,
+        [lib_root],
+        out,
+        outline=BoardOutline(
+            vertices=[
+                (-2.0, -0.3),
+                (102.46668346943426, -0.3),
+                (102.46668346943426, 78.85001260207571),
+                (-2.0, 78.85001260207571),
+            ],
+            corner_radius_mm=2.7,
+        ),
+    )
+
+    board = Sexp(open(out).read())
+    for line in board.search("gr_line"):
+        start = next(child for child in line if isinstance(child, list) and child[0] == "start")
+        end = next(child for child in line if isinstance(child, list) and child[0] == "end")
+        length = math.hypot(float(end[1]) - float(start[1]), float(end[2]) - float(start[2]))
+        assert length > 1e-6
+
+
 def test_write_missing_footprint_skipped(tmp_path):
     circuit = _MockCircuit()
     parts = [
@@ -575,6 +607,54 @@ def test_write_polygon_outline_as_edge_lines(tmp_path):
 
     assert list(board.search("gr_rect")) == []
     assert len(list(board.search("gr_line"))) == 4
+
+
+def test_write_internal_cutouts_as_edge_cuts(tmp_path):
+    lib_root = _make_minimal_fp_lib(tmp_path)
+    circuit = _MockCircuit()
+    parts = [
+        PlacedPart(ref="R1", x_mm=5.0, y_mm=5.0, rot_deg=0.0, footprint="TestLib:R_Test")
+    ]
+    cutouts = [
+        BoardCutout(10.0, 10.0, 16.0, 18.0, name="rect_window"),
+        BoardCutout(22.0, 12.0, 28.0, 18.0, shape="circle", radius_mm=3.0),
+        BoardCutout(
+            32.0,
+            10.0,
+            40.0,
+            18.0,
+            shape="polygon",
+            vertices=[(32.0, 10.0), (40.0, 12.0), (38.0, 18.0), (32.0, 16.0)],
+        ),
+    ]
+    out = str(tmp_path / "board.kicad_pcb")
+
+    write_kicad_pcb(
+        parts,
+        circuit,
+        [lib_root],
+        out,
+        outline=BoardOutline(50.0, 30.0),
+        cutouts=cutouts,
+    )
+
+    board = Sexp(open(out).read())
+    edge_rects = [
+        rect
+        for rect in board.search("gr_rect")
+        if any(
+            isinstance(child, list)
+            and child[0] == "layer"
+            and str(child[1]).strip('"') == "Edge.Cuts"
+            for child in rect
+        )
+    ]
+    edge_circles = list(board.search("gr_circle"))
+    edge_lines = list(board.search("gr_line"))
+
+    assert len(edge_rects) == 2  # outer rectangular outline plus rect cutout.
+    assert len(edge_circles) == 1
+    assert len(edge_lines) == 4
 
 
 def test_write_filters_unsupported_internal_footprint_layers(tmp_path):

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import copy
 import json
 import os
 import subprocess
@@ -43,6 +44,8 @@ from llm.operations import (
     review_exceptions,
 )
 from llm.spend_tracker import SpendTracker
+from corpus.quality_score import QUALITY_GATES, quality_gate_summary
+from mcp_server.layout_quality import build_layout_quality, write_layout_quality
 from mcp_server.pipeline import DesignResponse, run_pipeline
 from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import CorrectionError, apply_candidate
@@ -68,6 +71,15 @@ TERMINAL_STATUSES = {
     "skipped_budget",
     "skipped_time",
 }
+PRODUCT_PACK_NAME = "five-board"
+PRODUCT_PACK_REPORT = "product_pack_report.json"
+PRODUCT_PACK_BOARDS = (
+    "mcp9808_breakout",
+    "eurorack_attenuverter",
+    "esp32_s3_logger",
+    "headphone_line_amp",
+    "solar_lipo_node",
+)
 
 
 @dataclass
@@ -90,6 +102,7 @@ class RunnerConfig:
     max_board_tokens: int = 200_000
     no_mcp: bool = False
     force: bool = False
+    product_pack: str = ""
 
 
 @dataclass
@@ -99,6 +112,8 @@ class BoardResult:
     status: str
     run_id: str = ""
     failure_reason: str = ""
+    artifact_dir: str = ""
+    quality_summary: dict = field(default_factory=dict)
 
 
 class DirectDesignClient:
@@ -200,6 +215,232 @@ def _path(value: str | Path) -> Path:
     return path if path.is_absolute() else REPO_ROOT / path
 
 
+def _custom_part(ref: str, value: str, footprint: str, pins: list[tuple[str, str, str]], group: str = "") -> dict:
+    return {
+        "ref": ref,
+        "lib": None,
+        "part": None,
+        "value": value,
+        "footprint": footprint,
+        "group": group or None,
+        "pins": [
+            {"num": num, "name": name, "func": func}
+            for num, name, func in pins
+        ],
+    }
+
+
+def _two_pin(ref: str, value: str, footprint: str, group: str = "") -> dict:
+    return _custom_part(
+        ref,
+        value,
+        footprint,
+        [("1", "1", "passive"), ("2", "2", "passive")],
+        group=group,
+    )
+
+
+R0603 = "Resistor_SMD:R_0603_1608Metric"
+C0603 = "Capacitor_SMD:C_0603_1608Metric"
+SOIC8 = "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
+SOT23_5 = "Package_TO_SOT_SMD:SOT-23-5"
+PIN_1X04 = "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
+PIN_1X06 = "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical"
+
+
+def _product_fixture_specs() -> dict[str, dict]:
+    """Small offline product fixtures for the layout-quality regression loop."""
+    mcp9808 = {
+        "schema_version": "1",
+        "board": {"name": "mcp9808_breakout", "outline_hint_mm": [26.0, 19.0]},
+        "parts": [
+            _custom_part(
+                "U1",
+                "MCP9808",
+                "Package_SO:MSOP-8_3x3mm_P0.65mm",
+                [
+                    ("1", "SDA", "bidirectional"),
+                    ("2", "SCL", "input"),
+                    ("3", "ALERT", "output"),
+                    ("4", "GND", "power_in"),
+                    ("5", "A0", "input"),
+                    ("6", "A1", "input"),
+                    ("7", "A2", "input"),
+                    ("8", "VDD", "power_in"),
+                ],
+                "sensor",
+            ),
+            _two_pin("C1", "100nF", C0603, "sensor"),
+            _two_pin("R1", "10K", R0603, "i2c"),
+            _two_pin("R2", "10K", R0603, "i2c"),
+            _custom_part(
+                "J1",
+                "STEMMA/Qwiic header",
+                PIN_1X06,
+                [
+                    ("1", "VDD", "power_in"),
+                    ("2", "GND", "power_in"),
+                    ("3", "SDA", "bidirectional"),
+                    ("4", "SCL", "input"),
+                    ("5", "ALERT", "output"),
+                    ("6", "GND2", "power_in"),
+                ],
+                "edge_io",
+            ),
+        ],
+        "nets": [
+            {"name": "VDD", "power": True, "pins": ["U1.VDD", "C1.1", "R1.1", "R2.1", "J1.VDD"]},
+            {"name": "GND", "power": True, "pins": ["U1.GND", "C1.2", "J1.GND", "J1.GND2"]},
+            {"name": "SDA", "pins": ["U1.SDA", "R1.2", "J1.SDA"]},
+            {"name": "SCL", "pins": ["U1.SCL", "R2.2", "J1.SCL"]},
+            {"name": "ALERT", "pins": ["U1.ALERT", "J1.ALERT"]},
+        ],
+    }
+    eurorack = {
+        "schema_version": "1",
+        "board": {"name": "eurorack_attenuverter", "outline_hint_mm": [30.0, 100.0]},
+        "parts": [
+            _custom_part(
+                "U1",
+                "TL072",
+                SOIC8,
+                [
+                    ("1", "OUTA", "output"),
+                    ("2", "INA-", "input"),
+                    ("3", "INA+", "input"),
+                    ("4", "V-", "power_in"),
+                    ("5", "INB+", "input"),
+                    ("6", "INB-", "input"),
+                    ("7", "OUTB", "output"),
+                    ("8", "V+", "power_in"),
+                ],
+                "opamp",
+            ),
+            _two_pin("R1", "100K", R0603, "opamp"),
+            _two_pin("R2", "100K", R0603, "opamp"),
+            _two_pin("R3", "100K", R0603, "opamp"),
+            _two_pin("C1", "100nF", C0603, "opamp"),
+            _two_pin("C2", "100nF", C0603, "opamp"),
+            _custom_part("J1", "CV IN", PIN_1X04, [("1", "TIP", "passive"), ("2", "SW", "passive"), ("3", "GND", "power_in"), ("4", "SHIELD", "power_in")], "front_panel"),
+            _custom_part("J2", "CV OUT", PIN_1X04, [("1", "TIP", "passive"), ("2", "SW", "passive"), ("3", "GND", "power_in"), ("4", "SHIELD", "power_in")], "front_panel"),
+            _custom_part("RV1", "100K attenuverter", PIN_1X04, [("1", "A", "passive"), ("2", "W", "passive"), ("3", "B", "passive"), ("4", "GND", "power_in")], "front_panel"),
+            _custom_part("J3", "Eurorack power", PIN_1X06, [("1", "V+", "power_in"), ("2", "GND", "power_in"), ("3", "GND2", "power_in"), ("4", "V-", "power_in"), ("5", "KEY", "passive"), ("6", "GND3", "power_in")], "back_power"),
+        ],
+        "nets": [
+            {"name": "V+", "power": True, "pins": ["U1.V+", "C1.1", "J3.V+"]},
+            {"name": "V-", "power": True, "pins": ["U1.V-", "C2.1", "J3.V-"]},
+            {"name": "GND", "power": True, "pins": ["C1.2", "C2.2", "J1.GND", "J1.SHIELD", "J2.GND", "J2.SHIELD", "RV1.GND", "J3.GND", "J3.GND2", "J3.GND3"]},
+            {"name": "CV_IN", "pins": ["J1.TIP", "R1.1", "RV1.A"]},
+            {"name": "WIPER", "pins": ["RV1.W", "R1.2", "U1.INA-"]},
+            {"name": "BIAS", "pins": ["RV1.B", "U1.INA+"]},
+            {"name": "CV_OUT", "pins": ["U1.OUTA", "R2.1", "J2.TIP"]},
+            {"name": "FB", "pins": ["R2.2", "U1.INA-"]},
+        ],
+    }
+    esp32_logger = {
+        "schema_version": "1",
+        "board": {"name": "esp32_s3_logger", "outline_hint_mm": [55.0, 38.0]},
+        "parts": [
+            _custom_part("U1", "ESP32-S3 module", "Module:ESP32-WROOM-32", [("1", "3V3", "power_in"), ("2", "GND", "power_in"), ("3", "IO8", "bidirectional"), ("4", "IO9", "bidirectional"), ("5", "IO10", "bidirectional"), ("6", "EN", "input")], "mcu"),
+            _custom_part("U2", "3V3 regulator", SOT23_5, [("1", "IN", "power_in"), ("2", "GND", "power_in"), ("3", "EN", "input"), ("4", "NC", "passive"), ("5", "OUT", "power_out")], "power"),
+            _two_pin("C1", "10uF", C0603, "power"),
+            _two_pin("C2", "10uF", C0603, "power"),
+            _custom_part("J1", "USB-C power/data", PIN_1X06, [("1", "VBUS", "power_in"), ("2", "D-", "bidirectional"), ("3", "D+", "bidirectional"), ("4", "CC1", "passive"), ("5", "CC2", "passive"), ("6", "GND", "power_in")], "edge_io"),
+            _custom_part("J2", "microSD", PIN_1X06, [("1", "3V3", "power_in"), ("2", "GND", "power_in"), ("3", "MOSI", "input"), ("4", "MISO", "output"), ("5", "SCK", "input"), ("6", "CS", "input")], "storage"),
+            _two_pin("R1", "5.1K", R0603, "usb"),
+            _two_pin("R2", "5.1K", R0603, "usb"),
+        ],
+        "nets": [
+            {"name": "VBUS", "power": True, "pins": ["J1.VBUS", "U2.IN", "C1.1"]},
+            {"name": "3V3", "power": True, "pins": ["U2.OUT", "C2.1", "U1.3V3", "J2.3V3"]},
+            {"name": "GND", "power": True, "pins": ["J1.GND", "U2.GND", "C1.2", "C2.2", "U1.GND", "J2.GND", "R1.2", "R2.2"]},
+            {"name": "USB_D-", "pins": ["J1.D-", "U1.IO8"]},
+            {"name": "USB_D+", "pins": ["J1.D+", "U1.IO9"]},
+            {"name": "CC1", "pins": ["J1.CC1", "R1.1"]},
+            {"name": "CC2", "pins": ["J1.CC2", "R2.1"]},
+            {"name": "MOSI", "pins": ["U1.IO10", "J2.MOSI"]},
+        ],
+    }
+    headphone = {
+        "schema_version": "1",
+        "board": {"name": "headphone_line_amp", "outline_hint_mm": [45.0, 28.0]},
+        "parts": [
+            _custom_part("U1", "NE5532", SOIC8, [("1", "OUTA", "output"), ("2", "INA-", "input"), ("3", "INA+", "input"), ("4", "V-", "power_in"), ("5", "INB+", "input"), ("6", "INB-", "input"), ("7", "OUTB", "output"), ("8", "V+", "power_in")], "amp"),
+            _two_pin("C1", "1uF", C0603, "left"),
+            _two_pin("C2", "1uF", C0603, "right"),
+            _two_pin("R1", "10K", R0603, "left"),
+            _two_pin("R2", "10K", R0603, "right"),
+            _two_pin("R3", "47R", R0603, "output"),
+            _two_pin("R4", "47R", R0603, "output"),
+            _custom_part("J1", "line in", PIN_1X04, [("1", "L", "passive"), ("2", "R", "passive"), ("3", "GND", "power_in"), ("4", "SHIELD", "power_in")], "edge_audio"),
+            _custom_part("J2", "headphone out", PIN_1X04, [("1", "L", "passive"), ("2", "R", "passive"), ("3", "GND", "power_in"), ("4", "SHIELD", "power_in")], "edge_audio"),
+        ],
+        "nets": [
+            {"name": "V+", "power": True, "pins": ["U1.V+"]},
+            {"name": "V-", "power": True, "pins": ["U1.V-"]},
+            {"name": "GND", "power": True, "pins": ["J1.GND", "J1.SHIELD", "J2.GND", "J2.SHIELD"]},
+            {"name": "LEFT_IN", "pins": ["J1.L", "C1.1"]},
+            {"name": "LEFT_SIG", "pins": ["C1.2", "R1.1", "U1.INA+"]},
+            {"name": "LEFT_OUT", "pins": ["U1.OUTA", "R3.1", "J2.L"]},
+            {"name": "RIGHT_IN", "pins": ["J1.R", "C2.1"]},
+            {"name": "RIGHT_SIG", "pins": ["C2.2", "R2.1", "U1.INB+"]},
+            {"name": "RIGHT_OUT", "pins": ["U1.OUTB", "R4.1", "J2.R"]},
+        ],
+    }
+    solar = {
+        "schema_version": "1",
+        "board": {"name": "solar_lipo_node", "outline_hint_mm": [48.0, 32.0]},
+        "parts": [
+            _custom_part("U1", "LiPo charger", SOIC8, [("1", "VIN", "power_in"), ("2", "GND", "power_in"), ("3", "BAT", "power_out"), ("4", "PROG", "passive"), ("5", "STAT", "output"), ("6", "CE", "input"), ("7", "TS", "input"), ("8", "GND2", "power_in")], "charger"),
+            _custom_part("U2", "3V3 regulator", SOT23_5, [("1", "IN", "power_in"), ("2", "GND", "power_in"), ("3", "EN", "input"), ("4", "NC", "passive"), ("5", "OUT", "power_out")], "power"),
+            _two_pin("C1", "10uF", C0603, "charger"),
+            _two_pin("C2", "10uF", C0603, "power"),
+            _two_pin("R1", "2K", R0603, "charger"),
+            _custom_part("J1", "solar input", PIN_1X04, [("1", "VIN", "power_in"), ("2", "GND", "power_in"), ("3", "NC1", "passive"), ("4", "NC2", "passive")], "edge_power"),
+            _custom_part("J2", "LiPo", PIN_1X04, [("1", "BAT", "power_out"), ("2", "GND", "power_in"), ("3", "NTC", "input"), ("4", "NC", "passive")], "edge_power"),
+            _custom_part("J3", "sensor header", PIN_1X06, [("1", "3V3", "power_in"), ("2", "GND", "power_in"), ("3", "SDA", "bidirectional"), ("4", "SCL", "input"), ("5", "INT", "output"), ("6", "EN", "input")], "edge_io"),
+        ],
+        "nets": [
+            {"name": "VIN", "power": True, "pins": ["J1.VIN", "U1.VIN", "C1.1"]},
+            {"name": "BAT", "power": True, "pins": ["U1.BAT", "J2.BAT", "U2.IN"]},
+            {"name": "3V3", "power": True, "pins": ["U2.OUT", "C2.1", "J3.3V3"]},
+            {"name": "GND", "power": True, "pins": ["J1.GND", "J2.GND", "J3.GND", "U1.GND", "U1.GND2", "U2.GND", "C1.2", "C2.2"]},
+            {"name": "PROG", "pins": ["U1.PROG", "R1.1"]},
+            {"name": "SDA", "pins": ["J3.SDA"]},
+            {"name": "SCL", "pins": ["J3.SCL"]},
+            {"name": "STAT", "pins": ["U1.STAT", "J3.INT"]},
+        ],
+    }
+    return {
+        "mcp9808_breakout": mcp9808,
+        "eurorack_attenuverter": eurorack,
+        "esp32_s3_logger": esp32_logger,
+        "headphone_line_amp": headphone,
+        "solar_lipo_node": solar,
+    }
+
+
+def product_pack_rows(pack_name: str = PRODUCT_PACK_NAME) -> list[dict]:
+    if pack_name != PRODUCT_PACK_NAME:
+        raise ValueError(f"unknown product pack {pack_name!r}")
+    specs = _product_fixture_specs()
+    rows = []
+    for board_id in PRODUCT_PACK_BOARDS:
+        rows.append(
+            {
+                "board_id": board_id,
+                "tier": 0,
+                "source": f"product_pack:{pack_name}",
+                "difficulty_axis": "product_layout",
+                "nl_source": "fixture",
+                "description": f"{board_id} product layout quality fixture",
+                "validation_mode": "internal",
+                "spec": copy.deepcopy(specs[board_id]),
+            }
+        )
+    return rows
+
+
 def _validation_mode(value: object) -> str:
     if value in {"internal", "reference", "none"}:
         return str(value)
@@ -253,6 +494,8 @@ def cached_spec_path(row: dict) -> Path | None:
 
 
 def load_cached_spec(row: dict) -> CircuitSpec | None:
+    if isinstance(row.get("spec"), dict):
+        return CircuitSpec.model_validate(row["spec"])
     path = cached_spec_path(row)
     if path is None:
         return None
@@ -368,6 +611,172 @@ def _failure_from_response(response: DesignResponse | None) -> str | None:
     if response is None or not response.exceptions:
         return None
     return "; ".join(exc.message for exc in response.exceptions[:3])
+
+
+def _run_dir_for_response(response: DesignResponse, config: RunnerConfig) -> Path:
+    for artifacts in (response.artifacts, response.outputs):
+        if isinstance(artifacts, dict) and artifacts.get("run_dir"):
+            return _path(artifacts["run_dir"])
+    return _path(config.artifacts) / response.run_id
+
+
+def _resolve_artifact_path(run_dir: Path, value: object) -> str:
+    path = Path(str(value))
+    if not path.is_absolute():
+        path = run_dir / path
+    return str(path)
+
+
+def _preview_paths(response: DesignResponse, run_dir: Path) -> dict:
+    artifacts = response.artifacts or response.outputs or {}
+    previews = artifacts.get("previews") if isinstance(artifacts, dict) else {}
+    files = previews.get("files") if isinstance(previews, dict) else []
+    paths = {
+        name: _resolve_artifact_path(run_dir, name)
+        for name in files or []
+        if name
+    }
+    for name in (
+        "preview_top.svg",
+        "preview_top.png",
+        "preview_2d_top.png",
+        "preview_bottom.svg",
+        "preview_bottom.png",
+        "preview_2d_bottom.png",
+        "preview_assembly.svg",
+    ):
+        candidate = run_dir / name
+        if candidate.exists():
+            paths.setdefault(name, str(candidate))
+    return paths
+
+
+def _ensure_product_artifacts(
+    response: DesignResponse,
+    config: RunnerConfig,
+) -> tuple[Path, dict]:
+    run_dir = _run_dir_for_response(response, config)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    response.outputs = dict(response.outputs or {})
+    response.artifacts = dict(response.artifacts or {})
+    response.outputs.setdefault("run_dir", str(run_dir))
+    response.artifacts.setdefault("run_dir", str(run_dir))
+
+    if not response.layout_quality:
+        response.layout_quality = build_layout_quality(
+            run_id=response.run_id,
+            status=response.status,
+            stage=response.stage,
+            ok=response.ok,
+            exceptions=response.exceptions,
+            layout=response.layout,
+            metrics=response.metrics,
+            artifacts=response.artifacts or response.outputs,
+        )
+
+    quality_path = write_layout_quality(run_dir, response.layout_quality)
+    response.outputs["layout_quality"] = str(quality_path)
+    response.artifacts["layout_quality"] = str(quality_path)
+    response.metrics = dict(response.metrics or {})
+    response.metrics["quality_gates"] = dict(response.layout_quality.get("gates", {}))
+    response.metrics["product_layout_ok"] = bool(
+        response.layout_quality.get("gates", {}).get("product_layout_ok")
+    )
+    response.metrics["visual_review_ready"] = bool(
+        response.layout_quality.get("gates", {}).get("visual_review_ready")
+    )
+    response_json = run_dir / "response.json"
+    response_json.write_text(
+        json.dumps(response.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    summary = quality_gate_summary(response.layout_quality)
+    summary.update(
+        {
+            "run_id": response.run_id,
+            "status": response.status,
+            "response_json": str(response_json),
+            "layout_quality": str(quality_path),
+            "preview_paths": _preview_paths(response, run_dir),
+            "pcb": (
+                _resolve_artifact_path(run_dir, response.artifacts["pcb"])
+                if response.artifacts.get("pcb")
+                else ""
+            ),
+        }
+    )
+    return run_dir, summary
+
+
+def _empty_quality_summary(result: BoardResult) -> dict:
+    return {
+        "run_id": result.run_id,
+        "status": result.status,
+        "gates": {gate: False for gate in QUALITY_GATES},
+        "failed_gates": list(QUALITY_GATES),
+        "issue_classes": ["RUN_NOT_COMPLETED"],
+        "issue_counts": {"error": 1},
+        "response_json": "",
+        "layout_quality": "",
+        "preview_paths": {},
+        "pcb": "",
+    }
+
+
+def write_product_pack_report(config: RunnerConfig, results: list[BoardResult]) -> Path:
+    report_path = _path(config.artifacts) / PRODUCT_PACK_REPORT
+    boards = []
+    gate_failures = {gate: [] for gate in QUALITY_GATES}
+    issue_classes: dict[str, list[str]] = {}
+    pack_order = {board_id: index for index, board_id in enumerate(PRODUCT_PACK_BOARDS)}
+    ordered_results = sorted(
+        results,
+        key=lambda item: (pack_order.get(item.board_id, len(pack_order)), item.board_id),
+    )
+    for result in ordered_results:
+        summary = result.quality_summary or _empty_quality_summary(result)
+        gates = summary.get("gates") or {}
+        for gate in QUALITY_GATES:
+            if not bool(gates.get(gate)):
+                gate_failures[gate].append(result.board_id)
+        for issue_class in summary.get("issue_classes") or []:
+            issue_classes.setdefault(str(issue_class), []).append(result.board_id)
+        boards.append(
+            {
+                "board_id": result.board_id,
+                "mode": result.mode,
+                "status": result.status,
+                "run_id": result.run_id,
+                "artifact_dir": result.artifact_dir,
+                "failure_reason": result.failure_reason,
+                **summary,
+            }
+        )
+
+    report = {
+        "version": 1,
+        "pack": config.product_pack,
+        "boards_expected": list(PRODUCT_PACK_BOARDS),
+        "board_count": len(boards),
+        "gates": QUALITY_GATES,
+        "gate_failures": {
+            gate: board_ids
+            for gate, board_ids in gate_failures.items()
+            if board_ids
+        },
+        "issue_classes": {
+            code: sorted(
+                board_ids,
+                key=lambda board_id: (pack_order.get(board_id, len(pack_order)), board_id),
+            )
+            for code, board_ids in sorted(issue_classes.items())
+        },
+        "boards": boards,
+    }
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return report_path
 
 
 def write_final_record(
@@ -695,7 +1104,20 @@ async def run_board(
         netlist_score=netlist_score,
         wall_time_s=_time.monotonic() - board_t0,
     )
-    return BoardResult(board_id, mode, status, run_id, failure_reason or "")
+    artifact_dir = ""
+    quality_summary: dict = {}
+    if response is not None:
+        run_dir, quality_summary = _ensure_product_artifacts(response, config)
+        artifact_dir = str(run_dir)
+    return BoardResult(
+        board_id,
+        mode,
+        status,
+        run_id,
+        failure_reason or "",
+        artifact_dir,
+        quality_summary,
+    )
 
 
 def select_rows(rows: list[dict], config: RunnerConfig) -> list[dict]:
@@ -749,7 +1171,12 @@ async def open_client(config: RunnerConfig):
 
 
 async def run_manifest(config: RunnerConfig) -> list[BoardResult]:
-    rows = select_rows(load_manifest(config.manifest), config)
+    source_rows = (
+        product_pack_rows(config.product_pack)
+        if config.product_pack
+        else load_manifest(config.manifest)
+    )
+    rows = select_rows(source_rows, config)
     config.artifacts.mkdir(parents=True, exist_ok=True)
     config.telemetry.parent.mkdir(parents=True, exist_ok=True)
     config.spend_log.parent.mkdir(parents=True, exist_ok=True)
@@ -843,6 +1270,9 @@ async def run_manifest(config: RunnerConfig) -> list[BoardResult]:
             f"Stopped before starting {skipped} board(s): runtime reserve reached.",
             flush=True,
         )
+    if config.product_pack:
+        report_path = write_product_pack_report(config, results)
+        print(f"Product pack report: {report_path}", flush=True)
     return results
 
 
@@ -861,6 +1291,12 @@ def parse_args(argv: list[str] | None = None) -> RunnerConfig:
     parser.add_argument("--pid-file", type=Path, default=DEFAULT_PID_FILE)
     parser.add_argument("--mode", choices=["engine_only", "internal", "external"], default="engine_only")
     parser.add_argument("--model-tier", default="mid")
+    parser.add_argument(
+        "--product-pack",
+        choices=[PRODUCT_PACK_NAME],
+        default="",
+        help="Run the local/offline product fixture pack instead of manifest rows",
+    )
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--board", action="append", default=[])
     parser.add_argument("--validation-mode", action="append", default=[],
@@ -901,6 +1337,7 @@ def parse_args(argv: list[str] | None = None) -> RunnerConfig:
         max_board_tokens=args.max_board_tokens,
         no_mcp=args.no_mcp,
         force=args.force,
+        product_pack=args.product_pack,
     )
 
 

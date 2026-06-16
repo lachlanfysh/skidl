@@ -31,6 +31,59 @@ class KeepOut:
 
 
 @dataclass
+class BoardCutout:
+    """Physical void in the board, distinct from a placement keepout."""
+
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+    shape: str = "rect"
+    name: str = ""
+    vertices: list[tuple[float, float]] = field(default_factory=list)
+    radius_mm: float | None = None
+
+    @property
+    def width_mm(self) -> float:
+        return self.x_max - self.x_min
+
+    @property
+    def height_mm(self) -> float:
+        return self.y_max - self.y_min
+
+    @property
+    def center_x_mm(self) -> float:
+        return (self.x_min + self.x_max) / 2
+
+    @property
+    def center_y_mm(self) -> float:
+        return (self.y_min + self.y_max) / 2
+
+    @property
+    def bounds(self) -> tuple[float, float, float, float]:
+        return self.x_min, self.y_min, self.x_max, self.y_max
+
+    def to_keepout(self) -> KeepOut:
+        return KeepOut(self.x_min, self.y_min, self.x_max, self.y_max)
+
+    def to_dict(self) -> dict:
+        data = {
+            "shape": self.shape,
+            "x_min": self.x_min,
+            "y_min": self.y_min,
+            "x_max": self.x_max,
+            "y_max": self.y_max,
+        }
+        if self.name:
+            data["name"] = self.name
+        if self.vertices:
+            data["vertices"] = [(x, y) for x, y in self.vertices]
+        if self.radius_mm is not None:
+            data["radius_mm"] = self.radius_mm
+        return data
+
+
+@dataclass
 class EdgeAnchor:
     ref: str
     edge: str
@@ -151,6 +204,7 @@ class LayoutConstraints:
     zones: list = field(default_factory=list)
     edge_anchors: list = field(default_factory=list)
     keepouts: list = field(default_factory=list)
+    cutouts: list = field(default_factory=list)
     align: list = field(default_factory=list)
     distribute: list = field(default_factory=list)
     near: list = field(default_factory=list)
