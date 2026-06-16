@@ -47,7 +47,12 @@ PUBLIC_PATHS = {
     "/admin/login",
     "/admin/logout",
 }
-ADMIN_PATH_PREFIXES = ("/admin", "/beta-signups", "/api/beta-signups")
+ADMIN_PATH_PREFIXES = (
+    "/admin",
+    "/beta-signups",
+    "/api/beta-signups",
+    "/api/admin",
+)
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 ADMIN_COOKIE = "eda_admin"
 MAX_SIGNUP_BODY_BYTES = 20_000
@@ -1155,6 +1160,38 @@ async def approve_beta_signup_api(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True, "approval": approval}, status_code=201)
 
 
+async def admin_worker_loss_probe(request: Request) -> JSONResponse:
+    """Create a synthetic stale job and fail it through the worker-loss path."""
+
+    if db.pool is None:
+        return JSONResponse(
+            {"ok": False, "error": "database not connected"},
+            status_code=503,
+        )
+    job_id = await db.create_worker_loss_probe_job()
+    failed = await db.fail_worker_loss_probe_job(job_id)
+    if failed != 1:
+        return JSONResponse(
+            {
+                "ok": False,
+                "job_id": job_id,
+                "error": "worker-loss probe did not update its sentinel job",
+            },
+            status_code=500,
+        )
+    job = await db.get_job(job_id)
+    return JSONResponse({
+        "ok": True,
+        "job_id": job_id,
+        "status": job.get("status"),
+        "result": job.get("result"),
+        "hint": (
+            "Sentinel worker-loss probe created one synthetic ops_probe job. "
+            "Verify the public agent surface by polling get_job(job_id)."
+        ),
+    })
+
+
 def create_app() -> Starlette:
     mcp_app = mcp.streamable_http_app()
 
@@ -1173,8 +1210,9 @@ def create_app() -> Starlette:
     mcp_app.routes.insert(10, Route("/admin/beta-signups", admin_beta_signups, methods=["GET"]))
     mcp_app.routes.insert(11, Route("/admin/beta-signups/{signup_id:int}/approve", approve_beta_signup, methods=["POST"]))
     mcp_app.routes.insert(12, Route("/api/beta-signups/{signup_id:int}/approve", approve_beta_signup_api, methods=["POST"]))
-    mcp_app.routes.insert(13, Route("/health", health))
-    mcp_app.routes.insert(14, Route("/estimates", estimates))
+    mcp_app.routes.insert(13, Route("/api/admin/worker-loss-probe", admin_worker_loss_probe, methods=["POST"]))
+    mcp_app.routes.insert(14, Route("/health", health))
+    mcp_app.routes.insert(15, Route("/estimates", estimates))
     mcp_app.middleware_stack = None  # force rebuild
     mcp_app.user_middleware.insert(0, Middleware(BearerTokenMiddleware))
 

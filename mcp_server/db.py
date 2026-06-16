@@ -237,6 +237,99 @@ class DB:
             )
         return int(result.split()[-1])
 
+    async def create_worker_loss_probe_job(self) -> str:
+        """Create a synthetic stale running job for owner-only ops probes."""
+
+        job_id = f"probe_{uuid.uuid4().hex[:12]}"
+        spec = {
+            "_mode": "ops_probe",
+            "probe": "worker_lost_stale",
+        }
+        options = {
+            "timeout_s": 0,
+            "probe": True,
+        }
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO jobs
+                   (id, status, spec, options, policy, started_at, worker_id)
+                   VALUES (
+                       $1, 'running', $2, $3, '{}',
+                       NOW() - INTERVAL '1 hour', 'ops-probe'
+                   )""",
+                job_id,
+                json.dumps(spec),
+                json.dumps(options),
+            )
+        return job_id
+
+    async def fail_worker_loss_probe_job(self, job_id: str) -> int:
+        """Fail one synthetic ops-probe job without touching the real queue."""
+
+        async with self.pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE jobs
+                SET status = 'crashed',
+                    result = COALESCE(
+                        result,
+                        jsonb_build_object(
+                            'run_id', NULL,
+                            'ok', false,
+                            'status', 'crashed',
+                            'stage', 'worker_lost',
+                            'decision_required', true,
+                            'decision_kind', 'backend_failure',
+                            'recommended_next_tool', 'submit_skidl_code',
+                            'exceptions', jsonb_build_array(
+                                jsonb_build_object(
+                                    'id', 'e-worker-lost',
+                                    'code', 'ENGINE_CRASH',
+                                    'severity', 'fatal',
+                                    'message',
+                                        'worker lost while job was running; retry once unchanged',
+                                    'subject', jsonb_build_object(
+                                        'stage', 'worker_lost',
+                                        'job_id', id,
+                                        'worker_id', worker_id,
+                                        'started_at', started_at,
+                                        'timeout_s',
+                                            COALESCE(
+                                                (options->>'timeout_s')::double precision,
+                                                300.0
+                                            )
+                                    ),
+                                    'candidates', jsonb_build_array(
+                                        jsonb_build_object(
+                                            'id', 'c1',
+                                            'action', 'regenerate',
+                                            'params', '{}'::jsonb,
+                                            'human_summary',
+                                                'retry unchanged; this is a service/backend failure, not circuit feedback',
+                                            'cost_hint', 'cheap',
+                                            'confidence', 0.8,
+                                            'source', 'deterministic'
+                                        )
+                                    ),
+                                    'retry_hint',
+                                        'Retry once unchanged. If it repeats, report a backend worker-loss issue instead of rewriting the circuit.'
+                                )
+                            )
+                        )
+                    ),
+                    error = COALESCE(
+                        error,
+                        'worker lost while job was running; resubmit the design'
+                    ),
+                    finished_at = NOW()
+                WHERE id = $1
+                  AND status = 'running'
+                  AND spec->>'_mode' = 'ops_probe'
+                """,
+                job_id,
+            )
+        return int(result.split()[-1])
+
     # ── Runs ──────────────────────────────────────────────────────────
 
     async def save_run(

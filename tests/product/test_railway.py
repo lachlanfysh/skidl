@@ -314,6 +314,23 @@ class TestDB:
         assert job["result"]["exceptions"][0]["candidates"][0]["action"] == "regenerate"
 
     @pytest.mark.asyncio
+    async def test_worker_loss_probe_only_updates_ops_probe_job(self, db):
+        probe_id = await db.create_worker_loss_probe_job()
+        normal_id = await db.create_job(SIMPLE_SPEC, {"timeout_s": 1})
+        await db.claim_job("normal-worker")
+
+        assert await db.fail_worker_loss_probe_job(normal_id) == 0
+        assert (await db.get_job(normal_id))["status"] == "running"
+
+        assert await db.fail_worker_loss_probe_job(probe_id) == 1
+        probe = await db.get_job(probe_id)
+        assert probe["status"] == "crashed"
+        assert probe["result"]["stage"] == "worker_lost"
+        assert probe["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
+
+        await db.complete_job(normal_id, "failed", error="test cleanup")
+
+    @pytest.mark.asyncio
     async def test_expire_old_jobs(self, db):
         job_id = await db.create_job(SIMPLE_SPEC)
         await db.claim_job("w")
@@ -902,6 +919,11 @@ class TestAuthMiddleware:
             headers={"Authorization": "Bearer user-token"},
         )
         assert admin_resp.status_code == 403
+        probe_resp = client.post(
+            "/api/admin/worker-loss-probe",
+            headers={"Authorization": "Bearer user-token"},
+        )
+        assert probe_resp.status_code == 403
 
     def test_beta_signup_list_requires_auth(self, client):
         resp = client.get("/beta-signups")
@@ -1056,8 +1078,58 @@ class TestAuthMiddleware:
         assert resp.status_code == 409
         assert resp.json()["ok"] is False
 
+    def test_admin_worker_loss_probe_returns_structured_crash(self, client, monkeypatch):
+        import mcp_server.serve_http as mod
+
+        class FakeDB:
+            pool = object()
+
+            async def create_worker_loss_probe_job(self):
+                return "probe_test_001"
+
+            async def fail_worker_loss_probe_job(self, job_id):
+                assert job_id == "probe_test_001"
+                return 1
+
+            async def get_job(self, job_id):
+                assert job_id == "probe_test_001"
+                return {
+                    "id": job_id,
+                    "status": "crashed",
+                    "result": {
+                        "status": "crashed",
+                        "stage": "worker_lost",
+                        "decision_required": True,
+                        "exceptions": [
+                            {
+                                "code": "ENGINE_CRASH",
+                                "subject": {"stage": "worker_lost"},
+                            }
+                        ],
+                    },
+                }
+
+        monkeypatch.setattr(mod, "db", FakeDB())
+
+        resp = client.post(
+            "/api/admin/worker-loss-probe",
+            headers={"Authorization": "Bearer test-token-123"},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True
+        assert body["job_id"] == "probe_test_001"
+        assert body["status"] == "crashed"
+        assert body["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
+        assert body["result"]["stage"] == "worker_lost"
+
     def test_admin_approve_page_requires_owner_token(self, client):
         resp = client.post("/admin/beta-signups/7/approve")
+        assert resp.status_code == 401
+
+    def test_admin_worker_loss_probe_requires_owner_token(self, client):
+        resp = client.post("/api/admin/worker-loss-probe")
         assert resp.status_code == 401
 
     def test_cookie_admin_post_rejects_cross_origin(self, client, monkeypatch):
