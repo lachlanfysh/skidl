@@ -326,13 +326,14 @@ def _derive_outline_for_edge_anchors(
     if anchors:
         effective_margin_mm = min(margin_mm, 1.5)
 
-    outline = derive_outline(
+    outline = _derive_outline_from_placed_bounds(
         placed_parts,
         fp_bboxes,
         margin_mm=effective_margin_mm,
         form_factor=form_factor,
         min_area_mm2=min_area_mm2,
         max_min_area_growth=max_min_area_growth,
+        fp_geometries=fp_geometries,
     )
     if form_factor or not placed_parts:
         return outline
@@ -435,6 +436,100 @@ def _derive_outline_for_edge_anchors(
         ],
         corner_radius_mm=getattr(outline, "corner_radius_mm", 0.0),
     )
+
+
+def _derive_outline_from_placed_bounds(
+    placed_parts: list[PlacedPart],
+    fp_bboxes: dict[str, tuple[float, float]],
+    *,
+    margin_mm: float = 3.0,
+    form_factor: str | None = None,
+    min_area_mm2: float = 0.0,
+    max_min_area_growth: float | None = None,
+    fp_geometries: dict[str, FootprintGeometry] | None = None,
+) -> BoardOutline:
+    """Return an auto outline from final transformed placement bounds."""
+    if form_factor:
+        return derive_outline([], fp_bboxes, form_factor=form_factor)
+    if not placed_parts:
+        return BoardOutline(50.0, 50.0)
+
+    x_min = float("inf")
+    y_min = float("inf")
+    x_max = float("-inf")
+    y_max = float("-inf")
+    for placed in placed_parts:
+        bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
+        x_min = min(x_min, bounds[0])
+        y_min = min(y_min, bounds[1])
+        x_max = max(x_max, bounds[2])
+        y_max = max(y_max, bounds[3])
+
+    x_min -= margin_mm
+    y_min -= margin_mm
+    x_max += margin_mm
+    y_max += margin_mm
+
+    width = x_max - x_min
+    height = y_max - y_min
+    area = width * height
+    if min_area_mm2 > 0 and area > 0.0 and area < min_area_mm2:
+        if max_min_area_growth is not None and max_min_area_growth > 0:
+            min_area_mm2 = min(min_area_mm2, area * max_min_area_growth)
+        scale = math.sqrt(min_area_mm2 / area)
+        cx, cy = (x_min + x_max) / 2, (y_min + y_max) / 2
+        width *= scale
+        height *= scale
+        x_min = cx - width / 2
+        x_max = cx + width / 2
+        y_min = cy - height / 2
+        y_max = cy + height / 2
+
+    return BoardOutline(
+        vertices=[
+            (x_min, y_min),
+            (x_max, y_min),
+            (x_max, y_max),
+            (x_min, y_max),
+        ]
+    )
+
+
+def _final_outline_constraints(
+    constraints: LayoutConstraints | None,
+    outline: BoardOutline | None,
+    intent_plan: PlacementIntentPlan | None,
+    *,
+    lock_edge_anchors: bool = True,
+) -> LayoutConstraints:
+    final = copy_constraints(constraints or LayoutConstraints())
+    final.outline = outline
+    if intent_plan is None:
+        return final
+
+    fixed_refs = {fixed.ref for fixed in final.fixed or []}
+    for fixed in intent_plan.fixed_positions:
+        if fixed.ref not in fixed_refs:
+            final.fixed.append(fixed)
+            fixed_refs.add(fixed.ref)
+
+    if lock_edge_anchors:
+        anchors_by_ref = {anchor.ref: anchor for anchor in final.edge_anchors or []}
+        for anchor in intent_plan.edge_anchors:
+            existing = anchors_by_ref.get(anchor.ref)
+            if existing is None:
+                final.edge_anchors.append(anchor)
+                anchors_by_ref[anchor.ref] = anchor
+            elif existing.rot_deg is None and anchor.rot_deg is not None:
+                existing.rot_deg = anchor.rot_deg
+
+    face_refs = {face.ref for face in final.face_edges or []}
+    for face in intent_plan.face_edges:
+        if face.ref not in face_refs:
+            final.face_edges.append(face)
+            face_refs.add(face.ref)
+
+    return final
 
 
 def _snap_mounting_holes_to_outline_corners(
@@ -1908,6 +2003,12 @@ def plan_layout(
                     "nudged away from fixed board outline"
                 )
 
+    selected_constraints = _final_outline_constraints(
+        selected_constraints,
+        resolved_outline,
+        intent_plan,
+        lock_edge_anchors=not auto_outline,
+    )
     placed_parts = _apply_assembly_sides(placed_parts, intent_plan)
     selected_candidate.placed_parts = placed_parts
     post_refinement_constraints = _constraints_with_effective_keepouts(

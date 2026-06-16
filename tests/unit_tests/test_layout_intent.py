@@ -477,6 +477,120 @@ def test_repeated_visible_parts_get_kind_grouped_array_constraints():
         assert "array_subject" in _kinds(plan, ref)
 
 
+def test_repeated_panel_pots_get_single_row_constraints():
+    gnd = _Net("GND")
+    signal = _Net("CV")
+    pots = [
+        _Part(
+            f"RV{idx}",
+            name="panel potentiometer",
+            footprint="Potentiometer_THT:Potentiometer_Alpha",
+            nets=[signal, gnd],
+            pins=3,
+        )
+        for idx in range(1, 5)
+    ]
+    circuit = _Circuit(pots, [signal, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(100.0, 42.0))
+
+    refs = ["RV1", "RV2", "RV3", "RV4"]
+    assert any(
+        constraint.refs == refs and constraint.axis == "y"
+        for constraint in plan.align_constraints
+    )
+    assert any(
+        constraint.refs == refs
+        and constraint.axis == "x"
+        and round(constraint.start_mm, 6) == 14.0
+        and constraint.end_mm == 86.0
+        for constraint in plan.distribute_constraints
+    )
+    assert all("array_subject" in _kinds(plan, ref) for ref in refs)
+
+
+def test_repeated_key_switches_get_matrix_constraints():
+    gnd = _Net("GND")
+    row = _Net("ROW")
+    keys = [
+        _Part(
+            f"K{idx}",
+            name="Cherry MX key switch",
+            footprint="Button_Switch_Keyboard:SW_Cherry_MX",
+            nets=[row, gnd],
+        )
+        for idx in range(1, 7)
+    ]
+    circuit = _Circuit(keys, [row, gnd])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(90.0, 60.0))
+
+    row_aligns = [
+        constraint
+        for constraint in plan.align_constraints
+        if constraint.axis == "y" and len(constraint.refs) == 3
+    ]
+    column_aligns = [
+        constraint
+        for constraint in plan.align_constraints
+        if constraint.axis == "x" and len(constraint.refs) == 2
+    ]
+    assert {tuple(constraint.refs) for constraint in row_aligns} >= {
+        ("K1", "K2", "K3"),
+        ("K4", "K5", "K6"),
+    }
+    assert {tuple(constraint.refs) for constraint in column_aligns} >= {
+        ("K1", "K4"),
+        ("K2", "K5"),
+        ("K3", "K6"),
+    }
+    key_refs = [f"K{i}" for i in range(1, 7)]
+    assert all("array_subject" in _kinds(plan, ref) for ref in key_refs)
+
+
+def test_repeated_sensor_parts_get_matrix_constraints():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    sda = _Net("SDA")
+    sensors = [
+        _Part(
+            f"U{idx}",
+            name="MCP9808 temperature sensor",
+            footprint="Sensor:MCP9808_Breakout",
+            nets=[vcc, gnd, sda],
+            pins=8,
+        )
+        for idx in range(1, 10)
+    ]
+    circuit = _Circuit(sensors, [vcc, gnd, sda])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(90.0, 60.0))
+
+    row_aligns = [
+        constraint
+        for constraint in plan.align_constraints
+        if constraint.axis == "y" and len(constraint.refs) == 3
+    ]
+    column_aligns = [
+        constraint
+        for constraint in plan.align_constraints
+        if constraint.axis == "x" and len(constraint.refs) == 3
+    ]
+    assert {tuple(constraint.refs) for constraint in row_aligns} >= {
+        ("U1", "U2", "U3"),
+        ("U4", "U5", "U6"),
+        ("U7", "U8", "U9"),
+    }
+    assert {tuple(constraint.refs) for constraint in column_aligns} >= {
+        ("U1", "U4", "U7"),
+        ("U2", "U5", "U8"),
+        ("U3", "U6", "U9"),
+    }
+    sensor_refs = [f"U{i}" for i in range(1, 10)]
+    assert all("sensor_grid_subject" in _kinds(plan, ref) for ref in sensor_refs)
+    assert all("array_subject" in _kinds(plan, ref) for ref in sensor_refs)
+
+
 def test_tall_panel_visible_parts_get_column_constraints():
     gnd = _Net("GND")
     signal = _Net("SIG")
@@ -727,6 +841,13 @@ def test_repeated_channel_intent_assigns_numbered_shared_rail_decaps_to_slots():
     assert "C3" in slots[1].refs
     assert "C1" not in slots[0].refs
     assert "C1" not in slots[1].refs
+    near_pairs = {
+        (constraint.ref, constraint.target_ref, constraint.distance_mm)
+        for constraint in plan.near_constraints
+    }
+    assert ("C2", "U2", 5.0) in near_pairs
+    assert ("C3", "U3", 5.0) in near_pairs
+    assert not any(ref == "C1" for ref, _, _ in near_pairs)
 
 
 # ---------------------------------------------------------------------------

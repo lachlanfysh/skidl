@@ -1021,6 +1021,8 @@ def derive_outline(
     y_max = float("-inf")
     for pp in placed_parts:
         w, h = fp_bboxes.get(pp.footprint, _DEFAULT_BBOX)
+        if pp.rot_deg % 180 == 90:
+            w, h = h, w
         x_min = min(x_min, pp.x_mm - w / 2)
         y_min = min(y_min, pp.y_mm - h / 2)
         x_max = max(x_max, pp.x_mm + w / 2)

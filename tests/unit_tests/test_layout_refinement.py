@@ -3,7 +3,14 @@ from __future__ import annotations
 import pytest
 
 from skidl.layout.candidates import PlacementCandidate
-from skidl.layout.constraints import BoardOutline, EdgeAnchor, FixedPosition, LayoutConstraints
+from skidl.layout.constraints import (
+    BoardOutline,
+    EdgeAnchor,
+    FixedPosition,
+    KeepOut,
+    LayoutConstraints,
+    NearConstraint,
+)
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
 from skidl.layout.refinement import _is_better, refine_candidate_placement, refine_placement
 from skidl.layout.scoring import LayoutScore, score_placement
@@ -54,6 +61,7 @@ class _Circuit:
 BBOXES = {
     "Package_QFP:MCU": (8.0, 8.0),
     "Connector:USB": (10.0, 5.0),
+    "Mechanical:MountingHole_3.2mm_M3": (3.2, 3.2),
     "Package:Long": (16.0, 4.0),
     "Resistor_SMD:R_0603": (1.6, 0.8),
     "Capacitor_SMD:C_0603": (1.6, 0.8),
@@ -78,6 +86,31 @@ def _signature(placed_parts):
         )
         for part in placed_parts
     ]
+
+
+def _mcu_cap_geometries():
+    return {
+        "Package_QFP:MCU": FootprintGeometry(
+            footprint="Package_QFP:MCU",
+            courtyard_bounds=(-4.0, -4.0, 4.0, 4.0),
+            pads=[
+                PadGeometry("1", 4.0, -1.0, 0.5, 0.5),
+                PadGeometry("2", 4.0, 1.0, 0.5, 0.5),
+            ],
+        ),
+        "Capacitor_SMD:C_0603": FootprintGeometry(
+            footprint="Capacitor_SMD:C_0603",
+            courtyard_bounds=(-0.8, -0.4, 0.8, 0.4),
+            pads=[
+                PadGeometry("1", -0.45, 0.0, 0.4, 0.5),
+                PadGeometry("2", 0.45, 0.0, 0.4, 0.5),
+            ],
+        ),
+    }
+
+
+def _distance(point_a, point_b):
+    return ((point_a[0] - point_b[0]) ** 2 + (point_a[1] - point_b[1]) ** 2) ** 0.5
 
 
 def test_refinement_moves_unlocked_part_when_score_improves():
@@ -263,6 +296,138 @@ def test_refinement_keeps_pin_gravity_passive_from_centroid_drift():
     assert by_ref["R1"].x_mm < 40.0
     assert "passive pin gravity" in reasons
     assert "connected-net centroid" not in reasons
+
+
+def test_refinement_moves_decap_toward_nearby_common_rail_ic_group():
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    u2 = _Part("U2", "Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    c1 = _Part("C1", "Capacitor_SMD:C_0603", value="100nF", nets=[vcc, gnd])
+    circuit = _Circuit([u1, u2, c1], [vcc, gnd])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(110.0, 45.0),
+        fixed=[FixedPosition("U1", 20.0, 20.0), FixedPosition("U2", 80.0, 20.0)],
+    )
+    geometries = _mcu_cap_geometries()
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("U2", 80.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("C1", 68.0, 20.0, 0.0, "Capacitor_SMD:C_0603"),
+    ]
+    u1_supply_target = (24.0, 20.0)
+    u2_supply_target = (84.0, 20.0)
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=geometries,
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+    cap_xy = (by_ref["C1"].x_mm, by_ref["C1"].y_mm)
+    reasons = "; ".join(result.ref_reasons["C1"])
+
+    assert result.accepted_moves >= 1
+    assert _distance(cap_xy, u2_supply_target) < _distance(
+        (68.0, 20.0),
+        u2_supply_target,
+    )
+    assert _distance(cap_xy, u2_supply_target) < _distance(
+        cap_xy,
+        u1_supply_target,
+    )
+    assert "passive pin gravity" in reasons
+
+
+def test_refinement_uses_near_constraint_for_passive_without_pad_geometry():
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    u2 = _Part("U2", "Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    c1 = _Part("C1", "Capacitor_SMD:C_0603", value="100nF", nets=[vcc, gnd])
+    circuit = _Circuit([u1, u2, c1], [vcc, gnd])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(110.0, 45.0),
+        fixed=[FixedPosition("U1", 20.0, 20.0), FixedPosition("U2", 80.0, 20.0)],
+        near=[NearConstraint(ref="C1", target_ref="U2", distance_mm=5.0)],
+    )
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("U2", 80.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("C1", 50.0, 20.0, 0.0, "Capacitor_SMD:C_0603"),
+    ]
+
+    result = refine_placement(placed, circuit, BBOXES, constraints=constraints)
+    by_ref = {part.ref: part for part in result.placed_parts}
+    cap_xy = (by_ref["C1"].x_mm, by_ref["C1"].y_mm)
+    reasons = "; ".join(result.ref_reasons["C1"])
+
+    assert result.accepted_moves >= 1
+    assert _distance(cap_xy, (80.0, 20.0)) < _distance((50.0, 20.0), (80.0, 20.0))
+    assert "near constraint to U2" in reasons
+
+
+def test_refinement_passive_pin_gravity_avoids_mounting_hole_and_edge_keepouts():
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    c1 = _Part("C1", "Capacitor_SMD:C_0603", value="100nF", nets=[vcc, gnd])
+    h1 = _Part(
+        "H1",
+        "Mechanical:MountingHole_3.2mm_M3",
+        name="mounting hole",
+        pins=0,
+    )
+    circuit = _Circuit([u1, c1, h1], [vcc, gnd])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(100.0, 40.0),
+        fixed=[
+            FixedPosition("U1", 85.0, 20.0),
+            FixedPosition("H1", 75.0, 20.0),
+        ],
+        keepouts=[
+            KeepOut(87.0, 0.0, 100.0, 40.0, allowed_refs=["U1"]),
+            KeepOut(73.5, 18.5, 76.5, 21.5, allowed_refs=["H1"]),
+        ],
+    )
+    geometries = _mcu_cap_geometries()
+    placed = [
+        PlacedPart("U1", 85.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("H1", 75.0, 20.0, 0.0, "Mechanical:MountingHole_3.2mm_M3"),
+        PlacedPart("C1", 20.0, 20.0, 0.0, "Capacitor_SMD:C_0603"),
+    ]
+    supply_target = (89.0, 20.0)
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=geometries,
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+    cap_xy = (by_ref["C1"].x_mm, by_ref["C1"].y_mm)
+    score = score_placement(
+        result.placed_parts,
+        circuit,
+        BBOXES,
+        outline=constraints.outline,
+        keepouts=constraints.keepouts,
+        fp_geometries=geometries,
+    )
+
+    assert result.accepted_moves >= 1
+    assert _distance(cap_xy, supply_target) < _distance(
+        (20.0, 20.0),
+        supply_target,
+    )
+    assert by_ref["H1"].x_mm == pytest.approx(75.0)
+    assert by_ref["H1"].y_mm == pytest.approx(20.0)
+    assert score.overlap_count == 0
+    assert score.keepout_violation_count == 0
+    assert "passive pin gravity" in "; ".join(result.ref_reasons["C1"])
 
 
 def test_refinement_better_gate_prioritizes_hard_violations():

@@ -526,6 +526,23 @@ def test_derive_outline_single_part():
     assert outline.height_mm == pytest.approx(7.25, abs=0.1)
 
 
+def test_derive_outline_uses_rotated_footprint_bounds():
+    parts = [
+        PlacedPart(
+            "J1",
+            10.0,
+            10.0,
+            90.0,
+            "Connector_PinHeader:PinHeader_1x06_P2.54mm",
+        )
+    ]
+
+    outline = derive_outline(parts, _FP_BBOXES, margin_mm=1.0)
+
+    assert outline.width_mm == pytest.approx(17.24)
+    assert outline.height_mm == pytest.approx(4.54)
+
+
 def test_derive_outline_caps_density_minimum_growth():
     parts = [
         PlacedPart("R1", 10.0, 20.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),

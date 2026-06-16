@@ -235,12 +235,13 @@ def _ref_center_from_geometry(
 def _target_pad_candidates_for_net(
     net_name: str,
     skip_ref: str,
+    origin_xy: tuple[float, float],
     circuit,
     placed_by_ref: dict[str, PlacedPart],
     fp_geometries: dict[str, FootprintGeometry],
     roles: dict,
-) -> list[tuple[float, tuple[float, float], str]]:
-    candidates: list[tuple[float, tuple[float, float], str]] = []
+) -> list[tuple[float, float, tuple[float, float], str]]:
+    candidates: list[tuple[float, float, tuple[float, float], str]] = []
     for part in getattr(circuit, "parts", []) or []:
         ref = getattr(part, "ref", None)
         if not ref or ref == skip_ref or ref not in placed_by_ref:
@@ -267,6 +268,10 @@ def _target_pad_candidates_for_net(
         center = _ref_center_from_geometry(placed, fp_geometries)
         for pad in pads:
             pad_xy = _pad_world_xy(pad, placed)
+            origin_distance = math.hypot(
+                pad_xy[0] - origin_xy[0],
+                pad_xy[1] - origin_xy[1],
+            )
             distance_from_center = math.hypot(
                 pad_xy[0] - center[0],
                 pad_xy[1] - center[1],
@@ -274,6 +279,7 @@ def _target_pad_candidates_for_net(
             candidates.append(
                 (
                     -role_weight,
+                    origin_distance,
                     pad_xy,
                     (
                         f"{ref}.{pad.number} on {net_name} "
@@ -281,7 +287,7 @@ def _target_pad_candidates_for_net(
                     ),
                 )
             )
-    return sorted(candidates, key=lambda item: (item[0], item[2]))
+    return sorted(candidates, key=lambda item: (item[0], item[1], item[3]))
 
 
 def _passive_pin_gravity_target(
@@ -290,20 +296,42 @@ def _passive_pin_gravity_target(
     circuit,
     fp_geometries: dict[str, FootprintGeometry] | None,
     roles: dict,
+    constraints: LayoutConstraints | None = None,
 ) -> tuple[tuple[float, float], str] | None:
-    if circuit is None or not fp_geometries:
+    if circuit is None:
         return None
     part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
     part = part_by_ref.get(ref)
     placed = placed_by_ref.get(ref)
     if part is None or placed is None:
         return None
-    geometry = fp_geometries.get(placed.footprint)
-    if geometry is None or not geometry.pads:
-        return None
     role = roles.get(ref)
     role_name = role.role if role is not None else "unknown"
-    if role_name not in {"signal_passive", "diode", "inductor", "crystal"}:
+    if role_name not in {
+        "decoupling_cap",
+        "signal_passive",
+        "diode",
+        "inductor",
+        "crystal",
+    }:
+        return None
+
+    for constraint in (constraints.near if constraints is not None else []) or []:
+        if constraint.ref != ref or constraint.target_ref not in placed_by_ref:
+            continue
+        target = placed_by_ref[constraint.target_ref]
+        return (
+            (target.x_mm, target.y_mm),
+            (
+                f"near constraint to {constraint.target_ref} "
+                f"within {constraint.distance_mm:.1f}mm"
+            ),
+        )
+
+    if not fp_geometries:
+        return None
+    geometry = fp_geometries.get(placed.footprint)
+    if geometry is None or not geometry.pads:
         return None
 
     target_points: list[tuple[float, float]] = []
@@ -319,6 +347,7 @@ def _passive_pin_gravity_target(
         candidates = _target_pad_candidates_for_net(
             net_name,
             ref,
+            (placed.x_mm, placed.y_mm),
             circuit,
             placed_by_ref,
             fp_geometries,
@@ -326,7 +355,7 @@ def _passive_pin_gravity_target(
         )
         if not candidates:
             continue
-        _, pad_xy, reason = candidates[0]
+        _, _, pad_xy, reason = candidates[0]
         repeat = max(1, round(net_weight * 4))
         target_points.extend([pad_xy] * repeat)
         reasons.append(reason)
@@ -597,6 +626,16 @@ def _best_pin_gravity_trial(
         )
         if _hard_violation_key(trial_score) > current_hard:
             continue
+        if not _ref_is_clear_of_hard_violations(
+            ref,
+            trial_parts,
+            circuit,
+            fp_bboxes,
+            constraints,
+            fp_geometries,
+            clearance_mm,
+        ):
+            continue
         key = (target_distance, -trial_score.score)
         if best is None or key < best[0]:
             best = (key, trial_parts, trial_score, trial)
@@ -604,6 +643,35 @@ def _best_pin_gravity_trial(
         return None
     _, best_parts, best_score, best_trial = best
     return best_parts, best_score, best_trial
+
+
+def _ref_is_clear_of_hard_violations(
+    ref: str,
+    placed_parts: list[PlacedPart],
+    circuit,
+    fp_bboxes: dict[str, tuple[float, float]],
+    constraints: LayoutConstraints | None,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+    clearance_mm: float,
+) -> bool:
+    validation = validate(
+        placed_parts,
+        circuit,
+        fp_bboxes,
+        clearance_mm=clearance_mm,
+        outline=constraints.outline if constraints is not None else None,
+        keepouts=constraints.keepouts if constraints is not None else None,
+        fp_geometries=fp_geometries,
+    )
+    if any(ref in pair for pair in validation.overlaps):
+        return False
+    if ref in validation.outline_violations:
+        return False
+    if ref in validation.keepout_violations:
+        return False
+    if ref in validation.missing_refs:
+        return False
+    return True
 
 
 def _occupied_without_ref(
@@ -616,6 +684,8 @@ def _occupied_without_ref(
     occupied: list[tuple[float, float, float, float]] = []
     if constraints is not None:
         for keepout in constraints.keepouts or []:
+            if ref in (getattr(keepout, "allowed_refs", []) or []):
+                continue
             occupied.append(
                 (
                     (keepout.x_min + keepout.x_max) / 2,
@@ -813,6 +883,7 @@ def refine_placement(
                 circuit,
                 fp_geometries,
                 roles,
+                constraints,
             )
             if pin_target is not None:
                 pin_gravity_anchored_refs.add(ref)

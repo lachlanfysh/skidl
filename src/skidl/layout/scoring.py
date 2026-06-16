@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from .congestion import build_congestion_map
 from .decaps import measure_decap_pad_distances
 from .geometry import FootprintGeometry
+from .grid import points_form_clean_grid
 from .power import plan_power_routes
 from .roles import GND_NET_RE, POWER_NET_RE, PartRole, classify_parts, pin_net_names
 from .validator import validate
@@ -457,6 +458,12 @@ def _role_warnings(
         ys = [placed_by_ref[ref].y_mm for ref in panel_refs]
         x_span = max(xs) - min(xs)
         y_span = max(ys) - min(ys)
+        clean_grid = points_form_clean_grid(
+            [
+                (placed_by_ref[ref].x_mm, placed_by_ref[ref].y_mm)
+                for ref in panel_refs
+            ]
+        )
         tall_panel = (
             outline is not None
             and outline.height_mm >= outline.width_mm * 1.6
@@ -464,7 +471,7 @@ def _role_warnings(
         )
         if tall_panel:
             expected_y_span = min(55.0, outline.height_mm * 0.45)
-            if x_span > max(12.0, outline.width_mm * 0.45):
+            if not clean_grid and x_span > max(12.0, outline.width_mm * 0.45):
                 warnings.append(
                     "panel controls/jacks are not aligned into clean columns"
                 )
@@ -474,7 +481,7 @@ def _role_warnings(
                 )
         else:
             expected_x_span = min(20.0, outline.width_mm * 0.35) if outline else 12.0
-            if len(panel_refs) <= 4 and y_span > 2.0:
+            if len(panel_refs) <= 4 and y_span > 2.0 and not clean_grid:
                 warnings.append(
                     "panel controls/jacks are not aligned into a clean row"
                 )

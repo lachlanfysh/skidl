@@ -34,10 +34,17 @@ DAISY_SEED_RE = re.compile(
 )
 PANEL_CONTROL_RE = re.compile(
     r"(switch|button|potentiometer|encoder|rotary|knob|trimmer|"
+    r"key.?switch|keyboard|keycap|cherry.?mx|kailh|mx.?key|"
     r"alpha|bourns|songhuei)",
     re.IGNORECASE,
 )
 LED_UI_RE = re.compile(r"(led|neopixel|ws2812|apa102)", re.IGNORECASE)
+SENSOR_UI_RE = re.compile(
+    r"(sensor|photodiode|photosensor|light.?dependent|lux|tof|time.?of.?flight|"
+    r"temperature|humidity|pressure|imu|accelerometer|gyro|magnetometer|"
+    r"mcp9808|bme280|bmp280|vl53|tsl25|veml|ads1115)",
+    re.IGNORECASE,
+)
 CONNECTOR_METADATA_RE = re.compile(
     r"(connector|header|jack|terminal|receptacle|socket)",
     re.IGNORECASE,
@@ -104,9 +111,13 @@ def is_ui_grid_part(part) -> bool:
     text = _part_text(part)
     if is_audio_jack_part(part):
         return True
-    if prefix in {"SW", "S", "RV", "POT"} or PANEL_CONTROL_RE.search(text):
+    if prefix in {"SW", "S", "RV", "POT", "K", "KEY"} or PANEL_CONTROL_RE.search(
+        text
+    ):
         return True
     if prefix == "LED" or LED_UI_RE.search(text):
+        return True
+    if SENSOR_UI_RE.search(text):
         return True
     return False
 
@@ -148,7 +159,9 @@ def classify_part(part) -> PartRole:
         reasons.append("mechanical mounting-hole reference or footprint")
         return PartRole(ref, "mounting_hole", 0.95, reasons)
 
-    if prefix in {"SW", "S", "RV", "POT"} or PANEL_CONTROL_RE.search(text):
+    if prefix in {"SW", "S", "RV", "POT", "K", "KEY"} or PANEL_CONTROL_RE.search(
+        text
+    ):
         reasons.append("panel/user-control reference or metadata")
         return PartRole(ref, "control", 0.85, reasons)
 

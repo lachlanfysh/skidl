@@ -48,8 +48,10 @@ class _Circuit:
 
 BBOXES = {
     "Connector:Header": (10.0, 4.0),
+    "Connector_Audio:Thonkiconn_PJ398SM": (8.0, 8.0),
     "Package_QFP:MCU": (12.0, 12.0),
     "Capacitor:C_0805": (2.0, 1.25),
+    "Potentiometer_THT:Potentiometer_Alpha": (9.5, 9.5),
 }
 
 
@@ -169,6 +171,56 @@ def test_score_decoupling_cap_ignores_panel_controls_as_parents():
     assert not any("decoupling cap" in warning for warning in score.warnings)
 
 
+def test_score_accepts_clean_panel_grid_without_alignment_warning():
+    gnd = _Net("GND")
+    sig = _Net("SIG")
+    parts = [
+        _Part(
+            "RV1",
+            name="panel potentiometer",
+            footprint="Potentiometer_THT:Potentiometer_Alpha",
+            nets=[sig, gnd],
+            pins=3,
+        ),
+        _Part(
+            "RV2",
+            name="panel potentiometer",
+            footprint="Potentiometer_THT:Potentiometer_Alpha",
+            nets=[sig, gnd],
+            pins=3,
+        ),
+        _Part(
+            "J1",
+            name="Thonkiconn PJ398SM panel jack",
+            footprint="Connector_Audio:Thonkiconn_PJ398SM",
+            nets=[sig, gnd],
+        ),
+        _Part(
+            "J2",
+            name="Thonkiconn PJ398SM panel jack",
+            footprint="Connector_Audio:Thonkiconn_PJ398SM",
+            nets=[sig, gnd],
+        ),
+    ]
+    circuit = _Circuit(parts, [sig, gnd])
+    placed = [
+        PlacedPart("RV1", 20.0, 15.0, 0.0, "Potentiometer_THT:Potentiometer_Alpha"),
+        PlacedPart("RV2", 60.0, 15.0, 0.0, "Potentiometer_THT:Potentiometer_Alpha"),
+        PlacedPart("J1", 20.0, 32.0, 0.0, "Connector_Audio:Thonkiconn_PJ398SM"),
+        PlacedPart("J2", 60.0, 32.0, 0.0, "Connector_Audio:Thonkiconn_PJ398SM"),
+    ]
+
+    score = score_placement(
+        placed,
+        circuit,
+        BBOXES,
+        outline=BoardOutline(80.0, 50.0),
+    )
+
+    assert not any("not aligned" in warning for warning in score.warnings)
+    assert not any("bunched" in warning for warning in score.warnings)
+
+
 def test_score_counts_hard_validation_failures():
     circuit = _Circuit([], [])
     placed = [
@@ -201,7 +253,8 @@ def test_score_includes_power_plan_warnings():
 
     assert score.power_net_count == 3
     assert any(
-        "regulator has no decoupling cap" in warning for warning in score.warnings
+        "regulator" in warning and "decoupling cap" in warning
+        for warning in score.warnings
     )
 
 

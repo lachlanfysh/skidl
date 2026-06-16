@@ -14,6 +14,12 @@ from .constraints import (
     KeepOut,
     NearConstraint,
 )
+from .grid import grid_rows_for_refs
+from .connector_metadata import (
+    infer_connector_mating_face,
+    infer_edge_mating_rotation,
+    rotation_for_local_exit,
+)
 from .roles import (
     GND_NET_RE,
     POWER_NET_RE,
@@ -49,6 +55,16 @@ BUTTON_RE = re.compile(r"\b(button|pushbutton|tact|switch)\b", re.I)
 LED_RE = re.compile(r"\b(led|neopixel|indicator)\b", re.I)
 DISPLAY_RE = re.compile(r"\b(display|oled|lcd|screen)\b", re.I)
 POT_ENCODER_RE = re.compile(r"\b(pot|potentiometer|encoder|knob)\b", re.I)
+KEY_RE = re.compile(
+    r"\b(key.?switch|keyboard|keycap|cherry.?mx|kailh|mx.?key)\b",
+    re.I,
+)
+SENSOR_RE = re.compile(
+    r"\b(sensor|photodiode|photosensor|light.?dependent|lux|tof|"
+    r"time.?of.?flight|temperature|humidity|pressure|imu|accelerometer|"
+    r"gyro|magnetometer|mcp9808|bme280|bmp280|vl53|tsl25|veml|ads1115)\b",
+    re.I,
+)
 COAX_RE = re.compile(r"(?:^|[\s_/:.,-])(coax|coaxial|sma|u\.?fl|ipex|antenna|rf.?conn)(?:[\s_/:.,-]|$)", re.I)
 XTAL_PIN_RE = re.compile(r"^(XTAL|OSC|XTALI|XTALO|XIN|XOUT)$", re.I)
 AUDIO_IC_RE = re.compile(r"\b(dac|codec|audio|i2s|pcm510|wm874|max9814|sgtl5000|tlv320)\b", re.I)
@@ -345,12 +361,7 @@ def _explicit_part_edge_anchor(part) -> tuple[str, float | None, float | None] |
 
 def _rotation_for_local_exit(edge: str, local_exit: str) -> float | None:
     """Return KiCad rotation that points a known local connector exit outward."""
-    edge = edge.lower()
-    if local_exit == "+y":
-        return {"bottom": 0.0, "left": 270.0, "top": 180.0, "right": 90.0}.get(edge)
-    if local_exit == "-x":
-        return {"left": 0.0, "bottom": 90.0, "right": 180.0, "top": 270.0}.get(edge)
-    return None
+    return rotation_for_local_exit(edge, local_exit)
 
 
 def _default_edge_rotation_for_part(
@@ -363,52 +374,27 @@ def _default_edge_rotation_for_part(
     edge = normalize_board_edge(edge)
     if edge is None:
         return None
-
-    footprint = str(getattr(part, "footprint", "") or "").lower()
-    kind = str(mating_kind or "").lower()
-
-    # KiCad CUI SJ1 horizontal jacks mark their PCB-edge/socket opening on
-    # local +Y using footprint-local Edge.Cuts geometry.
-    if (
-        kind == "audio_jack"
-        or AUDIO_JACK_RE.search(text)
-        or "jack_3.5mm" in footprint
-    ) and ("cui_sj1" in footprint or "sj1-352" in footprint):
-        return _rotation_for_local_exit(edge, "+y")
-
-    # KiCad PJ320D-style horizontal jacks have the socket opening on local -X.
-    if (
-        kind == "audio_jack"
-        or AUDIO_JACK_RE.search(text)
-        or "jack_3.5mm" in footprint
-    ) and (
-        "horizontal" in footprint
-        or "pj320" in footprint
-        or "pj-320" in footprint
-    ):
-        return _rotation_for_local_exit(edge, "-x")
-
-    # KiCad USB-C edge-mount footprints mark "PCB Edge" on local +Y.
-    if kind == "usb" or USB_CONNECTOR_RE.search(text) or "connector_usb" in footprint:
-        if "horizontal" in footprint or "receptacle" in footprint or "usb" in footprint:
-            return _rotation_for_local_exit(edge, "+y")
-
-    # JST SH/PH side-entry connectors, including Qwiic/STEMMA QT, exit local +Y.
-    if (
-        kind == "jst"
-        or JST_RE.search(text)
-        or QWIIC_RE.search(text)
-        or "connector_jst" in footprint
-        or "jst_" in footprint
-    ):
-        if "horizontal" in footprint or QWIIC_RE.search(text) or "jst_sh" in footprint:
-            return _rotation_for_local_exit(edge, "+y")
-
-    return None
+    return infer_edge_mating_rotation(
+        part,
+        edge,
+        text=text,
+        mating_kind=mating_kind,
+    )
 
 
-def _default_edge_inset_for_part(text: str, mating_kind: str | None) -> float:
+def _default_edge_inset_for_part(
+    text: str,
+    mating_kind: str | None,
+    part=None,
+) -> float:
     """Use true board-edge placement for connectors that need cable access."""
+    mating_face = infer_connector_mating_face(
+        part,
+        text=text,
+        mating_kind=mating_kind,
+    )
+    if mating_face is not None:
+        return mating_face.edge_inset_mm
     if str(mating_kind or "").lower() in {"usb", "jst", "audio_jack", "barrel"}:
         return 0.0
     if AUDIO_JACK_RE.search(text) or QWIIC_RE.search(text) or USB_CONNECTOR_RE.search(text):
@@ -668,6 +654,15 @@ def _mating_intent_for_part(
             confidence=0.8,
             reasons=["nav switch/joystick metadata"],
         )
+    if KEY_RE.search(text):
+        return MatingIntent(
+            ref=ref,
+            kind="key",
+            edge_preference="right",
+            mating_side="user_control",
+            confidence=0.78,
+            reasons=["key switch metadata"],
+        )
     if BUTTON_RE.search(text):
         return MatingIntent(
             ref=ref,
@@ -820,13 +815,19 @@ def _array_subject_kind(
     ref: str,
     roles: dict[str, PartRole],
     mating_by_ref: dict[str, MatingIntent],
+    part_text_by_ref: dict[str, str] | None = None,
 ) -> str | None:
     role = roles.get(ref)
+    text = (part_text_by_ref or {}).get(ref, "")
     if role is not None:
         if role.role == "panel_jack":
             return "jack"
         if role.role == "control":
+            if KEY_RE.search(text):
+                return "key"
             return "control"
+        if role.role == "ic" and SENSOR_RE.search(text):
+            return "sensor"
 
     mating = mating_by_ref.get(ref)
     if mating is None:
@@ -835,14 +836,19 @@ def _array_subject_kind(
         return "led"
     if mating.kind == "panel_jack":
         return "jack"
+    if mating.kind == "key":
+        return "key"
     if mating.kind in {"button", "encoder", "pot", "nav_control"}:
         return "control"
+    if SENSOR_RE.search(text):
+        return "sensor"
     return None
 
 
 def _arrange_array_subjects(
     plan: PlacementIntentPlan,
     roles: dict[str, PartRole],
+    part_text_by_ref: dict[str, str] | None = None,
     outline=None,
 ) -> None:
     if outline is None:
@@ -850,7 +856,7 @@ def _arrange_array_subjects(
     mating_by_ref = {intent.ref: intent for intent in plan.mating_intents}
     groups: dict[str, list[str]] = {}
     for ref in sorted(plan.intents):
-        kind = _array_subject_kind(ref, roles, mating_by_ref)
+        kind = _array_subject_kind(ref, roles, mating_by_ref, part_text_by_ref)
         if kind is None and _is_panel_subject(ref, roles, plan):
             kind = "panel"
         if kind is None:
@@ -933,30 +939,39 @@ def _arrange_array_subjects(
         start_x = outline.x_min + outline.width_mm * 0.2
         end_x = outline.x_max - outline.width_mm * 0.2
 
-    row_refs: list[list[str]] = []
-    for kind in ("control", "led", "jack", "panel"):
+    row_entries: list[tuple[str, list[str]]] = []
+    grid_groups: list[tuple[str, list[list[str]]]] = []
+    for kind in ("key", "control", "led", "jack", "sensor", "panel"):
         kind_refs = groups.get(kind, [])
         if not kind_refs:
             continue
-        if len(kind_refs) <= 4:
-            row_refs.append(kind_refs)
-            continue
-        split = (len(kind_refs) + 1) // 2
-        row_refs.extend([kind_refs[:split], kind_refs[split:]])
+        single_row_limit = 3 if kind in {"key", "sensor"} else 4
+        rows_for_kind = grid_rows_for_refs(
+            kind_refs,
+            outline.width_mm,
+            outline.height_mm,
+            single_row_limit=single_row_limit,
+        )
+        grid_groups.append((kind, rows_for_kind))
+        row_entries.extend((kind, row) for row in rows_for_kind)
 
-    if len(row_refs) == 1:
+    if len(row_entries) == 1:
         y_values = [outline.y_min + outline.height_mm * 0.42]
     else:
         y_start = outline.y_min + outline.height_mm * 0.32
         y_end = outline.y_min + outline.height_mm * 0.64
-        step = (y_end - y_start) / max(1, len(row_refs) - 1)
-        y_values = [y_start + idx * step for idx in range(len(row_refs))]
+        step = (y_end - y_start) / max(1, len(row_entries) - 1)
+        y_values = [y_start + idx * step for idx in range(len(row_entries))]
 
-    rows = list(zip(row_refs, y_values))
-    for row_refs, y in rows:
+    for (kind, row_refs), y in zip(row_entries, y_values):
         if not row_refs:
             continue
-        _add_array_intents(plan, row_refs, "visible repeated part")
+        reason = (
+            "visible repeated sensor grid"
+            if kind == "sensor"
+            else "visible repeated part"
+        )
+        _add_array_intents(plan, row_refs, reason)
         plan.align_constraints.append(
             AlignConstraint(refs=row_refs, axis="y", value_mm=y)
         )
@@ -968,6 +983,25 @@ def _arrange_array_subjects(
                     start_mm=start_x,
                     end_mm=end_x,
                 )
+            )
+
+    for _kind, rows_for_kind in grid_groups:
+        if len(rows_for_kind) < 2:
+            continue
+        max_cols = max(len(row) for row in rows_for_kind)
+        if max_cols < 2 or any(len(row) != max_cols for row in rows_for_kind):
+            continue
+        for col_idx in range(max_cols):
+            col_refs = [row[col_idx] for row in rows_for_kind]
+            if len(col_refs) < 2:
+                continue
+            x = (
+                start_x
+                if max_cols == 1
+                else start_x + (end_x - start_x) * col_idx / (max_cols - 1)
+            )
+            plan.align_constraints.append(
+                AlignConstraint(refs=col_refs, axis="x", value_mm=x)
             )
 
 
@@ -1453,6 +1487,34 @@ def _infer_repeated_channels(
     ]
 
 
+def _add_repeated_channel_near_constraints(
+    plan: PlacementIntentPlan,
+    roles: dict[str, PartRole],
+) -> None:
+    """Keep per-channel support parts local to their channel subject."""
+    existing = {(c.ref, c.target_ref) for c in plan.near_constraints}
+    for channel in plan.repeated_channels:
+        for slot in channel.slots:
+            if not slot.sensor_refs:
+                continue
+            target_ref = slot.sensor_refs[0]
+            for ref in slot.passive_refs:
+                role = roles.get(ref)
+                role_name = role.role if role is not None else "unknown"
+                distance_mm = 5.0 if role_name == "decoupling_cap" else 8.0
+                key = (ref, target_ref)
+                if key in existing:
+                    continue
+                plan.near_constraints.append(
+                    NearConstraint(
+                        ref=ref,
+                        target_ref=target_ref,
+                        distance_mm=distance_mm,
+                    )
+                )
+                existing.add(key)
+
+
 def _colocate_display_and_controls(
     plan: PlacementIntentPlan,
     outline=None,
@@ -1664,7 +1726,11 @@ def _set_edge_anchor(
     text = _part_text(part) if part is not None else ""
     anchor.edge = edge
     anchor.offset_mm = offset
-    anchor.inset_mm = _default_edge_inset_for_part(text, mating.kind if mating else None)
+    anchor.inset_mm = _default_edge_inset_for_part(
+        text,
+        mating.kind if mating else None,
+        part=part,
+    )
     anchor.rot_deg = _default_edge_rotation_for_part(
         part,
         text,
@@ -1892,6 +1958,7 @@ def infer_placement_intents(
                 inset = _default_edge_inset_for_part(
                     text,
                     mating_intent.kind if mating_intent is not None else None,
+                    part=part,
                 )
                 offset = None
                 if outline is not None and edge in {"top", "bottom"}:
@@ -1920,6 +1987,7 @@ def infer_placement_intents(
             inset = _default_edge_inset_for_part(
                 text,
                 mating_intent.kind if mating_intent is not None else None,
+                part=part,
             )
             if offset is None and outline is not None:
                 if edge in {"top", "bottom"}:
@@ -1955,6 +2023,9 @@ def infer_placement_intents(
 
         if UI_RE.search(text):
             _add_intent(plan, ref, "board_ui", 75, "UI-like metadata")
+
+        if role is not None and role.role == "ic" and SENSOR_RE.search(text):
+            _add_intent(plan, ref, "sensor_grid_subject", 76, "sensor-like metadata")
 
         if role is not None and role.role in {"regulator", "inductor", "diode"}:
             _add_intent(plan, ref, "power_cluster", 85, f"{role.role} role")
@@ -2011,6 +2082,7 @@ def infer_placement_intents(
             )
 
     plan.repeated_channels = _infer_repeated_channels(circuit, roles)
+    _add_repeated_channel_near_constraints(plan, roles)
     _infer_rf_intents(circuit, plan, outline)
     _add_simple_ic_passive_near_constraints(circuit, plan, roles)
     _colocate_display_and_controls(plan, outline)
@@ -2023,6 +2095,15 @@ def infer_placement_intents(
         outline,
     )
     _assign_eurorack_assembly_sides(circuit, roles, plan, plan.assembly_policy)
-    _arrange_array_subjects(plan, roles, outline)
+    part_text_by_ref = {
+        str(getattr(part, "ref", "") or ""): _part_text(part)
+        for part in circuit.parts
+    }
+    _arrange_array_subjects(
+        plan,
+        roles,
+        part_text_by_ref=part_text_by_ref,
+        outline=outline,
+    )
     _spread_edge_anchor_offsets(plan, outline)
     return plan

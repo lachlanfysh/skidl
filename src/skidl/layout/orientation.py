@@ -4,10 +4,27 @@ import math
 from dataclasses import dataclass, field
 
 from .candidates import PlacementCandidate
+from .connector_metadata import (
+    ConnectorMatingFace,
+    infer_connector_mating_face,
+    infer_edge_mating_rotation,
+    rotation_for_local_exit,
+)
 from .constraints import LayoutConstraints
 from .geometry import FootprintGeometry, PadGeometry, transform_point
 from .roles import GND_NET_RE, POWER_NET_RE
 from .writer import PlacedPart
+
+
+__all__ = [
+    "ConnectorMatingFace",
+    "OrientationResult",
+    "infer_connector_mating_face",
+    "infer_edge_mating_rotation",
+    "refine_candidate_orientations",
+    "refine_orientations",
+    "rotation_for_local_exit",
+]
 
 
 @dataclass

@@ -25,6 +25,7 @@ from skidl.layout.engine import (
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
 from skidl.layout.intent import PlacementIntent, PlacementIntentPlan
 from skidl.layout.placer import derive_outline
+from skidl.layout.routability import RoutabilityFeedback
 from skidl.layout.writer import PlacedPart
 
 
@@ -134,6 +135,65 @@ def test_plan_layout_auto_outline_stays_near_placed_envelope():
     envelope_area = envelope.width_mm * envelope.height_mm
 
     assert outline_area <= envelope_area * 1.35 + 0.001
+
+
+def test_plan_layout_auto_outline_uses_rotated_placed_geometry():
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    sig = _Net("SDA")
+    u1 = _Part(
+        "U1",
+        name="sensor IC",
+        footprint="Package_QFP:MCU",
+        nets=[vcc, gnd, sig],
+        pins=3,
+    )
+    j1 = _Part(
+        "J1",
+        name="pin header",
+        footprint="Connector:PinHeader_1x06",
+        nets=[vcc, gnd, sig],
+        pins=6,
+    )
+    circuit = _Circuit([u1, j1], [vcc, gnd, sig])
+
+    result = plan_layout(circuit, fp_bboxes=BBOXES)
+
+    bounds = [
+        _placed_bounds(part, BBOXES, result.fp_geometries)
+        for part in result.placed_parts
+    ]
+    actual_height = max(bound[3] for bound in bounds) - min(
+        bound[1] for bound in bounds
+    )
+
+    assert result.outline is not None
+    assert result.validation.outline_violations == []
+    assert result.outline.height_mm <= actual_height + 3.75
+
+
+def test_plan_layout_routability_feedback_does_not_inflate_auto_outline():
+    base = plan_layout(_circuit(), fp_bboxes=BBOXES)
+    with_feedback = plan_layout(
+        _circuit(),
+        fp_bboxes=BBOXES,
+        routability=RoutabilityFeedback(
+            unrouted_count=2,
+            total_nets=4,
+            unrouted_nets=["SDA", "SCL"],
+            source="unit-test",
+        ),
+    )
+
+    assert base.outline is not None
+    assert with_feedback.outline is not None
+    assert with_feedback.outline.width_mm == pytest.approx(base.outline.width_mm)
+    assert with_feedback.outline.height_mm == pytest.approx(base.outline.height_mm)
+    assert with_feedback.report is not None
+    assert any(
+        risk.startswith("unrouted net:")
+        for risk in with_feedback.report.top_risks()
+    )
 
 
 def test_plan_layout_reads_existing_board_outline(tmp_path):
@@ -1175,6 +1235,55 @@ def test_plan_layout_aligns_panel_jacks_without_edge_anchoring():
     xs = [placed[ref].x_mm for ref in ("J1", "J2", "J3")]
     assert max(ys) - min(ys) <= 1.0
     assert max(xs) - min(xs) >= 30.0
+
+
+def test_fixed_generous_outline_spreads_ui_and_mechanics():
+    outline = BoardOutline(120.0, 80.0)
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    signals = [_Net(f"SIG{idx}") for idx in range(1, 4)]
+    u1 = _Part(
+        "U1",
+        name="MCU",
+        footprint="Package_QFP:MCU",
+        nets=[vcc, gnd, *signals],
+        pins=8,
+    )
+    switches = [
+        _Part(
+            f"SW{idx}",
+            name="panel pushbutton switch",
+            footprint="Connector_Audio:Thonkiconn_PJ398SM",
+            nets=[signal, gnd],
+            pins=2,
+        )
+        for idx, signal in enumerate(signals, start=1)
+    ]
+    holes = [
+        _Part(f"H{idx}", name="MountingHole", footprint="MountingHole:M2", nets=[], pins=0)
+        for idx in range(1, 5)
+    ]
+    circuit = _Circuit([u1, *switches, *holes], [vcc, gnd, *signals])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    switch_xs = [placed[ref].x_mm for ref in ("SW1", "SW2", "SW3")]
+    switch_ys = [placed[ref].y_mm for ref in ("SW1", "SW2", "SW3")]
+    hole_xs = [placed[ref].x_mm for ref in ("H1", "H2", "H3", "H4")]
+    hole_ys = [placed[ref].y_mm for ref in ("H1", "H2", "H3", "H4")]
+
+    assert result.outline is outline
+    assert result.validation.overlaps == []
+    assert max(switch_xs) - min(switch_xs) >= outline.width_mm * 0.60
+    assert max(switch_ys) - min(switch_ys) <= 1.0
+    assert max(hole_xs) - min(hole_xs) >= outline.width_mm * 0.90
+    assert max(hole_ys) - min(hole_ys) >= outline.height_mm * 0.85
+    assert not any("board outline is" in warning for warning in result.score.warnings)
 
 
 def test_panel_grid_constraints_resist_proximity_optimization():
