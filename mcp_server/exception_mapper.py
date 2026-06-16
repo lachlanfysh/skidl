@@ -346,6 +346,10 @@ def _routing_refs_hotspot(exceptions: list[DesignException | dict]) -> dict | No
         if code not in {ExcCode.DRC_CLEARANCE.value, ExcCode.DRC_SHORT.value}:
             continue
         subject = _subject_dict(exc)
+        same_item = _same_footprint_conflict(subject)
+        if same_item:
+            same_item["code"] = code
+            return same_item
         refs = subject.get("refs")
         try:
             count = int(subject.get("count", 0) or 0)
@@ -353,6 +357,51 @@ def _routing_refs_hotspot(exceptions: list[DesignException | dict]) -> dict | No
             count = 0
         if isinstance(refs, list) and len(refs) == 1 and count >= 2:
             return {"ref": refs[0], "count": count, "code": code}
+    return None
+
+
+_DRC_ITEM_FOOTPRINT_RE = re.compile(r"\bof\s+([A-Za-z][A-Za-z0-9_*?~+\-]*)")
+
+
+def _drc_item_footprint_tokens(description: str) -> list[str]:
+    return [
+        token
+        for token in _DRC_ITEM_FOOTPRINT_RE.findall(description or "")
+        if token and token != "<no"
+    ]
+
+
+def _same_footprint_conflict(subject: dict) -> dict | None:
+    """Detect DRC examples where conflicting pads are on one footprint body.
+
+    KiCad may report inline/custom footprint text using the placeholder
+    reference `REF**` in DRC item descriptions. That is not a routability or
+    outline-size signal; two conflicting pads on the same footprint indicate a
+    footprint/package/pin-mapping problem even when no normal ref like `U1` can
+    be extracted.
+    """
+
+    examples = subject.get("examples")
+    if not isinstance(examples, list):
+        return None
+    for example in examples:
+        if not isinstance(example, dict):
+            continue
+        descriptions = example.get("descriptions")
+        if not isinstance(descriptions, list):
+            continue
+        tokens: list[str] = []
+        for description in descriptions:
+            tokens.extend(_drc_item_footprint_tokens(str(description or "")))
+        for token in sorted(set(tokens)):
+            count = tokens.count(token)
+            if count >= 2:
+                return {
+                    "ref": token,
+                    "count": count,
+                    "placeholder_ref": "*" in token or "?" in token,
+                    "source": "same_footprint_drc_example",
+                }
     return None
 
 

@@ -574,6 +574,145 @@ class TestLayoutQuality:
         assert issue["evidence"]["classification"] == "footprint_issue"
         assert "footprint" in issue["recommendation"]
 
+    def test_routing_diagnosis_treats_same_ref_drc_short_as_footprint_issue(self):
+        exc = DesignException(
+            id="short",
+            code=ExcCode.DRC_SHORT,
+            severity=Severity.ERROR,
+            message="1 short circuit(s) detected",
+            subject={
+                "count": 1,
+                "examples": [
+                    {
+                        "descriptions": [
+                            "Pad 1 [VCC] of REF** on F.Cu",
+                            "Pad 2 [GND] of REF** on F.Cu",
+                        ],
+                    }
+                ],
+                "refs": [],
+                "nets": {"VCC": 1, "GND": 1},
+            },
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.REGENERATE,
+                    params={},
+                    human_summary="retry routing",
+                ),
+                Candidate(
+                    id="c2",
+                    action=ActionType.SCALE_OUTLINE,
+                    params={"area_factor": 1.2},
+                    human_summary="grow board",
+                ),
+            ],
+        )
+
+        diagnosis = classify_routing_failure(
+            [exc],
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 100.0, "height_mm": 80.0},
+                "placed_parts": [
+                    {"ref": "J1", "x_mm": 48.0, "y_mm": 39.0},
+                    {"ref": "U1", "x_mm": 50.0, "y_mm": 40.0},
+                    {"ref": "R1", "x_mm": 51.0, "y_mm": 40.5},
+                    {"ref": "C1", "x_mm": 49.0, "y_mm": 40.5},
+                ],
+                "validation": {"ok": True},
+                "score": {"congestion_score": 7.0},
+            },
+            metrics={"congestion_score": 7.0},
+        )
+
+        assert diagnosis["classification"] == "footprint_issue"
+        assert diagnosis["evidence"]["hotspot"]["ref"] == "REF**"
+        assert diagnosis["evidence"]["hotspot"]["placeholder_ref"] is True
+
+        enriched = enrich_routing_failure_exceptions(
+            [exc],
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 100.0, "height_mm": 80.0},
+                "placed_parts": [
+                    {"ref": "J1", "x_mm": 48.0, "y_mm": 39.0},
+                    {"ref": "U1", "x_mm": 50.0, "y_mm": 40.0},
+                    {"ref": "R1", "x_mm": 51.0, "y_mm": 40.5},
+                    {"ref": "C1", "x_mm": 49.0, "y_mm": 40.5},
+                ],
+                "validation": {"ok": True},
+                "score": {"congestion_score": 7.0},
+            },
+            metrics={"congestion_score": 7.0},
+        )[0]
+
+        assert enriched.subject["routing_diagnosis"] == "footprint_issue"
+        assert [candidate.action for candidate in enriched.candidates] == [
+            ActionType.REGENERATE,
+            ActionType.SCALE_OUTLINE,
+        ]
+        assert enriched.candidates[-1].confidence <= 0.2
+        assert "footprint" in enriched.candidates[0].human_summary
+
+    def test_routing_diagnosis_treats_same_footprint_clearance_as_footprint_issue(self):
+        exc = DesignException(
+            id="clearance",
+            code=ExcCode.DRC_CLEARANCE,
+            severity=Severity.ERROR,
+            message="1 clearance violation(s)",
+            subject={
+                "count": 1,
+                "examples": [
+                    {
+                        "descriptions": [
+                            "Pad 1 [VCC] of U7 on F.Cu",
+                            "Pad 2 [GND] of U7 on F.Cu",
+                        ],
+                    }
+                ],
+                "refs": ["U7"],
+                "nets": {"VCC": 1, "GND": 1},
+            },
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.REGENERATE,
+                    params={},
+                    human_summary="retry routing",
+                ),
+                Candidate(
+                    id="c2",
+                    action=ActionType.SCALE_OUTLINE,
+                    params={"area_factor": 1.15},
+                    human_summary="grow board",
+                    confidence=0.35,
+                ),
+            ],
+        )
+        layout = {
+            "ok": True,
+            "outline": {"width_mm": 100.0, "height_mm": 80.0},
+            "placed_parts": [
+                {"ref": "U7", "x_mm": 48.0, "y_mm": 38.0},
+                {"ref": "J1", "x_mm": 50.0, "y_mm": 40.0},
+                {"ref": "R1", "x_mm": 51.0, "y_mm": 39.0},
+                {"ref": "C1", "x_mm": 49.0, "y_mm": 41.0},
+            ],
+            "validation": {"ok": True},
+        }
+
+        enriched = enrich_routing_failure_exceptions([exc], layout=layout)[0]
+
+        assert enriched.subject["routing_diagnosis"] == "footprint_issue"
+        assert enriched.subject["routing_diagnosis_evidence"]["hotspot"]["ref"] == "U7"
+        assert [candidate.action for candidate in enriched.candidates] == [
+            ActionType.REGENERATE,
+            ActionType.SCALE_OUTLINE,
+        ]
+        assert enriched.candidates[-1].confidence <= 0.2
+        assert "outline growth" not in enriched.candidates[0].human_summary.lower()
+
     def test_build_layout_quality_classifies_oversized_route_as_congestion(self):
         quality = build_layout_quality(
             run_id="route-oversized-congestion",
