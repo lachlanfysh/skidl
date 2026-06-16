@@ -19,6 +19,7 @@ from mcp_server.exception_mapper import (
     payload_exceptions,
     timeout_exception,
 )
+from mcp_server.layout_quality import build_layout_quality, write_layout_quality
 from mcp_server.runs import RunStore
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import DesignException, ExcCode, Severity
@@ -36,6 +37,7 @@ class DesignResponse(BaseModel):
     outputs: dict = Field(default_factory=dict)
     artifacts: dict = Field(default_factory=dict)
     layout: dict = Field(default_factory=dict)
+    layout_quality: dict = Field(default_factory=dict)
     metrics: dict = Field(default_factory=dict)
     summary: str = ""
     stderr: str = ""
@@ -122,6 +124,35 @@ def _manufacturing_metrics(
         bool(normalized["manufacturable"] and not has_error),
     )
     return normalized
+
+
+def _attach_layout_quality(response: DesignResponse, run_dir: Path) -> DesignResponse:
+    """Attach and persist product-layout quality gates for a response."""
+    quality = build_layout_quality(
+        run_id=response.run_id,
+        status=response.status,
+        stage=response.stage,
+        ok=response.ok,
+        exceptions=response.exceptions,
+        layout=response.layout,
+        metrics=response.metrics,
+        artifacts=response.artifacts or response.outputs,
+    )
+    quality_path = write_layout_quality(run_dir, quality)
+    response.layout_quality = quality
+    response.outputs = dict(response.outputs or {})
+    response.artifacts = dict(response.artifacts or {})
+    response.outputs["layout_quality"] = str(quality_path)
+    response.artifacts["layout_quality"] = str(quality_path)
+    response.metrics = dict(response.metrics or {})
+    response.metrics["quality_gates"] = dict(quality.get("gates", {}))
+    response.metrics["product_layout_ok"] = bool(
+        quality.get("gates", {}).get("product_layout_ok")
+    )
+    response.metrics["visual_review_ready"] = bool(
+        quality.get("gates", {}).get("visual_review_ready")
+    )
+    return response
 
 
 def _kill_process_group(proc: subprocess.Popen) -> None:
@@ -516,9 +547,11 @@ def run_pipeline(
         record_board_id = board_id or (record_fields or {}).get("board_id") or circuit_spec.board.name
         with session(record_board_id, mode, run_id=run_id, path=telemetry_path, **fields) as record:
             response = _execute_worker()
+            response = _attach_layout_quality(response, run_dir)
             _populate_record(record, circuit_spec, response)
     else:
         response = _execute_worker()
+        response = _attach_layout_quality(response, run_dir)
 
     store.save(run_id, circuit_spec, response.exceptions, response)
     return response
@@ -588,6 +621,7 @@ def run_pipeline_code(
             metrics=_manufacturing_metrics({}, exceptions, False),
             stderr=stderr[-4000:],
         )
+        response = _attach_layout_quality(response, run_dir)
         store.save(
             run_id,
             {
@@ -658,6 +692,7 @@ def run_pipeline_code(
         summary=str(payload.get("summary", "")),
         stderr=stderr[-4000:],
     )
+    response = _attach_layout_quality(response, run_dir)
 
     store.save(
         run_id,

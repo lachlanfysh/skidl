@@ -48,12 +48,15 @@ from mcp_server.engine_worker import (
     _write_layout_mockup_svg,
 )
 from mcp_server.pipeline import (
+    _attach_layout_quality,
     _enrich_code_exceptions,
     _infer_crash_stage,
     _manufacturing_metrics,
+    DesignResponse,
     run_pipeline,
     run_pipeline_code,
 )
+from mcp_server.layout_quality import build_layout_quality, write_layout_quality
 from mcp_server.runs import RunStore
 from mcp_server import worker as worker_mod
 from mcp_server.worker import _lcsc_refs_in_spec, _restore_lcsc_asset
@@ -141,6 +144,81 @@ class TestRunStore:
         assert (tmp_path / "run-1" / "spec.json").exists()
         assert (tmp_path / "run-1" / "exceptions.json").exists()
         assert (tmp_path / "run-1" / "response.json").exists()
+
+
+class TestLayoutQuality:
+    def test_build_layout_quality_flags_clustered_oversized_board(self):
+        layout = {
+            "ok": True,
+            "outline": {"width_mm": 100.0, "height_mm": 80.0},
+            "placed_parts": [
+                {"ref": "U1", "x_mm": 48.0, "y_mm": 38.0},
+                {"ref": "U2", "x_mm": 50.0, "y_mm": 40.0},
+                {"ref": "J1", "x_mm": 52.0, "y_mm": 42.0},
+                {"ref": "R1", "x_mm": 49.0, "y_mm": 41.0},
+                {"ref": "C1", "x_mm": 51.0, "y_mm": 39.0},
+            ],
+            "validation": {"ok": True},
+        }
+        quality = build_layout_quality(
+            run_id="clustered",
+            status="succeeded",
+            stage="complete",
+            ok=True,
+            layout=layout,
+            metrics={
+                "manufacturable": True,
+                "manufacturing_complete": True,
+                "board_area_mm2": 8000.0,
+            },
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = {issue["code"] for issue in quality["issues"]}
+        assert "LOW_PART_SPREAD" in issue_codes
+        assert "UNUSED_OUTLINE_REGION" in issue_codes
+        assert quality["gates"]["manufacturable"] is True
+        assert quality["gates"]["visual_review_ready"] is True
+        assert quality["gates"]["product_layout_ok"] is False
+
+    def test_attach_layout_quality_persists_report_and_updates_response(self, tmp_path):
+        response = DesignResponse(
+            run_id="run-quality",
+            ok=True,
+            status="succeeded",
+            stage="complete",
+            artifacts={
+                "pcb": str(tmp_path / "board.kicad_pcb"),
+                "previews": {"files": ["preview_2d_top.png"]},
+            },
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 30.0, "height_mm": 20.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 10.0, "y_mm": 10.0},
+                    {"ref": "J1", "x_mm": 20.0, "y_mm": 10.0},
+                ],
+                "validation": {"ok": True},
+            },
+            metrics={"manufacturable": True, "manufacturing_complete": True},
+        )
+
+        updated = _attach_layout_quality(response, tmp_path)
+
+        report_path = tmp_path / "layout_quality.json"
+        assert report_path.exists()
+        assert updated.artifacts["layout_quality"] == str(report_path)
+        assert updated.outputs["layout_quality"] == str(report_path)
+        assert updated.layout_quality["gates"]["manufacturable"] is True
+        assert updated.metrics["quality_gates"] == updated.layout_quality["gates"]
+
+    def test_write_layout_quality_round_trip(self, tmp_path):
+        quality = {"version": 1, "run_id": "r1", "gates": {"placement_ok": True}}
+
+        path = write_layout_quality(tmp_path, quality)
+
+        assert path == tmp_path / "layout_quality.json"
+        assert json.loads(path.read_text(encoding="utf-8")) == quality
 
 
 class TestBoardPreviews:
