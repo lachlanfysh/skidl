@@ -51,6 +51,10 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
   - Reduced core job `5170e4a63245`, `timeout_s=300`, still reported `running`.
   - Important clue: the reduced job strips display/nav/BT/extras, so if it also hangs this is likely service-side placement/runtime or custom-part SKiDL-shape handling, not just board complexity.
   - Next checks: inspect Railway worker logs by job id, confirm watchdog behavior, ensure claimed jobs always emit either a `run_id` result or a structured timeout/crash exception, and add a regression test for a worker/pipeline hang path.
+  - Follow-up after Wave 2 deploy: both jobs became terminal.
+    - Full board `ba9ef6f36af5` -> `failed`, no `run_id`, error `worker lost while job was running; resubmit the design`.
+    - Reduced core `5170e4a63245` -> `failed`, run `ddc3d32fa1bd`, placement-review feedback with overlaps, outline violations, high congestion, and long power nets.
+  - Refined bug: reduced job now produces useful circuit/layout feedback, but full-board worker loss still needs a structured exception/result and better log correlation.
 
 ## Compact Resume Checklist
 
@@ -116,3 +120,38 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
   - Commit/push Wave 2.
   - Confirm Railway deploys the Wave 2 commit.
   - Run hosted review boards for custom footprints, explicit floorplan preservation, side policy, and routing diagnosis.
+
+2026-06-16 hosted Wave 2 smoke:
+
+- Railway deployed commit:
+  - `305b5148` (`Integrate Wave 2 MCP layout contracts`)
+- Deployment state:
+  - `worker` deployment `f44e8a40-4848-4791-8fa3-f7d432b6b474` -> `SUCCESS`, running.
+  - `mcp-server` deployment `d6c5511b-4120-4a62-8ab4-6f9195ac2f41` -> `SUCCESS`, running.
+- Direct MCP tools call succeeded; hosted tools: `submit_skidl_code`, `get_job`, `get_run`, `submit_human_feedback`, `search_kicad`, `convert_lcsc`.
+- MCP9808 edge-anchor placement smoke:
+  - job `69c4dddcdadb`
+  - run `598dc57750ca`
+  - status `succeeded`
+  - stored run status `succeeded_with_warnings`
+  - placement score `90.44`
+  - no edge-anchor false-positive warning in placement score
+  - artifacts included PCB, schematic, and previews
+- Explicit `EDA_FLOORPLAN` placement smoke:
+  - job `cedd87015056`
+  - run `dac9edcbfe78`
+  - status `succeeded`
+  - stored run status `succeeded_with_warnings`
+  - placement score `85.66`
+  - floorplan metadata survived into `get_run`: `grids=1`, `grid_fixed_positions=3`, `fixed_positions=4`, `edge_anchors=1`, `keepouts=1`
+  - `D1/D2/D3` preserved as front-side grid positions; `U1` preserved on `back`
+- Inline custom footprint placement smoke:
+  - job `29fd14ca8339`
+  - run `f523ceafb570`
+  - status `succeeded`
+  - stored run status `succeeded_with_warnings`
+  - placement score `98.73`
+  - `get_run` layout reported `inline_footprints={"count": 1, "footprints": ["CustomLib:Tiny_2Pad"]}`
+- Remaining hosted gaps:
+  - Need a dedicated routing-diagnosis hosted smoke, ideally without long routing time.
+  - Need full-board worker-loss handling for Mycelium-style jobs to produce a structured exception and useful logs.
