@@ -12,6 +12,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from mcp_server.exception_mapper import classify_routing_failure
+
 
 ERROR_SEVERITIES = {"error", "fatal"}
 PRODUCT_BLOCKING_SEVERITIES = {"warning", "error", "fatal"}
@@ -177,6 +179,85 @@ def _intent_plan(layout: dict) -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def _score_warnings(layout: dict) -> list[str]:
+    score = layout.get("score")
+    if not isinstance(score, dict):
+        return []
+    warnings = score.get("warnings")
+    return [str(warning) for warning in warnings] if isinstance(warnings, list) else []
+
+
+def _edge_geometry_warning_present(layout: dict, ref: str, edge: str) -> bool:
+    needle = f"{ref}: violates {edge}-edge mating intent"
+    row_needle = f"{ref}: connector row is not parallel to the {edge} edge"
+    return any(
+        needle in warning or row_needle in warning
+        for warning in _score_warnings(layout)
+    )
+
+
+def _edge_origin_distance_is_ambiguous(
+    *,
+    layout: dict,
+    anchor: dict,
+    part: dict,
+    ref: str,
+    edge: str,
+) -> bool:
+    """Return True when origin distance is a weak proxy for edge placement."""
+
+    # Layout engine score warnings use actual footprint bounds / mating edge
+    # geometry. If they are present, trust them over the footprint origin.
+    if not isinstance(layout.get("score"), dict):
+        return False
+    if _edge_geometry_warning_present(layout, ref, edge):
+        return False
+
+    text = " ".join(
+        str(value or "")
+        for value in (
+            part.get("footprint"),
+            part.get("ref"),
+            anchor.get("edge"),
+        )
+    ).lower()
+    intent_plan = _intent_plan(layout)
+    intents_by_ref = intent_plan.get("intents")
+    intent_items = (
+        intents_by_ref.get(ref)
+        if isinstance(intents_by_ref, dict)
+        else []
+    )
+    intent_kinds = {
+        str(intent.get("kind") or "")
+        for intent in (intent_items or [])
+        if isinstance(intent, dict)
+    }
+    connector_text = any(
+        token in text
+        for token in (
+            "horizontal",
+            "right_angle",
+            "right-angle",
+            "angled",
+            "pinheader",
+            "pin_header",
+            "usb",
+            "jst",
+            "qwiic",
+            "stemma",
+            "terminalblock",
+            "terminal_block",
+        )
+    )
+    has_geometry_intent = (
+        anchor.get("rot_deg") is not None
+        or anchor.get("inset_mm") is not None
+        or intent_kinds & {"edge_connector", "mechanical_mating"}
+    )
+    return bool(connector_text or has_geometry_intent)
+
+
 def _axis_value(part: dict, axis: str) -> float:
     return _float(part.get("x_mm") if axis == "x" else part.get("y_mm"))
 
@@ -291,6 +372,14 @@ def _issues(
         # Footprint origins are not always at the mating face, so only flag
         # obvious drift. Geometry-specific checks happen in the layout engine.
         if distance > max(tolerance_mm, 8.0, min(outline_w or 0.0, outline_h or 0.0) * 0.25):
+            if _edge_origin_distance_is_ambiguous(
+                layout=layout,
+                anchor=anchor,
+                part=part,
+                ref=ref,
+                edge=edge,
+            ):
+                continue
             off_edge_refs.append({"ref": ref, "edge": edge, "distance_mm": round(distance, 2)})
     if off_edge_refs:
         issues.append(
@@ -356,6 +445,47 @@ def _issues(
                     "try group movement, connector orientation, or route-aware "
                     "retries first."
                 ),
+            )
+        )
+
+    routing_diagnosis = classify_routing_failure(
+        exceptions,
+        layout=layout,
+        metrics=metrics,
+    )
+    if routing_diagnosis:
+        classification = str(routing_diagnosis.get("classification") or "")
+        issue_severity = "warning"
+        if any(
+            _exception_severity(exc) in ERROR_SEVERITIES
+            for exc in exceptions
+            if _exception_code(exc) in {
+                "ROUTE_UNCONNECTED",
+                "ROUTE_TIMEOUT",
+                "DRC_UNCONNECTED",
+                "DRC_CLEARANCE",
+                "DRC_SHORT",
+            }
+        ):
+            issue_severity = "error"
+        issues.append(
+            _issue(
+                "ROUTING_FAILURE_DIAGNOSIS",
+                issue_severity,
+                (
+                    "routing failure classified as "
+                    f"{classification.replace('_', '-')}"
+                ),
+                evidence={
+                    "classification": classification,
+                    "reason": routing_diagnosis.get("reason"),
+                    **(
+                        routing_diagnosis.get("evidence")
+                        if isinstance(routing_diagnosis.get("evidence"), dict)
+                        else {}
+                    ),
+                },
+                recommendation=str(routing_diagnosis.get("recommendation") or ""),
             )
         )
 

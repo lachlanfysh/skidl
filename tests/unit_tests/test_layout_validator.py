@@ -66,6 +66,17 @@ def test_front_and_back_parts_may_share_xy_without_overlap():
     assert result.overlaps == []
 
 
+def test_back_side_parts_still_conflict_with_other_back_side_parts():
+    parts = [
+        PlacedPart("R1", 10.0, 10.0, 0.0, "Resistor_SMD:R_0805", side="back"),
+        PlacedPart("R2", 10.5, 10.0, 0.0, "Resistor_SMD:R_0805", side="back"),
+    ]
+
+    result = validate(parts, None, BBOXES_0805)
+
+    assert result.overlaps == [("R1", "R2")]
+
+
 def test_front_and_back_through_hole_bodies_may_overlap_when_pads_clear():
     parts = [
         PlacedPart("J1", 10.0, 10.0, 0.0, "Demo:THTLeft", side="front"),

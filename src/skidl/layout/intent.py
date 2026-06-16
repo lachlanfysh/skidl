@@ -1908,12 +1908,10 @@ def infer_placement_intents(
         if explicit_side is not None:
             side = explicit_side
             if side == "back" and plan.assembly_policy != "double_sided":
-                side = "front"
                 plan.warnings.append(
-                    f"{ref}: explicit back-side assembly request ignored because "
-                    "assembly_policy is single_sided; choose "
-                    "run_options.assembly_policy='double_sided' before placing "
-                    "parts on the back."
+                    f"{ref}: explicit back-side assembly request overrides "
+                    "single_sided policy. Automatic placement remains front-only "
+                    "unless a part declares assembly_side='back'."
                 )
             plan.assembly_sides[ref] = side
             if side == "front":

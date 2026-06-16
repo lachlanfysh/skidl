@@ -320,11 +320,16 @@ async def submit_skidl_code(
       at the footprint center, so guessed fixed connector coordinates often
       overhang the board.
       For explicit human/mechanical floorplans, define a global
-      `EDA_FLOORPLAN` dict in the submitted Python after refs exist:
-      `EDA_FLOORPLAN = {"fixed_positions": [{"ref": "U1", "x_mm": 20,
-      "y_mm": 30, "rotation_deg": 90}], "edge_anchors": [{"ref": "J1",
-      "edge": "bottom"}], "keepouts": [{"x_min": 0, "y_min": 0,
-      "x_max": 120, "y_max": 132, "label": "film aperture"}]}`.
+      `EDA_FLOORPLAN` dict in the submitted Python after refs exist. It can
+      carry `outline`, `fixed_positions`, `edge_anchors`, `grid`/`grids`,
+      `align`, `distribute`, `assembly_sides`, and `keepouts`:
+      `EDA_FLOORPLAN = {"outline": {"width_mm": 120, "height_mm": 180},
+      "grid": {"refs": ["U_S00", "U_S01", "U_S10", "U_S11"],
+      "rows": 2, "cols": 2, "x_mm": 18, "y_mm": 36, "dx_mm": 22,
+      "dy_mm": 24, "side": "front"}, "assembly_sides": {"U_MCU": "back"},
+      "edge_anchors": [{"ref": "J_USB", "edge": "bottom",
+      "offset_mm": 60}], "keepouts": [{"x_min": 0, "y_min": 0,
+      "x_max": 120, "y_max": 8, "label": "mounting rail"}]}`.
       Use fixed_positions for real user floorplans such as sensor grids,
       displays, batteries, mounting holes, panel controls, and large modules;
       do not strip them merely because the hosted service owns
@@ -338,12 +343,17 @@ async def submit_skidl_code(
       For custom project footprints that Railway does not have installed,
       pass the KiCad `.kicad_mod` text via custom_footprints:
       `custom_footprints={"MyLib:MyFootprint": "(footprint ...)"}`. The
-      key must exactly match `Part(..., footprint="MyLib:MyFootprint")`.
-      You may also define a global `EDA_FOOTPRINTS` dict in code for
-      compatibility, but prefer custom_footprints so the code stays readable.
-      The server writes these into a temporary
-      `MyLib.pretty/MyFootprint.kicad_mod` library for this run before
-      footprint preflight/layout.
+      key must exactly match `Part(..., footprint="MyLib:MyFootprint")`, and
+      the submitted text must be a top-level KiCad `(footprint ...)`
+      S-expression whose declared name is `MyFootprint`. A list form is also
+      accepted: `[{"library": "MyLib", "name": "MyFootprint",
+      "content": "(footprint ...)"}]`. You may also define a global
+      `EDA_FOOTPRINTS` dict in code for compatibility, but prefer
+      custom_footprints so the code stays readable. The server writes these
+      into a temporary `MyLib.pretty/MyFootprint.kicad_mod` library for this
+      run before footprint preflight/layout. Do not pass local paths, URLs, or
+      fp-lib-table references; hosted workers only accept submitted footprint
+      text and reject path-like payload fields.
       For layout overlap/outline/congestion feedback, prefer improving
       grouping, connector choices, and outline_mm before resubmitting.
 
@@ -1936,18 +1946,35 @@ Mechanical placement hints:
 
 ```python
 EDA_FLOORPLAN = {
+    "outline": {"width_mm": 120, "height_mm": 180, "corner_radius_mm": 2},
     "fixed_positions": [
         {"ref": "U1", "x_mm": 60, "y_mm": 40, "rotation_deg": 0},
         {"ref": "J1", "x_mm": 10, "y_mm": 90, "rotation_deg": 90},
     ],
     "edge_anchors": [{"ref": "USB1", "edge": "bottom"}],
-    "keepouts": [{"x_min": 0, "y_min": 0, "x_max": 120, "y_max": 132}],
+    "grid": {
+        "refs": ["U_S00", "U_S01", "U_S10", "U_S11"],
+        "rows": 2,
+        "cols": 2,
+        "x_mm": 18,
+        "y_mm": 36,
+        "dx_mm": 22,
+        "dy_mm": 24,
+        "side": "front",
+    },
+    "align": [{"refs": ["LED1", "LED2", "LED3"], "axis": "y"}],
+    "distribute": [{"refs": ["LED1", "LED2", "LED3"], "axis": "x"}],
+    "assembly_sides": {"U_MCU": "back", "J_USB": "front"},
+    "keepouts": [{"x_min": 0, "y_min": 0, "x_max": 120, "y_max": 8}],
 }
 ```
 
 Preserve explicit sensor grids, controls, displays, batteries, modules, and
 mounting/mechanical intent this way. Do not strip a floorplan just because the
-hosted service owns schematic/layout/routing.
+hosted service owns schematic/layout/routing. `grid` expands into locked
+positions plus row/column align/distribute constraints when origin and pitch
+are supplied. `cutouts`/`apertures` are currently preserved only as metadata;
+they are not yet written as internal Edge.Cuts geometry.
 
 If the user has custom project footprints that Railway does not have installed,
 pass the KiCad `.kicad_mod` text to `submit_skidl_code(custom_footprints=...)`:
@@ -1970,9 +1997,15 @@ server writes these as temporary `Library.pretty/Name.kicad_mod` files before
 footprint preflight, layout, and PCB writing. Use this for placement review or
 manufacturing when the human's local project library is required. The agent
 must read the `.kicad_mod` file locally and pass its text; the hosted worker
-cannot open arbitrary paths on the agent's machine. A global `EDA_FOOTPRINTS`
-dict inside submitted code is still accepted for compatibility, but prefer the
-tool parameter so the SKiDL source stays readable.
+cannot open arbitrary paths on the agent's machine. The submitted text must be
+a parseable top-level `(footprint ...)` S-expression, and the footprint name
+inside the text must match the `Name` portion of the key. Do not pass local
+paths, URLs, or fp-lib-table references; path-like payload fields are rejected.
+A list form is accepted for generated bundles:
+`[{"library": "Library", "name": "Name", "content": "(footprint ...)"}]`.
+A global `EDA_FOOTPRINTS` dict inside submitted code is still accepted for
+compatibility, but prefer the tool parameter so the SKiDL source stays
+readable.
 
 ## KiCad library names (NOT manufacturer names)
 

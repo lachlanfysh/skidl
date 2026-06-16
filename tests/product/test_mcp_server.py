@@ -14,7 +14,9 @@ import pytest
 import mcp_server.engine_worker as engine_worker_mod
 import mcp_server.pipeline as pipeline_mod
 from mcp_server.exception_mapper import (
+    classify_routing_failure,
     crash_exception,
+    enrich_routing_failure_exceptions,
     layout_exceptions,
     order_exceptions_for_agent,
     suppress_waived,
@@ -360,6 +362,95 @@ class TestLayoutQuality:
         assert quality["gates"]["visual_review_ready"] is True
         assert quality["gates"]["product_layout_ok"] is False
 
+    def test_build_layout_quality_avoids_origin_false_positive_for_edge_header(self):
+        quality = build_layout_quality(
+            run_id="edge-header-origin",
+            status="succeeded",
+            stage="complete",
+            ok=True,
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 60.0, "height_mm": 30.0},
+                "placed_parts": [
+                    {
+                        "ref": "J1",
+                        "x_mm": 30.0,
+                        "y_mm": 20.11,
+                        "rot_deg": 90.0,
+                        "footprint": (
+                            "Connector_PinHeader_2.54mm:"
+                            "PinHeader_1x03_P2.54mm_Horizontal"
+                        ),
+                    },
+                    {"ref": "U1", "x_mm": 30.0, "y_mm": 12.0},
+                ],
+                "score": {"warnings": []},
+                "validation": {"ok": True},
+                "intent_plan": {
+                    "intents": {
+                        "J1": [
+                            {"kind": "edge_connector", "priority": 90, "reasons": []},
+                            {"kind": "mechanical_mating", "priority": 88, "reasons": []},
+                        ],
+                    },
+                    "edge_anchors": [
+                        {
+                            "ref": "J1",
+                            "edge": "bottom",
+                            "offset_mm": 30.0,
+                            "inset_mm": 0.0,
+                            "rot_deg": 90.0,
+                        }
+                    ],
+                },
+            },
+            metrics={"manufacturable": True, "manufacturing_complete": True},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = {issue["code"] for issue in quality["issues"]}
+
+        assert "EDGE_ANCHOR_OFF_EDGE" not in issue_codes
+
+    def test_build_layout_quality_uses_geometry_warning_for_edge_anchor(self):
+        quality = build_layout_quality(
+            run_id="edge-header-geometry-warning",
+            status="failed",
+            stage="complete",
+            ok=False,
+            layout={
+                "ok": False,
+                "outline": {"width_mm": 60.0, "height_mm": 30.0},
+                "placed_parts": [
+                    {
+                        "ref": "J1",
+                        "x_mm": 30.0,
+                        "y_mm": 20.11,
+                        "rot_deg": 90.0,
+                        "footprint": (
+                            "Connector_PinHeader_2.54mm:"
+                            "PinHeader_1x03_P2.54mm_Horizontal"
+                        ),
+                    }
+                ],
+                "score": {
+                    "warnings": ["J1: violates bottom-edge mating intent by 4.2mm"]
+                },
+                "validation": {"ok": True},
+                "intent_plan": {
+                    "edge_anchors": [
+                        {"ref": "J1", "edge": "bottom", "rot_deg": 90.0}
+                    ],
+                },
+            },
+            metrics={"manufacturable": False, "manufacturing_complete": False},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue_codes = {issue["code"] for issue in quality["issues"]}
+
+        assert "EDGE_ANCHOR_OFF_EDGE" in issue_codes
+
     def test_build_layout_quality_uses_offset_outline_bounds(self):
         quality = build_layout_quality(
             run_id="offset-outline",
@@ -394,6 +485,136 @@ class TestLayoutQuality:
         assert "EDGE_ANCHOR_OFF_EDGE" not in issue_codes
         assert quality["placement"]["outline_bounds_mm"]["x_min"] == pytest.approx(-16.0)
         assert quality["placement"]["edge_margins_mm"]["right"] == pytest.approx(0.0)
+
+    def test_build_layout_quality_classifies_routing_failure_as_placement_blocked(self):
+        quality = build_layout_quality(
+            run_id="route-placement-blocked",
+            status="failed",
+            stage="complete",
+            ok=False,
+            exceptions=[
+                DesignException(
+                    id="route",
+                    code=ExcCode.ROUTE_UNCONNECTED,
+                    severity=Severity.ERROR,
+                    message="3 net(s) could not be routed",
+                    subject={"unrouted_count": 3},
+                    candidates=[
+                        Candidate(
+                            id="c1",
+                            action=ActionType.REGENERATE,
+                            params={},
+                            human_summary="retry placement",
+                        ),
+                        Candidate(
+                            id="c2",
+                            action=ActionType.SCALE_OUTLINE,
+                            params={"area_factor": 1.2},
+                            human_summary="grow",
+                        ),
+                    ],
+                )
+            ],
+            layout={
+                "ok": False,
+                "outline": {"width_mm": 100.0, "height_mm": 80.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 10.0, "y_mm": 10.0},
+                    {"ref": "J1", "x_mm": 10.5, "y_mm": 10.0},
+                ],
+                "validation": {"ok": False, "overlaps": [["U1", "J1"]]},
+            },
+            metrics={"manufacturable": False, "manufacturing_complete": False},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue = next(
+            issue for issue in quality["issues"]
+            if issue["code"] == "ROUTING_FAILURE_DIAGNOSIS"
+        )
+
+        assert issue["evidence"]["classification"] == "placement_blocked"
+        assert "outline size" in issue["recommendation"]
+
+    def test_build_layout_quality_classifies_routing_failure_as_footprint_issue(self):
+        quality = build_layout_quality(
+            run_id="route-footprint-issue",
+            status="failed",
+            stage="complete",
+            ok=False,
+            exceptions=[
+                DesignException(
+                    id="clearance",
+                    code=ExcCode.DRC_CLEARANCE,
+                    severity=Severity.ERROR,
+                    message="4 clearance violation(s)",
+                    subject={"refs": ["U2"], "count": 4},
+                )
+            ],
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 80.0, "height_mm": 60.0},
+                "placed_parts": [
+                    {"ref": "U2", "x_mm": 40.0, "y_mm": 30.0},
+                    {"ref": "J1", "x_mm": 42.0, "y_mm": 32.0},
+                    {"ref": "R1", "x_mm": 43.0, "y_mm": 33.0},
+                    {"ref": "C1", "x_mm": 41.0, "y_mm": 31.0},
+                ],
+                "validation": {"ok": True},
+            },
+            metrics={"manufacturable": False, "manufacturing_complete": False},
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue = next(
+            issue for issue in quality["issues"]
+            if issue["code"] == "ROUTING_FAILURE_DIAGNOSIS"
+        )
+
+        assert issue["evidence"]["classification"] == "footprint_issue"
+        assert "footprint" in issue["recommendation"]
+
+    def test_build_layout_quality_classifies_oversized_route_as_congestion(self):
+        quality = build_layout_quality(
+            run_id="route-oversized-congestion",
+            status="failed",
+            stage="complete",
+            ok=False,
+            exceptions=[
+                DesignException(
+                    id="unconnected",
+                    code=ExcCode.DRC_UNCONNECTED,
+                    severity=Severity.ERROR,
+                    message="unconnected",
+                    subject={"nets": {"SDA": 2}, "count": 2},
+                )
+            ],
+            layout={
+                "ok": True,
+                "outline": {"width_mm": 100.0, "height_mm": 80.0},
+                "placed_parts": [
+                    {"ref": "U1", "x_mm": 48.0, "y_mm": 38.0},
+                    {"ref": "J1", "x_mm": 50.0, "y_mm": 40.0},
+                    {"ref": "R1", "x_mm": 51.0, "y_mm": 39.0},
+                    {"ref": "C1", "x_mm": 49.0, "y_mm": 41.0},
+                ],
+                "validation": {"ok": True},
+            },
+            metrics={
+                "congestion_score": 55.0,
+                "manufacturable": False,
+                "manufacturing_complete": False,
+            },
+            artifacts={"previews": {"files": ["preview_2d_top.png"]}},
+        )
+
+        issue = next(
+            issue for issue in quality["issues"]
+            if issue["code"] == "ROUTING_FAILURE_DIAGNOSIS"
+        )
+
+        assert issue["evidence"]["classification"] == "congestion_router_limitation"
+        assert "defer outline growth" in issue["recommendation"]
 
     def test_attach_layout_quality_persists_report_and_updates_response(self, tmp_path):
         response = DesignResponse(
@@ -770,6 +991,110 @@ class TestExceptionMapper:
         assert "edge_anchors" in exc.retry_hint
         assert "fixed_positions" in exc.retry_hint
         assert "footprint origins" in exc.retry_hint
+
+    def test_routing_diagnosis_defers_outline_for_off_edge_origin_false_positive(self):
+        exc = DesignException(
+            id="route",
+            code=ExcCode.ROUTE_UNCONNECTED,
+            severity=Severity.ERROR,
+            message="routing failed",
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.REGENERATE,
+                    params={},
+                    human_summary="retry",
+                ),
+                Candidate(
+                    id="c2",
+                    action=ActionType.SCALE_OUTLINE,
+                    params={"area_factor": 1.2},
+                    human_summary="grow",
+                ),
+            ],
+        )
+        layout = {
+            "outline": {"width_mm": 60.0, "height_mm": 30.0},
+            "placed_parts": [
+                {
+                    "ref": "J1",
+                    "x_mm": 30.0,
+                    "y_mm": 20.11,
+                    "footprint": (
+                        "Connector_PinHeader_2.54mm:"
+                        "PinHeader_1x03_P2.54mm_Horizontal"
+                    ),
+                },
+                {"ref": "U1", "x_mm": 30.0, "y_mm": 12.0},
+                {"ref": "R1", "x_mm": 31.0, "y_mm": 12.5},
+                {"ref": "C1", "x_mm": 29.0, "y_mm": 11.5},
+            ],
+            "score": {"warnings": []},
+            "validation": {"ok": True},
+            "intent_plan": {
+                "intents": {
+                    "J1": [
+                        {"kind": "edge_connector", "priority": 90, "reasons": []},
+                    ],
+                },
+                "edge_anchors": [
+                    {"ref": "J1", "edge": "bottom", "rot_deg": 90.0},
+                ],
+            },
+        }
+
+        diagnosis = classify_routing_failure([exc], layout=layout)
+        enriched = enrich_routing_failure_exceptions([exc], layout=layout)[0]
+
+        assert diagnosis["classification"] != "placement_blocked"
+        assert enriched.subject["routing_diagnosis"] == "congestion_router_limitation"
+        assert enriched.candidates[-1].action == ActionType.SCALE_OUTLINE
+        assert enriched.candidates[-1].confidence <= 0.2
+
+    def test_routing_diagnosis_promotes_outline_growth_only_when_tight(self):
+        exc = DesignException(
+            id="route",
+            code=ExcCode.DRC_UNCONNECTED,
+            severity=Severity.ERROR,
+            message="unconnected",
+            candidates=[
+                Candidate(
+                    id="c1",
+                    action=ActionType.REGENERATE,
+                    params={},
+                    human_summary="retry",
+                ),
+                Candidate(
+                    id="c2",
+                    action=ActionType.SET_LAYERS,
+                    params={"layers": 4},
+                    human_summary="layers",
+                ),
+                Candidate(
+                    id="c3",
+                    action=ActionType.SCALE_OUTLINE,
+                    params={"area_factor": 1.15},
+                    human_summary="grow",
+                    confidence=0.25,
+                ),
+            ],
+        )
+        layout = {
+            "outline": {"width_mm": 20.0, "height_mm": 15.0},
+            "placed_parts": [
+                {"ref": "U1", "x_mm": 1.0, "y_mm": 1.0},
+                {"ref": "J1", "x_mm": 19.0, "y_mm": 1.0},
+                {"ref": "R1", "x_mm": 1.0, "y_mm": 14.0},
+                {"ref": "C1", "x_mm": 19.0, "y_mm": 14.0},
+            ],
+            "validation": {"ok": True},
+        }
+
+        enriched = enrich_routing_failure_exceptions([exc], layout=layout)[0]
+
+        assert enriched.subject["routing_diagnosis"] == "outline_too_small"
+        assert enriched.candidates[0].action == ActionType.SCALE_OUTLINE
+        assert enriched.candidates[0].confidence >= 0.65
 
     def test_layout_oversized_warning_maps_to_outline_advisory(self):
         class Validation:
@@ -2020,6 +2345,117 @@ class TestRoutingExceptions:
 
 
 class TestFloorplanParsing:
+    def test_floorplan_docs_include_agent_visible_grid_example(self):
+        from mcp_server import server_http
+
+        doc_text = Path("docs/floorplan-intent.md").read_text()
+        guide_text = server_http.SKIDL_GUIDE
+        tool_text = server_http.submit_skidl_code.__doc__ or ""
+
+        for text in (doc_text, guide_text, tool_text):
+            for needle in (
+                "EDA_FLOORPLAN",
+                "grid",
+                "align",
+                "distribute",
+                "assembly_sides",
+                "keepouts",
+                "outline",
+            ):
+                assert needle in text
+
+    def test_floorplan_parses_agent_friendly_layout_intent(self):
+        constraints, meta = engine_worker_mod._floorplan_constraints(
+            {
+                "outline": {
+                    "x_min": -2.0,
+                    "y_min": 1.0,
+                    "x_max": 50.0,
+                    "y_max": 35.0,
+                    "corner_radius_mm": 1.5,
+                },
+                "fixed_positions": [
+                    {
+                        "ref": "U1",
+                        "x_mm": 30.0,
+                        "y_mm": 20.0,
+                        "rotation_deg": 90.0,
+                        "side": "back",
+                    },
+                ],
+                "edge_anchors": [
+                    {
+                        "ref": "J1",
+                        "edge": "bottom",
+                        "offset_mm": 24.0,
+                        "rotation_deg": 180.0,
+                        "side": "front",
+                    },
+                ],
+                "grid": {
+                    "refs": ["SW1", "SW2", "SW3", "SW4"],
+                    "rows": 2,
+                    "cols": 2,
+                    "x_mm": 10.0,
+                    "y_mm": 12.0,
+                    "dx_mm": 14.0,
+                    "dy_mm": 9.0,
+                    "side": "front",
+                },
+                "align": [{"refs": ["LED1", "LED2"], "axis": "y", "value_mm": 6.0}],
+                "distribute": [
+                    {
+                        "refs": ["LED1", "LED2", "LED3"],
+                        "axis": "x",
+                        "start_mm": 8.0,
+                        "end_mm": 36.0,
+                    }
+                ],
+                "assembly_sides": {"U2": "back"},
+                "keepouts": [
+                    {
+                        "x_min": 0.0,
+                        "y_min": 0.0,
+                        "x_max": 5.0,
+                        "y_max": 35.0,
+                        "allowed_refs": "H1,H2",
+                    }
+                ],
+            }
+        )
+
+        fixed_by_ref = {item.ref: item for item in constraints.fixed}
+        assert fixed_by_ref["U1"].rot_deg == pytest.approx(90.0)
+        assert fixed_by_ref["SW1"].x_mm == pytest.approx(10.0)
+        assert fixed_by_ref["SW1"].y_mm == pytest.approx(12.0)
+        assert fixed_by_ref["SW4"].x_mm == pytest.approx(24.0)
+        assert fixed_by_ref["SW4"].y_mm == pytest.approx(21.0)
+
+        assert constraints.edge_anchors[0].ref == "J1"
+        assert constraints.edge_anchors[0].edge == "bottom"
+        assert constraints.edge_anchors[0].offset_mm == pytest.approx(24.0)
+        assert constraints.keepouts[0].allowed_refs == ["H1", "H2"]
+        assert constraints.outline.x_min == pytest.approx(-2.0)
+        assert constraints.outline.y_min == pytest.approx(1.0)
+        assert constraints.outline.x_max == pytest.approx(50.0)
+        assert constraints.outline.y_max == pytest.approx(35.0)
+        assert constraints.outline.corner_radius_mm == pytest.approx(1.5)
+        assert len(constraints.align) == 5
+        assert len(constraints.distribute) == 5
+
+        assert meta["fixed_positions"] == 5
+        assert meta["edge_anchors"] == 1
+        assert meta["keepouts"] == 1
+        assert meta["outline"] == "explicit"
+        assert meta["grids"] == 1
+        assert meta["grid_fixed_positions"] == 4
+        assert meta["align_constraints"] == 5
+        assert meta["distribute_constraints"] == 5
+        assert meta["assembly_sides"]["U1"] == "back"
+        assert meta["assembly_sides"]["U2"] == "back"
+        assert meta["assembly_sides"]["SW4"] == "front"
+        assert meta["assembly_side_counts"] == {"back": 2, "front": 5}
+
     def test_floorplan_keepout_bands_imply_coordinate_frame_outline(self):
         constraints, meta = engine_worker_mod._floorplan_constraints(
             {
@@ -2058,6 +2494,175 @@ class TestFloorplanParsing:
         assert constraints is not None
         assert constraints.outline is None
         assert "outline" not in meta
+
+    def test_code_mode_floorplan_sides_and_outline_reach_layout(self, monkeypatch, tmp_path):
+        import skidl.layout as layout_mod
+
+        floorplan = {
+            "outline": {"width_mm": 42.0, "height_mm": 24.0},
+            "fixed_positions": [
+                {"ref": "U1", "x_mm": 18.0, "y_mm": 12.0, "side": "back"},
+            ],
+            "edge_anchors": [
+                {"ref": "J1", "edge": "right", "offset_mm": 12.0, "side": "front"},
+            ],
+            "grid": {
+                "refs": ["SW1", "SW2", "SW3", "SW4"],
+                "rows": 2,
+                "cols": 2,
+                "x_mm": 8.0,
+                "y_mm": 6.0,
+                "dx_mm": 12.0,
+                "dy_mm": 10.0,
+                "side": "front",
+            },
+            "align": [{"refs": ["D1", "D2"], "axis": "y"}],
+            "distribute": [{"refs": ["D1", "D2", "D3"], "axis": "x"}],
+            "keepouts": [{"x_min": 0.0, "y_min": 0.0, "x_max": 3.0, "y_max": 24.0}],
+            "assembly_sides": {"U2": "back"},
+        }
+        refs = ["U1", "U2", "J1", "SW1", "SW2", "SW3", "SW4", "D1", "D2", "D3"]
+        circuit = SimpleNamespace(parts=[SimpleNamespace(ref=ref, pins=[]) for ref in refs])
+        circuit.generate_schematic = lambda *args, **kwargs: None
+        captured = {}
+
+        class FakeScore:
+            ok = True
+            score = 100.0
+            total_hpwl_mm = 0.0
+            congestion_score = 0.0
+
+            def to_dict(self):
+                return {"ok": True}
+
+        class FakeLayoutResult:
+            ok = True
+            candidates = []
+            score = FakeScore()
+            validation = SimpleNamespace(
+                ok=True,
+                overlaps=[],
+                outline_violations=[],
+                keepout_violations=[],
+                missing_refs=[],
+                total_parts=len(refs),
+                placed_parts=len(refs),
+            )
+
+            def __init__(self, outline):
+                self.outline = outline
+                self.placed_parts = [
+                    SimpleNamespace(
+                        ref=part.ref,
+                        x_mm=0.0,
+                        y_mm=0.0,
+                        rot_deg=0.0,
+                        footprint="Fake:Part",
+                        side=getattr(part, "assembly_side", "front"),
+                    )
+                    for part in circuit.parts
+                ]
+
+            def to_dict(self):
+                return {
+                    "ok": True,
+                    "outline": {
+                        "width_mm": self.outline.width_mm,
+                        "height_mm": self.outline.height_mm,
+                    },
+                    "placed_parts": [
+                        {"ref": part.ref, "side": part.side}
+                        for part in self.placed_parts
+                    ],
+                    "intent_plan": {
+                        "assembly_sides": {
+                            part.ref: getattr(part, "assembly_side", "front")
+                            for part in circuit.parts
+                            if hasattr(part, "assembly_side")
+                        },
+                        "edge_anchors": [
+                            {
+                                "ref": part.ref,
+                                "edge": getattr(part, "edge_preference"),
+                            }
+                            for part in circuit.parts
+                            if hasattr(part, "edge_preference")
+                        ],
+                    },
+                    "validation": {"ok": True},
+                    "score": {"ok": True},
+                }
+
+            def summary(self):
+                return "fake layout"
+
+        def fake_plan_layout(circuit_arg, *, fp_lib_dirs, constraints, **kwargs):
+            captured["constraints"] = constraints
+            captured["part_sides"] = {
+                part.ref: getattr(part, "assembly_side", None)
+                for part in circuit_arg.parts
+            }
+            captured["part_edges"] = {
+                part.ref: getattr(part, "edge_preference", None)
+                for part in circuit_arg.parts
+            }
+            return FakeLayoutResult(constraints.outline)
+
+        monkeypatch.setattr(
+            engine_worker_mod,
+            "_exec_skidl_with_namespace",
+            lambda code: (circuit, {"EDA_FLOORPLAN": floorplan}),
+        )
+        monkeypatch.setattr(engine_worker_mod, "_circuit_to_spec_dict", lambda circuit: {})
+        monkeypatch.setattr(engine_worker_mod, "enrich_blocks", lambda spec, marketing: (spec, []))
+        monkeypatch.setattr(engine_worker_mod, "enrich_spec", lambda spec: (spec, []))
+        monkeypatch.setattr(engine_worker_mod, "design_review_exceptions", lambda *a, **k: [])
+        monkeypatch.setattr(engine_worker_mod, "_preflight_footprints", lambda *a, **k: None)
+        monkeypatch.setattr(engine_worker_mod, "_write_inline_footprints", lambda *a, **k: (None, {"count": 0}))
+        monkeypatch.setattr(engine_worker_mod, "_metrics", lambda *a, **k: {})
+        monkeypatch.setattr(engine_worker_mod, "layout_exceptions", lambda *a, **k: [])
+        monkeypatch.setattr(engine_worker_mod, "_skidl_layout_intent_advisories", lambda *a, **k: [])
+        monkeypatch.setattr(layout_mod, "plan_layout", fake_plan_layout)
+        monkeypatch.setattr(layout_mod, "write_kicad_pcb", lambda *a, **k: None)
+        monkeypatch.setattr(engine_worker_mod, "_generate_board_previews", lambda *a, **k: {})
+        monkeypatch.setattr(engine_worker_mod, "_write_layout_mockup_svg", lambda *a, **k: None)
+        monkeypatch.setattr(engine_worker_mod, "_add_layout_mockup_preview", lambda *a, **k: None)
+
+        cwd = os.getcwd()
+        try:
+            result = _run_skidl_code({
+                "run_id": "floorplan-code-mode",
+                "out_dir": str(tmp_path / "floorplan-code-mode"),
+                "code": "from skidl import *",
+                "board_name": "floorplan-code-mode",
+                "outline_mm": [99.0, 88.0],
+                "pipeline_goal": "placement_review",
+            })
+        finally:
+            os.chdir(cwd)
+
+        constraints = captured["constraints"]
+        assert constraints.outline.width_mm == pytest.approx(42.0)
+        assert constraints.outline.height_mm == pytest.approx(24.0)
+        assert len(constraints.fixed) == 5
+        assert len(constraints.edge_anchors) == 1
+        assert len(constraints.keepouts) == 1
+        assert len(constraints.align) == 5
+        assert len(constraints.distribute) == 5
+        assert captured["part_sides"]["U1"] == "back"
+        assert captured["part_sides"]["U2"] == "back"
+        assert captured["part_sides"]["SW4"] == "front"
+        assert captured["part_edges"]["J1"] == "right"
+        assert result["layout"]["floorplan"]["outline"] == "explicit"
+        assert result["layout"]["floorplan"]["fixed_positions"] == 5
+        assert result["layout"]["floorplan"]["assembly_side_counts"] == {
+            "back": 2,
+            "front": 5,
+        }
+        assert result["layout"]["intent_plan"]["assembly_sides"]["U1"] == "back"
+        assert result["layout"]["intent_plan"]["edge_anchors"] == [
+            {"ref": "J1", "edge": "right"}
+        ]
 
 
 @needs_kicad
@@ -2154,6 +2759,47 @@ class TestInlineFootprintBundle:
                 tmp_path,
             )
 
+    def test_inline_footprints_reject_filesystem_path_payload(self, tmp_path):
+        with pytest.raises(ValueError, match="does not accept filesystem paths"):
+            _write_inline_footprints(
+                [
+                    {
+                        "library": "TestLib",
+                        "name": "R_Test",
+                        "path": "/Users/example/project/TestLib.pretty/R_Test.kicad_mod",
+                    }
+                ],
+                tmp_path,
+            )
+
+    def test_inline_footprints_reject_malformed_content_without_echoing_it(self, tmp_path):
+        bad_content = 'not secret-token-123 (footprint "R_Test")'
+
+        with pytest.raises(ValueError) as exc_info:
+            _write_inline_footprints(
+                {"TestLib:R_Test": bad_content},
+                tmp_path,
+            )
+
+        message = str(exc_info.value)
+        assert "must start with a KiCad (footprint ...)" in message
+        assert "secret-token-123" not in message
+
+    def test_inline_footprints_reject_name_mismatch(self, tmp_path):
+        with pytest.raises(ValueError, match="footprint name mismatch"):
+            _write_inline_footprints(
+                {"TestLib:R_Test": '(footprint "Other_Name" (layer "F.Cu"))'},
+                tmp_path,
+            )
+
+    def test_inline_footprints_reject_conflicting_duplicates(self, tmp_path):
+        with pytest.raises(ValueError, match="duplicate custom footprint TestLib:R_Test"):
+            _write_inline_footprints(
+                {"TestLib:R_Test": '(footprint "R_Test" (layer "F.Cu"))'},
+                tmp_path,
+                extra_raw={"TestLib:R_Test": '(footprint "R_Test" (attr smd))'},
+            )
+
 
 def test_skidl_worker_schematic_terminal_clash_returns_stage_result(tmp_path, monkeypatch):
     from skidl.schematics.route import TerminalClashException
@@ -2194,6 +2840,175 @@ def test_skidl_worker_schematic_terminal_clash_returns_stage_result(tmp_path, mo
     assert result["exceptions"][0]["code"] == ExcCode.SCH_ROUTING_FAILURE.value
     assert result["exceptions"][0]["subject"]["exception"] == "TerminalClashException"
     assert result["outputs"]["run_dir"] == str(tmp_path.resolve())
+
+
+def test_skidl_worker_rejects_malformed_custom_footprint_payload(
+    tmp_path,
+    monkeypatch,
+):
+    class FakeCircuit:
+        parts = [
+            SimpleNamespace(
+                ref="R1",
+                footprint="TestLib:R_Test",
+                pins=[SimpleNamespace(num="1"), SimpleNamespace(num="2")],
+            )
+        ]
+
+    monkeypatch.setattr(
+        engine_worker_mod,
+        "_exec_skidl_with_namespace",
+        lambda code: (FakeCircuit(), {}),
+    )
+
+    result = _run_skidl_code({
+        "_mode": "skidl_python",
+        "code": "# fake circuit from monkeypatch",
+        "board_name": "bad-footprint-bundle",
+        "outline_mm": [25.0, 20.0],
+        "out_dir": str(tmp_path),
+        "run_id": "bad-footprint-bundle",
+        "custom_footprints": {
+            "TestLib:R_Test": 'leaked-token-456 (footprint "R_Test")',
+        },
+    })
+
+    assert result["stage"] == "footprint_bundle"
+    assert result["status"] == "failed"
+    assert result["exceptions"][0]["code"] == ExcCode.CODE_EXEC_ERROR.value
+    assert "custom_footprints entry TestLib:R_Test" in result["exceptions"][0]["message"]
+    assert "leaked-token-456" not in result["exceptions"][0]["message"]
+
+
+def test_skidl_worker_custom_footprints_reach_preflight_layout_and_writer(
+    tmp_path,
+    monkeypatch,
+):
+    import skidl.layout as layout_mod
+
+    custom_footprint = """
+(footprint "Tiny_2Pad"
+  (layer "F.Cu")
+  (pad "1" smd rect (at -0.6 0) (size 0.8 1.0)
+    (layers "F.Cu" "F.Paste" "F.Mask"))
+  (pad "2" smd rect (at 0.6 0) (size 0.8 1.0)
+    (layers "F.Cu" "F.Paste" "F.Mask"))
+)
+"""
+    seen = {}
+
+    class FakeCircuit:
+        parts = [
+            SimpleNamespace(
+                ref="R1",
+                footprint="CustomLib:Tiny_2Pad",
+                pins=[SimpleNamespace(num="1"), SimpleNamespace(num="2")],
+            )
+        ]
+
+        def generate_schematic(self, filepath, top_name, **_kwargs):
+            Path(filepath, f"{top_name}.kicad_sch").write_text(
+                "(kicad_sch)", encoding="utf-8"
+            )
+
+    def assert_custom_library_available(fp_dirs):
+        root = Path(fp_dirs[0])
+        assert root.name == "_inline_footprints"
+        assert (
+            root
+            / "CustomLib.pretty"
+            / "Tiny_2Pad.kicad_mod"
+        ).read_text(encoding="utf-8") == custom_footprint
+
+    def fake_preflight(_circuit, fp_dirs):
+        seen["preflight_dirs"] = list(fp_dirs)
+        assert_custom_library_available(fp_dirs)
+        return None
+
+    def fake_plan_layout(_circuit, fp_lib_dirs, **_kwargs):
+        seen["layout_dirs"] = list(fp_lib_dirs)
+        assert_custom_library_available(fp_lib_dirs)
+        return SimpleNamespace(
+            ok=True,
+            placed_parts=[
+                SimpleNamespace(
+                    ref="R1",
+                    x_mm=5.0,
+                    y_mm=5.0,
+                    rot_deg=0.0,
+                    footprint="CustomLib:Tiny_2Pad",
+                    side="front",
+                )
+            ],
+            outline=BoardOutline(20.0, 15.0),
+            validation=SimpleNamespace(ok=True),
+            score=SimpleNamespace(ok=True),
+            power_plan=SimpleNamespace(),
+            summary=lambda: "fake layout",
+            to_dict=lambda: {
+                "ok": True,
+                "placed_parts": [
+                    {
+                        "ref": "R1",
+                        "footprint": "CustomLib:Tiny_2Pad",
+                    }
+                ],
+            },
+        )
+
+    def fake_write_kicad_pcb(_placed, _circuit, fp_dirs, output_path, **_kwargs):
+        seen["writer_dirs"] = list(fp_dirs)
+        assert_custom_library_available(fp_dirs)
+        Path(output_path).write_text(
+            '(kicad_pcb (footprint "CustomLib:Tiny_2Pad"))',
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr(
+        engine_worker_mod,
+        "_exec_skidl_with_namespace",
+        lambda code: (FakeCircuit(), {}),
+    )
+    monkeypatch.setattr(engine_worker_mod, "_circuit_to_spec_dict", lambda circuit: {})
+    monkeypatch.setattr(
+        engine_worker_mod,
+        "enrich_blocks",
+        lambda spec, marketing: (spec, []),
+    )
+    monkeypatch.setattr(engine_worker_mod, "enrich_spec", lambda spec: (spec, []))
+    monkeypatch.setattr(engine_worker_mod, "design_review_exceptions", lambda *a, **k: [])
+    monkeypatch.setattr(engine_worker_mod, "_preflight_footprints", fake_preflight)
+    monkeypatch.setattr(engine_worker_mod, "layout_exceptions", lambda result: [])
+    monkeypatch.setattr(
+        engine_worker_mod,
+        "_skidl_layout_intent_advisories",
+        lambda **_kwargs: [],
+    )
+    monkeypatch.setattr(engine_worker_mod, "_generate_board_previews", lambda *a, **k: {})
+    monkeypatch.setattr(engine_worker_mod, "_write_layout_mockup_svg", lambda *a, **k: None)
+    monkeypatch.setattr(engine_worker_mod, "_add_layout_mockup_preview", lambda *a, **k: None)
+    monkeypatch.setattr(layout_mod, "plan_layout", fake_plan_layout)
+    monkeypatch.setattr(layout_mod, "write_kicad_pcb", fake_write_kicad_pcb)
+
+    result = _run_skidl_code({
+        "_mode": "skidl_python",
+        "code": "# fake circuit from monkeypatch",
+        "board_name": "custom-footprint-worker",
+        "outline_mm": [20.0, 15.0],
+        "out_dir": str(tmp_path),
+        "run_id": "custom-footprint-worker",
+        "pipeline_goal": "placement_review",
+        "custom_footprints": {
+            "CustomLib:Tiny_2Pad": custom_footprint,
+        },
+    })
+
+    assert result["stage"] == "placement_review"
+    assert result["layout"]["inline_footprints"] == {
+        "count": 1,
+        "footprints": ["CustomLib:Tiny_2Pad"],
+    }
+    assert seen["preflight_dirs"][0] == seen["layout_dirs"][0] == seen["writer_dirs"][0]
 
 
 @needs_kicad
@@ -2270,6 +3085,58 @@ gnd += j1[2], r1[2]
         assert not response.ok
         assert any(exc.code == ExcCode.FOOTPRINT_MISSING for exc in response.exceptions)
         assert not any(exc.code == ExcCode.ENGINE_CRASH for exc in response.exceptions)
+
+    def test_python_mode_custom_footprint_payload_reaches_preflight_and_layout(self, tmp_path):
+        custom_footprint = """
+(footprint "Tiny_2Pad"
+  (version 20240108)
+  (generator "eda-mcp-test")
+  (layer "F.Cu")
+  (attr smd)
+  (fp_text reference "REF**" (at 0 -1.5 0) (layer "F.SilkS")
+    (effects (font (size 1 1) (thickness 0.15))))
+  (fp_text value "Tiny_2Pad" (at 0 1.5 0) (layer "F.Fab")
+    (effects (font (size 1 1) (thickness 0.15))))
+  (pad "1" smd rect (at -0.6 0) (size 0.8 1.0)
+    (layers "F.Cu" "F.Paste" "F.Mask"))
+  (pad "2" smd rect (at 0.6 0) (size 0.8 1.0)
+    (layers "F.Cu" "F.Paste" "F.Mask"))
+)
+"""
+        code = """
+from skidl import *
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
+j1 = Part("Connector_Generic", "Conn_01x02",
+          footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+r1 = Part("Device", "R", value="10K", footprint="CustomLib:Tiny_2Pad")
+vcc += j1[1], r1[1]
+gnd += j1[2], r1[2]
+"""
+
+        response = run_pipeline_code(
+            code,
+            board_name="custom-footprint",
+            outline_mm=[25.0, 20.0],
+            out_dir=tmp_path,
+            timeout_s=120,
+            pipeline_goal="placement_review",
+            custom_footprints={"CustomLib:Tiny_2Pad": custom_footprint},
+        )
+
+        assert response.stage == "placement_review"
+        assert not any(exc.code == ExcCode.FOOTPRINT_MISSING for exc in response.exceptions)
+        assert response.layout["inline_footprints"] == {
+            "count": 1,
+            "footprints": ["CustomLib:Tiny_2Pad"],
+        }
+        assert any(
+            placed["footprint"] == "CustomLib:Tiny_2Pad"
+            for placed in response.layout["placed_parts"]
+        )
+        pcb_text = Path(response.outputs["pcb"]).read_text(encoding="utf-8")
+        assert "CustomLib:Tiny_2Pad" in pcb_text
+        assert "Tiny_2Pad" in pcb_text
 
     def test_python_mode_layout_intent_advisory_for_flat_complex_overlap(self):
         layout_result = SimpleNamespace(

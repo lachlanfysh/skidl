@@ -11,6 +11,7 @@ import json
 import html
 import os
 import re
+import shutil
 import sys
 import traceback
 import uuid
@@ -21,6 +22,7 @@ from pydantic import ValidationError
 
 from mcp_server.exception_mapper import (
     crash_exception,
+    enrich_routing_failure_exceptions,
     layout_exceptions,
     order_exceptions_for_agent,
     spec_malformed_exception,
@@ -961,19 +963,20 @@ def _route_pcb(pcb_path: str, timeout_s: float = 120) -> list:
                           params={"run_options": {"route_timeout_s": next_timeout}},
                           human_summary=f"Retry unchanged with route_timeout_s={next_timeout:.0f}",
                           confidence=0.75),
-                Candidate(id="c2", action=ActionType.SCALE_OUTLINE,
-                          params={"area_factor": 1.3},
-                          human_summary="Enlarge board 30% and retry routing",
-                          confidence=0.6),
-                Candidate(id="c3", action=ActionType.SET_LAYERS,
+                Candidate(id="c2", action=ActionType.SET_LAYERS,
                           params={"layers": 4},
                           human_summary="Switch to 4-layer board for easier routing",
                           confidence=0.5),
+                Candidate(id="c3", action=ActionType.SCALE_OUTLINE,
+                          params={"area_factor": 1.3},
+                          human_summary="Enlarge board 30% only after placement and layer-budget checks",
+                          confidence=0.25),
             ],
             retry_hint=(
                 f"First resubmit the same design with run_options.route_timeout_s="
                 f"{next_timeout:.0f}. If timeout repeats, simplify placement, "
-                "increase outline, or use a board stackup the engine supports."
+                "use a board stackup the engine supports, and grow the outline "
+                "only when the layout is genuinely tight."
             ),
         )]
 
@@ -1880,11 +1883,15 @@ def _footprint_missing_exception(exc: FileNotFoundError, circuit=None) -> Design
             "the configured KiCad footprint libraries. Use the candidates or "
             "subject.suggested_footprints when present only if they preserve "
             "the user's product intent. If this is a project-local or custom "
-            "footprint, read the matching .kicad_mod text and embed it in "
-            "EDA_FOOTPRINTS using the same Library:Footprint name instead of "
-            "downgrading the part just to satisfy hosted preflight. Otherwise "
-            "call search_kicad() for the affected part or footprint, update "
-            "the SKiDL code, and resubmit with submit_skidl_code()."
+            "footprint, read the matching .kicad_mod text and pass it to "
+            "submit_skidl_code(custom_footprints={\"Library:Footprint\": "
+            "\"(footprint ...)\"}) using the same Library:Footprint name "
+            "instead of downgrading the part just to satisfy hosted preflight. "
+            "A global EDA_FOOTPRINTS dict in code is still accepted for "
+            "compatibility. Do not pass local filesystem paths; hosted workers "
+            "only accept submitted footprint text. Otherwise call "
+            "search_kicad() for the affected part or footprint, update the "
+            "SKiDL code, and resubmit with submit_skidl_code()."
         ),
     )
 
@@ -1922,6 +1929,19 @@ def _preflight_footprints(circuit, fp_dirs: list[str]) -> DesignException | None
 
 
 _FOOTPRINT_NAME_RE = re.compile(r"^[A-Za-z0-9_. +@#-]+$")
+_INLINE_FOOTPRINT_PATH_KEYS = {
+    "file",
+    "filename",
+    "library_path",
+    "path",
+    "pretty_path",
+    "root",
+    "uri",
+    "url",
+}
+_MAX_INLINE_FOOTPRINTS = 64
+_MAX_INLINE_FOOTPRINT_BYTES = 512_000
+_MAX_INLINE_FOOTPRINT_TOTAL_BYTES = 4_000_000
 
 
 def _safe_footprint_component(value: object, field: str) -> str:
@@ -1937,46 +1957,109 @@ def _safe_footprint_component(value: object, field: str) -> str:
     return text[:-7] if text.endswith(".pretty") else text
 
 
-def _inline_footprint_items(raw) -> list[tuple[str, str, str]]:
-    """Normalize submitted EDA_FOOTPRINTS into (library, name, content)."""
+def _reject_inline_footprint_path_refs(entry: dict, source: str) -> None:
+    path_keys = sorted(
+        str(key)
+        for key in entry
+        if str(key).strip().lower() in _INLINE_FOOTPRINT_PATH_KEYS
+    )
+    if path_keys:
+        raise ValueError(
+            f"{source} does not accept filesystem paths ({', '.join(path_keys)}); "
+            "submit KiCad .kicad_mod text as content/kicad_mod instead"
+        )
+
+
+def _inline_footprint_text(value: object, source: str, ref: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(
+            f"{source} entry {ref} content must be KiCad .kicad_mod text"
+        )
+    size = len(value.encode("utf-8"))
+    if size > _MAX_INLINE_FOOTPRINT_BYTES:
+        raise ValueError(
+            f"{source} entry {ref} is too large "
+            f"({size} bytes; limit {_MAX_INLINE_FOOTPRINT_BYTES})"
+        )
+    return value
+
+
+def _validate_inline_footprint_text(
+    lib: str,
+    name: str,
+    content: str,
+    source: str,
+) -> None:
+    ref = f"{lib}:{name}"
+    if not content.strip():
+        raise ValueError(f"{source} entry {ref} is empty")
+    try:
+        from simp_sexp import Sexp
+
+        parsed = Sexp(content)
+    except Exception as exc:
+        raise ValueError(
+            f"{source} entry {ref} is not parseable KiCad .kicad_mod text "
+            f"({type(exc).__name__})"
+        ) from None
+
+    if not parsed or str(parsed[0]).strip('"') != "footprint":
+        raise ValueError(
+            f"{source} entry {ref} must start with a KiCad (footprint ...) "
+            "S-expression"
+        )
+    declared_name = str(parsed[1]).strip('"') if len(parsed) > 1 else ""
+    if declared_name != name:
+        raise ValueError(
+            f"{source} entry {ref} footprint name mismatch: content declares "
+            f"{declared_name!r}"
+        )
+
+
+def _inline_footprint_items(raw, *, source: str) -> list[tuple[str, str, str, str]]:
+    """Normalize submitted footprint payloads into (library, name, content, source)."""
     if not raw:
         return []
-    items: list[tuple[str, str, str]] = []
+    items: list[tuple[str, str, str, str]] = []
     if isinstance(raw, dict):
         for key, content in raw.items():
             if isinstance(content, dict):
+                _reject_inline_footprint_path_refs(content, source)
                 lib = content.get("library") or content.get("lib")
                 name = content.get("name") or content.get("footprint")
                 text = content.get("content") or content.get("kicad_mod")
             else:
                 if ":" not in str(key):
                     raise ValueError(
-                        "EDA_FOOTPRINTS dict keys must be 'Library:Footprint'"
+                        f"{source} dict keys must be 'Library:Footprint'"
                     )
                 lib, name = str(key).split(":", 1)
                 text = content
-            items.append((
-                _safe_footprint_component(lib, "library"),
-                _safe_footprint_component(name, "name"),
-                str(text or ""),
-            ))
+            safe_lib = _safe_footprint_component(lib, "library")
+            safe_name = _safe_footprint_component(name, "name")
+            text = _inline_footprint_text(text, source, f"{safe_lib}:{safe_name}")
+            _validate_inline_footprint_text(safe_lib, safe_name, text, source)
+            items.append((safe_lib, safe_name, text, source))
     elif isinstance(raw, list):
         for entry in raw:
             if not isinstance(entry, dict):
-                raise ValueError("EDA_FOOTPRINTS list entries must be dicts")
-            items.append((
-                _safe_footprint_component(entry.get("library") or entry.get("lib"), "library"),
-                _safe_footprint_component(entry.get("name") or entry.get("footprint"), "name"),
-                str(entry.get("content") or entry.get("kicad_mod") or ""),
-            ))
-    else:
-        raise ValueError("EDA_FOOTPRINTS must be a dict or list")
-
-    for lib, name, content in items:
-        if "(footprint" not in content:
-            raise ValueError(
-                f"EDA_FOOTPRINTS entry {lib}:{name} is not KiCad footprint text"
+                raise ValueError(f"{source} list entries must be dicts")
+            _reject_inline_footprint_path_refs(entry, source)
+            safe_lib = _safe_footprint_component(
+                entry.get("library") or entry.get("lib"), "library"
             )
+            safe_name = _safe_footprint_component(
+                entry.get("name") or entry.get("footprint"), "name"
+            )
+            text = _inline_footprint_text(
+                entry.get("content") or entry.get("kicad_mod"),
+                source,
+                f"{safe_lib}:{safe_name}",
+            )
+            _validate_inline_footprint_text(safe_lib, safe_name, text, source)
+            items.append((safe_lib, safe_name, text, source))
+    else:
+        raise ValueError(f"{source} must be a dict or list")
     return items
 
 
@@ -1987,15 +2070,46 @@ def _write_inline_footprints(
     extra_raw=None,
 ) -> tuple[str | None, dict]:
     """Write submitted custom footprints into a temporary KiCad library root."""
-    items = _inline_footprint_items(raw)
-    items.extend(_inline_footprint_items(extra_raw))
+    submitted = _inline_footprint_items(raw, source="EDA_FOOTPRINTS")
+    submitted.extend(
+        _inline_footprint_items(extra_raw, source="custom_footprints")
+    )
+    items: list[tuple[str, str, str, str]] = []
+    seen: dict[tuple[str, str], tuple[str, str]] = {}
+    total_size = 0
+    for lib, name, content, source in submitted:
+        key = (lib, name)
+        prior = seen.get(key)
+        if prior is not None:
+            prior_content, prior_source = prior
+            if prior_content != content:
+                raise ValueError(
+                    f"duplicate custom footprint {lib}:{name} supplied by "
+                    f"{prior_source} and {source} with different content"
+                )
+            continue
+        seen[key] = (content, source)
+        total_size += len(content.encode("utf-8"))
+        items.append((lib, name, content, source))
+    if len(items) > _MAX_INLINE_FOOTPRINTS:
+        raise ValueError(
+            f"custom footprint bundle has {len(items)} entries; "
+            f"limit is {_MAX_INLINE_FOOTPRINTS}"
+        )
+    if total_size > _MAX_INLINE_FOOTPRINT_TOTAL_BYTES:
+        raise ValueError(
+            f"custom footprint bundle is too large "
+            f"({total_size} bytes; limit {_MAX_INLINE_FOOTPRINT_TOTAL_BYTES})"
+        )
     if not items:
         return None, {"count": 0}
 
     root = out_dir / "_inline_footprints"
+    if root.exists():
+        shutil.rmtree(root)
     root.mkdir(parents=True, exist_ok=True)
     refs: list[str] = []
-    for lib, name, content in items:
+    for lib, name, content, _source in items:
         lib_dir = root / f"{lib}.pretty"
         lib_dir.mkdir(parents=True, exist_ok=True)
         (lib_dir / f"{name}.kicad_mod").write_text(content, encoding="utf-8")
@@ -2026,13 +2140,95 @@ def _float_field(data: dict, *keys: str, default: float | None = None) -> float 
     return default
 
 
+def _floorplan_refs(value) -> list[str]:
+    if isinstance(value, str):
+        refs = [part.strip() for part in value.split(",")]
+    elif isinstance(value, (list, tuple)):
+        refs = [str(part).strip() for part in value]
+    else:
+        refs = []
+    return [ref for ref in refs if ref]
+
+
+def _floorplan_items(value) -> list:
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, list):
+        return value
+    return []
+
+
+def _floorplan_axis(value) -> str | None:
+    text = str(value or "").strip().lower()
+    aliases = {
+        "col": "x",
+        "column": "x",
+        "columns": "x",
+        "vertical": "x",
+        "row": "y",
+        "rows": "y",
+        "horizontal": "y",
+    }
+    text = aliases.get(text, text)
+    if text in {"x", "y"}:
+        return text
+    return None
+
+
+def _floorplan_numeric_pair(value) -> tuple[float, float] | None:
+    if isinstance(value, dict):
+        try:
+            return (
+                float(value.get("x_mm", value.get("x", value.get("width_mm")))),
+                float(value.get("y_mm", value.get("y", value.get("height_mm")))),
+            )
+        except (TypeError, ValueError):
+            return None
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        try:
+            return float(value[0]), float(value[1])
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _floorplan_side(value) -> str | None:
+    from skidl.layout.intent import normalize_assembly_side
+
+    return normalize_assembly_side(value)
+
+
+def _floorplan_side_counts(sides: dict[str, str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for side in sides.values():
+        counts[side] = counts.get(side, 0) + 1
+    return counts
+
+
+def _floorplan_apply_side(
+    sides: dict[str, str],
+    warnings: list[str],
+    ref: str,
+    value,
+) -> None:
+    side = _floorplan_side(value)
+    if side is None:
+        if value not in (None, ""):
+            warnings.append(f"ignored invalid assembly side for {ref}: {value}")
+        return
+    sides[ref] = side
+
+
 def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
     """Build layout constraints from a submitted EDA_FLOORPLAN dict."""
     if not isinstance(floorplan, dict):
         return None, {}
 
     from skidl.layout import (
+        AlignConstraint,
+        AnchorZone,
         BoardOutline,
+        DistributeConstraint,
         EdgeAnchor,
         FixedPosition,
         KeepOut,
@@ -2042,16 +2238,25 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
     fixed = []
     edge_anchors = []
     keepouts = []
+    zones = []
+    align = []
+    distribute = []
+    assembly_sides: dict[str, str] = {}
+    edge_anchor_attrs = []
     warnings = []
+    grid_count = 0
+    grid_fixed_count = 0
+    explicit_fixed_refs: set[str] = set()
 
-    for item in floorplan.get("fixed_positions") or []:
+    for item in _floorplan_items(floorplan.get("fixed_positions")):
         if not isinstance(item, dict) or not item.get("ref"):
             warnings.append("ignored fixed_position without ref")
             continue
+        ref = str(item["ref"])
         try:
             fixed.append(
                 FixedPosition(
-                    ref=str(item["ref"]),
+                    ref=ref,
                     x_mm=float(item["x_mm"]),
                     y_mm=float(item["y_mm"]),
                     rot_deg=_float_field(item, "rotation_deg", "rot_deg", default=0.0) or 0.0,
@@ -2059,25 +2264,52 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
             )
         except (TypeError, ValueError, KeyError) as exc:
             warnings.append(f"ignored fixed_position for {item.get('ref')}: {exc}")
+            continue
+        explicit_fixed_refs.add(ref)
+        _floorplan_apply_side(
+            assembly_sides,
+            warnings,
+            ref,
+            item.get("side", item.get("assembly_side")),
+        )
 
-    for item in floorplan.get("edge_anchors") or []:
+    for item in _floorplan_items(floorplan.get("edge_anchors")):
         if not isinstance(item, dict) or not item.get("ref") or not item.get("edge"):
             warnings.append("ignored edge_anchor without ref/edge")
             continue
+        ref = str(item["ref"])
         try:
+            edge = str(item["edge"])
+            offset = _float_field(item, "offset_mm")
+            rot = _float_field(item, "rotation_deg", "rot_deg")
             edge_anchors.append(
                 EdgeAnchor(
-                    ref=str(item["ref"]),
-                    edge=str(item["edge"]),
-                    offset_mm=_float_field(item, "offset_mm"),
+                    ref=ref,
+                    edge=edge,
+                    offset_mm=offset,
                     inset_mm=_float_field(item, "inset_mm", default=0.5) or 0.5,
-                    rot_deg=_float_field(item, "rotation_deg", "rot_deg"),
+                    rot_deg=rot,
                 )
+            )
+            edge_anchor_attrs.append(
+                {
+                    "ref": ref,
+                    "edge": edge,
+                    "offset_mm": offset,
+                    "rot_deg": rot,
+                }
             )
         except (TypeError, ValueError) as exc:
             warnings.append(f"ignored edge_anchor for {item.get('ref')}: {exc}")
+            continue
+        _floorplan_apply_side(
+            assembly_sides,
+            warnings,
+            ref,
+            item.get("side", item.get("assembly_side")),
+        )
 
-    for item in floorplan.get("keepouts") or []:
+    for item in _floorplan_items(floorplan.get("keepouts")):
         if not isinstance(item, dict):
             warnings.append("ignored non-dict keepout")
             continue
@@ -2088,12 +2320,223 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
                     y_min=float(item["y_min"]),
                     x_max=float(item["x_max"]),
                     y_max=float(item["y_max"]),
+                    allowed_refs=_floorplan_refs(item.get("allowed_refs", [])),
                 )
             )
         except (TypeError, ValueError, KeyError) as exc:
             warnings.append(f"ignored keepout: {exc}")
 
-    def _outline_from_dict(data: dict) -> BoardOutline | None:
+    for item in _floorplan_items(floorplan.get("zones") or floorplan.get("anchor_zones")):
+        if not isinstance(item, dict):
+            warnings.append("ignored non-dict anchor zone")
+            continue
+        try:
+            zones.append(
+                AnchorZone(
+                    group_name=str(item.get("group_name") or item.get("name") or "zone"),
+                    x_min=float(item["x_min"]),
+                    y_min=float(item["y_min"]),
+                    x_max=float(item["x_max"]),
+                    y_max=float(item["y_max"]),
+                    refs=_floorplan_refs(item.get("refs", [])),
+                )
+            )
+        except (TypeError, ValueError, KeyError) as exc:
+            warnings.append(f"ignored anchor zone: {exc}")
+
+    def _add_align(item: dict, *, source: str) -> None:
+        refs = _floorplan_refs(item.get("refs"))
+        axis = _floorplan_axis(item.get("axis"))
+        if len(refs) < 2 or axis is None:
+            warnings.append(f"ignored {source} align constraint without refs/axis")
+            return
+        try:
+            align.append(
+                AlignConstraint(
+                    refs=refs,
+                    axis=axis,
+                    value_mm=_float_field(item, "value_mm", "value"),
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            warnings.append(f"ignored {source} align constraint: {exc}")
+
+    def _add_distribute(item: dict, *, source: str) -> None:
+        refs = _floorplan_refs(item.get("refs"))
+        axis = _floorplan_axis(item.get("axis"))
+        if len(refs) < 2 or axis is None:
+            warnings.append(f"ignored {source} distribute constraint without refs/axis")
+            return
+        try:
+            distribute.append(
+                DistributeConstraint(
+                    refs=refs,
+                    axis=axis,
+                    start_mm=_float_field(item, "start_mm", "start"),
+                    end_mm=_float_field(item, "end_mm", "end"),
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            warnings.append(f"ignored {source} distribute constraint: {exc}")
+
+    for item in _floorplan_items(
+        floorplan.get("align") or floorplan.get("align_constraints")
+    ):
+        if isinstance(item, dict):
+            _add_align(item, source="floorplan")
+        else:
+            warnings.append("ignored non-dict align constraint")
+
+    for item in _floorplan_items(
+        floorplan.get("distribute")
+        or floorplan.get("distribute_constraints")
+    ):
+        if isinstance(item, dict):
+            _add_distribute(item, source="floorplan")
+        else:
+            warnings.append("ignored non-dict distribute constraint")
+
+    def _grid_spacing(item: dict, axis: str) -> float | None:
+        key_sets = {
+            "x": ("dx_mm", "pitch_x_mm", "x_pitch_mm", "col_pitch_mm", "column_pitch_mm"),
+            "y": ("dy_mm", "pitch_y_mm", "y_pitch_mm", "row_pitch_mm"),
+        }
+        spacing = _float_field(item, *key_sets[axis])
+        if spacing is not None:
+            return spacing
+        pair = _floorplan_numeric_pair(item.get("pitch_mm") or item.get("pitch"))
+        if pair is not None:
+            return pair[0] if axis == "x" else pair[1]
+        scalar = item.get("pitch_mm", item.get("pitch"))
+        try:
+            return float(scalar)
+        except (TypeError, ValueError):
+            return None
+
+    def _grid_origin(item: dict) -> tuple[float | None, float | None]:
+        pair = _floorplan_numeric_pair(item.get("origin") or item.get("origin_mm"))
+        if pair is not None:
+            return pair
+        return (
+            _float_field(item, "x_mm", "x0_mm", "origin_x_mm"),
+            _float_field(item, "y_mm", "y0_mm", "origin_y_mm"),
+        )
+
+    for grid in _floorplan_items(floorplan.get("grids") or floorplan.get("grid")):
+        if not isinstance(grid, dict):
+            warnings.append("ignored non-dict grid")
+            continue
+        refs = _floorplan_refs(grid.get("refs"))
+        if not refs:
+            warnings.append("ignored grid without refs")
+            continue
+        try:
+            cols = int(grid.get("cols", grid.get("columns", 0)) or 0)
+            rows = int(grid.get("rows", 0) or 0)
+        except (TypeError, ValueError) as exc:
+            warnings.append(f"ignored grid with invalid rows/cols: {exc}")
+            continue
+        if rows <= 0 and cols <= 0:
+            cols = len(refs)
+            rows = 1
+        elif cols <= 0:
+            cols = max(1, (len(refs) + rows - 1) // rows)
+        elif rows <= 0:
+            rows = max(1, (len(refs) + cols - 1) // cols)
+        grid_count += 1
+        x0, y0 = _grid_origin(grid)
+        dx = _grid_spacing(grid, "x")
+        dy = _grid_spacing(grid, "y")
+        rot = _float_field(grid, "rotation_deg", "rot_deg", default=0.0) or 0.0
+        side = grid.get("side", grid.get("assembly_side"))
+
+        for row in range(rows):
+            row_refs = refs[row * cols:(row + 1) * cols]
+            if len(row_refs) > 1:
+                y_value = y0 + row * dy if y0 is not None and dy is not None else None
+                align.append(AlignConstraint(refs=list(row_refs), axis="y", value_mm=y_value))
+                x_start = x0 if x0 is not None else None
+                x_end = (
+                    x0 + (len(row_refs) - 1) * dx
+                    if x0 is not None and dx is not None
+                    else None
+                )
+                distribute.append(
+                    DistributeConstraint(
+                        refs=list(row_refs),
+                        axis="x",
+                        start_mm=x_start,
+                        end_mm=x_end,
+                    )
+                )
+
+        for col in range(cols):
+            col_refs = refs[col::cols][:rows]
+            if len(col_refs) > 1:
+                x_value = x0 + col * dx if x0 is not None and dx is not None else None
+                align.append(AlignConstraint(refs=list(col_refs), axis="x", value_mm=x_value))
+                y_start = y0 if y0 is not None else None
+                y_end = (
+                    y0 + (len(col_refs) - 1) * dy
+                    if y0 is not None and dy is not None
+                    else None
+                )
+                distribute.append(
+                    DistributeConstraint(
+                        refs=list(col_refs),
+                        axis="y",
+                        start_mm=y_start,
+                        end_mm=y_end,
+                    )
+                )
+
+        if x0 is None or y0 is None or dx is None or dy is None:
+            warnings.append("grid kept as align/distribute intent only; missing origin or pitch")
+            continue
+        for idx, ref in enumerate(refs):
+            if ref in explicit_fixed_refs:
+                continue
+            row = idx // cols
+            col = idx % cols
+            fixed.append(
+                FixedPosition(
+                    ref=ref,
+                    x_mm=x0 + col * dx,
+                    y_mm=y0 + row * dy,
+                    rot_deg=rot,
+                )
+            )
+            grid_fixed_count += 1
+            _floorplan_apply_side(assembly_sides, warnings, ref, side)
+
+    side_entries = floorplan.get("assembly_sides", floorplan.get("sides", {}))
+    if isinstance(side_entries, dict):
+        for ref, side in side_entries.items():
+            ref_text = str(ref).strip()
+            if ref_text:
+                _floorplan_apply_side(assembly_sides, warnings, ref_text, side)
+    elif isinstance(side_entries, list):
+        for item in side_entries:
+            if not isinstance(item, dict) or not item.get("ref"):
+                warnings.append("ignored assembly side without ref")
+                continue
+            _floorplan_apply_side(
+                assembly_sides,
+                warnings,
+                str(item["ref"]),
+                item.get("side", item.get("assembly_side")),
+            )
+    elif side_entries:
+        warnings.append("ignored assembly_sides that was not dict or list")
+
+    def _outline_from_value(data) -> BoardOutline | None:
+        if isinstance(data, (list, tuple)) and len(data) >= 2:
+            try:
+                return BoardOutline(float(data[0]), float(data[1]))
+            except (TypeError, ValueError):
+                return None
+        if not isinstance(data, dict):
+            return None
         try:
             if all(key in data for key in ("x_min", "y_min", "x_max", "y_max")):
                 x_min = float(data["x_min"])
@@ -2105,6 +2548,18 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
                 y_min = float(data.get("y_min", data.get("y_mm", 0.0)) or 0.0)
                 x_max = x_min + float(data["width_mm"])
                 y_max = y_min + float(data["height_mm"])
+            elif isinstance(data.get("vertices"), list):
+                vertices = [
+                    (float(point[0]), float(point[1]))
+                    for point in data["vertices"]
+                    if isinstance(point, (list, tuple)) and len(point) >= 2
+                ]
+                if len(vertices) < 3:
+                    return None
+                return BoardOutline(
+                    vertices=vertices,
+                    corner_radius_mm=float(data.get("corner_radius_mm", 0.0) or 0.0),
+                )
             else:
                 return None
             if x_max <= x_min or y_max <= y_min:
@@ -2123,8 +2578,10 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
 
     explicit_outline = None
     outline_data = floorplan.get("outline") or floorplan.get("board_outline")
-    if isinstance(outline_data, dict):
-        explicit_outline = _outline_from_dict(outline_data)
+    if outline_data is None and all(key in floorplan for key in ("width_mm", "height_mm")):
+        outline_data = floorplan
+    if outline_data is not None:
+        explicit_outline = _outline_from_value(outline_data)
         if explicit_outline is None:
             warnings.append("ignored invalid floorplan outline")
 
@@ -2170,6 +2627,24 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         "edge_anchors": len(edge_anchors),
         "keepouts": len(keepouts),
     }
+    if zones:
+        metadata["zones"] = len(zones)
+    if align:
+        metadata["align_constraints"] = len(align)
+    if distribute:
+        metadata["distribute_constraints"] = len(distribute)
+    if grid_count:
+        metadata["grids"] = grid_count
+        metadata["grid_fixed_positions"] = grid_fixed_count
+    if assembly_sides:
+        metadata["assembly_sides"] = dict(sorted(assembly_sides.items()))
+        metadata["assembly_side_counts"] = _floorplan_side_counts(assembly_sides)
+    if edge_anchor_attrs:
+        metadata["edge_anchor_refs"] = edge_anchor_attrs
+    cutouts = floorplan.get("cutouts") or floorplan.get("apertures") or floorplan.get("slots")
+    if cutouts:
+        metadata["cutouts"] = len(cutouts) if isinstance(cutouts, list) else 1
+        warnings.append("floorplan cutouts are metadata-only; Edge.Cuts support is pending")
     if explicit_outline is not None:
         metadata["outline"] = "explicit"
     elif inferred_outline is not None:
@@ -2178,11 +2653,39 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         metadata["warnings"] = warnings
     constraints = LayoutConstraints(
         fixed=fixed,
+        zones=zones,
         edge_anchors=edge_anchors,
         keepouts=keepouts,
+        align=align,
+        distribute=distribute,
         outline=inferred_outline,
     )
     return constraints, metadata
+
+
+def _apply_floorplan_part_attributes(circuit, floorplan_meta: dict | None) -> None:
+    """Expose parsed floorplan side/edge intent to layout intent inference."""
+    if not floorplan_meta:
+        return
+    parts = {
+        str(getattr(part, "ref", "") or ""): part
+        for part in getattr(circuit, "parts", []) or []
+    }
+    for ref, side in (floorplan_meta.get("assembly_sides") or {}).items():
+        part = parts.get(str(ref))
+        if part is not None:
+            setattr(part, "assembly_side", side)
+    for anchor in floorplan_meta.get("edge_anchor_refs") or []:
+        if not isinstance(anchor, dict):
+            continue
+        part = parts.get(str(anchor.get("ref") or ""))
+        if part is None:
+            continue
+        setattr(part, "edge_preference", anchor.get("edge"))
+        if anchor.get("offset_mm") is not None:
+            setattr(part, "edge_offset_mm", anchor.get("offset_mm"))
+        if anchor.get("rot_deg") is not None:
+            setattr(part, "edge_rot_deg", anchor.get("rot_deg"))
 
 
 def _exec_skidl(code: str):
@@ -3038,11 +3541,12 @@ def _run_skidl_code(envelope: dict) -> dict:
     floorplan_constraints, floorplan_meta = _floorplan_constraints(
         namespace.get("EDA_FLOORPLAN")
     )
+    _apply_floorplan_part_attributes(circuit, floorplan_meta)
     if floorplan_constraints is None:
         constraints = LayoutConstraints(outline=outline)
     else:
         constraints = floorplan_constraints
-        if outline is not None:
+        if outline is not None and floorplan_meta.get("outline") != "explicit":
             constraints.outline = outline
     auto_corner_radius_mm = (
         None
@@ -3133,7 +3637,10 @@ def _run_skidl_code(envelope: dict) -> dict:
         )
     elif not layout_errors:
         route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
-        route_exceptions = _route_pcb(str(pcb_path), timeout_s=route_timeout)
+        route_exceptions = enrich_routing_failure_exceptions(
+            _route_pcb(str(pcb_path), timeout_s=route_timeout),
+            layout=layout_result,
+        )
         all_exceptions.extend(route_exceptions)
 
         route_failed = any(
@@ -3144,7 +3651,10 @@ def _run_skidl_code(envelope: dict) -> dict:
             e.code == ExcCode.ROUTE_UNAVAILABLE for e in route_exceptions
         )
         if not route_failed and not route_skipped:
-            drc_exceptions = _run_drc(str(pcb_path))
+            drc_exceptions = enrich_routing_failure_exceptions(
+                _run_drc(str(pcb_path)),
+                layout=layout_result,
+            )
             all_exceptions.extend(drc_exceptions)
             drc_errors = [
                 e for e in drc_exceptions
@@ -3385,7 +3895,10 @@ def run(envelope: dict) -> dict:
     mfg = {}
     if not layout_errors:
         route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
-        route_exceptions = _route_pcb(str(pcb_path), timeout_s=route_timeout)
+        route_exceptions = enrich_routing_failure_exceptions(
+            _route_pcb(str(pcb_path), timeout_s=route_timeout),
+            layout=layout_result,
+        )
         all_exceptions.extend(route_exceptions)
 
         # DRC stage: run after routing (or on unrouted board if routing unavailable)
@@ -3396,7 +3909,10 @@ def run(envelope: dict) -> dict:
         route_skipped = any(e.code == ExcCode.ROUTE_UNAVAILABLE for e in route_exceptions)
 
         if not route_failed and not route_skipped:
-            drc_exceptions = _run_drc(str(pcb_path))
+            drc_exceptions = enrich_routing_failure_exceptions(
+                _run_drc(str(pcb_path)),
+                layout=layout_result,
+            )
             all_exceptions.extend(drc_exceptions)
             drc_errors = [e for e in drc_exceptions
                           if e.severity in (Severity.FATAL, Severity.ERROR)]

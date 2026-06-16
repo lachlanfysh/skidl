@@ -29,10 +29,10 @@ Railway endpoint: `https://mcp-server-production-5d58.up.railway.app/mcp`
 
 | Lane | Status | Agent | Primary Scope | Goal | Acceptance Checks |
 | --- | --- | --- | --- | --- | --- |
-| Routing diagnosis | in progress | Peirce `019ecfa8-f0cd-7411-85ba-2cc483c8b902` | routing feedback / exception mapper / layout quality | Classify failed traces as placement-blocked, footprint issue, congestion, router limitation, or outline-too-small. | Failed route output recommends placement fixes before outline growth when board is already oversized. |
-| Front/back policy | in progress | Ptolemy `019ecfa8-f10c-7ef2-81cb-bf318fd5befb` | side intent, validator, preview metadata | Eurorack and double-sided boards can intentionally place controls/jacks front and power/IC/passives back. | Side-aware overlap tests; back-side THT/SMD overlaps handled correctly; preview metadata marks back-side parts. |
-| Custom footprints | in progress | Noether `019ecfa8-f142-7c70-9fae-fe842b6dcaae` | MCP server upload/preflight path | Hosted MCP accepts project footprints/libs so MR-1 and 45lux do not fail footprint preflight. | Tests for submitted footprint payload or library path; hosted preflight reports custom footprints present. |
-| Floorplan API | in progress | Zeno `019ecfa8-f179-7fa0-a994-e735921e8490` | `submit_skidl_code` envelope and docs | Agents can pass fixed positions, edge anchors, grids, sides, keepouts, outline, and later cutouts explicitly. | 45lux-style floorplan survives code-mode submission; clear docs/examples for agent authors. |
+| Routing diagnosis | integrated locally | Peirce `019ecfa8-f0cd-7411-85ba-2cc483c8b902` | routing feedback / exception mapper / layout quality | Classify failed traces as placement-blocked, footprint issue, congestion, router limitation, or outline-too-small. | Integrated product/layout tests passed. Needs hosted visual Railway run after push. |
+| Front/back policy | integrated locally | Ptolemy `019ecfa8-f10c-7ef2-81cb-bf318fd5befb` | side intent, validator, preview metadata | Eurorack and double-sided boards can intentionally place controls/jacks front and power/IC/passives back. | Integrated product/layout tests passed. Needs hosted visual Railway run after push. |
+| Custom footprints | integrated locally | Noether `019ecfa8-f142-7c70-9fae-fe842b6dcaae` | MCP server upload/preflight path | Hosted MCP accepts project footprints/libs so MR-1 and 45lux do not fail footprint preflight. | Integrated product/layout tests passed. Needs hosted visual Railway run after push. |
+| Floorplan API | integrated locally | Zeno `019ecfa8-f179-7fa0-a994-e735921e8490` | `submit_skidl_code` envelope and docs | Agents can pass fixed positions, edge anchors, grids, sides, keepouts, outline, and later cutouts explicitly. | Integrated product/layout tests passed. Needs hosted visual Railway run after push. |
 
 ## Standard Test Boards
 
@@ -43,6 +43,14 @@ Railway endpoint: `https://mcp-server-production-5d58.up.railway.app/mcp`
 - MR-1 / 45lux floorplan smoke tests once custom footprints are available.
 
 Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufacturable status, preview path, and concise visual defects.
+
+## Hosted Bug Queue
+
+- Mycelium hosted submissions can spin without producing a preview or terminal result:
+  - Full board job `ba9ef6f36af5`, `timeout_s=900`, still reported `running`.
+  - Reduced core job `5170e4a63245`, `timeout_s=300`, still reported `running`.
+  - Important clue: the reduced job strips display/nav/BT/extras, so if it also hangs this is likely service-side placement/runtime or custom-part SKiDL-shape handling, not just board complexity.
+  - Next checks: inspect Railway worker logs by job id, confirm watchdog behavior, ensure claimed jobs always emit either a `run_id` result or a structured timeout/crash exception, and add a regression test for a worker/pipeline hang path.
 
 ## Compact Resume Checklist
 
@@ -68,3 +76,43 @@ Each test run should capture: `job_id`, `run_id`, terminal status, routed/manufa
 - Integration fix:
   - Repeated-channel slot passives now emit explicit near constraints.
   - Passive gravity respects near constraints even when pad geometry is unavailable.
+
+2026-06-16 hosted Wave 1 smoke:
+
+- Railway deployed commit:
+  - `366f009e` (`Track Wave 2 layout agents`)
+- Direct MCP tools call succeeded.
+- Placement-review smoke:
+  - job `a02a4c768fb1`
+  - run `08675b9e3471`
+  - board `wave1_mcp9808_smoke_retry`
+  - result `succeeded` / response status `succeeded_with_warnings`
+  - placement score `94.56`
+  - artifacts included PCB, schematic, and previews.
+- Useful residual issue from smoke:
+  - `EDGE_ANCHOR_OFF_EDGE` warned for `J1` bottom at `9.89mm` despite reported board margins of `3mm`.
+  - Likely quality-report false positive from measuring footprint origin instead of mating face / edge geometry.
+  - Sent to Peirce (`019ecfa8-f0cd-7411-85ba-2cc483c8b902`) for Wave 2 routing/layout quality diagnosis.
+
+2026-06-16 integrated Wave 2 verification:
+
+- Wave 2 implementation agents all reported complete:
+  - Peirce: routing failure diagnosis and edge-anchor false-positive suppression.
+  - Ptolemy: explicit front/back side policy and validator coverage.
+  - Noether: hosted custom footprint payload validation and handoff.
+  - Zeno: richer `EDA_FLOORPLAN` contract using the existing code-mode mechanism.
+- Product/MCP focused command:
+  - `.venv/bin/python -m pytest tests/product/test_mcp_server.py tests/product/test_railway.py tests/unit_tests/test_product_layer.py -q`
+- Result:
+  - `211 passed, 55 skipped, 1 warning`
+- Full layout sweep command:
+  - `.venv/bin/python -m pytest tests/unit_tests/test_layout_*.py -q`
+- Result:
+  - `324 passed, 4 skipped`
+- Syntax/checks:
+  - `git diff --check` clean
+  - `.venv/bin/python -m py_compile mcp_server/engine_worker.py mcp_server/exception_mapper.py mcp_server/layout_quality.py mcp_server/server_http.py tests/product/test_mcp_server.py`
+- Remaining verification needed:
+  - Commit/push Wave 2.
+  - Confirm Railway deploys the Wave 2 commit.
+  - Run hosted review boards for custom footprints, explicit floorplan preservation, side policy, and routing diagnosis.

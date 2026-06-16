@@ -343,11 +343,12 @@ def test_eurorack_power_treats_audio_jacks_as_panel_subjects_with_single_sided_d
     assert any("single_sided policy avoids" in warning for warning in plan.warnings)
 
 
-def test_eurorack_double_sided_policy_allows_rear_electronics():
+def test_eurorack_double_sided_policy_keeps_panel_front_and_electronics_back():
     plus12 = _Net("+12V")
     minus12 = _Net("-12V")
     gnd = _Net("GND")
     sig = _Net("VCO_OUT")
+    cv = _Net("CV_IN")
     power = _Part(
         "J10",
         name="Eurorack shrouded IDC power header",
@@ -362,7 +363,36 @@ def test_eurorack_double_sided_policy_allows_rear_electronics():
         nets=[sig, gnd],
         pins=3,
     )
-    circuit = _Circuit([power, jack], [plus12, minus12, gnd, sig])
+    pot = _Part(
+        "RV1",
+        name="front panel potentiometer control",
+        footprint="Potentiometer_THT:Potentiometer_Alpha",
+        nets=[plus12, cv, gnd],
+        pins=3,
+    )
+    ic = _Part(
+        "U1",
+        name="VCO core IC",
+        footprint="Package_SO:SOIC-8",
+        nets=[plus12, minus12, gnd, sig],
+        pins=8,
+    )
+    decap = _Part(
+        "C1",
+        value="100nF",
+        footprint="Capacitor_SMD:C_0603",
+        nets=[plus12, gnd],
+    )
+    resistor = _Part(
+        "R1",
+        value="100K",
+        footprint="Resistor_SMD:R_0603",
+        nets=[cv, sig],
+    )
+    circuit = _Circuit(
+        [power, jack, pot, ic, decap, resistor],
+        [plus12, minus12, gnd, sig, cv],
+    )
 
     plan = infer_placement_intents(
         circuit,
@@ -372,14 +402,22 @@ def test_eurorack_double_sided_policy_allows_rear_electronics():
 
     assert plan.assembly_policy == "double_sided"
     assert plan.assembly_sides["J1"] == "front"
+    assert plan.assembly_sides["RV1"] == "front"
     assert plan.assembly_sides["J10"] == "back"
+    assert plan.assembly_sides["U1"] == "back"
+    assert plan.assembly_sides["C1"] == "back"
+    assert plan.assembly_sides["R1"] == "back"
     assert "front_assembly" in _kinds(plan, "J1")
+    assert "front_assembly" in _kinds(plan, "RV1")
     assert "back_assembly" in _kinds(plan, "J10")
-    assert "assembly sides: back: 1, front: 1" in plan.summary()
+    assert "back_assembly" in _kinds(plan, "U1")
+    assert "back_assembly" in _kinds(plan, "C1")
+    assert "back_assembly" in _kinds(plan, "R1")
+    assert "assembly sides: back: 4, front: 2" in plan.summary()
     assert not any("single_sided policy avoids" in warning for warning in plan.warnings)
 
 
-def test_explicit_part_assembly_side_requires_double_sided_policy_for_back():
+def test_single_sided_policy_allows_only_explicit_back_side_override():
     vcc = _Net("VCC")
     gnd = _Net("GND")
     u1 = _Part(
@@ -399,9 +437,11 @@ def test_explicit_part_assembly_side_requires_double_sided_policy_for_back():
         assembly_policy="double_sided",
     )
 
-    assert single.assembly_sides["U1"] == "front"
-    assert "front_assembly" in _kinds(single, "U1")
-    assert any("assembly_policy is single_sided" in warning for warning in single.warnings)
+    assert single.assembly_policy == "single_sided"
+    assert single.assembly_sides["U1"] == "back"
+    assert "back_assembly" in _kinds(single, "U1")
+    assert "front_assembly" not in _kinds(single, "U1")
+    assert any("overrides single_sided policy" in warning for warning in single.warnings)
     assert double.assembly_sides["U1"] == "back"
     assert "back_assembly" in _kinds(double, "U1")
 

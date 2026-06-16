@@ -8,6 +8,15 @@ from typing import Iterable
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
 
+ROUTING_FAILURE_CODES = {
+    ExcCode.ROUTE_UNCONNECTED.value,
+    ExcCode.ROUTE_TIMEOUT.value,
+    ExcCode.DRC_UNCONNECTED.value,
+    ExcCode.DRC_CLEARANCE.value,
+    ExcCode.DRC_SHORT.value,
+    ExcCode.DRC_COURTYARD.value,
+}
+
 
 def suppress_waived(
     exceptions: Iterable[DesignException],
@@ -73,6 +82,506 @@ def _outline_is_spacious(outline) -> bool:
 
     w_mm, h_mm, area = _outline_size(outline)
     return area >= 3000.0 or max(w_mm, h_mm) >= 80.0
+
+
+def _code_value(exc: DesignException | dict) -> str:
+    code = exc.get("code") if isinstance(exc, dict) else getattr(exc, "code", "")
+    return getattr(code, "value", code) or ""
+
+
+def _subject_dict(exc: DesignException | dict) -> dict:
+    subject = exc.get("subject", {}) if isinstance(exc, dict) else getattr(exc, "subject", {})
+    return subject if isinstance(subject, dict) else {}
+
+
+def _as_dict(value) -> dict:
+    if isinstance(value, dict):
+        return value
+    if value is None:
+        return {}
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    if hasattr(value, "to_dict"):
+        try:
+            converted = value.to_dict()
+        except TypeError:
+            converted = {}
+        if isinstance(converted, dict):
+            return converted
+    return {}
+
+
+def _obj_float(value, attr: str, default: float = 0.0) -> float:
+    if isinstance(value, dict):
+        raw = value.get(attr, default)
+    else:
+        raw = getattr(value, attr, default)
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _layout_snapshot(layout) -> dict:
+    data = _as_dict(layout)
+    if data:
+        return data
+
+    outline = getattr(layout, "outline", None)
+    validation = getattr(layout, "validation", None)
+    score = getattr(layout, "score", None)
+    placed_parts = getattr(layout, "placed_parts", []) or []
+    return {
+        "outline": {
+            "width_mm": _obj_float(outline, "width_mm"),
+            "height_mm": _obj_float(outline, "height_mm"),
+            "x_min_mm": _obj_float(outline, "x_min_mm"),
+            "y_min_mm": _obj_float(outline, "y_min_mm"),
+            "x_max_mm": _obj_float(outline, "x_max_mm"),
+            "y_max_mm": _obj_float(outline, "y_max_mm"),
+        },
+        "placed_parts": [
+            _as_dict(part) or {
+                "ref": getattr(part, "ref", ""),
+                "x_mm": _obj_float(part, "x_mm"),
+                "y_mm": _obj_float(part, "y_mm"),
+            }
+            for part in placed_parts
+        ],
+        "validation": {
+            "overlaps": getattr(validation, "overlaps", []) or [],
+            "outline_violations": getattr(validation, "outline_violations", []) or [],
+            "keepout_violations": getattr(validation, "keepout_violations", []) or [],
+            "missing_refs": getattr(validation, "missing_refs", []) or [],
+        },
+        "score": {
+            "congestion_score": _obj_float(score, "congestion_score"),
+            "warnings": getattr(score, "warnings", []) or [],
+        },
+    }
+
+
+def _layout_list(layout: dict, section: str, key: str) -> list:
+    value = layout.get(section)
+    if isinstance(value, dict):
+        items = value.get(key)
+        return items if isinstance(items, list) else []
+    return []
+
+
+def _outline_from_layout(layout: dict) -> dict:
+    outline = layout.get("outline")
+    return outline if isinstance(outline, dict) else {}
+
+
+def _placed_parts(layout: dict) -> list[dict]:
+    parts = layout.get("placed_parts")
+    return [part for part in parts if isinstance(part, dict)] if isinstance(parts, list) else []
+
+
+def _score_warnings(layout: dict) -> list[str]:
+    score = layout.get("score")
+    if not isinstance(score, dict):
+        return []
+    warnings = score.get("warnings")
+    return [str(warning) for warning in warnings] if isinstance(warnings, list) else []
+
+
+def _edge_geometry_warning_present(layout: dict, ref: str, edge: str) -> bool:
+    needle = f"{ref}: violates {edge}-edge mating intent"
+    row_needle = f"{ref}: connector row is not parallel to the {edge} edge"
+    return any(
+        needle in warning or row_needle in warning
+        for warning in _score_warnings(layout)
+    )
+
+
+def _placement_density(layout: dict, metrics: dict | None) -> dict:
+    metrics = metrics or {}
+    outline = _outline_from_layout(layout)
+    width = _obj_float(outline, "width_mm")
+    height = _obj_float(outline, "height_mm")
+    area = width * height if width and height else _obj_float(metrics, "board_area_mm2")
+    parts = _placed_parts(layout)
+    xs = [_obj_float(part, "x_mm") for part in parts if part.get("x_mm") is not None]
+    ys = [_obj_float(part, "y_mm") for part in parts if part.get("y_mm") is not None]
+    spread_ratio = 0.0
+    max_margin_ratio = 1.0
+    if xs and ys and width > 0 and height > 0:
+        spread_w = max(xs) - min(xs)
+        spread_h = max(ys) - min(ys)
+        spread_ratio = max(0.0, spread_w * spread_h / (width * height))
+        x_min = _obj_float(outline, "x_min_mm")
+        y_min = _obj_float(outline, "y_min_mm")
+        x_max = _obj_float(outline, "x_max_mm", x_min + width) or x_min + width
+        y_max = _obj_float(outline, "y_max_mm", y_min + height) or y_min + height
+        margins = (
+            max(0.0, min(xs) - x_min) / width,
+            max(0.0, x_max - max(xs)) / width,
+            max(0.0, min(ys) - y_min) / height,
+            max(0.0, y_max - max(ys)) / height,
+        )
+        max_margin_ratio = max(margins)
+    return {
+        "part_count": len(parts),
+        "width_mm": width,
+        "height_mm": height,
+        "area_mm2": area,
+        "spread_area_ratio": spread_ratio,
+        "max_margin_ratio": max_margin_ratio,
+        "spacious": area >= 3000.0 or max(width, height) >= 80.0,
+        "clustered_on_spacious_outline": bool(
+            len(parts) >= 4 and area >= 1000.0 and 0.0 < spread_ratio < 0.25
+        ),
+        "tight_outline": bool(
+            len(parts) >= 4
+            and area > 0
+            and area < 3000.0
+            and (spread_ratio >= 0.65 or max_margin_ratio <= 0.10)
+        ),
+    }
+
+
+def _edge_anchor_drift(layout: dict) -> list[dict]:
+    intent_plan = layout.get("intent_plan")
+    if not isinstance(intent_plan, dict):
+        return []
+    outline = _outline_from_layout(layout)
+    width = _obj_float(outline, "width_mm")
+    height = _obj_float(outline, "height_mm")
+    x_min = _obj_float(outline, "x_min_mm")
+    y_min = _obj_float(outline, "y_min_mm")
+    x_max = _obj_float(outline, "x_max_mm", x_min + width) or x_min + width
+    y_max = _obj_float(outline, "y_max_mm", y_min + height) or y_min + height
+    by_ref = {str(part.get("ref")): part for part in _placed_parts(layout) if part.get("ref")}
+    drifted: list[dict] = []
+    for anchor in intent_plan.get("edge_anchors") or []:
+        if not isinstance(anchor, dict):
+            continue
+        ref = str(anchor.get("ref") or "")
+        edge = str(anchor.get("edge") or "").lower()
+        part = by_ref.get(ref)
+        if not ref or not part or edge not in {"left", "right", "top", "bottom"}:
+            continue
+        x = _obj_float(part, "x_mm")
+        y = _obj_float(part, "y_mm")
+        distance = {
+            "left": abs(x - x_min),
+            "right": abs(x_max - x) if width else 0.0,
+            "top": abs(y - y_min),
+            "bottom": abs(y_max - y) if height else 0.0,
+        }[edge]
+        limit = max(3.0, 8.0, min(width or 0.0, height or 0.0) * 0.25)
+        if distance > limit:
+            if _edge_origin_distance_is_ambiguous(
+                layout=layout,
+                anchor=anchor,
+                part=part,
+                ref=ref,
+                edge=edge,
+            ):
+                continue
+            drifted.append({"ref": ref, "edge": edge, "distance_mm": round(distance, 2)})
+    return drifted
+
+
+def _edge_origin_distance_is_ambiguous(
+    *,
+    layout: dict,
+    anchor: dict,
+    part: dict,
+    ref: str,
+    edge: str,
+) -> bool:
+    if not isinstance(layout.get("score"), dict):
+        return False
+    if _edge_geometry_warning_present(layout, ref, edge):
+        return False
+
+    text = " ".join(
+        str(value or "")
+        for value in (
+            part.get("footprint"),
+            part.get("ref"),
+            anchor.get("edge"),
+        )
+    ).lower()
+    intent_plan = layout.get("intent_plan")
+    intent_kinds: set[str] = set()
+    if isinstance(intent_plan, dict):
+        intents = intent_plan.get("intents", {}).get(ref) if isinstance(intent_plan.get("intents"), dict) else []
+        intent_kinds = {
+            str(intent.get("kind") or "")
+            for intent in (intents or [])
+            if isinstance(intent, dict)
+        }
+    connector_text = any(
+        token in text
+        for token in (
+            "horizontal",
+            "right_angle",
+            "right-angle",
+            "angled",
+            "pinheader",
+            "pin_header",
+            "usb",
+            "jst",
+            "qwiic",
+            "stemma",
+            "terminalblock",
+            "terminal_block",
+        )
+    )
+    has_geometry_intent = (
+        anchor.get("rot_deg") is not None
+        or anchor.get("inset_mm") is not None
+        or bool(intent_kinds & {"edge_connector", "mechanical_mating"})
+    )
+    return bool(connector_text or has_geometry_intent)
+
+
+def _routing_refs_hotspot(exceptions: list[DesignException | dict]) -> dict | None:
+    for exc in exceptions:
+        code = _code_value(exc)
+        if code not in {ExcCode.DRC_CLEARANCE.value, ExcCode.DRC_SHORT.value}:
+            continue
+        subject = _subject_dict(exc)
+        refs = subject.get("refs")
+        try:
+            count = int(subject.get("count", 0) or 0)
+        except (TypeError, ValueError):
+            count = 0
+        if isinstance(refs, list) and len(refs) == 1 and count >= 2:
+            return {"ref": refs[0], "count": count, "code": code}
+    return None
+
+
+def classify_routing_failure(
+    exceptions: Iterable[DesignException | dict],
+    *,
+    layout=None,
+    metrics: dict | None = None,
+) -> dict:
+    """Classify routing/DRC failures using placement, footprint, and density evidence."""
+
+    excs = list(exceptions or [])
+    codes = {_code_value(exc) for exc in excs}
+    if not (codes & ROUTING_FAILURE_CODES):
+        return {}
+
+    layout_data = _layout_snapshot(layout)
+    validation_evidence = {
+        "overlaps": _layout_list(layout_data, "validation", "overlaps"),
+        "outline_violations": _layout_list(layout_data, "validation", "outline_violations"),
+        "keepout_violations": _layout_list(layout_data, "validation", "keepout_violations"),
+        "missing_refs": _layout_list(layout_data, "validation", "missing_refs"),
+    }
+    edge_drift = _edge_anchor_drift(layout_data)
+    hard_placement = {
+        key: value for key, value in validation_evidence.items() if value
+    }
+    if hard_placement or edge_drift:
+        evidence = {**hard_placement}
+        if edge_drift:
+            evidence["off_edge_anchors"] = edge_drift
+        return {
+            "classification": "placement_blocked",
+            "reason": "placement or floorplan geometry blocks reliable routing",
+            "evidence": evidence,
+            "recommendation": (
+                "Fix placement, connector edge anchors, keepouts, or explicit "
+                "floorplan coordinates before changing outline size."
+            ),
+        }
+
+    if ExcCode.FOOTPRINT_MISSING.value in codes:
+        return {
+            "classification": "footprint_issue",
+            "reason": "one or more footprints are missing before routing can be trusted",
+            "evidence": {
+                "footprint_exceptions": [
+                    _subject_dict(exc)
+                    for exc in excs
+                    if _code_value(exc) == ExcCode.FOOTPRINT_MISSING.value
+                ]
+            },
+            "recommendation": (
+                "Resolve footprint library/package selection first; route "
+                "diagnostics after missing footprints are placeholders are unreliable."
+            ),
+        }
+
+    hotspot = _routing_refs_hotspot(excs)
+    if hotspot:
+        return {
+            "classification": "footprint_issue",
+            "reason": "DRC failures cluster on one component footprint or package",
+            "evidence": {"hotspot": hotspot},
+            "recommendation": (
+                "Inspect the listed component's symbol-to-footprint mapping, "
+                "package variant, pad clearances, and pin usage before growing the board."
+            ),
+        }
+
+    density = _placement_density(layout_data, metrics)
+    congestion = _obj_float(metrics or {}, "congestion_score")
+    score = layout_data.get("score") if isinstance(layout_data.get("score"), dict) else {}
+    congestion = max(congestion, _obj_float(score, "congestion_score"))
+
+    if density["spacious"] or density["clustered_on_spacious_outline"]:
+        return {
+            "classification": "congestion_router_limitation",
+            "reason": "the board outline is already spacious relative to placement",
+            "evidence": {"density": density, "congestion_score": congestion},
+            "recommendation": (
+                "Treat the failure as routing congestion, layer-budget, or local "
+                "placement feedback; defer outline growth unless a human confirms "
+                "the mechanical outline should change."
+            ),
+        }
+
+    if congestion >= 40.0:
+        return {
+            "classification": "congestion_router_limitation",
+            "reason": "routing congestion is high without hard placement violations",
+            "evidence": {"density": density, "congestion_score": congestion},
+            "recommendation": (
+                "Try local placement movement, route-aware regrouping, or more "
+                "layers before increasing the whole board outline."
+            ),
+        }
+
+    if density["tight_outline"]:
+        return {
+            "classification": "outline_too_small",
+            "reason": "placed parts consume most of the available outline",
+            "evidence": {"density": density},
+            "recommendation": (
+                "Outline growth is plausible here because there are no hard "
+                "placement or footprint blockers and the placement already fills the board."
+            ),
+        }
+
+    return {
+        "classification": "congestion_router_limitation",
+        "reason": "no hard placement, footprint, or small-outline evidence was found",
+        "evidence": {"density": density, "congestion_score": congestion},
+        "recommendation": (
+            "Retry routing or adjust local placement/layer budget before using "
+            "outline growth as a last resort."
+        ),
+    }
+
+
+def _routing_candidate_priority(action: ActionType, classification: str, params: dict) -> int:
+    if classification == "outline_too_small":
+        if action == ActionType.REGENERATE and isinstance(params, dict) and params.get("run_options"):
+            return 0
+        if action == ActionType.SCALE_OUTLINE:
+            return 1
+        if action == ActionType.SET_LAYERS:
+            return 2
+        if action == ActionType.REGENERATE:
+            return 3
+        return 4
+    if action == ActionType.REGENERATE:
+        return 0
+    if action == ActionType.SET_LAYERS:
+        return 1
+    if action == ActionType.ACCEPT_ADVISORY:
+        return 2
+    if action == ActionType.SCALE_OUTLINE:
+        return 9
+    return 3
+
+
+def _retune_routing_candidates(exc: DesignException, diagnosis: dict) -> None:
+    classification = str(diagnosis.get("classification") or "")
+    for candidate in exc.candidates:
+        if candidate.action == ActionType.SCALE_OUTLINE:
+            if classification == "outline_too_small":
+                candidate.confidence = max(candidate.confidence, 0.65)
+                candidate.human_summary = (
+                    "Grow the outline because routing evidence suggests the "
+                    "current board is genuinely too tight"
+                )
+            else:
+                candidate.confidence = min(candidate.confidence, 0.2)
+                candidate.human_summary = (
+                    "Defer outline growth; use only after fixing the diagnosed "
+                    f"{classification.replace('_', ' ')} cause"
+                )
+        elif candidate.action == ActionType.SET_LAYERS and classification == "congestion_router_limitation":
+            candidate.confidence = max(candidate.confidence, 0.6)
+            candidate.human_summary = (
+                "Try layer budget or router settings before increasing board size"
+            )
+        elif candidate.action == ActionType.REGENERATE and not (
+            isinstance(candidate.params, dict) and candidate.params.get("run_options")
+        ):
+            if classification == "placement_blocked":
+                candidate.confidence = max(candidate.confidence, 0.7)
+                candidate.human_summary = (
+                    "Fix placement/floorplan blockers, then rerun routing"
+                )
+            elif classification == "footprint_issue":
+                candidate.confidence = max(candidate.confidence, 0.7)
+                candidate.human_summary = (
+                    "Fix the footprint/package issue around the listed refs, then rerun"
+                )
+            elif classification == "congestion_router_limitation":
+                candidate.human_summary = (
+                    "Retry routing after local congestion-aware placement changes"
+                )
+    exc.candidates = sorted(
+        exc.candidates,
+        key=lambda cand: _routing_candidate_priority(
+            cand.action,
+            classification,
+            cand.params,
+        ),
+    )
+    for idx, candidate in enumerate(exc.candidates, start=1):
+        candidate.id = f"c{idx}"
+
+
+def enrich_routing_failure_exceptions(
+    exceptions: Iterable[DesignException],
+    *,
+    layout=None,
+    metrics: dict | None = None,
+) -> list[DesignException]:
+    """Attach routing diagnosis and route growth candidates behind better fixes."""
+
+    excs = list(exceptions or [])
+    diagnosis = classify_routing_failure(excs, layout=layout, metrics=metrics)
+    if not diagnosis:
+        return excs
+
+    enriched: list[DesignException] = []
+    label = str(diagnosis["classification"]).replace("_", "-")
+    for exc in excs:
+        if exc.code.value not in ROUTING_FAILURE_CODES:
+            enriched.append(exc)
+            continue
+        updated = exc.model_copy(deep=True)
+        subject = dict(updated.subject or {})
+        subject["routing_diagnosis"] = diagnosis["classification"]
+        subject["routing_diagnosis_reason"] = diagnosis["reason"]
+        subject["routing_diagnosis_evidence"] = diagnosis["evidence"]
+        updated.subject = subject
+        prefix = (
+            f"Routing diagnosis: {label}. {diagnosis['reason']}. "
+            f"{diagnosis['recommendation']}"
+        )
+        updated.retry_hint = (
+            prefix
+            if not updated.retry_hint
+            else f"{prefix} Existing guidance: {updated.retry_hint}"
+        )
+        _retune_routing_candidates(updated, diagnosis)
+        enriched.append(updated)
+    return enriched
 
 
 def _placement_candidates(
