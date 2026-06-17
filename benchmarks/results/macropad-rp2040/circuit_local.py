@@ -104,7 +104,7 @@ def rp2040_core(v3v3, gnd):
 
     # VREG: VREG_IN from 3V3, VREG_VOUT feeds DVDD (internal 1.1V core)
     dvdd = Net("DVDD"); dvdd.drive = POWER
-    mcu["VREG_IN"]   += v3v3
+    mcu["VREG_VIN"]   += v3v3
     mcu["VREG_VOUT"] += dvdd
     mcu["DVDD"]      += dvdd   # connects both DVDD pins
 
@@ -144,7 +144,7 @@ def rp2040_core(v3v3, gnd):
     swd[1] += gnd
     swd[2] += v3v3
     swd[3] += mcu["SWCLK"]
-    swd[4] += mcu["SWD"]
+    swd[4] += mcu["SWDIO"]
 
     # --- 12MHz crystal ---
     xtal = Part("Device", "Crystal", value="12MHz",
@@ -161,7 +161,7 @@ def rp2040_core(v3v3, gnd):
     # --- QSPI flash: W25Q32JVSS ---
     flash = Part("Memory_Flash", "W25Q32JVSS",
                  footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
-    flash["~{CS}"]              += mcu["QSPI_SS"]
+    flash["~{CS}"]              += mcu["~{QSPI_SS}"]
     flash["CLK"]                += mcu["QSPI_SCLK"]
     flash["DI/IO_{0}"]          += mcu["QSPI_SD0"]
     flash["DO/IO_{1}"]          += mcu["QSPI_SD1"]
@@ -217,10 +217,10 @@ def rp2040_core(v3v3, gnd):
         ("GPIO23",       "NC_GPIO23"),
         ("GPIO24",       "NC_GPIO24"),
         ("GPIO25",       "NC_GPIO25"),
-        ("GPIO26_ADC0",  "NC_GPIO26"),
-        ("GPIO27_ADC1",  "NC_GPIO27"),
-        ("GPIO28_ADC2",  "NC_GPIO28"),
-        ("GPIO29_ADC3",  "NC_GPIO29"),
+        ("GPIO26/ADC0",  "NC_GPIO26"),
+        ("GPIO27/ADC1",  "NC_GPIO27"),
+        ("GPIO28/ADC2",  "NC_GPIO28"),
+        ("GPIO29/ADC3",  "NC_GPIO29"),
     ]
     for pin_name, net_name in unused_gpios:
         n = Net(net_name); n.drive = POWER
