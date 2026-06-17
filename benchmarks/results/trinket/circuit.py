@@ -1,133 +1,123 @@
 """
-Trinket 3.3/5V Mini Microcontroller — SKiDL Circuit
-=====================================================
-Ultra-compact ATtiny85-based development board with bitbang USB support,
-MCP1700 3.3V LDO regulator, power/user LEDs, reset button, and GPIO breakout.
-Based on the Adafruit Trinket design.
+Trinket ATtiny85 dev board — SKiDL circuit description.
+
+Based on the Adafruit Trinket hardware:
+- ATtiny85-20S (SOIC-8) MCU with V-USB software USB
+- USB-A male plug (horizontal, plugs directly into host USB port)
+- MIC5225-3.3YM5 SOT-23-5 3.3V LDO regulator
+- Green power LED (always on)
+- Red user LED on PB1 (Arduino digital pin 1)
+- Tactile reset button
+- 5 GPIO pins broken out on 0.1" header
+- Board ~31x15mm
+
+V-USB wiring (low-speed, per Adafruit Trinket reference design):
+  D- → PB3/XTAL1 (pin 2) via 68R
+  D+ → PB4/XTAL2 (pin 3) via 68R + 1.5kΩ pull-up to 3.3V
+
+LCSC converted parts:
+  MIC5225-3.3YM5-TR: C512101
 """
 
-import os
-os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
-
 from skidl import *
+
 set_default_tool(KICAD9)
 
-# ===========================================================================
-# Power nets
-# ===========================================================================
-vusb_raw = Net("VBUS_RAW"); vusb_raw.drive = POWER   # USB connector 5V (pre-diode)
-vusb = Net("VBUS"); vusb.drive = POWER                # Protected USB 5V (post-diode)
-vcc = Net("VCC"); vcc.drive = POWER                    # Regulated 3.3V output
-gnd = Net("GND"); gnd.drive = POWER                    # Ground
+# ---------------------------------------------------------------------------
+# Power rails
+# ---------------------------------------------------------------------------
+vbus = Net("VBUS"); vbus.drive = POWER    # 5V from USB host
+vcc = Net("3V3"); vcc.drive = POWER       # 3.3V regulated
+gnd = Net("GND"); gnd.drive = POWER
 
-# ===========================================================================
+# ---------------------------------------------------------------------------
 # Signal nets
-# ===========================================================================
-usb_conn_dp = Net("USB_CONN_DP")              # USB connector D+ (pre-resistor)
-usb_conn_dm = Net("USB_CONN_DM")              # USB connector D- (pre-resistor)
-usb_dp = Net("USB_DP")                        # USB D+ to MCU (post-resistor)
-usb_dm = Net("USB_DM")                        # USB D- to MCU (post-resistor)
-reset_n = Net("~{RESET}")                     # Active-low reset
-pb0 = Net("PB0")                              # GPIO0 / AREF
-pb1 = Net("PB1")                              # GPIO1 / user LED
-pb2 = Net("PB2")                              # GPIO2 / analog1
+# ---------------------------------------------------------------------------
+usb_dp_raw = Net("USB_DP_RAW")   # D+ at connector
+usb_dm_raw = Net("USB_DM_RAW")   # D- at connector
+usb_dp = Net("USB_DP")           # D+ at MCU (post 68R)
+usb_dm = Net("USB_DM")           # D- at MCU (post 68R)
+reset_n = Net("~{RESET}")
+pb0 = Net("PB0")
+pb1 = Net("PB1")                  # Red LED / Arduino pin 1
+pb2 = Net("PB2")
 
-# ===========================================================================
-# Subcircuit: USB interface
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# USB-A male plug (horizontal, board plugs into host port)
+# ---------------------------------------------------------------------------
 @subcircuit
-def usb_interface(vusb_raw, vusb, gnd, conn_dp, conn_dm, mcu_dp, mcu_dm):
-    """Micro-USB connector with Schottky protection, series resistors, and pull-up."""
+def usb_connector(vbus, gnd, dp_raw, dm_raw):
+    usb = Part("Connector", "USB_A",
+               footprint="Connector_USB:USB_A_Molex_67643_Horizontal")
+    usb.edge_preference = "left"
+    vbus += usb["VBUS"]
+    gnd  += usb["GND"]
+    dp_raw += usb["D+"]
+    dm_raw += usb["D-"]
 
-    # USB Micro-B connector
-    usb = Part("Connector", "USB_B_Micro",
-               footprint="Connector_USB:USB_Micro-B_Molex_47346-0001",
-               value="USB_Micro-B")
-    usb["VBUS"] += vusb_raw
-    usb["GND"] += gnd
-    usb["D+"] += conn_dp
-    usb["D-"] += conn_dm
-    usb["ID"] += NC             # Not used for device mode
-    usb["Shield"] += gnd        # Shield tied to ground
+usb_connector(vbus, gnd, usb_dp_raw, usb_dm_raw)
 
-    # Schottky diode for reverse-voltage protection on USB VBUS
-    # Anode = raw USB 5V, Cathode = protected rail
-    d1 = Part("Device", "D_Schottky",
-              footprint="Diode_SMD:D_SOD-323",
-              value="MBR0520")
-    d1["A"] += vusb_raw
-    d1["K"] += vusb
+# ---------------------------------------------------------------------------
+# 3.3V LDO: MIC5205-3.3YM5 (SOT-23-5, KiCad symbol — functional equiv of MIC5225)
+# Pins: IN=1, GND=2, EN=3, BP=4, OUT=5
+# EN tied high = always on. BP = bypass cap pin (float/NC on MIC5225 equivalent)
+# ---------------------------------------------------------------------------
+@subcircuit
+def power_block(vin, vout, gnd):
+    reg = Part("Regulator_Linear", "MIC5205-3.3YM5",
+               footprint="Package_TO_SOT_SMD:SOT-23-5")
+    vin  += reg["IN"]
+    gnd  += reg["GND"]
+    vout += reg["OUT"]
+    vout += reg["EN"]   # EN tied high = always on
+    reg["BP"] += NC     # Bypass cap pin (optional noise filter, left open)
 
-    # 68-ohm series resistors on USB data lines (V-USB spec)
+    # Input bulk + decoupling
+    c_in = Part("Device", "C_Polarized", value="10uF",
+                footprint="Capacitor_SMD:C_0805_2012Metric")
+    vin += c_in[1]; gnd += c_in[2]
+
+    c_in_dec = Part("Device", "C", value="100nF",
+                    footprint="Capacitor_SMD:C_0603_1608Metric")
+    vin += c_in_dec[1]; gnd += c_in_dec[2]
+
+    # Output bulk + decoupling
+    c_out = Part("Device", "C_Polarized", value="10uF",
+                 footprint="Capacitor_SMD:C_0805_2012Metric")
+    vout += c_out[1]; gnd += c_out[2]
+
+    c_out_dec = Part("Device", "C", value="100nF",
+                     footprint="Capacitor_SMD:C_0603_1608Metric")
+    vout += c_out_dec[1]; gnd += c_out_dec[2]
+
+power_block(vbus, vcc, gnd)
+
+# ---------------------------------------------------------------------------
+# V-USB data lines: 68R series + 1.5k D+ pull-up
+# ---------------------------------------------------------------------------
+@subcircuit
+def vusb_data(dp_raw, dm_raw, dp_mcu, dm_mcu, vcc):
     r_dp = Part("Device", "R", value="68R",
                 footprint="Resistor_SMD:R_0603_1608Metric")
-    r_dp[1] += conn_dp
-    r_dp[2] += mcu_dp
+    dp_raw += r_dp[1]; dp_mcu += r_dp[2]
 
     r_dm = Part("Device", "R", value="68R",
                 footprint="Resistor_SMD:R_0603_1608Metric")
-    r_dm[1] += conn_dm
-    r_dm[2] += mcu_dm
+    dm_raw += r_dm[1]; dm_mcu += r_dm[2]
 
-    # 1.5k pull-up on D- for low-speed USB device identification
-    r_pullup = Part("Device", "R", value="1K5",
-                    footprint="Resistor_SMD:R_0603_1608Metric")
-    r_pullup[1] += vusb
-    r_pullup[2] += mcu_dm
+    # 1.5kΩ pull-up on D+ for low-speed USB device signalling
+    r_pu = Part("Device", "R", value="1K5",
+                footprint="Resistor_SMD:R_0603_1608Metric")
+    vcc += r_pu[1]; dp_mcu += r_pu[2]
 
-    # 100nF decoupling on VBUS
-    c_usb = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_usb[1] += vusb
-    c_usb[2] += gnd
+vusb_data(usb_dp_raw, usb_dm_raw, usb_dp, usb_dm, vcc)
 
-
-usb_interface(vusb_raw, vusb, gnd, usb_conn_dp, usb_conn_dm, usb_dp, usb_dm)
-
-# ===========================================================================
-# Subcircuit: Power regulation (3.3V LDO)
-# ===========================================================================
-@subcircuit
-def power_regulation(vin, vout, gnd):
-    """MCP1700-3302E/TT 3.3V LDO regulator with input/output caps."""
-
-    # MCP1700 3.3V LDO (SOT-23-3)
-    reg = Part("Regulator_Linear", "MCP1700x-300xxTT",
-               footprint="Package_TO_SOT_SMD:SOT-23",
-               value="MCP1700-3302")
-    reg["VI"] += vin
-    reg["VO"] += vout
-    reg["GND"] += gnd
-
-    # Input capacitor — 1uF ceramic
-    c_in = Part("Device", "C", value="1uF",
-                footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_in[1] += vin
-    c_in[2] += gnd
-
-    # Output capacitor — 1uF ceramic
-    c_out = Part("Device", "C", value="1uF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_out[1] += vout
-    c_out[2] += gnd
-
-    # Output decoupling — 100nF ceramic
-    c_dec = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_dec[1] += vout
-    c_dec[2] += gnd
-
-
-power_regulation(vusb, vcc, gnd)
-
-# ===========================================================================
-# Subcircuit: MCU (ATtiny85)
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# ATtiny85-20S (SOIC-8) MCU
+# V-USB: D-=PB3/XTAL1, D+=PB4/XTAL2 (per Adafruit Trinket schematic)
+# ---------------------------------------------------------------------------
 @subcircuit
 def mcu_block(vcc, gnd, reset_n, pb0, pb1, pb2, usb_dp, usb_dm):
-    """ATtiny85 microcontroller with decoupling and reset circuit."""
-
-    # ATtiny85 in SOIC-8 package
     mcu = Part("MCU_Microchip_ATtiny", "ATtiny85-20S",
                footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
                value="ATtiny85")
@@ -137,79 +127,73 @@ def mcu_block(vcc, gnd, reset_n, pb0, pb1, pb2, usb_dp, usb_dm):
     mcu["AREF/PB0"] += pb0
     mcu["PB1"] += pb1
     mcu["PB2"] += pb2
-    mcu["XTAL1/PB3"] += usb_dp    # PB3 = USB D+ (V-USB)
-    mcu["XTAL2/PB4"] += usb_dm    # PB4 = USB D- (V-USB)
+    mcu["XTAL1/PB3"] += usb_dm   # D-
+    mcu["XTAL2/PB4"] += usb_dp   # D+
 
-    # 100nF VCC decoupling cap — placed close to MCU
+    # MCU VCC decoupling
     c_dec = Part("Device", "C", value="100nF",
                  footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_dec[1] += vcc
-    c_dec[2] += gnd
+    vcc += c_dec[1]; gnd += c_dec[2]
 
-    # 10K pull-up resistor on RESET
-    r_reset = Part("Device", "R", value="10K",
-                   footprint="Resistor_SMD:R_0603_1608Metric")
-    r_reset[1] += vcc
-    r_reset[2] += reset_n
+    # Reset pull-up + button
+    r_rst = Part("Device", "R", value="10K",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
+    vcc += r_rst[1]; reset_n += r_rst[2]
 
-    # Reset button (active low, pulls RESET to GND)
-    sw_reset = Part("Switch", "SW_Push",
-                    footprint="Button_Switch_SMD:SW_Push_1TS009xxxx-xxxx-xxxx_6x6x5mm",
-                    value="RESET")
-    sw_reset[1] += reset_n
-    sw_reset[2] += gnd
-
+    sw_rst = Part("Switch", "SW_Push",
+                  footprint="Button_Switch_SMD:SW_Push_1TS009xxxx-xxxx-xxxx_6x6x5mm",
+                  value="RESET")
+    reset_n += sw_rst[1]; gnd += sw_rst[2]
 
 mcu_block(vcc, gnd, reset_n, pb0, pb1, pb2, usb_dp, usb_dm)
 
-# ===========================================================================
-# Subcircuit: LEDs and indicators
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# LEDs: green power + red user (PB1)
+# ---------------------------------------------------------------------------
 @subcircuit
-def led_indicators(vcc, gnd, pb1):
-    """Power LED (green) and user-programmable LED (red) on PB1."""
-
-    # Power LED — green, always on when powered
+def led_block(vcc, gnd, pb1):
+    # Green power LED (anode = pin 2, cathode = pin 1 per KiCad LED symbol)
     led_pwr = Part("Device", "LED", value="GREEN",
                    footprint="LED_SMD:LED_0603_1608Metric")
     r_pwr = Part("Device", "R", value="1K",
                  footprint="Resistor_SMD:R_0603_1608Metric")
-    r_pwr[1] += vcc
-    r_pwr[2] += led_pwr[2]   # Anode
-    led_pwr[1] += gnd        # Cathode
+    vcc += r_pwr[1]; r_pwr[2] += led_pwr["A"]
+    gnd += led_pwr["K"]
 
-    # User LED — red, driven by PB1 (GPIO #1)
+    # Red user LED on PB1
     led_usr = Part("Device", "LED", value="RED",
                    footprint="LED_SMD:LED_0603_1608Metric")
     r_usr = Part("Device", "R", value="1K",
                  footprint="Resistor_SMD:R_0603_1608Metric")
-    r_usr[1] += pb1
-    r_usr[2] += led_usr[2]   # Anode
-    led_usr[1] += gnd        # Cathode
+    pb1 += r_usr[1]; r_usr[2] += led_usr["A"]
+    gnd += led_usr["K"]
 
+led_block(vcc, gnd, pb1)
 
-led_indicators(vcc, gnd, pb1)
-
-# ===========================================================================
-# Subcircuit: GPIO breakout header
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# GPIO header: PB0, PB1, PB2, PB3(D-), PB4(D+), 3V3, GND
+# 7-pin 0.1" header on board edge
+# ---------------------------------------------------------------------------
 @subcircuit
-def gpio_header(gnd, pb0, pb1, pb2, vcc):
-    """5-pin breakout header: GND, PB0, PB1, PB2, VCC (like Trinket pinout)."""
-
-    hdr = Part("Connector_Generic", "Conn_01x05",
-               footprint="Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical",
+def gpio_header(vcc, gnd, pb0, pb1, pb2, usb_dm, usb_dp):
+    hdr = Part("Connector_Generic", "Conn_01x07",
+               footprint="Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical",
                value="GPIO")
-    hdr[1] += gnd
+    hdr.edge_preference = "right"
+    hdr[1] += vcc
     hdr[2] += pb0
     hdr[3] += pb1
     hdr[4] += pb2
-    hdr[5] += vcc
+    hdr[5] += usb_dm   # PB3
+    hdr[6] += usb_dp   # PB4
+    hdr[7] += gnd
 
+gpio_header(vcc, gnd, pb0, pb1, pb2, usb_dm, usb_dp)
 
-gpio_header(gnd, pb0, pb1, pb2, vcc)
-
-# ===========================================================================
-# Generate schematic
-# ===========================================================================
-generate_schematic(auto_stub=True)
+# ---------------------------------------------------------------------------
+# Board floorplan: 40x25mm (compact but routable dev board)
+# USB-A plug hangs off left edge (edge connector). GPIO header at right.
+# ---------------------------------------------------------------------------
+EDA_FLOORPLAN = {
+    "outline": {"width_mm": 40, "height_mm": 25, "corner_radius_mm": 1.5},
+}
