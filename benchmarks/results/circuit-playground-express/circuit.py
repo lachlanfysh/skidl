@@ -4,625 +4,642 @@ Circuit Playground Express -- SKiDL circuit description.
 Adafruit Circuit Playground Express: ATSAMD21G18A-based educational board
 with 10x NeoPixels, LIS3DH accelerometer, MEMS microphone, mini speaker,
 IR transceiver, light sensor, temperature sensor, 2 buttons, slide switch,
-USB Micro-B, JST battery, 3.3V regulator, and 8 capacitive-touch alligator pads.
+USB Micro-B, JST battery, 3.3V regulator, and 10 alligator-clip pads.
+~51mm diameter circular board.
 """
 
 import os
 os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
 
-from collections import defaultdict
-from types import SimpleNamespace
 from skidl import *
 set_default_tool(KICAD9)
 
 
-def _pin_func_to_str(func):
-    """Map pin function enum to KiCad s-expression string."""
-    mapping = {
-        Pin.types.PWRIN: "power_in",
-        Pin.types.PWROUT: "power_out",
-        Pin.types.INPUT: "input",
-        Pin.types.OUTPUT: "output",
-        Pin.types.BIDIR: "bidirectional",
-        Pin.types.PASSIVE: "passive",
-        Pin.types.TRISTATE: "tri_state",
-        Pin.types.UNSPEC: "unspecified",
-        Pin.types.NOCONNECT: "passive",
-    }
-    return mapping.get(func, "passive")
+# ── Top-level nets ──────────────────────────────────────────────────────────
+VUSB = Net("VUSB"); VUSB.drive = POWER
+VBAT = Net("VBAT"); VBAT.drive = POWER
+VCC  = Net("VCC");  VCC.drive  = POWER   # 3.3V regulated rail
+GND  = Net("GND");  GND.drive  = POWER
+
+# I2C bus
+SCL = Net("SCL")
+SDA = Net("SDA")
+
+# SPI bus (SERCOM0 via PA08/PA09/PA10/PA11)
+MOSI = Net("MOSI")
+MISO = Net("MISO")
+SCK  = Net("SCK")
+
+# NeoPixel data chain
+NEOPIXEL_DATA = Net("NEOPIXEL_DATA")
+
+# USB D+/D-
+USB_DP = Net("USB_DP")
+USB_DM = Net("USB_DM")
+
+# Misc MCU signals
+IR_TX      = Net("IR_TX")
+IR_RX      = Net("IR_RX")
+BTN_A      = Net("BTN_A")
+BTN_B      = Net("BTN_B")
+SLIDE_SW   = Net("SLIDE_SW")
+SPEAKER    = Net("SPEAKER")
+SPK_EN     = Net("SPK_EN")
+MIC_DATA   = Net("MIC_DATA")
+MIC_CLK    = Net("MIC_CLK")
+MIC_SEL    = Net("MIC_SEL")
+LIGHT_ADC  = Net("LIGHT_ADC")
+TEMP_ADC   = Net("TEMP_ADC")
+LIS3DH_CS  = Net("LIS3DH_CS")
+LIS3DH_INT = Net("LIS3DH_INT")
+RESET_N    = Net("RESET_N")
+SWDCLK     = Net("SWDCLK")
+SWDIO      = Net("SWDIO")
+
+# Alligator pad connections (also GPIO)
+PAD_A0 = Net("PAD_A0")
+PAD_A1 = Net("PAD_A1")
+PAD_A2 = Net("PAD_A2")
+PAD_A3 = Net("PAD_A3")
+PAD_A4 = Net("PAD_A4")
+PAD_A5 = Net("PAD_A5")
+PAD_A6 = Net("PAD_A6")
+PAD_TX = Net("PAD_TX")
+PAD_RX = Net("PAD_RX")
+# SCL alligator pad is the same net as SCL bus - use SCL directly
 
 
-def skidl_part(name, footprint, pin_defs):
-    """Create a Part with tool=SKIDL including draw_cmds for schematic generation.
-
-    pin_defs: list of (num, name, func) tuples.
-    """
-    y_step = 2.54  # mm spacing between pins
-    left_pins = []
-    right_pins = []
-    for num, pname, pfunc in pin_defs:
-        if pfunc in (Pin.types.OUTPUT, Pin.types.PWROUT):
-            right_pins.append((num, pname, pfunc))
-        else:
-            left_pins.append((num, pname, pfunc))
-
-    max_side = max(len(left_pins), len(right_pins), 1)
-    box_h = (max_side + 1) * y_step
-    box_w = 10.16  # mm
-    pin_len = 2.54  # mm
-
-    all_pins = []
-    draw_cmds = []
-
-    # Left side pins
-    for i, (num, pname, pfunc) in enumerate(left_pins):
-        px = -(box_w / 2) - pin_len
-        py = (box_h / 2) - (i + 1) * y_step
-        p = Pin(num=num, name=pname, func=pfunc)
-        p.x = px
-        p.y = py
-        p.orientation = "R"
-        p.length = pin_len
-        p.rotation = 0
-        all_pins.append(p)
-        draw_cmds.append([
-            "pin", _pin_func_to_str(pfunc), "line",
-            ["at", px, py, 0],
-            ["length", pin_len],
-            ["name", pname, ["effects", ["font", ["size", 1.27, 1.27]]]],
-            ["number", num, ["effects", ["font", ["size", 1.27, 1.27]]]],
-        ])
-
-    # Right side pins
-    for i, (num, pname, pfunc) in enumerate(right_pins):
-        px = (box_w / 2) + pin_len
-        py = (box_h / 2) - (i + 1) * y_step
-        p = Pin(num=num, name=pname, func=pfunc)
-        p.x = px
-        p.y = py
-        p.orientation = "L"
-        p.length = pin_len
-        p.rotation = 180
-        all_pins.append(p)
-        draw_cmds.append([
-            "pin", _pin_func_to_str(pfunc), "line",
-            ["at", px, py, 180],
-            ["length", pin_len],
-            ["name", pname, ["effects", ["font", ["size", 1.27, 1.27]]]],
-            ["number", num, ["effects", ["font", ["size", 1.27, 1.27]]]],
-        ])
-
-    # Rectangle body
-    draw_cmds.append([
-        "rectangle",
-        ["start", -(box_w / 2), (box_h / 2)],
-        ["end", (box_w / 2), -(box_h / 2)],
-        ["stroke", ["width", 0], ["type", "default"]],
-        ["fill", ["type", "background"]],
-    ])
-
-    part = Part(name=name, tool=SKIDL, dest=NETLIST,
-                footprint=footprint, pins=all_pins)
-    part.draw_cmds = defaultdict(list)
-    part.draw_cmds[1] = draw_cmds
-    # Provide a lib attribute with filename so the schematic writer can create lib_id
-    part.lib = SimpleNamespace(filename="Custom")
-
-    return part
+# ── Floorplan ───────────────────────────────────────────────────────────────
+# Circuit Playground Express: circular ~51mm diameter board.
+# Simulate circle as 51x51mm square with corner_radius_mm=25.5.
+EDA_FLOORPLAN = {
+    "outline": {
+        "width_mm": 51,
+        "height_mm": 51,
+        "corner_radius_mm": 25.5
+    },
+    "edge_anchors": [
+        {"ref": "J1",  "edge": "bottom", "offset_mm": 25},
+        {"ref": "J2",  "edge": "top",    "offset_mm": 25},
+        {"ref": "SW3", "edge": "left",   "offset_mm": 25},
+        {"ref": "SW1", "edge": "left",   "offset_mm": 15},
+        {"ref": "SW2", "edge": "right",  "offset_mm": 15},
+    ],
+    "fixed_positions": [
+        {"ref": "U1", "x_mm": 25.5, "y_mm": 25.5},
+    ],
+}
 
 
-# ============================================================
-# Global power nets
-# ============================================================
-vbus = Net("VBUS"); vbus.drive = POWER      # USB 5V
-vcc  = Net("+3V3"); vcc.drive = POWER       # 3.3V regulated
-gnd  = Net("GND");  gnd.drive = POWER
-
-# Internal nets
-sda       = Net("SDA")
-scl       = Net("SCL")
-neopixel  = Net("NEOPIX")
-ir_tx_net = Net("IR_TX")
-ir_rx_net = Net("IR_RX")
-spk_net   = Net("SPEAKER")
-mic_net   = Net("MIC_OUT")
-light_net = Net("LIGHT")
-temp_net  = Net("TEMP")
-
-# ============================================================
-# 1. Power: USB Micro-B + 3.3V regulator + JST battery
-# ============================================================
 @subcircuit
-def power_supply(vbus, vcc, gnd):
-    # USB Micro-B connector
+def mcu_core(vcc, gnd, usb_dp, usb_dm, scl, sda, mosi, miso, sck,
+             neopixel, ir_tx, ir_rx, btn_a, btn_b, slide_sw,
+             speaker, spk_en, mic_data, mic_clk, mic_sel,
+             light_adc, temp_adc, lis3dh_cs, lis3dh_int,
+             reset_n, swdclk, swdio,
+             a0, a1, a2, a3, a4, a5, a6, tx, rx):
+    """ATSAMD21G18A (TQFP-48) core with decoupling caps.
+
+    Available pins on TQFP-48:
+      PA00-PA11, PA12-PA25, PA27, PA28, PA30, PA31
+      PB02, PB03, PB08, PB09, PB10, PB11, PB22, PB23
+      Power: VDDIO (x2), VDDIN, VDDANA, GNDANA, GND (x3), VDDCORE
+      ~{RESET}
+    """
+    global VCC, GND
+
+    mcu = Part("MCU_Microchip_SAMD", "ATSAMD21G18A-A",
+               footprint="Package_QFP:TQFP-48_7x7mm_P0.5mm")
+    mcu.ref = "U1"
+
+    # Power pins - TQFP-48 uses VDDIO, VDDIN, VDDANA
+    mcu["VDDIO"]  += vcc   # pins 17 and 36 (same name, both connect)
+    mcu["VDDIN"]  += vcc   # pin 44 (USB power input)
+    mcu["VDDANA"] += vcc   # pin 6 (analog supply)
+    mcu["GND"]    += gnd   # pins 18, 35, 42
+    mcu["GNDANA"] += gnd   # pin 5
+
+    # VDDCORE needs a 100nF cap to GND (internally regulated)
+    c_core = Part("Device", "C", value="100nF",
+                  footprint="Capacitor_SMD:C_0402_1005Metric")
+    c_core[1] += mcu["VDDCORE"]
+    c_core[2] += gnd
+
+    # USB
+    mcu["PA24"] += usb_dm   # D-
+    mcu["PA25"] += usb_dp   # D+
+
+    # SWD / RESET
+    mcu["~{RESET}"] += reset_n
+    mcu["PA30"]     += swdclk
+    mcu["PA31"]     += swdio
+
+    # I2C SERCOM3: PA22=SCL, PA23=SDA
+    mcu["PA22"] += scl    # SCL also routed to alligator pad at net level
+    mcu["PA23"] += sda
+
+    # SPI to LIS3DH: use SERCOM1 PA16/PA17/PA18/PA19 to avoid I2C conflict
+    # PA16=MOSI(SERCOM1 pad0), PA17=SCK(pad1), PA18=MISO(pad2), PA19=CS(pad3)
+    mcu["PA18"] += mosi
+    mcu["PA19"] += sck
+    mcu["PA16"] += miso
+    mcu["PA17"] += lis3dh_cs
+
+    # NeoPixel data output
+    mcu["PA06"] += neopixel
+
+    # IR TX: PA02 (TCCx/WO for carrier)
+    mcu["PA02"] += ir_tx
+    # IR RX: PA03
+    mcu["PA03"] += ir_rx
+
+    # Buttons - active low with pull-up
+    mcu["PA04"] += btn_a
+    mcu["PA05"] += btn_b
+
+    # Slide switch
+    mcu["PA07"] += slide_sw
+
+    # Speaker: PA02 is IR_TX (PWM modulated). Audio out uses PA00 (DAC on SAMD21).
+    # CPX uses class-D via PA02, but we separate concerns: use PA12 for speaker
+    mcu["PA12"] += speaker
+
+    # Speaker enable
+    mcu["PA14"] += spk_en
+
+    # Microphone I2S: PA20=BCLK, PA21=DATA, PA13=WS
+    mcu["PA20"] += mic_clk
+    mcu["PA21"] += mic_data
+    mcu["PA13"] += mic_sel   # WS/LRCLK
+
+    # LIS3DH interrupt
+    mcu["PA28"] += lis3dh_int
+
+    # ADC inputs
+    mcu["PB02"] += light_adc   # AIN10
+    mcu["PB03"] += temp_adc    # AIN11
+
+    # Alligator pad GPIOs - separate pads on dedicated pins
+    # CPX has 10 pads: A0-A6, TX, RX, and shared GND/3.3V/VBAT
+    mcu["PA00"] += a0    # A0
+    mcu["PA01"] += a1    # A1
+    mcu["PB08"] += a2    # A2
+    mcu["PB09"] += a3    # A3
+    mcu["PA09"] += a4    # A4 (separate from BTN_A which is PA04)
+    mcu["PA08"] += a5    # A5 (separate from BTN_B which is PA05)
+    mcu["PB10"] += a6    # A6 (separate from NEOPIXEL on PA06)
+    mcu["PB22"] += tx    # TX SERCOM5
+    mcu["PB23"] += rx    # RX SERCOM5
+    # PA11 available but used for LIS3DH CS above; PB11 free
+
+    # Decoupling caps on VDDIO / VDDIN / VDDANA (100nF each)
+    for i in range(5):
+        c = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0402_1005Metric")
+        c[1] += vcc
+        c[2] += gnd
+
+    # Bulk 10uF
+    cbulk = Part("Device", "C_Polarized", value="10uF",
+                 footprint="Capacitor_SMD:C_0603_1608Metric")
+    cbulk[1] += vcc
+    cbulk[2] += gnd
+
+
+@subcircuit
+def power_supply(vusb, vbat, vcc, gnd):
+    """AP2112K-3.3 LDO."""
+    global VCC, GND
+
+    ldo = Part("Regulator_Linear", "AP2112K-3.3",
+               footprint="Package_TO_SOT_SMD:SOT-23-5")
+    ldo.ref = "U2"
+    ldo["EN"]   += vusb   # EN high = on
+    ldo["GND"]  += gnd
+    ldo["VIN"]  += vusb
+    ldo["VOUT"] += vcc
+    ldo["NC"]   += gnd    # NC pin tied to GND
+
+    cin = Part("Device", "C", value="1uF",
+               footprint="Capacitor_SMD:C_0402_1005Metric")
+    cin[1] += vusb
+    cin[2] += gnd
+
+    cout = Part("Device", "C", value="1uF",
+                footprint="Capacitor_SMD:C_0402_1005Metric")
+    cout[1] += vcc
+    cout[2] += gnd
+
+    cout2 = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0402_1005Metric")
+    cout2[1] += vcc
+    cout2[2] += gnd
+
+
+@subcircuit
+def usb_connector(vusb, gnd, usb_dp, usb_dm):
+    """USB Micro-B connector."""
+    global VCC, GND
+
     usb = Part("Connector", "USB_B_Micro",
-               footprint="Connector_USB:USB_Micro-B_Molex-105017-0001",
-               value="USB_Micro-B")
-    usb["VBUS"]  += vbus
-    usb["GND"]   += gnd
-    usb["D+"]    += Net("USB_DP")
-    usb["D-"]    += Net("USB_DN")
-    usb["ID"]    += Net("USB_ID")
+               footprint="Connector_USB:USB_Micro-B_Amphenol_10103594-0001LF_Horizontal")
+    usb.ref = "J1"
+    usb["VBUS"]   += vusb
+    usb["GND"]    += gnd
+    usb["D-"]     += usb_dm
+    usb["D+"]     += usb_dp
+    usb["ID"]     += gnd
     usb["Shield"] += gnd
 
-    # Input bulk capacitor on VBUS
-    c_usb = Part("Device", "C", value="10uF",
-                 footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_usb[1] += vbus
-    c_usb[2] += gnd
+    cv = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    cv[1] += vusb
+    cv[2] += gnd
 
-    # 3.3V LDO regulator (AP2112K-3.3 in SOT-23-5)
-    reg = skidl_part("AP2112K-3.3", "Package_TO_SOT_SMD:SOT-23-5", [
-        ("1", "VIN",  Pin.types.PWRIN),
-        ("2", "GND",  Pin.types.PWRIN),
-        ("3", "EN",   Pin.types.INPUT),
-        ("4", "NC",   Pin.types.NOCONNECT),
-        ("5", "VOUT", Pin.types.PWROUT),
-    ])
-    reg["VIN"]  += vbus
-    reg["GND"]  += gnd
-    reg["EN"]   += vbus   # always enabled
-    reg["VOUT"] += vcc
+    # 22-ohm USB series resistors
+    usb_dp_mcu = Net("USB_DP_MCU")
+    rdp = Part("Device", "R", value="22",
+               footprint="Resistor_SMD:R_0402_1005Metric")
+    rdp[1] += usb_dp
+    rdp[2] += usb_dp_mcu
 
-    # LDO decoupling caps
-    c_in = Part("Device", "C", value="100nF",
-                footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_in[1] += vbus; c_in[2] += gnd
+    usb_dm_mcu = Net("USB_DM_MCU")
+    rdm = Part("Device", "R", value="22",
+               footprint="Resistor_SMD:R_0402_1005Metric")
+    rdm[1] += usb_dm
+    rdm[2] += usb_dm_mcu
 
-    c_out = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_out[1] += vcc; c_out[2] += gnd
 
-    c_out2 = Part("Device", "C", value="10uF",
-                  footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_out2[1] += vcc; c_out2[2] += gnd
+@subcircuit
+def neopixel_ring(vcc, gnd, din):
+    """10x WS2812B NeoPixels in daisy-chain ring.
 
-    # JST PH 2-pin battery connector
-    jst = Part("Connector_Generic", "Conn_01x02",
-               footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
-               value="BATT")
-    jst[1] += vbus  # Battery V+ tied to VBUS rail (through Schottky in real board)
+    WS2812 pins: VDD(5), VCC(3), VSS(6), DIN(2), DOUT(1), NC(4)
+    VDD and VCC are both power; VSS is ground.
+    """
+    global VCC, GND
+
+    prev_dout = din
+    for i in range(10):
+        px = Part("LED", "WS2812",
+                  footprint="LED_SMD:LED_WS2812_PLCC6_5.0x5.0mm_P1.6mm")
+        px.ref = f"D{i+1}"
+        px["VDD"] += vcc
+        px["VCC"] += vcc
+        px["VSS"] += gnd
+        px["NC"]  += gnd   # NC tied to GND by pad number
+        px["DIN"] += prev_dout
+        dout_net = Net(f"NP_DOUT_{i}")
+        px["DOUT"] += dout_net
+        prev_dout = dout_net
+
+        c = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0402_1005Metric")
+        c[1] += vcc
+        c[2] += gnd
+
+    # Bulk cap for NeoPixel ring inrush
+    cbulk = Part("Device", "C_Polarized", value="100uF",
+                 footprint="Capacitor_SMD:C_1210_3225Metric")
+    cbulk[1] += vcc
+    cbulk[2] += gnd
+
+
+@subcircuit
+def accelerometer(vcc, gnd, scl, sda, cs_net, int1):
+    """LIS3DH via I2C (CS=high, SDO/SA0=low for addr 0x18).
+
+    LIS3DH pins: VDD(14), VDD_IO(1), GND(5,10,12),
+                 SPC(4), SDI(6), SDO(7), CS(8),
+                 INT1(11), INT2(9), NC(2,3), ADC1-3(13-16)
+    """
+    global VCC, GND
+
+    lis = Part("Sensor_Motion", "LIS3DH",
+               footprint="Package_LGA:LGA-16_3x3mm_P0.5mm_LayoutBorder3x5y")
+    lis.ref = "U3"
+    # Use pin numbers to avoid alternate-pin-name confusion
+    # (LIS3DH SDI pin has alternate "SDA" which confuses net-name resolution)
+    # Pin map: 1=VDD_IO, 2=NC, 3=NC, 4=SPC, 5=GND, 6=SDI, 7=SDO,
+    #          8=CS, 9=INT2, 10=GND, 11=INT1, 12=GND, 13=ADC3,
+    #          14=VDD, 15=ADC2, 16=ADC1
+    lis[14]  += vcc    # VDD
+    lis[1]   += vcc    # VDD_IO
+    lis[5]   += gnd    # GND
+    lis[10]  += gnd    # GND
+    lis[12]  += gnd    # GND
+    lis[4]   += scl    # SPC -> SCL
+    lis[6]   += sda    # SDI -> SDA
+    lis[7]   += gnd    # SDO/SA0 -> GND (I2C addr 0x18)
+    lis[8]   += cs_net # CS -> LIS3DH_CS (high = I2C mode)
+    lis[11]  += int1   # INT1
+    lis[9]   += gnd    # INT2
+    lis[2]   += gnd    # NC
+    lis[3]   += gnd    # NC
+    lis[13]  += gnd    # ADC3 (unused)
+    lis[15]  += gnd    # ADC2 (unused)
+    lis[16]  += gnd    # ADC1 (unused)
+
+    c1 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c1[1] += vcc
+    c1[2] += gnd
+
+    c2 = Part("Device", "C", value="100nF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c2[1] += vcc
+    c2[2] += gnd
+
+
+@subcircuit
+def mems_microphone(vcc, gnd, data, clk, sel):
+    """SPH0645LM4H I2S microphone.
+
+    Pins: WS(1), SEL(2), GND(3), BCLK(4), VDD(5), DATA(6)
+    """
+    global VCC, GND
+
+    mic = Part("Sensor_Audio", "SPH0645LM4H",
+               footprint="Sensor_Audio:Knowles_SPH0645LM4H-6_3.5x2.65mm")
+    mic.ref = "U4"
+    mic["VDD"]  += vcc
+    mic["GND"]  += gnd
+    mic["BCLK"] += clk
+    mic["DATA"] += data    # DOUT in previous search was wrong; actual pin name is DATA
+    mic["WS"]   += sel     # word select = LRCLK
+    mic["SEL"]  += gnd     # left channel select
+
+    c = Part("Device", "C", value="100nF",
+             footprint="Capacitor_SMD:C_0402_1005Metric")
+    c[1] += vcc
+    c[2] += gnd
+
+
+@subcircuit
+def light_sensor(vcc, gnd, adc_out):
+    """ALS-PT19 phototransistor (R_Photo symbol) + pull-down for analog light sensing."""
+    global VCC, GND
+
+    pt = Part("Device", "R_Photo",
+              footprint="Resistor_SMD:R_0402_1005Metric")
+    pt.ref = "U5"
+    pt[1] += vcc
+    pt[2] += adc_out
+
+    r = Part("Device", "R", value="10K",
+             footprint="Resistor_SMD:R_0402_1005Metric")
+    r[1] += adc_out
+    r[2] += gnd
+
+
+@subcircuit
+def temperature_sensor(vcc, gnd, adc_out):
+    """NTC thermistor voltage divider."""
+    global VCC, GND
+
+    ntc = Part("Device", "Thermistor_NTC",
+               footprint="Resistor_SMD:R_0402_1005Metric")
+    ntc.ref = "RT1"
+    ntc[1] += vcc
+    ntc[2] += adc_out
+
+    r_series = Part("Device", "R", value="10K",
+                    footprint="Resistor_SMD:R_0402_1005Metric")
+    r_series[1] += adc_out
+    r_series[2] += gnd
+
+
+@subcircuit
+def ir_transceiver(vcc, gnd, ir_tx_net, ir_rx_net):
+    """IR 940nm LED + IS485 IR receiver.
+
+    IS485 pins: GND(1), OUT(2), Vs(3)
+    """
+    global VCC, GND
+
+    ir_led = Part("LED", "IR26-21C_L110_TR8",
+                  footprint="LED_SMD:LED_1206_3216Metric")
+    ir_led.ref = "D11"
+    ir_anode = Net("IR_LED_ANODE")
+    ir_led["A"] += ir_anode
+    ir_led["K"] += gnd
+
+    # Current limiting resistor; MCU drives gate via NPN or direct PA02 PWM
+    r_ir = Part("Device", "R", value="33",
+                footprint="Resistor_SMD:R_0402_1005Metric")
+    r_ir[1] += vcc
+    r_ir[2] += ir_anode
+
+    ir_recv = Part("Interface_Optical", "IS485",
+                   footprint="OptoDevice:Sharp_IS485")
+    ir_recv.ref = "U6"
+    ir_recv["Vs"]  += vcc    # pin 3 = Vs (supply)
+    ir_recv["GND"] += gnd    # pin 1 = GND
+    ir_recv["OUT"] += ir_rx_net   # pin 2 = output
+
+    c = Part("Device", "C", value="100nF",
+             footprint="Capacitor_SMD:C_0402_1005Metric")
+    c[1] += vcc
+    c[2] += gnd
+
+
+@subcircuit
+def speaker_circuit(vcc, gnd, spk_in, spk_en_net):
+    """Mini speaker connector with DC-blocking coupling cap."""
+    global VCC, GND
+
+    spk_conn = Part("Connector", "Conn_01x02_Pin",
+                    footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
+    spk_conn.ref = "J3"
+    spk_conn[1] += spk_in
+    spk_conn[2] += gnd
+
+    # DC-blocking cap between DAC output and speaker
+    spk_out = Net("SPK_CAP_OUT")
+    c_spk = Part("Device", "C_Polarized", value="100uF",
+                 footprint="Capacitor_SMD:C_1210_3225Metric")
+    c_spk[1] += spk_in
+    c_spk[2] += spk_out
+
+    # Speaker enable pull-down resistor
+    r_spk = Part("Device", "R", value="100",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    spk_en_r = Net("SPK_EN_R")
+    r_spk[1] += spk_en_net
+    r_spk[2] += spk_en_r
+
+
+@subcircuit
+def buttons_and_switch(vcc, gnd, btn_a_net, btn_b_net, slide_net):
+    """2 push buttons + SPDT slide switch.
+
+    SW_Push pins: 1, 2 (passive)
+    SW_SPDT pins: A, B, C (passive)
+    """
+    global VCC, GND
+
+    sw_a = Part("Switch", "SW_Push",
+                footprint="Button_Switch_SMD:SW_SPST_EVPBF")
+    sw_a.ref = "SW1"
+    sw_a[1] += btn_a_net
+    sw_a[2] += gnd
+
+    r_a = Part("Device", "R", value="10K",
+               footprint="Resistor_SMD:R_0402_1005Metric")
+    r_a[1] += vcc
+    r_a[2] += btn_a_net
+
+    sw_b = Part("Switch", "SW_Push",
+                footprint="Button_Switch_SMD:SW_SPST_EVPBF")
+    sw_b.ref = "SW2"
+    sw_b[1] += btn_b_net
+    sw_b[2] += gnd
+
+    r_b = Part("Device", "R", value="10K",
+               footprint="Resistor_SMD:R_0402_1005Metric")
+    r_b[1] += vcc
+    r_b[2] += btn_b_net
+
+    slide = Part("Switch", "SW_SPDT",
+                 footprint="Button_Switch_SMD:SW_SPDT_PCM12")
+    slide.ref = "SW3"
+    slide["A"] += vcc
+    slide["B"] += gnd
+    slide["C"] += slide_net
+
+
+@subcircuit
+def battery_connector(vbat, gnd):
+    """JST PH 2-pin battery connector + Schottky diode to VUSB."""
+    global VCC, GND, VUSB
+
+    jst = Part("Connector", "Conn_01x02_Pin",
+               footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal")
+    jst.ref = "J2"
+    jst[1] += vbat
     jst[2] += gnd
 
-    # Schottky diode for battery/USB OR-ing
-    d_schottky = Part("Device", "D_Schottky",
-                      footprint="Diode_SMD:D_SOD-323",
-                      value="MBR0520")
-    d_schottky[1] += vbus   # anode from bat
-    d_schottky[2] += vbus   # simplified -- both share VBUS
+    # Schottky diode: battery feeds VUSB rail when USB not present
+    d = Part("Device", "D", value="BAT54",
+             footprint="Diode_SMD:D_SOD-323")
+    d["A"] += vbat
+    d["K"] += VUSB
 
 
-power_supply(vbus, vcc, gnd)
-
-# ============================================================
-# 2. MCU: ATSAMD21G18A (TQFP-48)
-# ============================================================
 @subcircuit
-def mcu_block(vbus, vcc, gnd, sda, scl, neopixel,
-              ir_tx_net, ir_rx_net, spk_net, mic_net,
-              light_net, temp_net):
-    mcu = Part("MCU_Microchip_SAMD", "ATSAMD21G18A-A",
-               footprint="Package_QFP:TQFP-48_7x7mm_P0.5mm",
-               value="ATSAMD21G18A")
+def alligator_pads(vcc, gnd,
+                   a0, a1, a2, a3, a4, a5, a6, tx, rx, scl):
+    """10 alligator-clip edge pads around board perimeter.
+    The SCL pad shares the I2C SCL net.
+    Use 2-pin headers as proxy for large copper pads.
+    """
+    global VCC, GND
 
-    # Power pins
-    mcu["VDDIO"]  += vcc    # pins 17, 36
-    mcu["VDDIN"]  += vcc    # pin 44
-    mcu["VDDANA"] += vcc    # pin 6
-    mcu["GND"]    += gnd    # pins 18, 35, 42
-    mcu["GNDANA"] += gnd    # pin 5
+    # Represent with a single 10-pad connector to reduce part count
+    # (In real PCB, these are individual large copper pads on edge)
+    pad_defs = [
+        ("A0",  a0),
+        ("A1",  a1),
+        ("A2",  a2),
+        ("A3",  a3),
+        ("A4",  a4),
+        ("A5",  a5),
+        ("A6",  a6),
+        ("TX",  tx),
+        ("RX",  rx),
+        ("SCL", scl),
+    ]
+    for name, net in pad_defs:
+        pad = Part("Connector", "Conn_01x01_Pin",
+                   footprint="TestPoint:TestPoint_Pad_D2.5mm")
+        pad.ref = f"TP_{name}"
+        pad[1] += net
 
-    # VDDCORE gets 1.2V output from internal regulator -- decouple
-    vddcore = Net("VDDCORE")
-    mcu["VDDCORE"] += vddcore
-    c_core = Part("Device", "C", value="100nF",
-                  footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_core[1] += vddcore; c_core[2] += gnd
 
-    # MCU decoupling caps
-    for _ in range(3):
-        c = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-        c[1] += vcc; c[2] += gnd
+@subcircuit
+def reset_circuit(vcc, gnd, reset_n, swdclk, swdio):
+    """Reset button + RC filter + SWD debug header."""
+    global VCC, GND
 
-    # 32.768 kHz crystal (PA00/PA01 = XIN32/XOUT32)
-    xtal = Part("Device", "Crystal", value="32.768kHz",
-                footprint="Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm")
-    xtal[1] += mcu["PA00"]
-    xtal[2] += mcu["PA01"]
+    sw_rst = Part("Switch", "SW_Push",
+                  footprint="Button_Switch_SMD:SW_SPST_EVPBF")
+    sw_rst.ref = "SW4"
+    sw_rst[1] += reset_n
+    sw_rst[2] += gnd
 
-    # Crystal load caps
-    c_x1 = Part("Device", "C", value="12pF",
-                footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_x1[1] += mcu["PA00"]; c_x1[2] += gnd
-    c_x2 = Part("Device", "C", value="12pF",
-                footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_x2[1] += mcu["PA01"]; c_x2[2] += gnd
-
-    # Reset circuit
     r_rst = Part("Device", "R", value="10K",
                  footprint="Resistor_SMD:R_0402_1005Metric")
     r_rst[1] += vcc
-    r_rst[2] += mcu["~{RESET}"]
+    r_rst[2] += reset_n
+
     c_rst = Part("Device", "C", value="100nF",
                  footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_rst[1] += mcu["~{RESET}"]; c_rst[2] += gnd
+    c_rst[1] += reset_n
+    c_rst[2] += gnd
 
-    # USB D+/D- (PA24=D-, PA25=D+)
-    mcu["PA24"] += Net("USB_DN")
-    mcu["PA25"] += Net("USB_DP")
-
-    # I2C bus (PA22=SDA, PA23=SCL) -- for LIS3DH
-    mcu["PA22"] += sda
-    mcu["PA23"] += scl
-    # I2C pull-ups
-    r_sda = Part("Device", "R", value="4.7K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_sda[1] += vcc; r_sda[2] += sda
-    r_scl = Part("Device", "R", value="4.7K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_scl[1] += vcc; r_scl[2] += scl
-
-    # NeoPixel data output (PA06)
-    mcu["PA06"] += neopixel
-
-    # IR transmitter drive (PA05)
-    mcu["PA05"] += ir_tx_net
-
-    # IR receiver input (PA07)
-    mcu["PA07"] += ir_rx_net
-
-    # Speaker PWM output (PA02 -- DAC output)
-    mcu["PA02"] += spk_net
-
-    # Microphone analog input (PB09)
-    mcu["PB09"] += mic_net
-
-    # Light sensor analog input (PB08)
-    mcu["PB08"] += light_net
-
-    # Temperature sensor analog input (PA09)
-    mcu["PA09"] += temp_net
-
-    # Two user buttons: PA04 (left=A), PA14 (right=B)
-    btn_a_net = Net("BTN_A")
-    btn_b_net = Net("BTN_B")
-    mcu["PA04"] += btn_a_net
-    mcu["PA14"] += btn_b_net
-
-    # Slide switch on PA28
-    sw_net = Net("SLIDE_SW")
-    mcu["PA28"] += sw_net
-
-    # Capacitive touch pads -- PA03, PA08, PA10, PA11, PB02, PB03, PA12, PA13
-    # (mapped to alligator clip pads A0-A7)
-    touch_pins = ["PA03", "PA08", "PA10", "PA11", "PB02", "PB03", "PA12", "PA13"]
-    touch_nets = []
-    for i, pin_name in enumerate(touch_pins):
-        tn = Net(f"PAD_A{i}")
-        mcu[pin_name] += tn
-        touch_nets.append(tn)
-
-    # SWD debug (PA30=SWDCLK, PA31=SWDIO)
-    mcu["PA30"] += Net("SWDCLK")
-    mcu["PA31"] += Net("SWDIO")
-
-    # Remaining pins as NC or general
-    for p in ["PA15", "PA16", "PA17", "PA18", "PA19", "PA20", "PA21", "PA27",
-              "PB10", "PB11"]:
-        try:
-            mcu[p] += Net(f"MCU_{p}")
-        except Exception:
-            pass
-
-    return mcu, btn_a_net, btn_b_net, sw_net, touch_nets
+    # SWD 4-pin debug header
+    swd = Part("Connector", "Conn_01x04_Pin",
+               footprint="Connector_PinHeader_1.27mm:PinHeader_1x04_P1.27mm_Vertical")
+    swd.ref = "J4"
+    swd[1] += swdclk
+    swd[2] += swdio
+    swd[3] += vcc
+    swd[4] += gnd
 
 
-mcu_ret = mcu_block(vbus, vcc, gnd, sda, scl, neopixel,
-                    ir_tx_net, ir_rx_net, spk_net, mic_net,
-                    light_net, temp_net)
+# ── Instantiate all subcircuits ────────────────────────────────────────────
 
-# ============================================================
-# 3. NeoPixel ring: 10x WS2812B in daisy chain
-# ============================================================
-@subcircuit
-def neopixel_ring(vcc, gnd, data_in):
-    prev = data_in
-    for i in range(10):
-        led = skidl_part(f"WS2812B_{i}",
-                         "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm", [
-                             ("1", "VDD",  Pin.types.PWRIN),
-                             ("3", "GND",  Pin.types.PWRIN),
-                             ("4", "DIN",  Pin.types.INPUT),
-                             ("2", "DOUT", Pin.types.OUTPUT),
-                         ])
-        led["VDD"] += vcc
-        led["GND"] += gnd
-        led["DIN"] += prev
-        if i < 9:
-            nxt = Net(f"NEO_{i}")
-            led["DOUT"] += nxt
-            prev = nxt
-        else:
-            led["DOUT"] += Net("NEO_END")
+mcu_core(
+    vcc=VCC, gnd=GND,
+    usb_dp=USB_DP, usb_dm=USB_DM,
+    scl=SCL, sda=SDA,
+    mosi=MOSI, miso=MISO, sck=SCK,
+    neopixel=NEOPIXEL_DATA,
+    ir_tx=IR_TX, ir_rx=IR_RX,
+    btn_a=BTN_A, btn_b=BTN_B,
+    slide_sw=SLIDE_SW,
+    speaker=SPEAKER, spk_en=SPK_EN,
+    mic_data=MIC_DATA, mic_clk=MIC_CLK, mic_sel=MIC_SEL,
+    light_adc=LIGHT_ADC, temp_adc=TEMP_ADC,
+    lis3dh_cs=LIS3DH_CS, lis3dh_int=LIS3DH_INT,
+    reset_n=RESET_N, swdclk=SWDCLK, swdio=SWDIO,
+    a0=PAD_A0, a1=PAD_A1, a2=PAD_A2, a3=PAD_A3, a4=PAD_A4,
+    a5=PAD_A5, a6=PAD_A6, tx=PAD_TX, rx=PAD_RX,
+)
 
-        # Bypass cap per LED
-        c_led = Part("Device", "C", value="100nF",
-                     footprint="Capacitor_SMD:C_0402_1005Metric")
-        c_led[1] += vcc; c_led[2] += gnd
+power_supply(vusb=VUSB, vbat=VBAT, vcc=VCC, gnd=GND)
 
+usb_connector(vusb=VUSB, gnd=GND, usb_dp=USB_DP, usb_dm=USB_DM)
 
-neopixel_ring(vcc, gnd, neopixel)
+neopixel_ring(vcc=VCC, gnd=GND, din=NEOPIXEL_DATA)
 
-# ============================================================
-# 4. LIS3DH 3-axis accelerometer (I2C, LGA-16)
-# ============================================================
-@subcircuit
-def accelerometer(vcc, gnd, sda, scl):
-    lis = skidl_part("LIS3DH",
-                     "Sensor_Motion:Analog_LGA-16_3.25x3mm_P0.5mm_LayoutBorder3x5y", [
-                         ("1",  "VDD_IO", Pin.types.PWRIN),
-                         ("2",  "NC1",    Pin.types.NOCONNECT),
-                         ("3",  "NC2",    Pin.types.NOCONNECT),
-                         ("4",  "SCL",    Pin.types.INPUT),
-                         ("5",  "GND1",   Pin.types.PWRIN),
-                         ("6",  "SDA",    Pin.types.BIDIR),
-                         ("7",  "SA0",    Pin.types.INPUT),
-                         ("8",  "CS",     Pin.types.INPUT),
-                         ("10", "GND2",   Pin.types.PWRIN),
-                         ("12", "GND3",   Pin.types.PWRIN),
-                         ("13", "ADC3",   Pin.types.INPUT),
-                         ("14", "VDD",    Pin.types.PWRIN),
-                         ("15", "ADC2",   Pin.types.INPUT),
-                         ("16", "ADC1",   Pin.types.INPUT),
-                         ("9",  "INT2",   Pin.types.OUTPUT),
-                         ("11", "INT1",   Pin.types.OUTPUT),
-                     ])
-    lis["VDD"]    += vcc
-    lis["VDD_IO"] += vcc
-    lis["GND1"]   += gnd
-    lis["GND2"]   += gnd
-    lis["GND3"]   += gnd
-    lis["SDA"]    += sda
-    lis["SCL"]    += scl
-    lis["CS"]     += vcc   # I2C mode
-    lis["SA0"]    += gnd   # Address 0x18
-    lis["INT1"]   += Net("LIS_INT1")
-    lis["INT2"]   += Net("LIS_INT2")
+accelerometer(vcc=VCC, gnd=GND, scl=SCL, sda=SDA,
+              cs_net=LIS3DH_CS, int1=LIS3DH_INT)
 
-    # Decoupling
-    c_lis = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_lis[1] += vcc; c_lis[2] += gnd
+mems_microphone(vcc=VCC, gnd=GND, data=MIC_DATA, clk=MIC_CLK, sel=MIC_SEL)
+
+light_sensor(vcc=VCC, gnd=GND, adc_out=LIGHT_ADC)
+
+temperature_sensor(vcc=VCC, gnd=GND, adc_out=TEMP_ADC)
+
+ir_transceiver(vcc=VCC, gnd=GND, ir_tx_net=IR_TX, ir_rx_net=IR_RX)
+
+speaker_circuit(vcc=VCC, gnd=GND, spk_in=SPEAKER, spk_en_net=SPK_EN)
+
+buttons_and_switch(vcc=VCC, gnd=GND,
+                   btn_a_net=BTN_A, btn_b_net=BTN_B, slide_net=SLIDE_SW)
+
+battery_connector(vbat=VBAT, gnd=GND)
+
+alligator_pads(
+    vcc=VCC, gnd=GND,
+    a0=PAD_A0, a1=PAD_A1, a2=PAD_A2, a3=PAD_A3, a4=PAD_A4,
+    a5=PAD_A5, a6=PAD_A6, tx=PAD_TX, rx=PAD_RX, scl=SCL,
+)
+
+reset_circuit(vcc=VCC, gnd=GND, reset_n=RESET_N,
+              swdclk=SWDCLK, swdio=SWDIO)
 
 
-accelerometer(vcc, gnd, sda, scl)
-
-# ============================================================
-# 5. MEMS microphone (SPH0645LM4H-style PDM mic)
-# ============================================================
-@subcircuit
-def mems_microphone(vcc, gnd, mic_out):
-    mic = skidl_part("SPH0645LM4H",
-                     "Sensor_Audio:Knowles_SPH0645LM4H-6_3.5x2.65mm", [
-                         ("1", "WS",     Pin.types.INPUT),
-                         ("2", "SEL",    Pin.types.INPUT),
-                         ("4", "SCK",    Pin.types.INPUT),
-                         ("5", "GND",    Pin.types.PWRIN),
-                         ("6", "VDD",    Pin.types.PWRIN),
-                         ("3", "DATA",   Pin.types.OUTPUT),
-                     ])
-    mic["VDD"]  += vcc
-    mic["GND"]  += gnd
-    mic["DATA"] += mic_out
-    mic["SCK"]  += Net("MIC_SCK")
-    mic["WS"]   += Net("MIC_WS")
-    mic["SEL"]  += gnd  # left channel
-
-    c_mic = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_mic[1] += vcc; c_mic[2] += gnd
-
-
-mems_microphone(vcc, gnd, mic_net)
-
-# ============================================================
-# 6. Mini speaker + driver
-# ============================================================
-@subcircuit
-def speaker_driver(vcc, gnd, spk_in):
-    # Class-D audio amp (PAM8301 style, SOT-23-5)
-    amp = skidl_part("PAM8301", "Package_TO_SOT_SMD:SOT-23-5", [
-        ("1", "SD",   Pin.types.INPUT),
-        ("2", "INP",  Pin.types.INPUT),
-        ("3", "GND",  Pin.types.PWRIN),
-        ("5", "VDD",  Pin.types.PWRIN),
-        ("4", "OUT",  Pin.types.OUTPUT),
-    ])
-    amp["VDD"] += vcc
-    amp["GND"] += gnd
-    amp["SD"]  += vcc  # always enabled
-    amp["INP"] += spk_in
-
-    # Series resistor to speaker
-    spk_out = Net("SPK_OUT")
-    amp["OUT"] += spk_out
-
-    # Speaker connector (2-pin)
-    spk = Part("Connector_Generic", "Conn_01x02",
-               footprint="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
-               value="SPEAKER")
-    spk[1] += spk_out
-    spk[2] += gnd
-
-    c_amp = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_amp[1] += vcc; c_amp[2] += gnd
-
-
-speaker_driver(vcc, gnd, spk_net)
-
-# ============================================================
-# 7. IR transmitter + receiver
-# ============================================================
-@subcircuit
-def ir_transceiver(vcc, gnd, ir_tx, ir_rx):
-    # IR LED (transmitter)
-    ir_led = Part("Device", "LED", value="IR_LED",
-                  footprint="LED_SMD:LED_0603_1608Metric")
-    r_ir = Part("Device", "R", value="100R",
-                footprint="Resistor_SMD:R_0402_1005Metric")
-    # NPN transistor to drive IR LED
-    q_ir = skidl_part("MMBT3904", "Package_TO_SOT_SMD:SOT-23", [
-        ("1", "B", Pin.types.INPUT),
-        ("2", "E", Pin.types.PASSIVE),
-        ("3", "C", Pin.types.PASSIVE),
-    ])
-    r_base = Part("Device", "R", value="1K",
-                  footprint="Resistor_SMD:R_0402_1005Metric")
-    r_base[1] += ir_tx
-    r_base[2] += q_ir["B"]
-    q_ir["E"]  += gnd
-    ir_led[2]  += q_ir["C"]  # cathode to collector
-    r_ir[1]    += vcc
-    r_ir[2]    += ir_led[1]  # anode through resistor to VCC
-
-    # IR receiver module (TSOP38238 style, 3-pin)
-    ir_rcv = skidl_part("TSOP38238", "Package_TO_SOT_SMD:SOT-23", [
-        ("2", "GND", Pin.types.PWRIN),
-        ("3", "VCC", Pin.types.PWRIN),
-        ("1", "OUT", Pin.types.OUTPUT),
-    ])
-    ir_rcv["VCC"] += vcc
-    ir_rcv["GND"] += gnd
-    ir_rcv["OUT"] += ir_rx
-
-    c_ir = Part("Device", "C", value="100nF",
-                footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_ir[1] += vcc; c_ir[2] += gnd
-
-
-ir_transceiver(vcc, gnd, ir_tx_net, ir_rx_net)
-
-# ============================================================
-# 8. Light sensor (phototransistor + bias)
-# ============================================================
-@subcircuit
-def light_sensor(vcc, gnd, light_out):
-    # Phototransistor modeled as a resistive element
-    pt = Part("Device", "R", value="PHOTOTRANS",
-              footprint="LED_SMD:LED_0603_1608Metric")
-    r_light = Part("Device", "R", value="10K",
-                   footprint="Resistor_SMD:R_0402_1005Metric")
-    pt[1] += vcc
-    pt[2] += light_out
-    r_light[1] += light_out
-    r_light[2] += gnd
-
-
-light_sensor(vcc, gnd, light_net)
-
-# ============================================================
-# 9. Temperature sensor (NTC thermistor voltage divider)
-# ============================================================
-@subcircuit
-def temp_sensor(vcc, gnd, temp_out):
-    ntc = Part("Device", "R", value="10K_NTC",
-               footprint="Resistor_SMD:R_0402_1005Metric")
-    r_div = Part("Device", "R", value="10K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    ntc[1]   += vcc
-    ntc[2]   += temp_out
-    r_div[1] += temp_out
-    r_div[2] += gnd
-
-
-temp_sensor(vcc, gnd, temp_net)
-
-# ============================================================
-# 10. User buttons + slide switch
-# ============================================================
-@subcircuit
-def buttons_and_switch(vcc, gnd):
-    # Button A (modeled as 2-pin component)
-    btn_a = Part("Device", "R", value="SW_A",
-                 footprint="Button_Switch_SMD:SW_SPST_B3S-1000")
-    btn_a[1] += Net("BTN_A")
-    btn_a[2] += gnd
-
-    # Button B
-    btn_b = Part("Device", "R", value="SW_B",
-                 footprint="Button_Switch_SMD:SW_SPST_B3S-1000")
-    btn_b[1] += Net("BTN_B")
-    btn_b[2] += gnd
-
-    # Slide switch (SPDT as 3-pin connector)
-    sw = Part("Connector_Generic", "Conn_01x03",
-              footprint="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
-              value="SLIDE_SW")
-    sw[1] += gnd
-    sw[2] += Net("SLIDE_SW")
-    sw[3] += vcc
-
-    # Reset button
-    btn_rst = Part("Device", "R", value="SW_RST",
-                   footprint="Button_Switch_SMD:SW_SPST_B3S-1000")
-    btn_rst[1] += Net("~{RESET}")
-    btn_rst[2] += gnd
-
-    # Pull-up resistors for buttons
-    for net_name in ["BTN_A", "BTN_B"]:
-        r = Part("Device", "R", value="10K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-        r[1] += vcc
-        r[2] += Net(net_name)
-
-
-buttons_and_switch(vcc, gnd)
-
-# ============================================================
-# 11. Alligator clip pads (large copper pads as test points)
-# ============================================================
-@subcircuit
-def alligator_pads(vcc, gnd):
-    # 8 pads for capacitive touch / analog / digital I/O
-    for i in range(8):
-        tp = Part("Connector_Generic", "Conn_01x01",
-                  footprint="Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical",
-                  value=f"PAD_A{i}")
-        tp[1] += Net(f"PAD_A{i}")
-
-    # Power pads: 3.3V and GND exposed for alligator clips
-    tp_vcc = Part("Connector_Generic", "Conn_01x01",
-                  footprint="Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical",
-                  value="PAD_3V3")
-    tp_vcc[1] += vcc
-
-    tp_gnd = Part("Connector_Generic", "Conn_01x01",
-                  footprint="Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical",
-                  value="PAD_GND")
-    tp_gnd[1] += gnd
-
-
-alligator_pads(vcc, gnd)
-
-# ============================================================
-# 12. SWD debug header
-# ============================================================
-@subcircuit
-def swd_header(vcc, gnd):
-    hdr = Part("Connector_Generic", "Conn_01x04",
-               footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
-               value="SWD")
-    hdr[1] += vcc
-    hdr[2] += gnd
-    hdr[3] += Net("SWDCLK")
-    hdr[4] += Net("SWDIO")
-
-
-swd_header(vcc, gnd)
-
-# ============================================================
-# Generate schematic
-# ============================================================
-generate_schematic(auto_stub=True)
+if __name__ == "__main__":
+    generate_schematic(auto_stub=True, auto_stub_fanout=3, erc_max_iterations=8)
