@@ -401,7 +401,14 @@ def _result_summary(result: dict | None) -> dict:
 
 
 def _terminal_status(status: str | None) -> bool:
-    return status in {"succeeded", "succeeded_with_warnings", "failed", "timeout", "crashed"}
+    return status in {
+        "succeeded",
+        "succeeded_with_warnings",
+        "failed",
+        "failed_reviewable",
+        "timeout",
+        "crashed",
+    }
 
 
 def _needs_resubmission(result: dict | None) -> bool:
@@ -412,12 +419,12 @@ def _needs_resubmission(result: dict | None) -> bool:
     if isinstance(nested, dict):
         if nested.get("ok") is False:
             return True
-        if nested.get("status") in {"failed", "timeout", "crashed"}:
+        if nested.get("status") in {"failed", "failed_reviewable", "timeout", "crashed"}:
             return True
         metrics = nested.get("metrics")
         if isinstance(metrics, dict) and metrics.get("manufacturable") is False:
             return True
-    return status in {"failed", "timeout", "crashed"} and result.get("ok") is False
+    return status in {"failed", "failed_reviewable", "timeout", "crashed"} and result.get("ok") is False
 
 
 def _final_report_block_reason(

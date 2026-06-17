@@ -366,7 +366,7 @@ async def submit_skidl_code(
     Returns: {"job_id": "...", "status": "queued"}. This is only an
     acknowledgement, not a completed design. Poll get_job(job_id) until it
     returns a terminal status: "succeeded", "succeeded_with_warnings",
-    "failed", "timeout", or "crashed".
+    "failed", "failed_reviewable", "timeout", or "crashed".
     """
     if not code or not code.strip():
         raise ValueError("code must be non-empty SKiDL Python source.")
@@ -395,7 +395,8 @@ async def submit_skidl_code(
         "hint": (
             "Job queued. This is not a design result yet. Poll with "
             "get_job(job_id) every 10s until status is 'succeeded', "
-            "'succeeded_with_warnings', 'failed', 'timeout', or 'crashed'. "
+            "'succeeded_with_warnings', 'failed', 'failed_reviewable', "
+            "'timeout', or 'crashed'. "
             "If your code has errors (wrong lib/part/pin names), you'll get "
             "a clear message — fix and resubmit. When the board passes "
             "routing, DRC, and manufacturing export, Gerbers, BOM, and CPL "
@@ -409,8 +410,9 @@ async def get_job(job_id: str) -> dict:
     """Poll a submitted job. Returns status and a compact finished result.
 
     status values: "queued" (waiting for a worker), "running",
-    "succeeded", "succeeded_with_warnings", "failed", "timeout", "crashed",
-    or "not_found" if the supplied job_id is unknown to the queue.
+    "succeeded", "succeeded_with_warnings", "failed", "failed_reviewable",
+    "timeout", "crashed", or "not_found" if the supplied job_id is unknown
+    to the queue.
     Poll every 5-15s while queued/running. A submit response with
     status="queued" is not a design result; keep polling get_job(job_id) until
     one of the terminal statuses above appears, then inspect result/run_id.
@@ -427,8 +429,10 @@ async def get_job(job_id: str) -> dict:
     - summary, metrics, layout: quality data (placement score, HPWL, ERC)
 
     If the job crashed, "error" holds the traceback message and result may
-    be null. A failed/timeout status with exceptions is normal — that is
+    be null. A failed/failed_reviewable/timeout status with exceptions is normal — that is
     the correction loop, not a malfunction; inspect the candidates. A
+    failed_reviewable status means preview artifacts exist and should be
+    shown to the human before resubmitting. A
     succeeded_with_warnings status is a usable result with advisories; call
     get_run(result.run_id) for previews/artifacts before final judgement.
     """

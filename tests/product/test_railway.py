@@ -2018,7 +2018,7 @@ class TestAgentUX:
         desc = tools["get_job"].description
         for status in (
             "queued", "running", "succeeded", "succeeded_with_warnings",
-            "failed", "timeout", "crashed", "not_found",
+            "failed", "failed_reviewable", "timeout", "crashed", "not_found",
         ):
             assert status in desc
         assert "run_id" in desc and "exceptions" in desc

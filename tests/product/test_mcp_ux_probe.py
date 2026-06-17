@@ -238,6 +238,17 @@ def test_default_llm_timeout_keeps_stress_probe_bounded():
     assert mcp_ux_probe.DEFAULT_LLM_TIMEOUT_S <= 90.0
 
 
+def test_failed_reviewable_is_terminal_and_needs_resubmission():
+    result = {
+        "status": "failed_reviewable",
+        "ok": False,
+        "run_id": "run-review",
+    }
+
+    assert mcp_ux_probe._terminal_status("failed_reviewable")
+    assert mcp_ux_probe._needs_resubmission(result)
+
+
 def test_request_alarm_interrupts_blocking_work():
     if not hasattr(mcp_ux_probe.signal, "SIGALRM"):
         pytest.skip("SIGALRM unavailable on this platform")

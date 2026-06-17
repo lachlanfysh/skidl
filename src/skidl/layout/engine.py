@@ -2262,6 +2262,56 @@ def _constraint_pattern_refs(constraints: LayoutConstraints | None) -> set[str]:
     return refs
 
 
+def _intent_pattern_refs(intent_plan: PlacementIntentPlan | None) -> set[str]:
+    """Refs covered by mechanical/front-panel grid intent."""
+
+    if intent_plan is None:
+        return set()
+    protected_mating_kinds = {
+        "audio_jack",
+        "barrel",
+        "button",
+        "coaxial",
+        "display",
+        "encoder",
+        "eurorack_power",
+        "ffc",
+        "generic_connector",
+        "header",
+        "internal_header",
+        "jst",
+        "key",
+        "midi",
+        "module_socket",
+        "nav_control",
+        "panel_jack",
+        "pot",
+        "terminal_block",
+        "usb",
+    }
+    mating_kinds = {
+        mating.ref: mating.kind for mating in intent_plan.mating_intents or []
+    }
+    mechanical_refs = {
+        ref
+        for ref, intents in (intent_plan.intents or {}).items()
+        if any(
+            intent.kind in {"panel_control", "panel_jack"}
+            or (
+                intent.kind in {"front_panel_subject", "mechanical_mating"}
+                and mating_kinds.get(ref) in protected_mating_kinds
+            )
+            for intent in intents
+        )
+    }
+    refs: set[str] = set()
+    for constraint in intent_plan.align_constraints or []:
+        refs.update(ref for ref in (constraint.refs or []) if ref in mechanical_refs)
+    for constraint in intent_plan.distribute_constraints or []:
+        refs.update(ref for ref in (constraint.refs or []) if ref in mechanical_refs)
+    return refs
+
+
 def _arrange_passive_grid_between_opposing_headers(
     placed_parts: list[PlacedPart],
     circuit,
@@ -2501,10 +2551,13 @@ def _spread_grid_subjects_on_generous_outline(
     protected_refs.update(
         intent_plan.refs_with_kind("mounting_hole") if intent_plan else []
     )
+    protected_refs.update(_intent_pattern_refs(intent_plan))
     protected_refs.update(
         fixed.ref for fixed in (constraints.fixed if constraints else []) or []
     )
-    protected_refs.update(_constraint_pattern_refs(constraints))
+    protected_refs.update(
+        _constraint_pattern_refs(constraints) & _intent_pattern_refs(intent_plan)
+    )
     protected_refs.update(_constraint_floorplan_refs(user_constraints))
 
     roles = classify_parts(circuit)
