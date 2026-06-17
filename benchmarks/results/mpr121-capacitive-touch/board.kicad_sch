@@ -1,0 +1,2091 @@
+{
+  "run_id": "41dfaa7b4aa8",
+  "job_id": "275b48a6dd2f",
+  "user_id": null,
+  "api_key_id": null,
+  "spec": {
+    "code": "\nfrom skidl import *\n\n# Power rails\nvin = Net(\"VIN\"); vin.drive = POWER\nv3v3 = Net(\"+3V3\"); v3v3.drive = POWER\ngnd = Net(\"GND\"); gnd.drive = POWER\n\n# Internal signal nets\nsda_3v3 = Net(\"SDA_3V3\")\nscl_3v3 = Net(\"SCL_3V3\")\nsda_host = Net(\"SDA\")\nscl_host = Net(\"SCL\")\nirq_net = Net(\"IRQ\")\n\n# Electrode nets\nele_nets = [Net(f\"ELE{i}\") for i in range(12)]\n\n# ==============================================================\n# 3.3V LDO Regulator (TLV70033, SOT-23-5)\n# ==============================================================\nreg = Part(\"Regulator_Linear\", \"TLV70033_SOT23-5\",\n           footprint=\"Package_TO_SOT_SMD:SOT-23-5\")\nreg[\"IN\"] += vin\nreg[\"GND\"] += gnd\nreg[\"OUT\"] += v3v3\nreg[\"EN\"] += vin\nreg[\"NC\"] += NC()\n\n# LDO decoupling caps\ncin = Part(\"Device\", \"C\", value=\"1uF\",\n           footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncin[1] += vin; cin[2] += gnd\n\ncout = Part(\"Device\", \"C\", value=\"1uF\",\n            footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncout[1] += v3v3; cout[2] += gnd\n\n# Bulk cap on 3V3 (10uF)\ncbulk = Part(\"Device\", \"C\", value=\"10uF\",\n             footprint=\"Capacitor_SMD:C_0805_2012Metric\")\ncbulk[1] += v3v3; cbulk[2] += gnd\n\n# ==============================================================\n# MPR121QR2 (LCSC C91322, QFN-20 3x3mm 0.4mm pitch)\n# Using KiCad standard UQFN-20 footprint (3x3mm, P0.4mm)\n# Pins: ~{IRQ}(1), SCL(2), SDA(3), ADDR(4), VREG(5), VSS(6),\n#       REXT(7), ELE0-ELE11(8-19), VDD(20)\n# ==============================================================\nic = Part(\"C91322\", \"MPR121QR2\",\n          footprint=\"Package_DFN_QFN:UQFN-20_3x3mm_P0.4mm\")\n\nic[\"VDD\"] += v3v3\nic[\"VSS\"] += gnd\nic[\"~{IRQ}\"] += irq_net\nic[\"SCL\"] += scl_3v3\nic[\"SDA\"] += sda_3v3\n\n# ADDR to GND = I2C address 0x5A\nr_addr = Part(\"Device\", \"R\", value=\"0R\",\n              footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_addr[1] += ic[\"ADDR\"]\nr_addr[2] += gnd\n\n# VREG bypass cap (MPR121 internal regulator output)\ncvreg = Part(\"Device\", \"C\", value=\"10nF\",\n             footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncvreg[1] += ic[\"VREG\"]\ncvreg[2] += gnd\n\n# REXT: 200k to GND (sets charge current per datasheet)\nr_rext = Part(\"Device\", \"R\", value=\"200K\",\n              footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_rext[1] += ic[\"REXT\"]\nr_rext[2] += gnd\n\n# VDD decoupling 100nF\ncdec = Part(\"Device\", \"C\", value=\"100nF\",\n            footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncdec[1] += v3v3\ncdec[2] += gnd\n\n# Electrode connections ELE0-ELE11\nfor i in range(12):\n    ic[f\"ELE{i}\"] += ele_nets[i]\n\n# ==============================================================\n# I2C Bidirectional Level Shifter (2x BSS138 N-MOSFET)\n# Gate tied to 3V3, Source on low (3V3) side, Drain on high (VIN) side\n# ==============================================================\nq_sda = Part(\"Transistor_FET\", \"BSS138\",\n             footprint=\"Package_TO_SOT_SMD:SOT-23\")\nq_sda[\"G\"] += v3v3\nq_sda[\"S\"] += sda_3v3\nq_sda[\"D\"] += sda_host\n\nr_sda_lo = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_sda_lo[1] += v3v3; r_sda_lo[2] += sda_3v3\n\nr_sda_hi = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_sda_hi[1] += vin; r_sda_hi[2] += sda_host\n\nq_scl = Part(\"Transistor_FET\", \"BSS138\",\n             footprint=\"Package_TO_SOT_SMD:SOT-23\")\nq_scl[\"G\"] += v3v3\nq_scl[\"S\"] += scl_3v3\nq_scl[\"D\"] += scl_host\n\nr_scl_lo = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_scl_lo[1] += v3v3; r_scl_lo[2] += scl_3v3\n\nr_scl_hi = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_scl_hi[1] += vin; r_scl_hi[2] += scl_host\n\n# ==============================================================\n# IRQ Pull-up + LED indicator\n# MPR121 IRQ is active-low open drain\n# LED: anode->3V3 via R_LED, cathode->IRQ (lights when IRQ is low)\n# LED K=pin1, A=pin2\n# ==============================================================\nr_irq = Part(\"Device\", \"R\", value=\"100K\",\n             footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_irq[1] += v3v3\nr_irq[2] += irq_net\n\nr_led = Part(\"Device\", \"R\", value=\"1K\",\n             footprint=\"Resistor_SMD:R_0603_1608Metric\")\nled = Part(\"Device\", \"LED\", value=\"RED\",\n           footprint=\"LED_SMD:LED_0603_1608Metric\")\n\nr_led[1] += v3v3\nr_led[2] += led[\"A\"]   # Anode to current-limit resistor\nled[\"K\"] += irq_net    # Cathode to IRQ (lit when pulled low)\n\n# ==============================================================\n# Connectors\n# ==============================================================\n# Host header (1x5): VIN, GND, SDA, SCL, IRQ\nj_host = Part(\"Connector\", \"Conn_01x05_Pin\",\n              value=\"HOST_I2C\",\n              footprint=\"Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical\")\nj_host[\"Pin_1\"] += vin\nj_host[\"Pin_2\"] += gnd\nj_host[\"Pin_3\"] += sda_host\nj_host[\"Pin_4\"] += scl_host\nj_host[\"Pin_5\"] += irq_net\nj_host.edge_preference = \"left\"\n\n# Electrode header (1x12): ELE0-ELE11\nj_ele = Part(\"Connector\", \"Conn_01x12_Pin\",\n             value=\"ELECTRODES\",\n             footprint=\"Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical\")\nfor i in range(12):\n    j_ele[f\"Pin_{i+1}\"] += ele_nets[i]\nj_ele.edge_preference = \"right\"\n",
+    "_mode": "skidl_python",
+    "board_name": "board",
+    "outline_mm": null,
+    "design_intent": "",
+    "kicad_version": "9",
+    "pipeline_goal": "manufacturing",
+    "assembly_policy": "single_sided",
+    "corner_radius_mm": null,
+    "custom_footprints": null
+  },
+  "exceptions": [
+    {
+      "id": "e-drc-unconnected",
+      "code": "DRC_UNCONNECTED",
+      "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+      "subject": {
+        "nets": {
+          "GND": 2,
+          "IRQ": 2,
+          "N$2": 2,
+          "N$3": 2,
+          "N$4": 2,
+          "+3V3": 6,
+          "ELE0": 2,
+          "ELE1": 2,
+          "ELE2": 2,
+          "ELE3": 2,
+          "ELE4": 2,
+          "ELE5": 2,
+          "ELE6": 2,
+          "ELE7": 2,
+          "ELE8": 2,
+          "ELE9": 2,
+          "ELE10": 2,
+          "ELE11": 2,
+          "SCL_3V3": 2,
+          "SDA_3V3": 4
+        },
+        "refs": [
+          "C4",
+          "ELE0",
+          "ELE1",
+          "ELE10",
+          "ELE4",
+          "J2",
+          "U2"
+        ],
+        "count": 46,
+        "examples": [
+          {
+            "descriptions": [
+              "Pad 8 [ELE0] of U2 on F.Cu",
+              "PTH pad 1 [ELE0] of J2"
+            ]
+          },
+          {
+            "descriptions": [
+              "Pad 12 [ELE4] of U2 on F.Cu",
+              "PTH pad 5 [ELE4] of J2"
+            ]
+          },
+          {
+            "descriptions": [
+              "Pad 18 [ELE10] of U2 on F.Cu",
+              "PTH pad 11 [ELE10] of J2"
+            ]
+          },
+          {
+            "descriptions": [
+              "Track [+3V3] on F.Cu, length 3.4724 mm",
+              "Pad 20 [+3V3] of U2 on F.Cu"
+            ]
+          },
+          {
+            "descriptions": [
+              "Track [+3V3] on F.Cu, length 0.4406 mm",
+              "Track [+3V3] on F.Cu, length 0.2552 mm"
+            ]
+          },
+          {
+            "descriptions": [
+              "Track [+3V3] on B.Cu, length 3.2779 mm",
+              "Track [+3V3] on F.Cu, length 0.2622 mm"
+            ]
+          },
+          {
+            "descriptions": [
+              "Pad 1 [N$3] of C4 on F.Cu",
+              "Pad 5 [N$3] of U2 on F.Cu"
+            ]
+          },
+          {
+            "descriptions": [
+              "Pad 9 [ELE1] of U2 on F.Cu",
+              "PTH pad 2 [ELE1] of J2"
+            ]
+          }
+        ],
+        "routing_diagnosis": "congestion_router_limitation",
+        "routing_diagnosis_reason": "routing congestion is high without hard placement violations",
+        "routing_diagnosis_evidence": {
+          "density": {
+            "area_mm2": 1242.869011096019,
+            "spacious": false,
+            "width_mm": 27.161740719275873,
+            "height_mm": 45.75807655118334,
+            "part_count": 21,
+            "tight_outline": true,
+            "max_margin_ratio": 0.4607719525100191,
+            "spread_area_ratio": 0.2954366767226477,
+            "sparse_on_large_outline": false,
+            "compact_outline_area_ratio": 0.971164393365966,
+            "effective_spread_area_ratio": 0.6636899604982117,
+            "clustered_on_spacious_outline": false,
+            "footprint_envelope_area_ratio": 0.6636899604982117
+          },
+          "congestion_score": 213.9055763187853
+        }
+      },
+      "severity": "error",
+      "candidates": [
+        {
+          "id": "c1",
+          "action": "regenerate",
+          "params": {},
+          "source": "deterministic",
+          "cost_hint": "free",
+          "confidence": 0.45,
+          "human_summary": "Retry routing after local congestion-aware placement changes"
+        },
+        {
+          "id": "c2",
+          "action": "scale_outline",
+          "params": {
+            "area_factor": 1.15
+          },
+          "source": "deterministic",
+          "cost_hint": "free",
+          "confidence": 0.2,
+          "human_summary": "Defer outline growth; use only after fixing the diagnosed congestion router limitation cause"
+        }
+      ],
+      "retry_hint": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+    },
+    {
+      "id": "e-product-layout",
+      "code": "PRODUCT_LAYOUT_FAILED",
+      "message": "product layout quality gates failed; preview artifacts are available for human review",
+      "subject": {
+        "top_issues": [
+          {
+            "code": "HIGH_CONGESTION",
+            "message": "layout congestion is high (213.9)",
+            "severity": "warning",
+            "recommendation": "Use this as placement feedback before growing the outline; try group movement, connector orientation, or route-aware retries first."
+          },
+          {
+            "code": "ROUTING_FAILURE_DIAGNOSIS",
+            "message": "routing failure classified as congestion-router-limitation",
+            "severity": "error",
+            "recommendation": "Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline."
+          },
+          {
+            "code": "UNUSED_OUTLINE_REGION",
+            "message": "one or more board margins are very large relative to the outline",
+            "severity": "warning",
+            "recommendation": "Review whether the board should compact. For fixed outlines, use the empty region deliberately instead of growing the board."
+          },
+          {
+            "code": "DRC_UNCONNECTED",
+            "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+            "severity": "error",
+            "recommendation": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+          }
+        ],
+        "issue_codes": [
+          "HIGH_CONGESTION",
+          "ROUTING_FAILURE_DIAGNOSIS",
+          "UNUSED_OUTLINE_REGION",
+          "DRC_UNCONNECTED"
+        ],
+        "review_state": "failed_reviewable",
+        "preview_files": [
+          "preview_2d_top.svg",
+          "preview_top.svg",
+          "preview_2d_top.png",
+          "preview_2d_bottom.svg",
+          "preview_2d_bottom.png",
+          "preview_2d_combined.svg",
+          "preview_2d_combined.png",
+          "preview_top.png",
+          "preview_assembly.svg"
+        ],
+        "product_layout_ok": false,
+        "visual_review_ready": true,
+        "blocking_issue_codes": [
+          "ROUTING_FAILURE_DIAGNOSIS",
+          "DRC_UNCONNECTED"
+        ]
+      },
+      "severity": "error",
+      "candidates": [
+        {
+          "id": "c1",
+          "action": "regenerate",
+          "params": {},
+          "source": "deterministic",
+          "cost_hint": "free",
+          "confidence": 0.9,
+          "human_summary": "revise placement or floorplan intent, then rerun with the preview artifacts preserved for review"
+        }
+      ],
+      "retry_hint": "Do not treat placement_review-only advisories as success when layout_quality.gates.product_layout_ok is false. Inspect the preview files and layout_quality issues, then revise SKiDL placement intent, edge anchors, fixed positions, footprint choices, or outline constraints before resubmitting."
+    },
+    {
+      "id": "e-high-congestion",
+      "code": "HIGH_CONGESTION",
+      "message": "layout congestion is high (213.9)",
+      "subject": {
+        "congestion_score": 213.9055763187853
+      },
+      "severity": "advisory",
+      "candidates": [
+        {
+          "id": "c1",
+          "action": "accept_advisory",
+          "params": {},
+          "source": "deterministic",
+          "cost_hint": "free",
+          "confidence": 0.9,
+          "human_summary": "accept this congestion advisory for the current spec"
+        },
+        {
+          "id": "c2",
+          "action": "scale_outline",
+          "params": {
+            "area_factor": 1.2
+          },
+          "source": "deterministic",
+          "cost_hint": "cheap",
+          "confidence": 0.9,
+          "human_summary": "increase board area by 20% and re-run placement"
+        }
+      ],
+      "retry_hint": ""
+    }
+  ],
+  "response": {
+    "ok": false,
+    "spec": {
+      "code": "\nfrom skidl import *\n\n# Power rails\nvin = Net(\"VIN\"); vin.drive = POWER\nv3v3 = Net(\"+3V3\"); v3v3.drive = POWER\ngnd = Net(\"GND\"); gnd.drive = POWER\n\n# Internal signal nets\nsda_3v3 = Net(\"SDA_3V3\")\nscl_3v3 = Net(\"SCL_3V3\")\nsda_host = Net(\"SDA\")\nscl_host = Net(\"SCL\")\nirq_net = Net(\"IRQ\")\n\n# Electrode nets\nele_nets = [Net(f\"ELE{i}\") for i in range(12)]\n\n# ==============================================================\n# 3.3V LDO Regulator (TLV70033, SOT-23-5)\n# ==============================================================\nreg = Part(\"Regulator_Linear\", \"TLV70033_SOT23-5\",\n           footprint=\"Package_TO_SOT_SMD:SOT-23-5\")\nreg[\"IN\"] += vin\nreg[\"GND\"] += gnd\nreg[\"OUT\"] += v3v3\nreg[\"EN\"] += vin\nreg[\"NC\"] += NC()\n\n# LDO decoupling caps\ncin = Part(\"Device\", \"C\", value=\"1uF\",\n           footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncin[1] += vin; cin[2] += gnd\n\ncout = Part(\"Device\", \"C\", value=\"1uF\",\n            footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncout[1] += v3v3; cout[2] += gnd\n\n# Bulk cap on 3V3 (10uF)\ncbulk = Part(\"Device\", \"C\", value=\"10uF\",\n             footprint=\"Capacitor_SMD:C_0805_2012Metric\")\ncbulk[1] += v3v3; cbulk[2] += gnd\n\n# ==============================================================\n# MPR121QR2 (LCSC C91322, QFN-20 3x3mm 0.4mm pitch)\n# Using KiCad standard UQFN-20 footprint (3x3mm, P0.4mm)\n# Pins: ~{IRQ}(1), SCL(2), SDA(3), ADDR(4), VREG(5), VSS(6),\n#       REXT(7), ELE0-ELE11(8-19), VDD(20)\n# ==============================================================\nic = Part(\"C91322\", \"MPR121QR2\",\n          footprint=\"Package_DFN_QFN:UQFN-20_3x3mm_P0.4mm\")\n\nic[\"VDD\"] += v3v3\nic[\"VSS\"] += gnd\nic[\"~{IRQ}\"] += irq_net\nic[\"SCL\"] += scl_3v3\nic[\"SDA\"] += sda_3v3\n\n# ADDR to GND = I2C address 0x5A\nr_addr = Part(\"Device\", \"R\", value=\"0R\",\n              footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_addr[1] += ic[\"ADDR\"]\nr_addr[2] += gnd\n\n# VREG bypass cap (MPR121 internal regulator output)\ncvreg = Part(\"Device\", \"C\", value=\"10nF\",\n             footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncvreg[1] += ic[\"VREG\"]\ncvreg[2] += gnd\n\n# REXT: 200k to GND (sets charge current per datasheet)\nr_rext = Part(\"Device\", \"R\", value=\"200K\",\n              footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_rext[1] += ic[\"REXT\"]\nr_rext[2] += gnd\n\n# VDD decoupling 100nF\ncdec = Part(\"Device\", \"C\", value=\"100nF\",\n            footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncdec[1] += v3v3\ncdec[2] += gnd\n\n# Electrode connections ELE0-ELE11\nfor i in range(12):\n    ic[f\"ELE{i}\"] += ele_nets[i]\n\n# ==============================================================\n# I2C Bidirectional Level Shifter (2x BSS138 N-MOSFET)\n# Gate tied to 3V3, Source on low (3V3) side, Drain on high (VIN) side\n# ==============================================================\nq_sda = Part(\"Transistor_FET\", \"BSS138\",\n             footprint=\"Package_TO_SOT_SMD:SOT-23\")\nq_sda[\"G\"] += v3v3\nq_sda[\"S\"] += sda_3v3\nq_sda[\"D\"] += sda_host\n\nr_sda_lo = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_sda_lo[1] += v3v3; r_sda_lo[2] += sda_3v3\n\nr_sda_hi = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_sda_hi[1] += vin; r_sda_hi[2] += sda_host\n\nq_scl = Part(\"Transistor_FET\", \"BSS138\",\n             footprint=\"Package_TO_SOT_SMD:SOT-23\")\nq_scl[\"G\"] += v3v3\nq_scl[\"S\"] += scl_3v3\nq_scl[\"D\"] += scl_host\n\nr_scl_lo = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_scl_lo[1] += v3v3; r_scl_lo[2] += scl_3v3\n\nr_scl_hi = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_scl_hi[1] += vin; r_scl_hi[2] += scl_host\n\n# ==============================================================\n# IRQ Pull-up + LED indicator\n# MPR121 IRQ is active-low open drain\n# LED: anode->3V3 via R_LED, cathode->IRQ (lights when IRQ is low)\n# LED K=pin1, A=pin2\n# ==============================================================\nr_irq = Part(\"Device\", \"R\", value=\"100K\",\n             footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_irq[1] += v3v3\nr_irq[2] += irq_net\n\nr_led = Part(\"Device\", \"R\", value=\"1K\",\n             footprint=\"Resistor_SMD:R_0603_1608Metric\")\nled = Part(\"Device\", \"LED\", value=\"RED\",\n           footprint=\"LED_SMD:LED_0603_1608Metric\")\n\nr_led[1] += v3v3\nr_led[2] += led[\"A\"]   # Anode to current-limit resistor\nled[\"K\"] += irq_net    # Cathode to IRQ (lit when pulled low)\n\n# ==============================================================\n# Connectors\n# ==============================================================\n# Host header (1x5): VIN, GND, SDA, SCL, IRQ\nj_host = Part(\"Connector\", \"Conn_01x05_Pin\",\n              value=\"HOST_I2C\",\n              footprint=\"Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical\")\nj_host[\"Pin_1\"] += vin\nj_host[\"Pin_2\"] += gnd\nj_host[\"Pin_3\"] += sda_host\nj_host[\"Pin_4\"] += scl_host\nj_host[\"Pin_5\"] += irq_net\nj_host.edge_preference = \"left\"\n\n# Electrode header (1x12): ELE0-ELE11\nj_ele = Part(\"Connector\", \"Conn_01x12_Pin\",\n             value=\"ELECTRODES\",\n             footprint=\"Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical\")\nfor i in range(12):\n    j_ele[f\"Pin_{i+1}\"] += ele_nets[i]\nj_ele.edge_preference = \"right\"\n",
+      "_mode": "skidl_python",
+      "board_name": "board",
+      "outline_mm": null,
+      "design_intent": "",
+      "kicad_version": "9",
+      "pipeline_goal": "manufacturing",
+      "assembly_policy": "single_sided",
+      "corner_radius_mm": null,
+      "custom_footprints": null
+    },
+    "stage": "complete",
+    "layout": {
+      "ok": true,
+      "score": {
+        "ok": true,
+        "score": 55.898587794634224,
+        "warnings": [],
+        "role_counts": {
+          "ic": 3,
+          "diode": 1,
+          "connector": 2,
+          "regulator": 1,
+          "decoupling_cap": 1,
+          "signal_passive": 13
+        },
+        "missing_count": 0,
+        "overlap_count": 0,
+        "total_hpwl_mm": 303.703901745527,
+        "warning_count": 0,
+        "crossing_count": 88,
+        "power_net_count": 3,
+        "congestion_score": 213.9055763187853,
+        "weighted_hpwl_mm": 363.2801004546287,
+        "compact_outline_mm": {
+          "area": 1207.0301291944234,
+          "width": 32.16174071927587,
+          "height": 37.53
+        },
+        "congestion_regions": [
+          "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+          "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+          "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+          "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]",
+          "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+        ],
+        "empty_margin_ratios": {
+          "top": 0.0,
+          "left": 0.018408245817808172,
+          "right": 0.018408245817808172,
+          "bottom": 0.4607719525100191
+        },
+        "front_panel_trace_mm": 0.0,
+        "power_corridor_count": 3,
+        "cutout_violation_count": 0,
+        "max_empty_margin_ratio": 0.4607719525100191,
+        "front_panel_trace_count": 0,
+        "keepout_violation_count": 0,
+        "outline_violation_count": 0,
+        "compact_outline_area_ratio": 0.971164393365966,
+        "footprint_envelope_bbox_mm": {
+          "area": 824.8796848787683,
+          "width": 26.161740719275873,
+          "height": 31.53
+        },
+        "footprint_envelope_area_ratio": 0.6636899604982117
+      },
+      "report": {
+        "reasons": [
+          "explicit constraints, fixed mechanics, and default placement order",
+          "unlocked rotations refined using pad/net pressure",
+          "decaps refined near actual parent power pins",
+          "local refinement accepted 24 score-gated adjustment(s): 0.0 -> 32.6",
+          "edge connectors snapped to final auto-outline edges",
+          "post-anchor local refinement accepted 5 score-gated adjustment(s): 55.5 -> 56.2",
+          "edge connectors snapped to tightened auto-outline edges",
+          "best valid candidate (6 valid of 7)"
+        ],
+        "selected": "baseline",
+        "warnings": [],
+        "top_risks": [
+          "congestion: (16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+          "congestion: (16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+          "congestion: (26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+          "congestion: (26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]",
+          "congestion: (6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]",
+          "net +3V3: bring R5 and Q2 closer on +3V3, or reserve a straighter route between them",
+          "net ELE0: bring U2 and J2 closer on ELE0, or reserve a straighter route between them",
+          "net SCL: bring J1 and R6 closer on SCL, or reserve a straighter route between them",
+          "net VIN: bring J1 and R4 closer on VIN, or reserve a straighter route between them",
+          "net GND: bring R2 and C2 closer on GND, or reserve a straighter route between them"
+        ],
+        "candidates": [
+          {
+            "name": "baseline",
+            "score": 55.898587794634224,
+            "reasons": [
+              "explicit constraints, fixed mechanics, and default placement order",
+              "unlocked rotations refined using pad/net pressure",
+              "decaps refined near actual parent power pins",
+              "local refinement accepted 24 score-gated adjustment(s): 0.0 -> 32.6",
+              "edge connectors snapped to final auto-outline edges",
+              "post-anchor local refinement accepted 5 score-gated adjustment(s): 55.5 -> 56.2",
+              "edge connectors snapped to tightened auto-outline edges"
+            ],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 303.703901745527,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "cluster_first",
+            "score": 46.29702001790618,
+            "reasons": [],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 634.4092793562097,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "connector_edge_first",
+            "score": 46.22342056754859,
+            "reasons": [],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 632.9712276055466,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "module_socket_central",
+            "score": 46.22342056754859,
+            "reasons": [],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 632.9712276055466,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "repeated_channel_array",
+            "score": 46.22342056754859,
+            "reasons": [],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 632.9712276055466,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "power_first",
+            "score": 41.11408360621914,
+            "reasons": [],
+            "warnings": [
+              "C5: decoupling cap pads average 6.8mm from U1 supply pads"
+            ],
+            "overlap_count": 0,
+            "total_hpwl_mm": 641.2636314498611,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "power_topology_first",
+            "score": 0.0,
+            "reasons": [],
+            "warnings": [
+              "C5: decoupling cap pads average 8.2mm from U1 supply pads",
+              "R1: signal passive is 21.8mm from U2",
+              "C4: signal passive is 14.1mm from U2",
+              "R2: signal passive is 19.2mm from U2",
+              "R4: signal passive is 12.6mm from Q1",
+              "R5: signal passive is 17.1mm from U2"
+            ],
+            "overlap_count": 1,
+            "total_hpwl_mm": 933.595131084277,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          }
+        ],
+        "risky_nets": [
+          {
+            "name": "GND",
+            "hpwl_mm": 30.764036625649112
+          },
+          {
+            "name": "+3V3",
+            "hpwl_mm": 27.428160205458973
+          },
+          {
+            "name": "IRQ",
+            "hpwl_mm": 25.09753958699946
+          },
+          {
+            "name": "VIN",
+            "hpwl_mm": 20.592109933628713
+          },
+          {
+            "name": "SCL_3V3",
+            "hpwl_mm": 16.555443272871262
+          },
+          {
+            "name": "SCL",
+            "hpwl_mm": 16.54510677254237
+          },
+          {
+            "name": "SDA_3V3",
+            "hpwl_mm": 14.82094483559583
+          },
+          {
+            "name": "N$3",
+            "hpwl_mm": 13.860805552822837
+          },
+          {
+            "name": "SDA",
+            "hpwl_mm": 12.565961767891165
+          },
+          {
+            "name": "ELE0",
+            "hpwl_mm": 9.074834115788873
+          }
+        ],
+        "part_reasons": {
+          "C1": [
+            "power chain: VIN from J1"
+          ],
+          "C2": [
+            "power chain: +3V3 from U1",
+            "rotated to 270 deg by pad/net pressure",
+            "locally rotated to 0 deg after scoring"
+          ],
+          "C3": [
+            "power chain: +3V3 from U1",
+            "rotated to 270 deg by pad/net pressure",
+            "locally rotated to 0 deg after scoring",
+            "locally moved by passive pin gravity toward (19.8,15.1); U1 regulator owner on +3V3, GND net(s) using owner pad geometry; composed passive group slot 2/3 around U1 top side"
+          ],
+          "C4": [
+            "placed by baseline strategy",
+            "rotated to 90 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (19.1,8.9); U2 ic owner on N$3 net(s) using owner pad geometry; composed passive group slot 5/5 around U2 left side",
+            "locally moved by passive pin gravity toward (19.1,8.9); U2 ic owner on N$3 net(s) using owner pad geometry; composed passive group slot 5/5 around U2 left side"
+          ],
+          "C5": [
+            "power chain: +3V3 from U1",
+            "inferred intent: decoupling",
+            "rotated to 180 deg by pad/net pressure",
+            "placed near actual U2 +3V3/GND pads, avg pad distance 4.5mm"
+          ],
+          "C6": [
+            "power chain: VIN from J1",
+            "locally moved by passive pin gravity toward (18.6,13.2); U1 regulator owner on GND, VIN net(s) using owner pad geometry; composed passive group slot 2/2 around U1 left side",
+            "locally moved by passive pin gravity toward (18.6,13.2); U1 regulator owner on GND, VIN net(s) using owner pad geometry; composed passive group slot 2/2 around U1 left side"
+          ],
+          "D1": [
+            "mating intent: led facing right (visible_face)",
+            "inferred intent: board_ui, front_panel_subject, mechanical_mating, panel_grid_subject, panel_indicator, power_cluster",
+            "locally moved by passive pin gravity toward (27.7,22.2); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 1/5 around U2 left side",
+            "locally moved by passive pin gravity toward (27.7,22.2); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 1/5 around U2 left side"
+          ],
+          "J1": [
+            "mating intent: generic_connector facing left (pin_access)",
+            "power chain: VIN from J1",
+            "inferred intent: edge_connector, explicit_edge_anchor, mechanical_mating, power_input",
+            "rotated to 90 deg by pad/net pressure",
+            "locally rotated to 0 deg after scoring",
+            "locally moved toward connected-net centroid (11.3,18.5)",
+            "snapped to final auto-outline edge",
+            "locally moved toward connected-net centroid (10.5,20.1)",
+            "snapped to tightened auto-outline edge"
+          ],
+          "J2": [
+            "mating intent: generic_connector facing right (pin_access)",
+            "inferred intent: edge_connector, explicit_edge_anchor, mechanical_mating",
+            "rotated to 270 deg by pad/net pressure",
+            "locally rotated to 0 deg after scoring",
+            "snapped to final auto-outline edge",
+            "locally moved toward connected-net centroid (30.6,18.9)",
+            "snapped to tightened auto-outline edge"
+          ],
+          "Q1": [
+            "power chain: +3V3 from U1",
+            "rotated to 180 deg by pad/net pressure"
+          ],
+          "Q2": [
+            "power chain: +3V3 from U1",
+            "rotated to 180 deg by pad/net pressure"
+          ],
+          "R1": [
+            "placed by baseline strategy",
+            "rotated to 180 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (21.2,12.2); U2 ic owner on N$2 net(s) using owner pad geometry; composed passive group slot 4/5 around U2 left side"
+          ],
+          "R2": [
+            "placed by baseline strategy",
+            "rotated to 270 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (24.4,17.0); U2 ic owner on N$4 net(s) using owner pad geometry"
+          ],
+          "R3": [
+            "placed by baseline strategy",
+            "locally moved by passive pin gravity toward (23.4,15.6); U2 ic owner on SDA_3V3 net(s) using owner pad geometry; composed passive group slot 3/5 around U2 left side",
+            "locally moved by passive pin gravity toward (23.4,15.6); U2 ic owner on SDA_3V3 net(s) using owner pad geometry; composed passive group slot 3/5 around U2 left side"
+          ],
+          "R4": [
+            "placed by baseline strategy",
+            "rotated to 270 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (18.0,19.6); Q1 ic owner on SDA net(s) using owner pad geometry"
+          ],
+          "R5": [
+            "placed by baseline strategy",
+            "rotated to 270 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (15.6,14.1); Q2 ic owner on SCL_3V3 net(s) using owner pad geometry",
+            "locally moved by passive pin gravity toward (15.6,14.1); Q2 ic owner on SCL_3V3 net(s) using owner pad geometry",
+            "locally moved by passive pin gravity toward (15.6,14.1); Q2 ic owner on SCL_3V3 net(s) using owner pad geometry"
+          ],
+          "R6": [
+            "placed by baseline strategy",
+            "rotated to 180 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (13.8,15.1); Q2 ic owner on SCL net(s) using owner pad geometry",
+            "locally moved by passive pin gravity toward (13.8,15.1); Q2 ic owner on SCL net(s) using owner pad geometry"
+          ],
+          "R7": [
+            "placed by baseline strategy",
+            "rotated to 270 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (25.5,18.5); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 2/5 around U2 left side",
+            "locally moved by passive pin gravity toward (25.5,18.5); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 2/5 around U2 left side"
+          ],
+          "R8": [
+            "placed by baseline strategy",
+            "rotated to 90 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (20.4,23.1); Q2.1 on +3V3 (ic, pad offset 1.3mm); D1.2 on N$5 (diode, pad offset 0.8mm)",
+            "locally moved by passive pin gravity toward (25.7,22.3); Q1.1 on +3V3 (ic, pad offset 1.3mm); D1.2 on N$5 (diode, pad offset 0.8mm)"
+          ],
+          "U1": [
+            "power chain: +3V3 from U1",
+            "inferred intent: power_cluster",
+            "locally moved toward connected-net centroid (18.8,15.6)"
+          ],
+          "U2": [
+            "power chain: +3V3 from U1"
+          ]
+        },
+        "power_topology": [
+          "VIN: J1 -> U1 -> C1 -> C2 -> C3 -> C5 -> C6 -> Q1 -> Q2 -> U2",
+          "+3V3: U1 -> C2 -> C3 -> C5 -> Q1 -> Q2 -> U2"
+        ],
+        "hard_violations": [],
+        "power_corridors": [
+          "GND: 0.30mm on F.Cu across 11 refs",
+          "VIN: 0.80mm on F.Cu across 6 refs",
+          "+3V3: 0.30mm on F.Cu across 11 refs"
+        ],
+        "net_explanations": {
+          "GND": {
+            "name": "GND",
+            "refs": [
+              "R2",
+              "C6",
+              "C1",
+              "C4",
+              "U2",
+              "R1",
+              "U1",
+              "J1",
+              "C3",
+              "C5",
+              "C2"
+            ],
+            "risks": [
+              "long estimated route span 30.8mm",
+              "power corridor needs reserved routing space"
+            ],
+            "hpwl_mm": 30.764036625649112,
+            "warnings": [],
+            "risk_score": 58.76403662564911,
+            "next_actions": [
+              "bring R2 and C2 closer on GND, or reserve a straighter route between them",
+              "reserve a wide trace or plane corridor before signal routing"
+            ],
+            "power_corridors": [
+              "GND: 0.30mm on F.Cu across 11 refs"
+            ],
+            "congestion_regions": []
+          },
+          "IRQ": {
+            "name": "IRQ",
+            "refs": [
+              "R7",
+              "D1",
+              "U2",
+              "J1"
+            ],
+            "risks": [
+              "long estimated route span 25.1mm"
+            ],
+            "hpwl_mm": 25.09753958699946,
+            "warnings": [],
+            "risk_score": 35.09753958699946,
+            "next_actions": [
+              "bring R7 and J1 closer on IRQ, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          },
+          "N$3": {
+            "name": "N$3",
+            "refs": [
+              "C4",
+              "U2"
+            ],
+            "risks": [
+              "long estimated route span 13.9mm"
+            ],
+            "hpwl_mm": 13.860805552822837,
+            "warnings": [],
+            "risk_score": 23.86080555282284,
+            "next_actions": [
+              "bring C4 and U2 closer on N$3, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          },
+          "SCL": {
+            "name": "SCL",
+            "refs": [
+              "J1",
+              "Q2",
+              "R6"
+            ],
+            "risks": [
+              "long estimated route span 16.5mm",
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": 16.54510677254237,
+            "warnings": [],
+            "risk_score": 72.54510677254237,
+            "next_actions": [
+              "bring J1 and R6 closer on SCL, or reserve a straighter route between them",
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [],
+            "congestion_regions": [
+              "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+              "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+              "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+            ]
+          },
+          "SDA": {
+            "name": "SDA",
+            "refs": [
+              "Q1",
+              "R4",
+              "J1"
+            ],
+            "risks": [
+              "long estimated route span 12.6mm"
+            ],
+            "hpwl_mm": 12.565961767891165,
+            "warnings": [],
+            "risk_score": 22.565961767891167,
+            "next_actions": [
+              "bring Q1 and J1 closer on SDA, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          },
+          "VIN": {
+            "name": "VIN",
+            "refs": [
+              "J1",
+              "U1",
+              "C6",
+              "R6",
+              "C1",
+              "R4"
+            ],
+            "risks": [
+              "long estimated route span 20.6mm",
+              "power corridor needs reserved routing space",
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": 20.592109933628713,
+            "warnings": [],
+            "risk_score": 70.5921099336287,
+            "next_actions": [
+              "bring J1 and R4 closer on VIN, or reserve a straighter route between them",
+              "reserve a wide trace or plane corridor before signal routing",
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [
+              "VIN: 0.80mm on F.Cu across 6 refs"
+            ],
+            "congestion_regions": [
+              "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+            ]
+          },
+          "+3V3": {
+            "name": "+3V3",
+            "refs": [
+              "R5",
+              "U2",
+              "R3",
+              "C3",
+              "U1",
+              "C5",
+              "R8",
+              "C2",
+              "R7",
+              "Q1",
+              "Q2"
+            ],
+            "risks": [
+              "long estimated route span 27.4mm",
+              "power corridor needs reserved routing space",
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": 27.428160205458973,
+            "warnings": [],
+            "risk_score": 77.42816020545897,
+            "next_actions": [
+              "bring R5 and Q2 closer on +3V3, or reserve a straighter route between them",
+              "reserve a wide trace or plane corridor before signal routing",
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [
+              "+3V3: 0.30mm on F.Cu across 11 refs"
+            ],
+            "congestion_regions": [
+              "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+            ]
+          },
+          "ELE0": {
+            "name": "ELE0",
+            "refs": [
+              "U2",
+              "J2"
+            ],
+            "risks": [
+              "long estimated route span 9.1mm",
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": 9.074834115788873,
+            "warnings": [],
+            "risk_score": 77.07483411578887,
+            "next_actions": [
+              "bring U2 and J2 closer on ELE0, or reserve a straighter route between them",
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [],
+            "congestion_regions": [
+              "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+              "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+              "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+              "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]"
+            ]
+          },
+          "ELE4": {
+            "name": "ELE4",
+            "refs": [],
+            "risks": [
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": null,
+            "warnings": [],
+            "risk_score": 58.0,
+            "next_actions": [
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [],
+            "congestion_regions": [
+              "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+              "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+              "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+              "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]"
+            ]
+          },
+          "ELE10": {
+            "name": "ELE10",
+            "refs": [],
+            "risks": [
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": null,
+            "warnings": [],
+            "risk_score": 34.0,
+            "next_actions": [
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [],
+            "congestion_regions": [
+              "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+              "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]"
+            ]
+          },
+          "SCL_3V3": {
+            "name": "SCL_3V3",
+            "refs": [
+              "Q2",
+              "R5",
+              "U2"
+            ],
+            "risks": [
+              "long estimated route span 16.6mm"
+            ],
+            "hpwl_mm": 16.555443272871262,
+            "warnings": [],
+            "risk_score": 26.555443272871262,
+            "next_actions": [
+              "bring Q2 and U2 closer on SCL_3V3, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          },
+          "SDA_3V3": {
+            "name": "SDA_3V3",
+            "refs": [
+              "Q1",
+              "R3",
+              "U2"
+            ],
+            "risks": [
+              "long estimated route span 14.8mm"
+            ],
+            "hpwl_mm": 14.82094483559583,
+            "warnings": [],
+            "risk_score": 24.82094483559583,
+            "next_actions": [
+              "bring Q1 and U2 closer on SDA_3V3, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          }
+        },
+        "congestion_regions": [
+          "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+          "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+          "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+          "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]",
+          "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+        ]
+      },
+      "outline": {
+        "width_mm": 27.161740719275873,
+        "x_max_mm": 33.86415920993775,
+        "x_min_mm": 6.702418490661881,
+        "y_max_mm": 50.1538817845822,
+        "y_min_mm": 4.395805233398852,
+        "height_mm": 45.75807655118334,
+        "corner_radius_mm": 2.0
+      },
+      "validation": {
+        "ok": true,
+        "overlaps": [],
+        "total_parts": 21,
+        "missing_refs": [],
+        "placed_parts": 21,
+        "cutout_violations": [],
+        "keepout_violations": [],
+        "outline_violations": []
+      },
+      "intent_plan": {
+        "intents": {
+          "C5": [
+            {
+              "kind": "decoupling",
+              "reasons": [
+                "decoupling capacitor"
+              ],
+              "priority": 80
+            }
+          ],
+          "D1": [
+            {
+              "kind": "mechanical_mating",
+              "reasons": [
+                "led mating intent"
+              ],
+              "priority": 88
+            },
+            {
+              "kind": "board_ui",
+              "reasons": [
+                "UI-like metadata"
+              ],
+              "priority": 75
+            },
+            {
+              "kind": "power_cluster",
+              "reasons": [
+                "diode role"
+              ],
+              "priority": 85
+            },
+            {
+              "kind": "panel_grid_subject",
+              "reasons": [
+                "visible panel/UI part should participate in panel grid grouping"
+              ],
+              "priority": 84
+            },
+            {
+              "kind": "panel_indicator",
+              "reasons": [
+                "visible LED/indicator"
+              ],
+              "priority": 82
+            },
+            {
+              "kind": "front_panel_subject",
+              "reasons": [
+                "visible LED/indicator"
+              ],
+              "priority": 80
+            }
+          ],
+          "J1": [
+            {
+              "kind": "mechanical_mating",
+              "reasons": [
+                "generic_connector mating intent"
+              ],
+              "priority": 88
+            },
+            {
+              "kind": "edge_connector",
+              "reasons": [
+                "connector-like part"
+              ],
+              "priority": 90
+            },
+            {
+              "kind": "explicit_edge_anchor",
+              "reasons": [
+                "explicit part edge preference: left"
+              ],
+              "priority": 94
+            },
+            {
+              "kind": "power_input",
+              "reasons": [
+                "connector on supply net"
+              ],
+              "priority": 85
+            }
+          ],
+          "J2": [
+            {
+              "kind": "mechanical_mating",
+              "reasons": [
+                "generic_connector mating intent"
+              ],
+              "priority": 88
+            },
+            {
+              "kind": "edge_connector",
+              "reasons": [
+                "connector-like part"
+              ],
+              "priority": 90
+            },
+            {
+              "kind": "explicit_edge_anchor",
+              "reasons": [
+                "explicit part edge preference: right"
+              ],
+              "priority": 94
+            }
+          ],
+          "U1": [
+            {
+              "kind": "power_cluster",
+              "reasons": [
+                "regulator role"
+              ],
+              "priority": 85
+            }
+          ]
+        },
+        "warnings": [],
+        "edge_anchors": [
+          {
+            "ref": "J1",
+            "edge": "left",
+            "rot_deg": null,
+            "inset_mm": 0.5,
+            "offset_mm": 15.568444755475062
+          },
+          {
+            "ref": "J2",
+            "edge": "right",
+            "rot_deg": null,
+            "inset_mm": 0.5,
+            "offset_mm": 15.568444755475062
+          }
+        ],
+        "assembly_sides": {},
+        "assembly_policy": "single_sided",
+        "far_constraints": [],
+        "fixed_positions": [],
+        "near_constraints": [],
+        "align_constraints": [],
+        "distribute_constraints": []
+      },
+      "placed_parts": [
+        {
+          "ref": "U1",
+          "side": "front",
+          "x_mm": 18.75647069646185,
+          "y_mm": 15.568444755475062,
+          "rot_deg": 0.0,
+          "footprint": "Package_TO_SOT_SMD:SOT-23-5"
+        },
+        {
+          "ref": "U2",
+          "side": "front",
+          "x_mm": 24.757926340633414,
+          "y_mm": 15.568444755475062,
+          "rot_deg": 0.0,
+          "footprint": "Package_DFN_QFN:UQFN-20_3x3mm_P0.4mm"
+        },
+        {
+          "ref": "Q1",
+          "side": "front",
+          "x_mm": 18.92908841875067,
+          "y_mm": 19.560551669188147,
+          "rot_deg": 180.0,
+          "footprint": "Package_TO_SOT_SMD:SOT-23"
+        },
+        {
+          "ref": "Q2",
+          "side": "front",
+          "x_mm": 14.709467535375504,
+          "y_mm": 15.067111821217845,
+          "rot_deg": 180.0,
+          "footprint": "Package_TO_SOT_SMD:SOT-23"
+        },
+        {
+          "ref": "J1",
+          "side": "front",
+          "x_mm": 8.99741849066188,
+          "y_mm": 22.194843508990523,
+          "rot_deg": 0.0,
+          "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical"
+        },
+        {
+          "ref": "J2",
+          "side": "front",
+          "x_mm": 31.56915920993775,
+          "y_mm": 13.304843508990526,
+          "rot_deg": 0.0,
+          "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical"
+        },
+        {
+          "ref": "C5",
+          "side": "front",
+          "x_mm": 24.967416840719324,
+          "y_mm": 19.95753950551638,
+          "rot_deg": 270.0,
+          "footprint": "Capacitor_SMD:C_0603_1608Metric"
+        },
+        {
+          "ref": "C1",
+          "side": "front",
+          "x_mm": 14.693813022166356,
+          "y_mm": 18.68581220757328,
+          "rot_deg": 0.0,
+          "footprint": "Capacitor_SMD:C_0603_1608Metric"
+        },
+        {
+          "ref": "C2",
+          "side": "front",
+          "x_mm": 19.25305317590553,
+          "y_mm": 12.49966434705517,
+          "rot_deg": 0.0,
+          "footprint": "Capacitor_SMD:C_0603_1608Metric"
+        },
+        {
+          "ref": "C3",
+          "side": "front",
+          "x_mm": 19.757926340633414,
+          "y_mm": 10.093444755475062,
+          "rot_deg": 0.0,
+          "footprint": "Capacitor_SMD:C_0805_2012Metric"
+        },
+        {
+          "ref": "R1",
+          "side": "front",
+          "x_mm": 22.7175933252601,
+          "y_mm": 12.234624994436958,
+          "rot_deg": 180.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "C4",
+          "side": "front",
+          "x_mm": 19.064760309886786,
+          "y_mm": 7.400805233398852,
+          "rot_deg": 90.0,
+          "footprint": "Capacitor_SMD:C_0603_1608Metric"
+        },
+        {
+          "ref": "R2",
+          "side": "front",
+          "x_mm": 22.607926340633416,
+          "y_mm": 19.9870336687206,
+          "rot_deg": 270.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R3",
+          "side": "front",
+          "x_mm": 23.370426340633415,
+          "y_mm": 10.568444755475062,
+          "rot_deg": 0.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R4",
+          "side": "front",
+          "x_mm": 15.693455089393737,
+          "y_mm": 21.488914498247766,
+          "rot_deg": 270.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R5",
+          "side": "front",
+          "x_mm": 12.673801653854072,
+          "y_mm": 11.097126169383142,
+          "rot_deg": 270.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R6",
+          "side": "front",
+          "x_mm": 9.70741849066188,
+          "y_mm": 11.36178578116178,
+          "rot_deg": 180.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R7",
+          "side": "front",
+          "x_mm": 26.526955265545016,
+          "y_mm": 19.616981754729256,
+          "rot_deg": 270.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R8",
+          "side": "front",
+          "x_mm": 23.91001314701402,
+          "y_mm": 23.66845134924309,
+          "rot_deg": 90.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "D1",
+          "side": "front",
+          "x_mm": 27.26900337192565,
+          "y_mm": 22.39439946121075,
+          "rot_deg": 0.0,
+          "footprint": "LED_SMD:LED_0603_1608Metric"
+        },
+        {
+          "ref": "C6",
+          "side": "front",
+          "x_mm": 15.467035302974947,
+          "y_mm": 11.674851668563608,
+          "rot_deg": 0.0,
+          "footprint": "Capacitor_SMD:C_0805_2012Metric"
+        }
+      ]
+    },
+    "policy": {},
+    "run_id": "41dfaa7b4aa8",
+    "status": "failed_reviewable",
+    "stderr": "WARNING: fp-lib-table file was not found. Component footprints are not available.\nWARNING: fp-lib-table file was not found. Component footprints are not available.\nWARNING: fp-lib-table file was not found. Component footprints are not available.\nINFO:   [auto_stub] power: +3V3(11), GND(11) @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO:   [auto_stub] fanout>=3: SCL(3), VIN(7), SDA(3), SCL_3V3(3), IRQ(4), SDA_3V3(3) @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO:   [selective_routing] Stubbed 3 complex nets after placement @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nWARNING: Routing failed on attempt 1/2, expanding area by 1.5x:  @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO:   [selective_routing] Stubbed 9 complex nets after placement @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nWARNING: KiCad ERC found issues in /tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_sch:\n @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO: Schematic written to /tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_sch @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO: ERC clean after 1 iteration(s) @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO: 5 warnings found while generating schematic.\nINFO: 0 errors found while generating schematic.\n\n",
+    "metrics": {
+      "pad_count": 78,
+      "pin_count": 78,
+      "cpu_time_s": 76.459097,
+      "peak_rss_mb": 263.51171875,
+      "layout_score": 55.898587794634224,
+      "preview_mode": "full",
+      "review_state": "failed_reviewable",
+      "pipeline_goal": "manufacturing",
+      "quality_gates": {
+        "drc_ok": false,
+        "placement_ok": true,
+        "schematic_ok": true,
+        "manufacturable": false,
+        "product_layout_ok": false,
+        "reviewable_failure": true,
+        "visual_review_ready": true
+      },
+      "total_hpwl_mm": 303.703901745527,
+      "board_area_mm2": 1242.869011096019,
+      "erc_iterations": 0,
+      "manufacturable": false,
+      "power_analysis": {
+        "available": true,
+        "power_tree": {
+          "findings": [
+            {
+              "ref": "U1",
+              "rail": "VIN",
+              "message": "Regulator U1 input rail VIN has no true source (battery/harness/upstream)",
+              "category": "unsourced_regulator_input",
+              "severity": "warning"
+            }
+          ],
+          "edge_count": 1,
+          "rail_count": 2,
+          "source_count": 0,
+          "regulator_count": 1
+        },
+        "rail_sanity": {
+          "findings": [],
+          "unknown_rails": [
+            {
+              "net": "+3V3",
+              "reason": "no sim_source() declared for this rail"
+            },
+            {
+              "net": "VIN",
+              "reason": "no sim_source() declared for this rail"
+            }
+          ],
+          "known_rail_count": 1,
+          "assertions_failed": 0,
+          "assertions_passed": 0,
+          "resistors_checked": 0,
+          "resistors_skipped": 7,
+          "assertions_skipped": 0,
+          "unknown_rail_count": 2
+        }
+      },
+      "congestion_score": 213.9055763187853,
+      "candidates_scored": 7,
+      "product_layout_ok": false,
+      "visual_review_ready": true,
+      "manufacturing_complete": false
+    },
+    "outputs": {
+      "pcb": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_pcb",
+      "run_dir": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8",
+      "previews": {
+        "ok": true,
+        "mode": "full",
+        "files": [
+          "preview_2d_top.svg",
+          "preview_top.svg",
+          "preview_2d_top.png",
+          "preview_2d_bottom.svg",
+          "preview_2d_bottom.png",
+          "preview_2d_combined.svg",
+          "preview_2d_combined.png",
+          "preview_top.png",
+          "preview_assembly.svg"
+        ],
+        "errors": [],
+        "warnings": []
+      },
+      "schematic": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_sch",
+      "layout_quality": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/layout_quality.json"
+    },
+    "summary": "Outline: 27.2mm x 45.8mm\n\nParts: 21/21 placed\nNo overlaps\nWorst HPWL nets:\n  GND: 30.8mm\n  +3V3: 27.4mm\n  IRQ: 25.1mm\n  VIN: 20.6mm\n  SCL_3V3: 16.6mm\n  SCL: 16.5mm\n  SDA_3V3: 14.8mm\n  N$3: 13.9mm\n  SDA: 12.6mm\n  ELE0: 9.1mm\n\nLayout score: 55.9/100\nTotal HPWL: 303.7mm\nEstimated crossings: 88\nPin escape congestion: 213.9\nTop congested regions:\n  (16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]\n  (16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]\n  (26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]\n  (26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]\n  (6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]\nPower corridors: 3\nCompact outline estimate: 32.2mm x 37.5mm (97% of outline)\n\nPower route plan:\n  GND: ground, 0.30mm, F.Cu, priority 100\n    refs: R2, C6, C1, C4, U2, R1, U1, J1\n  VIN: supply, 0.80mm, F.Cu, priority 95\n    refs: J1, U1, C6, R6, C1, R4\n  +3V3: supply, 0.30mm, F.Cu, priority 90\n    refs: R5, U2, R3, C3, U1, C5, R8, C2\nRoute intents:\n  GND: pour, 0.30mm on F.Cu, span 30.8mm\n    order: J1 -> C1 -> U1 -> C2 -> C3 -> C4 -> C6 -> R1\n  VIN: wide_trunk, 0.80mm on F.Cu, span 20.6mm\n    order: J1 -> C1 -> R4 -> U1 -> C6 -> R6\n  +3V3: trunk, 0.30mm on F.Cu, span 27.4mm\n    order: R5 -> Q2 -> U1 -> C2 -> C3 -> R3 -> U2 -> C5\nReserved power corridors:\n  GND: 0.30mm on F.Cu, bounds (7.0,5.4) to (27.0,24.2)\n    refs: J1 -> C1 -> U1 -> C2 -> C3 -> C4 -> C6 -> R1\n  VIN: 0.80mm on F.Cu, bounds (6.6,9.0) to (21.2,24.6)\n    refs: J1 -> C1 -> R4 -> U1 -> C6 -> R6\n  +3V3: 0.30mm on F.Cu, bounds (10.7,8.1) to (28.5,25.7)\n    refs: R5 -> Q2 -> U1 -> C2 -> C3 -> R3 -> U2 -> C5\nPower topology:\n  VIN: source J1 to +3V3\n    order: J1 -> U1 -> C1 -> C2 -> C3 -> C5 -> C6 -> Q1 -> Q2 -> U2\n    reason: J1 is connector-like source on VIN\n    reason: conversion refs: U1\n    reason: storage refs: C1, C2, C3, C5, C6\n    reason: load refs: Q1, Q2, U2\n  +3V3: source U1 to +3V3\n    order: U1 -> C2 -> C3 -> C5 -> Q1 -> Q2 -> U2\n    reason: U1 has a power-output pin on +3V3\n    reason: storage refs: C2, C3, C5\n    reason: load refs: Q1, Q2, U2\n\nSelected placement candidate: baseline\nReasons:\n  explicit constraints, fixed mechanics, and default placement order\n  unlocked rotations refined using pad/net pressure\n  decaps refined near actual parent power pins\n  local refinement accepted 24 score-gated adjustment(s): 0.0 -> 32.6\n  edge connectors snapped to final auto-outline edges\n  post-anchor local refinement accepted 5 score-gated adjustment(s): 55.5 -> 56.2\n  edge connectors snapped to tightened auto-outline edges\n  best valid candidate (6 valid of 7)\nCandidate scorecard:\n  baseline: 55.9/100, HPWL 303.7mm, overlaps 0, outline 0, keepout 0\n  cluster_first: 46.3/100, HPWL 634.4mm, overlaps 0, outline 0, keepout 0\n  connector_edge_first: 46.2/100, HPWL 633.0mm, overlaps 0, outline 0, keepout 0\n  module_socket_central: 46.2/100, HPWL 633.0mm, overlaps 0, outline 0, keepout 0\n  repeated_channel_array: 46.2/100, HPWL 633.0mm, overlaps 0, outline 0, keepout 0\n  power_first: 41.1/100, HPWL 641.3mm, overlaps 0, outline 0, keepout 0\n  power_topology_first: 0.0/100, HPWL 933.6mm, overlaps 1, outline 0, keepout 0\nTop risky nets:\n  GND: 30.8mm\n  +3V3: 27.4mm\n  IRQ: 25.1mm\n  VIN: 20.6mm\n  SCL_3V3: 16.6mm\n  SCL: 16.5mm\n  SDA_3V3: 14.8mm\n  N$3: 13.9mm\n  SDA: 12.6mm\n  ELE0: 9.1mm\nTop congested regions:\n  (16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]\n  (16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]\n  (26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]\n  (26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]\n  (6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]\nPower corridors:\n  GND: 0.30mm on F.Cu across 11 refs\n  VIN: 0.80mm on F.Cu across 6 refs\n  +3V3: 0.30mm on F.Cu across 11 refs\nPower topology:\n  VIN: J1 -> U1 -> C1 -> C2 -> C3 -> C5 -> C6 -> Q1 -> Q2 -> U2\n  +3V3: U1 -> C2 -> C3 -> C5 -> Q1 -> Q2 -> U2\nPart placement reasons:\n  C1: power chain: VIN from J1\n  C2: power chain: +3V3 from U1; rotated to 270 deg by pad/net pressure; locally rotated to 0 deg after scoring\n  C3: power chain: +3V3 from U1; rotated to 270 deg by pad/net pressure; locally rotated to 0 deg after scoring\n  C4: placed by baseline strategy; rotated to 90 deg by pad/net pressure; locally moved by passive pin gravity toward (19.1,8.9); U2 ic owner on N$3 net(s) using owner pad geometry; composed passive group slot 5/5 around U2 left side\n  C5: power chain: +3V3 from U1; inferred intent: decoupling; rotated to 180 deg by pad/net pressure\n  C6: power chain: VIN from J1; locally moved by passive pin gravity toward (18.6,13.2); U1 regulator owner on GND, VIN net(s) using owner pad geometry; composed passive group slot 2/2 around U1 left side; locally moved by passive pin gravity toward (18.6,13.2); U1 regulator owner on GND, VIN net(s) using owner pad geometry; composed passive group slot 2/2 around U1 left side\n  D1: mating intent: led facing right (visible_face); inferred intent: board_ui, front_panel_subject, mechanical_mating, panel_grid_subject, panel_indicator, power_cluster; locally moved by passive pin gravity toward (27.7,22.2); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 1/5 around U2 left side\n  J1: mating intent: generic_connector facing left (pin_access); power chain: VIN from J1; inferred intent: edge_connector, explicit_edge_anchor, mechanical_mating, power_input\n  J2: mating intent: generic_connector facing right (pin_access); inferred intent: edge_connector, explicit_edge_anchor, mechanical_mating; rotated to 270 deg by pad/net pressure\n  Q1: power chain: +3V3 from U1; rotated to 180 deg by pad/net pressure\n  Q2: power chain: +3V3 from U1; rotated to 180 deg by pad/net pressure\n  R1: placed by baseline strategy; rotated to 180 deg by pad/net pressure; locally moved by passive pin gravity toward (21.2,12.2); U2 ic owner on N$2 net(s) using owner pad geometry; composed passive group slot 4/5 around U2 left side\n\nPlacement intent:\n  board_ui: 1\n  decoupling: 1\n  edge_connector: 2\n  explicit_edge_anchor: 2\n  front_panel_subject: 1\n  mechanical_mating: 3\n  panel_grid_subject: 1\n  panel_indicator: 1\n  power_cluster: 2\n  power_input: 1\n  inferred edge anchors: 2\n  inferred face-edge constraints: 3\n  mating intents: 3",
+    "artifacts": {
+      "pcb": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_pcb",
+      "run_dir": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8",
+      "previews": {
+        "ok": true,
+        "mode": "full",
+        "files": [
+          "preview_2d_top.svg",
+          "preview_top.svg",
+          "preview_2d_top.png",
+          "preview_2d_bottom.svg",
+          "preview_2d_bottom.png",
+          "preview_2d_combined.svg",
+          "preview_2d_combined.png",
+          "preview_top.png",
+          "preview_assembly.svg"
+        ],
+        "errors": [],
+        "warnings": []
+      },
+      "schematic": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_sch",
+      "layout_quality": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/layout_quality.json"
+    },
+    "exceptions": [
+      {
+        "id": "e-drc-unconnected",
+        "code": "DRC_UNCONNECTED",
+        "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+        "subject": {
+          "nets": {
+            "GND": 2,
+            "IRQ": 2,
+            "N$2": 2,
+            "N$3": 2,
+            "N$4": 2,
+            "+3V3": 6,
+            "ELE0": 2,
+            "ELE1": 2,
+            "ELE2": 2,
+            "ELE3": 2,
+            "ELE4": 2,
+            "ELE5": 2,
+            "ELE6": 2,
+            "ELE7": 2,
+            "ELE8": 2,
+            "ELE9": 2,
+            "ELE10": 2,
+            "ELE11": 2,
+            "SCL_3V3": 2,
+            "SDA_3V3": 4
+          },
+          "refs": [
+            "C4",
+            "ELE0",
+            "ELE1",
+            "ELE10",
+            "ELE4",
+            "J2",
+            "U2"
+          ],
+          "count": 46,
+          "examples": [
+            {
+              "descriptions": [
+                "Pad 8 [ELE0] of U2 on F.Cu",
+                "PTH pad 1 [ELE0] of J2"
+              ]
+            },
+            {
+              "descriptions": [
+                "Pad 12 [ELE4] of U2 on F.Cu",
+                "PTH pad 5 [ELE4] of J2"
+              ]
+            },
+            {
+              "descriptions": [
+                "Pad 18 [ELE10] of U2 on F.Cu",
+                "PTH pad 11 [ELE10] of J2"
+              ]
+            },
+            {
+              "descriptions": [
+                "Track [+3V3] on F.Cu, length 3.4724 mm",
+                "Pad 20 [+3V3] of U2 on F.Cu"
+              ]
+            },
+            {
+              "descriptions": [
+                "Track [+3V3] on F.Cu, length 0.4406 mm",
+                "Track [+3V3] on F.Cu, length 0.2552 mm"
+              ]
+            },
+            {
+              "descriptions": [
+                "Track [+3V3] on B.Cu, length 3.2779 mm",
+                "Track [+3V3] on F.Cu, length 0.2622 mm"
+              ]
+            },
+            {
+              "descriptions": [
+                "Pad 1 [N$3] of C4 on F.Cu",
+                "Pad 5 [N$3] of U2 on F.Cu"
+              ]
+            },
+            {
+              "descriptions": [
+                "Pad 9 [ELE1] of U2 on F.Cu",
+                "PTH pad 2 [ELE1] of J2"
+              ]
+            }
+          ],
+          "routing_diagnosis": "congestion_router_limitation",
+          "routing_diagnosis_reason": "routing congestion is high without hard placement violations",
+          "routing_diagnosis_evidence": {
+            "density": {
+              "area_mm2": 1242.869011096019,
+              "spacious": false,
+              "width_mm": 27.161740719275873,
+              "height_mm": 45.75807655118334,
+              "part_count": 21,
+              "tight_outline": true,
+              "max_margin_ratio": 0.4607719525100191,
+              "spread_area_ratio": 0.2954366767226477,
+              "sparse_on_large_outline": false,
+              "compact_outline_area_ratio": 0.971164393365966,
+              "effective_spread_area_ratio": 0.6636899604982117,
+              "clustered_on_spacious_outline": false,
+              "footprint_envelope_area_ratio": 0.6636899604982117
+            },
+            "congestion_score": 213.9055763187853
+          }
+        },
+        "severity": "error",
+        "candidates": [
+          {
+            "id": "c1",
+            "action": "regenerate",
+            "params": {},
+            "source": "deterministic",
+            "cost_hint": "free",
+            "confidence": 0.45,
+            "human_summary": "Retry routing after local congestion-aware placement changes"
+          },
+          {
+            "id": "c2",
+            "action": "scale_outline",
+            "params": {
+              "area_factor": 1.15
+            },
+            "source": "deterministic",
+            "cost_hint": "free",
+            "confidence": 0.2,
+            "human_summary": "Defer outline growth; use only after fixing the diagnosed congestion router limitation cause"
+          }
+        ],
+        "retry_hint": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+      },
+      {
+        "id": "e-product-layout",
+        "code": "PRODUCT_LAYOUT_FAILED",
+        "message": "product layout quality gates failed; preview artifacts are available for human review",
+        "subject": {
+          "top_issues": [
+            {
+              "code": "HIGH_CONGESTION",
+              "message": "layout congestion is high (213.9)",
+              "severity": "warning",
+              "recommendation": "Use this as placement feedback before growing the outline; try group movement, connector orientation, or route-aware retries first."
+            },
+            {
+              "code": "ROUTING_FAILURE_DIAGNOSIS",
+              "message": "routing failure classified as congestion-router-limitation",
+              "severity": "error",
+              "recommendation": "Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline."
+            },
+            {
+              "code": "UNUSED_OUTLINE_REGION",
+              "message": "one or more board margins are very large relative to the outline",
+              "severity": "warning",
+              "recommendation": "Review whether the board should compact. For fixed outlines, use the empty region deliberately instead of growing the board."
+            },
+            {
+              "code": "DRC_UNCONNECTED",
+              "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+              "severity": "error",
+              "recommendation": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+            }
+          ],
+          "issue_codes": [
+            "HIGH_CONGESTION",
+            "ROUTING_FAILURE_DIAGNOSIS",
+            "UNUSED_OUTLINE_REGION",
+            "DRC_UNCONNECTED"
+          ],
+          "review_state": "failed_reviewable",
+          "preview_files": [
+            "preview_2d_top.svg",
+            "preview_top.svg",
+            "preview_2d_top.png",
+            "preview_2d_bottom.svg",
+            "preview_2d_bottom.png",
+            "preview_2d_combined.svg",
+            "preview_2d_combined.png",
+            "preview_top.png",
+            "preview_assembly.svg"
+          ],
+          "product_layout_ok": false,
+          "visual_review_ready": true,
+          "blocking_issue_codes": [
+            "ROUTING_FAILURE_DIAGNOSIS",
+            "DRC_UNCONNECTED"
+          ]
+        },
+        "severity": "error",
+        "candidates": [
+          {
+            "id": "c1",
+            "action": "regenerate",
+            "params": {},
+            "source": "deterministic",
+            "cost_hint": "free",
+            "confidence": 0.9,
+            "human_summary": "revise placement or floorplan intent, then rerun with the preview artifacts preserved for review"
+          }
+        ],
+        "retry_hint": "Do not treat placement_review-only advisories as success when layout_quality.gates.product_layout_ok is false. Inspect the preview files and layout_quality issues, then revise SKiDL placement intent, edge anchors, fixed positions, footprint choices, or outline constraints before resubmitting."
+      },
+      {
+        "id": "e-high-congestion",
+        "code": "HIGH_CONGESTION",
+        "message": "layout congestion is high (213.9)",
+        "subject": {
+          "congestion_score": 213.9055763187853
+        },
+        "severity": "advisory",
+        "candidates": [
+          {
+            "id": "c1",
+            "action": "accept_advisory",
+            "params": {},
+            "source": "deterministic",
+            "cost_hint": "free",
+            "confidence": 0.9,
+            "human_summary": "accept this congestion advisory for the current spec"
+          },
+          {
+            "id": "c2",
+            "action": "scale_outline",
+            "params": {
+              "area_factor": 1.2
+            },
+            "source": "deterministic",
+            "cost_hint": "cheap",
+            "confidence": 0.9,
+            "human_summary": "increase board area by 20% and re-run placement"
+          }
+        ],
+        "retry_hint": ""
+      }
+    ],
+    "review_note": "failed but reviewable: call get_run(run_id) and inspect previews/artifacts before changing the design",
+    "decision_kind": "mechanical_constraint",
+    "layout_quality": {
+      "ok": false,
+      "gates": {
+        "drc_ok": false,
+        "placement_ok": true,
+        "schematic_ok": true,
+        "manufacturable": false,
+        "product_layout_ok": false,
+        "reviewable_failure": true,
+        "visual_review_ready": true
+      },
+      "stage": "complete",
+      "issues": [
+        {
+          "code": "HIGH_CONGESTION",
+          "message": "layout congestion is high (213.9)",
+          "evidence": {
+            "congestion_score": 213.9055763187853
+          },
+          "severity": "warning",
+          "recommendation": "Use this as placement feedback before growing the outline; try group movement, connector orientation, or route-aware retries first."
+        },
+        {
+          "code": "ROUTING_FAILURE_DIAGNOSIS",
+          "message": "routing failure classified as congestion-router-limitation",
+          "evidence": {
+            "reason": "routing congestion is high without hard placement violations",
+            "density": {
+              "area_mm2": 1242.869011096019,
+              "spacious": false,
+              "width_mm": 27.161740719275873,
+              "height_mm": 45.75807655118334,
+              "part_count": 21,
+              "tight_outline": true,
+              "max_margin_ratio": 0.4607719525100191,
+              "spread_area_ratio": 0.2954366767226477,
+              "sparse_on_large_outline": false,
+              "compact_outline_area_ratio": 0.971164393365966,
+              "effective_spread_area_ratio": 0.6636899604982117,
+              "clustered_on_spacious_outline": false,
+              "footprint_envelope_area_ratio": 0.6636899604982117
+            },
+            "classification": "congestion_router_limitation",
+            "congestion_score": 213.9055763187853
+          },
+          "severity": "error",
+          "recommendation": "Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline."
+        },
+        {
+          "code": "UNUSED_OUTLINE_REGION",
+          "message": "one or more board margins are very large relative to the outline",
+          "evidence": {
+            "edge_margins_mm": {
+              "top": 3.005,
+              "left": 2.295,
+              "right": 2.2950000000000017,
+              "bottom": 26.485430435339108
+            },
+            "max_margin_ratio": 0.461,
+            "empty_margin_ratios": {
+              "top": 0.0,
+              "left": 0.018408245817808172,
+              "right": 0.018408245817808172,
+              "bottom": 0.4607719525100191
+            }
+          },
+          "severity": "warning",
+          "recommendation": "Review whether the board should compact. For fixed outlines, use the empty region deliberately instead of growing the board."
+        },
+        {
+          "code": "DRC_UNCONNECTED",
+          "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+          "evidence": {
+            "nets": {
+              "GND": 2,
+              "IRQ": 2,
+              "N$2": 2,
+              "N$3": 2,
+              "N$4": 2,
+              "+3V3": 6,
+              "ELE0": 2,
+              "ELE1": 2,
+              "ELE2": 2,
+              "ELE3": 2,
+              "ELE4": 2,
+              "ELE5": 2,
+              "ELE6": 2,
+              "ELE7": 2,
+              "ELE8": 2,
+              "ELE9": 2,
+              "ELE10": 2,
+              "ELE11": 2,
+              "SCL_3V3": 2,
+              "SDA_3V3": 4
+            },
+            "refs": [
+              "C4",
+              "ELE0",
+              "ELE1",
+              "ELE10",
+              "ELE4",
+              "J2",
+              "U2"
+            ],
+            "count": 46,
+            "examples": [
+              {
+                "descriptions": [
+                  "Pad 8 [ELE0] of U2 on F.Cu",
+                  "PTH pad 1 [ELE0] of J2"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Pad 12 [ELE4] of U2 on F.Cu",
+                  "PTH pad 5 [ELE4] of J2"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Pad 18 [ELE10] of U2 on F.Cu",
+                  "PTH pad 11 [ELE10] of J2"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Track [+3V3] on F.Cu, length 3.4724 mm",
+                  "Pad 20 [+3V3] of U2 on F.Cu"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Track [+3V3] on F.Cu, length 0.4406 mm",
+                  "Track [+3V3] on F.Cu, length 0.2552 mm"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Track [+3V3] on B.Cu, length 3.2779 mm",
+                  "Track [+3V3] on F.Cu, length 0.2622 mm"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Pad 1 [N$3] of C4 on F.Cu",
+                  "Pad 5 [N$3] of U2 on F.Cu"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Pad 9 [ELE1] of U2 on F.Cu",
+                  "PTH pad 2 [ELE1] of J2"
+                ]
+              }
+            ],
+            "routing_diagnosis": "congestion_router_limitation",
+            "routing_diagnosis_reason": "routing congestion is high without hard placement violations",
+            "routing_diagnosis_evidence": {
+              "density": {
+                "area_mm2": 1242.869011096019,
+                "spacious": false,
+                "width_mm": 27.161740719275873,
+                "height_mm": 45.75807655118334,
+                "part_count": 21,
+                "tight_outline": true,
+                "max_margin_ratio": 0.4607719525100191,
+                "spread_area_ratio": 0.2954366767226477,
+                "sparse_on_large_outline": false,
+                "compact_outline_area_ratio": 0.971164393365966,
+                "effective_spread_area_ratio": 0.6636899604982117,
+                "clustered_on_spacious_outline": false,
+                "footprint_envelope_area_ratio": 0.6636899604982117
+              },
+              "congestion_score": 213.9055763187853
+            }
+          },
+          "severity": "error",
+          "recommendation": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+        }
+      ],
+      "review": {
+        "state": "failed_reviewable",
+        "message": "Layout failed quality gates, but preview artifacts are available for human placement review.",
+        "preview_available": true,
+        "requires_human_feedback": true
+      },
+      "run_id": "41dfaa7b4aa8",
+      "status": "failed_reviewable",
+      "metrics": {
+        "layout_score": 55.898587794634224,
+        "total_hpwl_mm": 303.703901745527,
+        "board_area_mm2": 1242.869011096019,
+        "congestion_score": 213.9055763187853
+      },
+      "version": 1,
+      "artifacts": {
+        "has_pcb": true,
+        "has_preview": true,
+        "has_schematic": true,
+        "preview_files": [
+          "preview_2d_top.svg",
+          "preview_top.svg",
+          "preview_2d_top.png",
+          "preview_2d_bottom.svg",
+          "preview_2d_bottom.png",
+          "preview_2d_combined.svg",
+          "preview_2d_combined.png",
+          "preview_top.png",
+          "preview_assembly.svg"
+        ],
+        "has_manufacturing": false
+      },
+      "placement": {
+        "outline_mm": {
+          "width": 27.161740719275873,
+          "height": 45.75807655118334
+        },
+        "part_count": 21,
+        "board_area_mm2": 1242.869011096019,
+        "outline_intent": "auto_or_unknown",
+        "spread_bbox_mm": {
+          "width": 22.571740719275873,
+          "height": 16.267646115844236
+        },
+        "edge_margins_mm": {
+          "top": 3.005,
+          "left": 2.295,
+          "right": 2.2950000000000017,
+          "bottom": 26.485430435339108
+        },
+        "max_margin_ratio": 0.4607719525100191,
+        "outline_bounds_mm": {
+          "x_max": 33.86415920993775,
+          "x_min": 6.702418490661881,
+          "y_max": 50.1538817845822,
+          "y_min": 4.395805233398852
+        },
+        "spread_area_ratio": 0.6636899604982117,
+        "compact_outline_mm": {
+          "area": 1207.0301291944234,
+          "width": 32.16174071927587,
+          "height": 37.53
+        },
+        "empty_margin_ratios": {
+          "top": 0.0,
+          "left": 0.018408245817808172,
+          "right": 0.018408245817808172,
+          "bottom": 0.4607719525100191
+        },
+        "center_spread_area_ratio": 0.2954366767226477,
+        "compact_outline_area_ratio": 0.971164393365966,
+        "footprint_envelope_bbox_mm": {
+          "area": 824.8796848787683,
+          "width": 26.161740719275873,
+          "height": 31.53
+        },
+        "footprint_envelope_area_ratio": 0.6636899604982117
+      },
+      "issue_counts": {
+        "error": 2,
+        "warning": 2
+      },
+      "pipeline_goal": "manufacturing"
+    },
+    "artifact_summary": {
+      "keys": [
+        "_board.zip",
+        "board.kicad_pcb",
+        "board.kicad_sch",
+        "preview_2d_bottom.png",
+        "preview_2d_bottom.svg",
+        "preview_2d_combined.png",
+        "preview_2d_combined.svg",
+        "preview_2d_top.png",
+        "preview_2d_top.svg",
+        "preview_assembly.svg",
+        "preview_top.png",
+        "preview_top.svg"
+      ],
+      "count": 12,
+      "available": true,
+      "truncated": 0,
+      "kicad_keys": [
+        "board.kicad_pcb",
+        "board.kicad_sch"
+      ],
+      "preview_keys": [
+        "preview_2d_bottom.png",
+        "preview_2d_bottom.svg",
+        "preview_2d_combined.png",
+        "preview_2d_combined.svg",
+        "preview_2d_top.png",
+        "preview_2d_top.svg",
+        "preview_assembly.svg",
+        "preview_top.png",
+        "preview_top.svg"
+      ],
+      "zip_available": true,
+      "preview_available": true,
+      "manufacturing_keys": [
+        "_board.zip"
+      ]
+    },
+    "decision_required": true,
+    "reviewable_failure": true,
+    "corrections_applied": [],
+    "visual_review_ready": true,
+    "recommended_next_tool": "",
+    "run_artifacts_available": true,
+    "recommended_artifact_tool": "get_run"
+  },
+  "feedback": [],
+  "artifacts": {
+    "available": true,
+    "count": 12,
+    "total_size_bytes": 2064989,
+    "items": [
+      {
+        "name": "_board.zip",
+        "encoding": "base64",
+        "size_bytes": 1035490,
+        "preview": false,
+        "manufacturing": true
+      },
+      {
+        "name": "board.kicad_pcb",
+        "encoding": "utf-8",
+        "size_bytes": 125307,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "board.kicad_sch",
+        "encoding": "utf-8",
+        "size_bytes": 107048,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_bottom.png",
+        "encoding": "base64",
+        "size_bytes": 93761,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_bottom.svg",
+        "encoding": "utf-8",
+        "size_bytes": 15848,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_combined.png",
+        "encoding": "base64",
+        "size_bytes": 161525,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_combined.svg",
+        "encoding": "utf-8",
+        "size_bytes": 88836,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_top.png",
+        "encoding": "base64",
+        "size_bytes": 156658,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_top.svg",
+        "encoding": "utf-8",
+        "size_bytes": 79212,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_assembly.svg",
+        "encoding": "utf-8",
+        "size_bytes": 7574,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_top.png",
+        "encoding": "base64",
+        "size_bytes": 114518,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_top.svg",
+        "encoding": "utf-8",
+        "size_bytes": 79212,
+        "preview": true,
+        "manufacturing": false
+      }
+    ]
+  },
+  "artifact_manifest": {
+    "available": true,
+    "count": 12,
+    "total_size_bytes": 2064989,
+    "items": [
+      {
+        "name": "_board.zip",
+        "encoding": "base64",
+        "size_bytes": 1035490,
+        "preview": false,
+        "manufacturing": true
+      },
+      {
+        "name": "board.kicad_pcb",
+        "encoding": "utf-8",
+        "size_bytes": 125307,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "board.kicad_sch",
+        "encoding": "utf-8",
+        "size_bytes": 107048,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_bottom.png",
+        "encoding": "base64",
+        "size_bytes": 93761,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_bottom.svg",
+        "encoding": "utf-8",
+        "size_bytes": 15848,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_combined.png",
+        "encoding": "base64",
+        "size_bytes": 161525,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_combined.svg",
+        "encoding": "utf-8",
+        "size_bytes": 88836,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_top.png",
+        "encoding": "base64",
+        "size_bytes": 156658,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_top.svg",
+        "encoding": "utf-8",
+        "size_bytes": 79212,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_assembly.svg",
+        "encoding": "utf-8",
+        "size_bytes": 7574,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_top.png",
+        "encoding": "base64",
+        "size_bytes": 114518,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_top.svg",
+        "encoding": "utf-8",
+        "size_bytes": 79212,
+        "preview": true,
+        "manufacturing": false
+      }
+    ]
+  },
+  "hint": "Run data retrieved with 11 artifact(s) (.kicad_pcb, .kicad_sch, .png, .svg). Use the _board.zip artifact (base64-encoded) for a self-contained KiCad project — includes schematic sheets, custom libraries, 3D models, and project config. Human-review previews are included: show preview_2d_top.png first for the flat 2D board view, use preview_assembly.svg when front/back assembly side assumptions matter, preview_top.svg as the KiCad vector source, or preview_top.png for the KiCad 3D render when present. After the human reviews the image, call submit_human_feedback() before revising and resubmitting."
+}
