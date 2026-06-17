@@ -1,103 +1,79 @@
 """
-4-Channel BSS138 Level Shifter
-Bidirectional voltage level shifter for 4 channels.
-Converts between 3.3V and 5V logic levels using BSS138 N-channel MOSFETs.
-Each channel has a BSS138 MOSFET with pull-up resistors on both sides.
+4-Channel TXB0104 Bidirectional Level Shifter
+TI TXB0104 4-bit bidirectional voltage-level translator breakout.
+Translates between 1.2V-3.6V (VCCA) and 1.65V-5.5V (VCCB) logic levels.
+Push-pull outputs, no external pull-ups needed. 4 bidirectional channels.
+OE pin with 100K pull-down. 100nF decoupling on VCCA and VCCB.
+2x 6-pin headers for A-side and B-side connections.
+
+MCP run: job_id=49e5def6482b, run_id=1e4ccda223e6
+Board: 33.4mm x 23.1mm (auto), layout score 87.1/100
 """
 
-import os
-os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
-
 from skidl import *
-set_default_tool(KICAD9)
 
-# Power nets
-vcc_lv = Net("+3V3")       # Low-voltage side (3.3V)
-vcc_lv.drive = POWER
+# Power rails
+vcca = Net("VCCA"); vcca.drive = POWER  # Low-voltage side (1.2V-3.6V)
+vccb = Net("VCCB"); vccb.drive = POWER  # High-voltage side (1.65V-5.5V)
+gnd = Net("GND"); gnd.drive = POWER
 
-vcc_hv = Net("+5V")        # High-voltage side (5V)
-vcc_hv.drive = POWER
+# TXB0104 4-bit bidirectional level translator (TSSOP-14)
+# Symbol from LCSC C60708 via convert_lcsc, footprint from KiCad standard library
+u1 = Part("C60708", "TXB0104PWR", footprint="Package_SO:TSSOP-14_4.4x5mm_P0.65mm")
 
-gnd = Net("GND")
-gnd.drive = POWER
+# Power connections
+u1["VCCA"] += vcca
+u1["VCCB"] += vccb
+u1["GND"] += gnd
 
-@subcircuit
-def level_shift_channel(lv_io, hv_io, vcc_lv, vcc_hv, gnd, ch_name="CH"):
-    """
-    Single BSS138 bidirectional level shifter channel.
-    - Gate tied to low-voltage supply (3.3V)
-    - Source on low-voltage side with pull-up to 3.3V
-    - Drain on high-voltage side with pull-up to 5V
-    """
-    # BSS138 N-channel MOSFET
-    q = Part("Transistor_FET", "BSS138",
-             footprint="Package_TO_SOT_SMD:SOT-23",
-             value="BSS138")
+# OE pin with 100K pull-down to GND (active-high, pulled low = disabled by default)
+r_oe = Part("Device", "R", value="100K", footprint="Resistor_SMD:R_0402_1005Metric")
+oe_net = Net("OE")
+oe_net += u1["OE"]
+r_oe[1] += oe_net
+r_oe[2] += gnd
 
-    # Pull-up resistor on low-voltage side (source side)
-    r_lv = Part("Device", "R",
-                footprint="Resistor_SMD:R_0402_1005Metric",
-                value="10K")
+# Decoupling caps: 100nF on VCCA and VCCB
+c_vcca = Part("Device", "C", value="100nF", footprint="Capacitor_SMD:C_0402_1005Metric")
+c_vcca[1] += vcca
+c_vcca[2] += gnd
 
-    # Pull-up resistor on high-voltage side (drain side)
-    r_hv = Part("Device", "R",
-                footprint="Resistor_SMD:R_0402_1005Metric",
-                value="10K")
+c_vccb = Part("Device", "C", value="100nF", footprint="Capacitor_SMD:C_0402_1005Metric")
+c_vccb[1] += vccb
+c_vccb[2] += gnd
 
-    # Gate to low-voltage supply
-    q["G"] += vcc_lv
+# A-side 6-pin header: GND, A1, A2, A3, A4, VCCA
+hdr_a = Part("Connector", "Conn_01x06_Pin",
+             footprint="Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+             value="A_SIDE")
 
-    # Source side = low-voltage I/O
-    q["S"] += lv_io
-    r_lv[1] += vcc_lv
-    r_lv[2] += lv_io
+hdr_a["Pin_1"] += gnd
+net_a1 = Net("A1"); hdr_a["Pin_2"] += net_a1
+net_a2 = Net("A2"); hdr_a["Pin_3"] += net_a2
+net_a3 = Net("A3"); hdr_a["Pin_4"] += net_a3
+net_a4 = Net("A4"); hdr_a["Pin_5"] += net_a4
+hdr_a["Pin_6"] += vcca
 
-    # Drain side = high-voltage I/O
-    q["D"] += hv_io
-    r_hv[1] += vcc_hv
-    r_hv[2] += hv_io
+# B-side 6-pin header: GND, B1, B2, B3, B4, VCCB
+hdr_b = Part("Connector", "Conn_01x06_Pin",
+             footprint="Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+             value="B_SIDE")
 
+hdr_b["Pin_1"] += gnd
+net_b1 = Net("B1"); hdr_b["Pin_2"] += net_b1
+net_b2 = Net("B2"); hdr_b["Pin_3"] += net_b2
+net_b3 = Net("B3"); hdr_b["Pin_4"] += net_b3
+net_b4 = Net("B4"); hdr_b["Pin_5"] += net_b4
+hdr_b["Pin_6"] += vccb
 
-# Decoupling caps for both supply rails
-c_lv = Part("Device", "C",
-            footprint="Capacitor_SMD:C_0603_1608Metric",
-            value="100nF")
-c_lv[1] += vcc_lv
-c_lv[2] += gnd
+# Connect A-side signals to TXB0104 A ports
+u1["A1"] += net_a1
+u1["A2"] += net_a2
+u1["A3"] += net_a3
+u1["A4"] += net_a4
 
-c_hv = Part("Device", "C",
-            footprint="Capacitor_SMD:C_0603_1608Metric",
-            value="100nF")
-c_hv[1] += vcc_hv
-c_hv[2] += gnd
-
-# Low-voltage side header: GND, LV1, LV2, LV3, LV4, 3V3
-lv_header = Part("Connector_Generic", "Conn_01x06",
-                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
-                 value="LV_HDR")
-
-# High-voltage side header: GND, HV1, HV2, HV3, HV4, 5V
-hv_header = Part("Connector_Generic", "Conn_01x06",
-                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
-                 value="HV_HDR")
-
-# Connect header power pins
-lv_header[1] += gnd
-lv_header[6] += vcc_lv
-
-hv_header[1] += gnd
-hv_header[6] += vcc_hv
-
-# Create 4 level shifter channels
-for i in range(4):
-    ch_num = i + 1
-    lv_net = Net(f"LV{ch_num}")
-    hv_net = Net(f"HV{ch_num}")
-
-    level_shift_channel(lv_net, hv_net, vcc_lv, vcc_hv, gnd, ch_name=f"CH{ch_num}")
-
-    # Connect to headers (pins 2-5 for channels 1-4)
-    lv_header[ch_num + 1] += lv_net
-    hv_header[ch_num + 1] += hv_net
-
-generate_schematic(auto_stub=True)
+# Connect B-side signals to TXB0104 B ports
+u1["B1"] += net_b1
+u1["B2"] += net_b2
+u1["B3"] += net_b3
+u1["B4"] += net_b4

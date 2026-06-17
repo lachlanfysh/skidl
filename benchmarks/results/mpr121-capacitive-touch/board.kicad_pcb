@@ -1,2880 +1,2091 @@
-(kicad_pcb
-  (version 20241229)
-  (generator "skidl")
-  (generator_version "9.0")
-  (general
-    (thickness 1.6)
-    (legacy_teardrops no))
-  (paper "A4")
-  (layers
-    (0 "F.Cu" signal)
-    (2 "B.Cu" signal)
-    (9 "F.Adhes" user "F.Adhesive")
-    (11 "B.Adhes" user "B.Adhesive")
-    (13 "F.Paste" user)
-    (15 "B.Paste" user)
-    (5 "F.SilkS" user "F.Silkscreen")
-    (7 "B.SilkS" user "B.Silkscreen")
-    (1 "F.Mask" user)
-    (3 "B.Mask" user)
-    (17 "Dwgs.User" user "User.Drawings")
-    (19 "Cmts.User" user "User.Comments")
-    (21 "Eco1.User" user "User.Eco1")
-    (23 "Eco2.User" user "User.Eco2")
-    (25 "Edge.Cuts" user)
-    (27 "Margin" user)
-    (31 "F.CrtYd" user "F.Courtyard")
-    (29 "B.CrtYd" user "B.Courtyard")
-    (35 "F.Fab" user)
-    (33 "B.Fab" user))
-  (setup
-    (pad_to_mask_clearance 0)
-    (allow_soldermask_bridges_in_footprints no)
-    (tenting front back)
-    (pcbplotparams
-      (layerselection 0x00000000_00000000_55555555_5755f5ff)
-      (plot_on_all_layers_selection 0x00000000_00000000_00000000_00000000)
-      (disableapertmacros no)
-      (usegerberextensions no)
-      (usegerberattributes yes)
-      (usegerberadvancedattributes yes)
-      (creategerberjobfile yes)
-      (dashed_line_dash_ratio 12.0)
-      (dashed_line_gap_ratio 3.0)
-      (svgprecision 4)
-      (plotframeref no)
-      (mode 1)
-      (useauxorigin no)
-      (hpglpennumber 1)
-      (hpglpenspeed 20)
-      (hpglpendiameter 15.0)
-      (pdf_front_fp_property_popups yes)
-      (pdf_back_fp_property_popups yes)
-      (pdf_metadata yes)
-      (pdf_single_document no)
-      (dxfpolygonmode yes)
-      (dxfimperialunits yes)
-      (dxfusepcbnewfont yes)
-      (psnegative no)
-      (psa4output no)
-      (plot_black_and_white yes)
-      (sketchpadsonfab no)
-      (plotpadnumbers no)
-      (hidednponfab no)
-      (sketchdnponfab yes)
-      (crossoutdnponfab yes)
-      (subtractmaskfromsilk no)
-      (outputformat 1)
-      (mirror no)
-      (drillshape 1)
-      (scaleselection 1)
-      (outputdirectory "")))
-  (net 0 "")
-  (net 1 "VIN")
-  (net 2 "+3V3")
-  (net 3 "GND")
-  (net 4 "SDA_3V3")
-  (net 5 "SCL_3V3")
-  (net 6 "SDA")
-  (net 7 "SCL")
-  (net 8 "IRQ")
-  (net 9 "ELE0")
-  (net 10 "ELE1")
-  (net 11 "ELE2")
-  (net 12 "ELE3")
-  (net 13 "ELE4")
-  (net 14 "ELE5")
-  (net 15 "ELE6")
-  (net 16 "ELE7")
-  (net 17 "ELE8")
-  (net 18 "ELE9")
-  (net 19 "ELE10")
-  (net 20 "ELE11")
-  (net 21 "N$1")
-  (net 22 "N$2")
-  (net 23 "N$3")
-  (net 24 "__NOCONNECT1")
-  (footprint "PinHeader_1x06_P2.54mm_Vertical"
-    (at 30.0 32.8)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Through hole straight pin header, 1x06, 2.54mm pitch, single row")
-    (tags "Through hole pin header THT 1x06 2.54mm single row")
-    (property "Reference" "J1"
-      (at 0 -2.38 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "9d7850a2-333a-585d-a142-16adc2bac5fb"))
-    (property "Value" "HOST"
-      (at 0 15.08 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "9c0372bd-7e4c-5587-890e-b4a2dded2d86"))
-    (attr through_hole)
-    (fp_line
-      (start -1.38 -1.38)
-      (end 0 -1.38)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.38 0)
-      (end -1.38 -1.38)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.38 1.27)
-      (end -1.38 14.08)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.38 1.27)
-      (end 1.38 1.27)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.38 14.08)
-      (end 1.38 14.08)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 1.38 1.27)
-      (end 1.38 14.08)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.77 -1.77)
-      (end 1.77 14.47)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.27 -0.635)
-      (end -0.635 -1.27)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start -1.27 13.97)
-      (end -1.27 -0.635)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start -0.635 -1.27)
-      (end 1.27 -1.27)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start 1.27 -1.27)
-      (end 1.27 13.97)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start 1.27 13.97)
-      (end -1.27 13.97)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 6.35 90)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15))))
-    (pad "1" thru_hole rect
-      (at 0 0)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "5ffda842-7095-5938-998f-ebdd8dea1764")
-      (net 1 "VIN"))
-    (pad "2" thru_hole circle
-      (at 0 2.54)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "ebf50645-b527-5d2b-913b-e5dfa77252d8")
-      (net 3 "GND"))
-    (pad "3" thru_hole circle
-      (at 0 5.08)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "6de8d1fa-3eee-599d-a092-cfbd98f4e4eb")
-      (net 6 "SDA"))
-    (pad "4" thru_hole circle
-      (at 0 7.62)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "d1fe7632-b048-512b-a0c6-e32a951120f0")
-      (net 7 "SCL"))
-    (pad "5" thru_hole circle
-      (at 0 10.16)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "bf2d1def-94d5-5932-ada7-1f4b008604b1"))
-    (pad "6" thru_hole circle
-      (at 0 12.7)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "c24d886c-374f-5910-97f8-07e2405cf462")
-      (net 24 "__NOCONNECT1"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x06_P2.54mm_Vertical.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "88e0f03d-5e35-5399-896c-c431b47fe3d0"))
-  (footprint "PinHeader_1x12_P2.54mm_Vertical"
-    (at 59.15 20.0)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Through hole straight pin header, 1x12, 2.54mm pitch, single row")
-    (tags "Through hole pin header THT 1x12 2.54mm single row")
-    (property "Reference" "J2"
-      (at 0 -2.38 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "7ff99b96-ffac-5e92-8e18-90ca4d53c745"))
-    (property "Value" "ELECTRODES"
-      (at 0 30.32 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "56dd619e-a6eb-5646-8b25-adb0683ee384"))
-    (attr through_hole)
-    (fp_line
-      (start -1.38 -1.38)
-      (end 0 -1.38)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.38 0)
-      (end -1.38 -1.38)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.38 1.27)
-      (end -1.38 29.32)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.38 1.27)
-      (end 1.38 1.27)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.38 29.32)
-      (end 1.38 29.32)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 1.38 1.27)
-      (end 1.38 29.32)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.77 -1.77)
-      (end 1.77 29.71)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.27 -0.635)
-      (end -0.635 -1.27)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start -1.27 29.21)
-      (end -1.27 -0.635)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start -0.635 -1.27)
-      (end 1.27 -1.27)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start 1.27 -1.27)
-      (end 1.27 29.21)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start 1.27 29.21)
-      (end -1.27 29.21)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 13.97 90)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15))))
-    (pad "1" thru_hole rect
-      (at 0 0)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "dcfd43cb-f1fe-5107-a8d3-935471e7fbdf")
-      (net 9 "ELE0"))
-    (pad "2" thru_hole circle
-      (at 0 2.54)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "8931fa66-dc2f-502d-bf2f-86922cfc6bb8")
-      (net 10 "ELE1"))
-    (pad "3" thru_hole circle
-      (at 0 5.08)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "7de68345-3bc7-5e8b-afb2-b20f4dd55703")
-      (net 11 "ELE2"))
-    (pad "4" thru_hole circle
-      (at 0 7.62)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "df9ece60-7d6b-599f-85cd-5c9ada40a03a")
-      (net 12 "ELE3"))
-    (pad "5" thru_hole circle
-      (at 0 10.16)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "f21f946c-84ba-5121-a7ec-4b5116b210ba")
-      (net 13 "ELE4"))
-    (pad "6" thru_hole circle
-      (at 0 12.7)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "d1071d86-2a37-5672-bc93-fad679cb3229")
-      (net 14 "ELE5"))
-    (pad "7" thru_hole circle
-      (at 0 15.24)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "01a66c16-c4c4-53ad-9856-00cb684ee2e0")
-      (net 15 "ELE6"))
-    (pad "8" thru_hole circle
-      (at 0 17.78)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "66b885d8-99fe-559a-8951-d380620ab710")
-      (net 16 "ELE7"))
-    (pad "9" thru_hole circle
-      (at 0 20.32)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "0a85d2a9-42ce-5534-ae5a-daab5943e22c")
-      (net 17 "ELE8"))
-    (pad "10" thru_hole circle
-      (at 0 22.86)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "633020ca-8e27-583f-b928-0dc0fb139778")
-      (net 18 "ELE9"))
-    (pad "11" thru_hole circle
-      (at 0 25.4)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "2836475d-9398-5eb3-be51-bc222941323a")
-      (net 19 "ELE10"))
-    (pad "12" thru_hole circle
-      (at 0 27.94)
-      (size 1.7 1.7)
-      (drill 1)
-      (layers "*.Cu" "*.Mask")
-      (remove_unused_layers no)
-      (uuid "3b7ff442-8d41-5b08-8534-8aefc2a338fc")
-      (net 20 "ELE11"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x12_P2.54mm_Vertical.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "e1dd031c-a4dc-53a4-8cd6-2d4d2aa41ffe"))
-  (footprint "SOT-23"
-    (at 30.0 20.0)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "SOT, 3 Pin (JEDEC TO-236 Var AB https://www.jedec.org/document_search?search_api_views_fulltext=TO-236), generated with kicad-footprint-generator ipc_gullwing_generator.py")
-    (tags "SOT TO_SOT_SMD")
-    (property "Reference" "U1"
-      (at 0 -2.4 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "65a6dae9-6520-5f66-b4b8-aa87dde5d5b9"))
-    (property "Value" "MCP1700-3.3V"
-      (at 0 2.4 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "d900cfaf-8b7d-5f1d-9ed2-60f1c50dab87"))
-    (attr smd)
-    (fp_line
-      (start -0.76 -1.56)
-      (end 0.76 -1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.76 -1.51)
-      (end -0.76 -1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.76 0.39)
-      (end -0.76 -0.39)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.76 1.56)
-      (end -0.76 1.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.76 -1.56)
-      (end 0.76 -0.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.76 0.56)
-      (end 0.76 1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.76 1.56)
-      (end -0.76 1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_poly
-      (pts
-        (xy -1.3 -0.38)
-        (xy -1.06 -0.05)
-        (xy -1.54 -0.05))
-      (stroke
-        (width 0.12)
-        (type solid))
-      (fill yes)
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.93 -1.5)
-      (end -0.9 -1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.93 -0.39)
-      (end -1.93 -1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.93 0.39)
-      (end -0.9 0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.93 1.5)
-      (end -1.93 0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 -1.7)
-      (end 0.9 -1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 -1.5)
-      (end -0.9 -1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 -0.39)
-      (end -1.93 -0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 0.39)
-      (end -0.9 -0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 1.5)
-      (end -1.93 1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 1.7)
-      (end -0.9 1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 -1.7)
-      (end 0.9 -0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 -0.55)
-      (end 1.93 -0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 0.55)
-      (end 0.9 1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 1.7)
-      (end -0.9 1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.93 -0.55)
-      (end 1.93 0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.93 0.55)
-      (end 0.9 0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_poly
-      (pts
-        (xy -0.325 -1.45)
-        (xy 0.65 -1.45)
-        (xy 0.65 1.45)
-        (xy -0.65 1.45)
-        (xy -0.65 -1.125))
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 90)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.72 0.72)
-          (thickness 0.11))))
-    (pad "1" smd roundrect
-      (at -0.9375 -0.95)
-      (size 1.475 0.6)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "1cda6be0-35ea-5a8a-909f-a7f4733b9992")
-      (net 3 "GND"))
-    (pad "2" smd roundrect
-      (at -0.9375 0.95)
-      (size 1.475 0.6)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "48577386-67fc-5202-a2ee-618ffdc779e9")
-      (net 2 "+3V3"))
-    (pad "3" smd roundrect
-      (at 0.9375 0)
-      (size 1.475 0.6)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "7260a822-09a6-5083-8922-3deb0f2b1d26")
-      (net 1 "VIN"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Package_TO_SOT_SMD.3dshapes/SOT-23.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "dc2297c5-fb51-5f44-8567-97273a1eaa9f"))
-  (footprint "QFN-20-1EP_3x3mm_P0.45mm_EP1.6x1.6mm"
-    (at 29.2504747416571 16.070850997085245)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "QFN, 20 Pin (http://ww1.microchip.com/downloads/en/DeviceDoc/atmel-8235-8-bit-avr-microcontroller-attiny20_datasheet.pdf#page=212), generated with kicad-footprint-generator ipc_noLead_generator.py")
-    (tags "QFN NoLead")
-    (property "Reference" "U2"
-      (at 0 -2.83 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "fb2d732b-d877-53d5-851a-2404f8d0a0bb"))
-    (property "Value" "MPR121QR2"
-      (at 0 2.83 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "da40baea-c5fd-558a-bd94-b06fe549b226"))
-    (attr smd)
-    (fp_line
-      (start -1.61 -1.61)
-      (end -1.285 -1.61)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.61 -1.285)
-      (end -1.61 -1.61)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.61 1.61)
-      (end -1.61 1.285)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.285 1.61)
-      (end -1.61 1.61)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 1.285 -1.61)
-      (end 1.61 -1.61)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 1.61 -1.61)
-      (end 1.61 -1.285)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 1.61 1.285)
-      (end 1.61 1.61)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 1.61 1.61)
-      (end 1.285 1.61)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_poly
-      (pts
-        (xy -2.14 -0.9)
-        (xy -2.47 -0.66)
-        (xy -2.47 -1.14))
-      (stroke
-        (width 0.12)
-        (type solid))
-      (fill yes)
-      (layer "F.SilkS"))
-    (fp_line
-      (start -2.13 -1.28)
-      (end -1.75 -1.28)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -2.13 1.28)
-      (end -2.13 -1.28)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.75 -1.75)
-      (end -1.28 -1.75)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.75 -1.28)
-      (end -1.75 -1.75)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.75 1.28)
-      (end -2.13 1.28)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.75 1.75)
-      (end -1.75 1.28)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.28 -2.13)
-      (end 1.28 -2.13)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.28 -1.75)
-      (end -1.28 -2.13)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.28 1.75)
-      (end -1.75 1.75)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.28 2.13)
-      (end -1.28 1.75)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.28 -2.13)
-      (end 1.28 -1.75)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.28 -1.75)
-      (end 1.75 -1.75)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.28 1.75)
-      (end 1.28 2.13)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.28 2.13)
-      (end -1.28 2.13)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.75 -1.75)
-      (end 1.75 -1.28)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.75 -1.28)
-      (end 2.13 -1.28)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.75 1.28)
-      (end 1.75 1.75)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.75 1.75)
-      (end 1.28 1.75)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 2.13 -1.28)
-      (end 2.13 1.28)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 2.13 1.28)
-      (end 1.75 1.28)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_poly
-      (pts
-        (xy -0.75 -1.5)
-        (xy 1.5 -1.5)
-        (xy 1.5 1.5)
-        (xy -1.5 1.5)
-        (xy -1.5 -0.75))
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.75 0.75)
-          (thickness 0.11))))
-    (pad "" smd roundrect
-      (at -0.4 -0.4)
-      (size 0.64 0.64)
-      (layers "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "1525db59-2244-5435-8877-b5105184f63a"))
-    (pad "" smd roundrect
-      (at -0.4 0.4)
-      (size 0.64 0.64)
-      (layers "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "1525db59-2244-5435-8877-b5105184f63a"))
-    (pad "" smd roundrect
-      (at 0.4 -0.4)
-      (size 0.64 0.64)
-      (layers "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "1525db59-2244-5435-8877-b5105184f63a"))
-    (pad "" smd roundrect
-      (at 0.4 0.4)
-      (size 0.64 0.64)
-      (layers "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "1525db59-2244-5435-8877-b5105184f63a"))
-    (pad "1" smd custom
-      (at -1.45 -0.9)
-      (size 0.143934 0.143934)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (options
-        (clearance outline)
-        (anchor circle))
-      (primitives
-        (gr_poly
-          (pts
-            (xy -0.375 -0.075)
-            (xy 0.254289 -0.075)
-            (xy 0.375 0.045711)
-            (xy 0.375 0.075)
-            (xy -0.375 0.075))
-          (width 0.1)
-          (fill yes)))
-      (uuid "fc91c369-09d9-5511-b47e-24dc2c4ff55d")
-      (net 9 "ELE0"))
-    (pad "2" smd roundrect
-      (at -1.45 -0.45)
-      (size 0.85 0.25)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "6ca7c273-0523-5a4f-8a0d-26703f96b5b8")
-      (net 10 "ELE1"))
-    (pad "3" smd roundrect
-      (at -1.45 0)
-      (size 0.85 0.25)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "4a0411d0-e495-524c-aeb6-ecc33e552f1a")
-      (net 11 "ELE2"))
-    (pad "4" smd roundrect
-      (at -1.45 0.45)
-      (size 0.85 0.25)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "7fa12319-5171-54af-bcbd-a25d745e1d4c")
-      (net 12 "ELE3"))
-    (pad "5" smd custom
-      (at -1.45 0.9)
-      (size 0.143934 0.143934)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (options
-        (clearance outline)
-        (anchor circle))
-      (primitives
-        (gr_poly
-          (pts
-            (xy -0.375 -0.075)
-            (xy 0.375 -0.075)
-            (xy 0.375 -0.045711)
-            (xy 0.254289 0.075)
-            (xy -0.375 0.075))
-          (width 0.1)
-          (fill yes)))
-      (uuid "ec1f2819-6d29-5cc7-9d40-a516ab99a7f3")
-      (net 13 "ELE4"))
-    (pad "6" smd custom
-      (at -0.9 1.45)
-      (size 0.143934 0.143934)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (options
-        (clearance outline)
-        (anchor circle))
-      (primitives
-        (gr_poly
-          (pts
-            (xy -0.075 -0.254289)
-            (xy 0.045711 -0.375)
-            (xy 0.075 -0.375)
-            (xy 0.075 0.375)
-            (xy -0.075 0.375))
-          (width 0.1)
-          (fill yes)))
-      (uuid "84d2cd61-4cd7-5c51-b86f-6e829a63684d")
-      (net 14 "ELE5"))
-    (pad "7" smd roundrect
-      (at -0.45 1.45)
-      (size 0.25 0.85)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "ffda3ccd-7611-58ea-ab2f-80d78ee52464")
-      (net 15 "ELE6"))
-    (pad "8" smd roundrect
-      (at 0 1.45)
-      (size 0.25 0.85)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "2a9c4971-1a3a-54e9-a450-8c2a5de1df99")
-      (net 3 "GND"))
-    (pad "9" smd roundrect
-      (at 0.45 1.45)
-      (size 0.25 0.85)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "eb0345ca-431c-5613-b9f7-6137d1084b88")
-      (net 22 "N$2"))
-    (pad "10" smd custom
-      (at 0.9 1.45)
-      (size 0.143934 0.143934)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (options
-        (clearance outline)
-        (anchor circle))
-      (primitives
-        (gr_poly
-          (pts
-            (xy -0.075 -0.375)
-            (xy -0.045711 -0.375)
-            (xy 0.075 -0.254289)
-            (xy 0.075 0.375)
-            (xy -0.075 0.375))
-          (width 0.1)
-          (fill yes)))
-      (uuid "0b7b4980-a168-5795-81bb-0021bfe4c5c7")
-      (net 21 "N$1"))
-    (pad "11" smd custom
-      (at 1.45 0.9)
-      (size 0.143934 0.143934)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (options
-        (clearance outline)
-        (anchor circle))
-      (primitives
-        (gr_poly
-          (pts
-            (xy -0.375 -0.075)
-            (xy 0.375 -0.075)
-            (xy 0.375 0.075)
-            (xy -0.254289 0.075)
-            (xy -0.375 -0.045711))
-          (width 0.1)
-          (fill yes)))
-      (uuid "610ecb65-f105-526e-9c76-0902ffda88e8")
-      (net 16 "ELE7"))
-    (pad "12" smd roundrect
-      (at 1.45 0.45)
-      (size 0.85 0.25)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "54a11784-105c-5467-ad42-586061b15d29")
-      (net 17 "ELE8"))
-    (pad "13" smd roundrect
-      (at 1.45 0)
-      (size 0.85 0.25)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "e692272d-b999-5560-9aa3-49205e5291ef")
-      (net 18 "ELE9"))
-    (pad "14" smd roundrect
-      (at 1.45 -0.45)
-      (size 0.85 0.25)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "27bca3a6-471a-5e31-83ab-10c4c5fb93fc")
-      (net 19 "ELE10"))
-    (pad "15" smd custom
-      (at 1.45 -0.9)
-      (size 0.143934 0.143934)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (options
-        (clearance outline)
-        (anchor circle))
-      (primitives
-        (gr_poly
-          (pts
-            (xy -0.375 0.045711)
-            (xy -0.254289 -0.075)
-            (xy 0.375 -0.075)
-            (xy 0.375 0.075)
-            (xy -0.375 0.075))
-          (width 0.1)
-          (fill yes)))
-      (uuid "5e74f9d2-1cfe-51a5-aaca-25b734403e4e")
-      (net 20 "ELE11"))
-    (pad "16" smd custom
-      (at 0.9 -1.45)
-      (size 0.143934 0.143934)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (options
-        (clearance outline)
-        (anchor circle))
-      (primitives
-        (gr_poly
-          (pts
-            (xy -0.075 -0.375)
-            (xy 0.075 -0.375)
-            (xy 0.075 0.254289)
-            (xy -0.045711 0.375)
-            (xy -0.075 0.375))
-          (width 0.1)
-          (fill yes)))
-      (uuid "2afe4f80-eb79-5471-9a6c-605fc240a791")
-      (net 8 "IRQ"))
-    (pad "17" smd roundrect
-      (at 0.45 -1.45)
-      (size 0.25 0.85)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "36cc4305-f992-5117-ba83-4cff06ebedae")
-      (net 4 "SDA_3V3"))
-    (pad "18" smd roundrect
-      (at 0 -1.45)
-      (size 0.25 0.85)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "7ce5198c-9a3d-53a9-9177-6024efa5d685")
-      (net 5 "SCL_3V3"))
-    (pad "19" smd roundrect
-      (at -0.45 -1.45)
-      (size 0.25 0.85)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "b22ca5a1-5180-5ce0-910e-62764aa63594")
-      (net 2 "+3V3"))
-    (pad "20" smd custom
-      (at -0.9 -1.45)
-      (size 0.143934 0.143934)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (options
-        (clearance outline)
-        (anchor circle))
-      (primitives
-        (gr_poly
-          (pts
-            (xy -0.075 -0.375)
-            (xy 0.075 -0.375)
-            (xy 0.075 0.375)
-            (xy 0.045711 0.375)
-            (xy -0.075 0.254289))
-          (width 0.1)
-          (fill yes)))
-      (uuid "2a185390-cff3-550e-99dc-2ae2ffbfa3f9"))
-    (pad "21" smd rect
-      (at 0 0)
-      (size 1.6 1.6)
-      (property "pad_prop_heatsink"
-        (uuid "dd1e12b1-2f8b-5d31-8380-6622d947b954"))
-      (layers "F.Cu" "F.Mask")
-      (zone_connect 2)
-      (uuid "75ba6d33-4f2b-54fe-b960-9cd63d53d49d")
-      (net 3 "GND"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Package_DFN_QFN.3dshapes/QFN-20-1EP_3x3mm_P0.45mm_EP1.6x1.6mm.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "f72247d9-107c-5d59-9aed-4dc713f26de2"))
-  (footprint "SOT-23"
-    (at 34.0 20.0)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "SOT, 3 Pin (JEDEC TO-236 Var AB https://www.jedec.org/document_search?search_api_views_fulltext=TO-236), generated with kicad-footprint-generator ipc_gullwing_generator.py")
-    (tags "SOT TO_SOT_SMD")
-    (property "Reference" "Q1"
-      (at 0 -2.4 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "84721e0f-00d7-573c-9bd6-b03cb5508ec5"))
-    (property "Value" "BSS138"
-      (at 0 2.4 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "37d52ee9-406d-5849-95b7-7aff93147c88"))
-    (attr smd)
-    (fp_line
-      (start -0.76 -1.56)
-      (end 0.76 -1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.76 -1.51)
-      (end -0.76 -1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.76 0.39)
-      (end -0.76 -0.39)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.76 1.56)
-      (end -0.76 1.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.76 -1.56)
-      (end 0.76 -0.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.76 0.56)
-      (end 0.76 1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.76 1.56)
-      (end -0.76 1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_poly
-      (pts
-        (xy -1.3 -0.38)
-        (xy -1.06 -0.05)
-        (xy -1.54 -0.05))
-      (stroke
-        (width 0.12)
-        (type solid))
-      (fill yes)
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.93 -1.5)
-      (end -0.9 -1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.93 -0.39)
-      (end -1.93 -1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.93 0.39)
-      (end -0.9 0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.93 1.5)
-      (end -1.93 0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 -1.7)
-      (end 0.9 -1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 -1.5)
-      (end -0.9 -1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 -0.39)
-      (end -1.93 -0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 0.39)
-      (end -0.9 -0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 1.5)
-      (end -1.93 1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 1.7)
-      (end -0.9 1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 -1.7)
-      (end 0.9 -0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 -0.55)
-      (end 1.93 -0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 0.55)
-      (end 0.9 1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 1.7)
-      (end -0.9 1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.93 -0.55)
-      (end 1.93 0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.93 0.55)
-      (end 0.9 0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_poly
-      (pts
-        (xy -0.325 -1.45)
-        (xy 0.65 -1.45)
-        (xy 0.65 1.45)
-        (xy -0.65 1.45)
-        (xy -0.65 -1.125))
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 90)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.72 0.72)
-          (thickness 0.11))))
-    (pad "1" smd roundrect
-      (at -0.9375 -0.95)
-      (size 1.475 0.6)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "824dd482-537c-5ff8-a1e9-1f0b6246c115")
-      (net 2 "+3V3"))
-    (pad "2" smd roundrect
-      (at -0.9375 0.95)
-      (size 1.475 0.6)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "3f490444-e5dc-557e-8d76-3e375176379e")
-      (net 4 "SDA_3V3"))
-    (pad "3" smd roundrect
-      (at 0.9375 0)
-      (size 1.475 0.6)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "6d6e8b70-e635-5ec9-8592-12a00a7c37f0")
-      (net 6 "SDA"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Package_TO_SOT_SMD.3dshapes/SOT-23.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "2b2d9086-27d6-5d77-8f96-acba9bc72437"))
-  (footprint "SOT-23"
-    (at 25.830922137642276 21.026060429977008)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "SOT, 3 Pin (JEDEC TO-236 Var AB https://www.jedec.org/document_search?search_api_views_fulltext=TO-236), generated with kicad-footprint-generator ipc_gullwing_generator.py")
-    (tags "SOT TO_SOT_SMD")
-    (property "Reference" "Q2"
-      (at 0 -2.4 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "af8ec83c-864f-5f96-b51d-140820c3f1dc"))
-    (property "Value" "BSS138"
-      (at 0 2.4 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "be40927c-5daf-50c9-a501-4a28304d5fca"))
-    (attr smd)
-    (fp_line
-      (start -0.76 -1.56)
-      (end 0.76 -1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.76 -1.51)
-      (end -0.76 -1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.76 0.39)
-      (end -0.76 -0.39)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.76 1.56)
-      (end -0.76 1.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.76 -1.56)
-      (end 0.76 -0.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.76 0.56)
-      (end 0.76 1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.76 1.56)
-      (end -0.76 1.56)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_poly
-      (pts
-        (xy -1.3 -0.38)
-        (xy -1.06 -0.05)
-        (xy -1.54 -0.05))
-      (stroke
-        (width 0.12)
-        (type solid))
-      (fill yes)
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.93 -1.5)
-      (end -0.9 -1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.93 -0.39)
-      (end -1.93 -1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.93 0.39)
-      (end -0.9 0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -1.93 1.5)
-      (end -1.93 0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 -1.7)
-      (end 0.9 -1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 -1.5)
-      (end -0.9 -1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 -0.39)
-      (end -1.93 -0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 0.39)
-      (end -0.9 -0.39)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 1.5)
-      (end -1.93 1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.9 1.7)
-      (end -0.9 1.5)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 -1.7)
-      (end 0.9 -0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 -0.55)
-      (end 1.93 -0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 0.55)
-      (end 0.9 1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 0.9 1.7)
-      (end -0.9 1.7)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.93 -0.55)
-      (end 1.93 0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_line
-      (start 1.93 0.55)
-      (end 0.9 0.55)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (layer "F.CrtYd"))
-    (fp_poly
-      (pts
-        (xy -0.325 -1.45)
-        (xy 0.65 -1.45)
-        (xy 0.65 1.45)
-        (xy -0.65 1.45)
-        (xy -0.65 -1.125))
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 90)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.72 0.72)
-          (thickness 0.11))))
-    (pad "1" smd roundrect
-      (at -0.9375 -0.95)
-      (size 1.475 0.6)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "ca38e8d9-1f4a-5bc5-850f-08569628b312")
-      (net 2 "+3V3"))
-    (pad "2" smd roundrect
-      (at -0.9375 0.95)
-      (size 1.475 0.6)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "2f938f67-3ec6-527e-9d9f-00e0dd933c04")
-      (net 5 "SCL_3V3"))
-    (pad "3" smd roundrect
-      (at 0.9375 0)
-      (size 1.475 0.6)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "e5a8dfde-9252-5a36-9860-458c76e0f33b")
-      (net 7 "SCL"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Package_TO_SOT_SMD.3dshapes/SOT-23.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "3be5c836-c9a3-5e2e-89a9-e545906ff410"))
-  (footprint "C_0603_1608Metric"
-    (at 29.2504747416571 11.970850997085245)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Capacitor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "capacitor")
-    (property "Reference" "C4"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "c0ec8fa1-e12d-5bb6-bd67-5981e56d9ab2"))
-    (property "Value" "100nF"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "2e46760d-148f-58e8-9aa4-0537c502c410"))
-    (attr smd)
-    (fp_line
-      (start -0.14058 -0.51)
-      (end 0.14058 -0.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.14058 0.51)
-      (end 0.14058 0.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4)
-      (end 0.8 0.4)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.775 0)
-      (size 0.9 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "17e8d657-dc4f-5961-b5a5-f85ec2bf300f")
-      (net 2 "+3V3"))
-    (pad "2" smd roundrect
-      (at 0.775 0)
-      (size 0.9 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "1be40ae2-6b6c-5620-b9f4-c6fe8515d1ad")
-      (net 3 "GND"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Capacitor_SMD.3dshapes/C_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "93f5300d-a3f0-5209-82e2-0ae0f76c1bce"))
-  (footprint "C_0603_1608Metric"
-    (at 26.925 32.8)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Capacitor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "capacitor")
-    (property "Reference" "C1"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "61f29d4b-2535-5a5b-b6d4-486a6488687c"))
-    (property "Value" "1uF"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "6941acd7-a074-5e54-bed1-0b4798c11013"))
-    (attr smd)
-    (fp_line
-      (start -0.14058 -0.51)
-      (end 0.14058 -0.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.14058 0.51)
-      (end 0.14058 0.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4)
-      (end 0.8 0.4)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.775 0)
-      (size 0.9 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "95651567-ab9a-56be-bde8-11fe54371500")
-      (net 1 "VIN"))
-    (pad "2" smd roundrect
-      (at 0.775 0)
-      (size 0.9 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "906a01f5-0aec-5fc7-a840-5b0ca1ce095c")
-      (net 3 "GND"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Capacitor_SMD.3dshapes/C_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "983f73ea-07da-55cc-9f95-94cd189eb6cd"))
-  (footprint "C_0603_1608Metric"
-    (at 33.3504747416571 16.070850997085245)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Capacitor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "capacitor")
-    (property "Reference" "C2"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "1fda6aa8-21dc-562c-be10-7be8e4801457"))
-    (property "Value" "1uF"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "f2078bf4-ef77-5472-ae31-b595bf0c047b"))
-    (attr smd)
-    (fp_line
-      (start -0.14058 -0.51)
-      (end 0.14058 -0.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.14058 0.51)
-      (end 0.14058 0.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4)
-      (end 0.8 0.4)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.775 0)
-      (size 0.9 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "d7fb0023-ad5c-5ec3-a417-e94fa267168d")
-      (net 2 "+3V3"))
-    (pad "2" smd roundrect
-      (at 0.775 0)
-      (size 0.9 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "46708211-4316-53f6-8a8d-113052fd568e")
-      (net 3 "GND"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Capacitor_SMD.3dshapes/C_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "750fdca0-e402-58e8-b524-dbf8949c4d38"))
-  (footprint "C_0805_2012Metric"
-    (at 33.0 23.7)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Capacitor SMD 0805 (2012 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf, https://docs.google.com/spreadsheets/d/1BsfQQcO9C6DZCsRaXUlFlo91Tg2WpOkGARC1WS5S8t0/edit?usp=sharing), generated with kicad-footprint-generator")
-    (tags "capacitor")
-    (property "Reference" "C3"
-      (at 0 -1.68 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "7f78b1a3-4a2e-58ac-b2fe-d14594defe0a"))
-    (property "Value" "10uF"
-      (at 0 1.68 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "3f1bcce9-a532-5a80-9243-8f8ff5670546"))
-    (attr smd)
-    (fp_line
-      (start -0.261252 -0.735)
-      (end 0.261252 -0.735)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.261252 0.735)
-      (end 0.261252 0.735)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.7 -0.98)
-      (end 1.7 0.98)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -1 -0.625)
-      (end 1 0.625)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.5 0.5)
-          (thickness 0.08))))
-    (pad "1" smd roundrect
-      (at -0.95 0)
-      (size 1 1.45)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "7414e4c7-569a-557d-b248-288189e46574")
-      (net 2 "+3V3"))
-    (pad "2" smd roundrect
-      (at 0.95 0)
-      (size 1 1.45)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "710a3f7b-ead9-5565-907c-7450ea285a7d")
-      (net 3 "GND"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Capacitor_SMD.3dshapes/C_0805_2012Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "61cddcb7-8e0f-56b6-9fd6-1be465874dcc"))
-  (footprint "C_0603_1608Metric"
-    (at 29.2504747416571 23.120850997085245)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Capacitor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "capacitor")
-    (property "Reference" "C5"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "339ba755-469c-5bc8-92e2-f0ca9f9f13ae"))
-    (property "Value" "10nF"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "ce31a47f-8315-53d6-9b08-e05be5e9be06"))
-    (attr smd)
-    (fp_line
-      (start -0.14058 -0.51)
-      (end 0.14058 -0.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.14058 0.51)
-      (end 0.14058 0.51)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4)
-      (end 0.8 0.4)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.775 0)
-      (size 0.9 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "1cfdcb78-5540-5b97-8e4c-fbd433c94619")
-      (net 21 "N$1"))
-    (pad "2" smd roundrect
-      (at 0.775 0)
-      (size 0.9 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "c662a2a1-a3ee-5e63-9892-3a53ff34fa29")
-      (net 3 "GND"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Capacitor_SMD.3dshapes/C_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "5d50934f-897d-5dba-9a5a-699471c2eef1"))
-  (footprint "R_0603_1608Metric"
-    (at 39.2504747416571 16.070850997085245)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "resistor")
-    (property "Reference" "R1"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "8746de27-be47-5c5f-b84d-aa0710b830a4"))
-    (property "Value" "0R"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "232ef86e-9e04-5e83-aa91-e5b522d7d148"))
-    (attr smd)
-    (fp_line
-      (start -0.237258 -0.5225)
-      (end 0.237258 -0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.237258 0.5225)
-      (end 0.237258 0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4125)
-      (end 0.8 0.4125)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "770f3e35-bee4-5a27-b0e4-f23c807b127c")
-      (net 22 "N$2"))
-    (pad "2" smd roundrect
-      (at 0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "88f4e281-176f-517d-9a66-e814708634ff")
-      (net 3 "GND"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Resistor_SMD.3dshapes/R_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "0b07f7b3-831c-5dec-8635-df352efe6829"))
-  (footprint "R_0603_1608Metric"
-    (at 37.9 20.0)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "resistor")
-    (property "Reference" "R2"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "98eb33e4-111f-5b6e-8733-6acbdf9d0498"))
-    (property "Value" "10K"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "cc1e0fdb-2dd4-59b4-992d-1ee56d5bf9a6"))
-    (attr smd)
-    (fp_line
-      (start -0.237258 -0.5225)
-      (end 0.237258 -0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.237258 0.5225)
-      (end 0.237258 0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4125)
-      (end 0.8 0.4125)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "9889b143-b929-5ef5-9d7b-800568c1f215")
-      (net 2 "+3V3"))
-    (pad "2" smd roundrect
-      (at 0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "dffac71c-fa27-5672-ae5d-13a9cbdc757d")
-      (net 4 "SDA_3V3"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Resistor_SMD.3dshapes/R_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "5a4cfc9c-1924-589e-be0b-5cc96cb1c161"))
-  (footprint "R_0603_1608Metric"
-    (at 36.025 32.8)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "resistor")
-    (property "Reference" "R3"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "5cd19a4a-3157-55e7-9eb7-9d8c4dba0c11"))
-    (property "Value" "10K"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "b93b392e-48bc-5257-9932-fa6a48e49236"))
-    (attr smd)
-    (fp_line
-      (start -0.237258 -0.5225)
-      (end 0.237258 -0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.237258 0.5225)
-      (end 0.237258 0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4125)
-      (end 0.8 0.4125)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "f049a4e3-e686-5dd3-bb00-a742ed78ef11"))
-    (pad "2" smd roundrect
-      (at 0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "b8f73751-b11d-52f4-a2a3-7a728289b011")
-      (net 6 "SDA"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Resistor_SMD.3dshapes/R_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "4915e295-d04b-597e-9c0d-1a0fc3c51525"))
-  (footprint "R_0603_1608Metric"
-    (at 25.93713152417832 24.282922843588118)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "resistor")
-    (property "Reference" "R4"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "9a2c7c76-c163-58ac-95df-73893bb0a561"))
-    (property "Value" "10K"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "bb1ca0a8-b124-53cf-bc09-339741baf8df"))
-    (attr smd)
-    (fp_line
-      (start -0.237258 -0.5225)
-      (end 0.237258 -0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.237258 0.5225)
-      (end 0.237258 0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4125)
-      (end 0.8 0.4125)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "6b22c087-34ea-569a-8a0d-f3cc49c6c73a")
-      (net 2 "+3V3"))
-    (pad "2" smd roundrect
-      (at 0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "aa8eabf9-3421-5f9e-9e29-001c67f5e4e0")
-      (net 5 "SCL_3V3"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Resistor_SMD.3dshapes/R_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "fab44ada-71e5-5ed4-b51c-6eee72f2d5be"))
-  (footprint "R_0603_1608Metric"
-    (at 33.0 38.775)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "resistor")
-    (property "Reference" "R5"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "d58d9494-8992-511f-ac14-18749c7d6857"))
-    (property "Value" "10K"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "06114516-3eaf-5e71-be35-a1d292c87961"))
-    (attr smd)
-    (fp_line
-      (start -0.237258 -0.5225)
-      (end 0.237258 -0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.237258 0.5225)
-      (end 0.237258 0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4125)
-      (end 0.8 0.4125)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "80e40588-d7ab-53db-a41d-c0c7f6a22dac"))
-    (pad "2" smd roundrect
-      (at 0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "017af566-fb22-5347-a10b-e1bfbb8ab29e")
-      (net 7 "SCL"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Resistor_SMD.3dshapes/R_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "adfe845b-f07f-536b-b9c8-f2a153e5210d"))
-  (footprint "R_0603_1608Metric"
-    (at 29.2504747416571 3.1208509970852436)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "resistor")
-    (property "Reference" "R6"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "f1b465e4-bad3-570b-8c22-7888694f3734"))
-    (property "Value" "100K"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "d0760d2f-e921-57bc-a6e1-37ebf06bb52d"))
-    (attr smd)
-    (fp_line
-      (start -0.237258 -0.5225)
-      (end 0.237258 -0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.237258 0.5225)
-      (end 0.237258 0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4125)
-      (end 0.8 0.4125)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "6ea33143-7d46-57a1-8432-343e5ffb1fd3")
-      (net 2 "+3V3"))
-    (pad "2" smd roundrect
-      (at 0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "feec93fa-39bc-5152-bb2c-2054aac295d5")
-      (net 8 "IRQ"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Resistor_SMD.3dshapes/R_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "65787f68-3cb7-5705-a661-8a6fbddb1c6c"))
-  (footprint "R_0603_1608Metric"
-    (at 25.830922137642276 27.45106042997701)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
-    (tags "resistor")
-    (property "Reference" "R7"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "07405143-47a3-525c-86a6-e53f04f587be"))
-    (property "Value" "1K"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "2c7f9a10-27b6-50e2-aae1-87cdd6260baa"))
-    (attr smd)
-    (fp_line
-      (start -0.237258 -0.5225)
-      (end 0.237258 -0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -0.237258 0.5225)
-      (end 0.237258 0.5225)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_rect
-      (start -0.8 -0.4125)
-      (end 0.8 0.4125)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (fill no)
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "d0cdc616-58e9-5992-81ea-e1ffdc9b4ec7")
-      (net 2 "+3V3"))
-    (pad "2" smd roundrect
-      (at 0.825 0)
-      (size 0.8 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "22f2c341-e7f6-56a9-a26e-4b85596eff4e")
-      (net 23 "N$3"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/Resistor_SMD.3dshapes/R_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "6b4b80ff-22a1-56ce-be60-186e5b6c3491"))
-  (footprint "LED_0603_1608Metric"
-    (at 27.0 38.775)
-    (version 20241229)
-    (generator "kicad-footprint-generator")
-    (layer "F.Cu")
-    (descr "LED SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf), generated with kicad-footprint-generator")
-    (tags "LED")
-    (property "Reference" "D1"
-      (at 0 -1.43 0)
-      (layer "F.SilkS")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "fb604c6a-e85a-525f-8335-d95dfa7c5307"))
-    (property "Value" "RED"
-      (at 0 1.43 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 1 1)
-          (thickness 0.15)))
-      (uuid "2a93c6ed-e4d3-5be0-94df-056842159bf3"))
-    (attr smd)
-    (fp_line
-      (start -1.485 -0.735)
-      (end -1.485 0.735)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start -1.485 0.735)
-      (end 0.8 0.735)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_line
-      (start 0.8 -0.735)
-      (end -1.485 -0.735)
-      (stroke
-        (width 0.12)
-        (type solid))
-      (layer "F.SilkS"))
-    (fp_rect
-      (start -1.48 -0.73)
-      (end 1.48 0.73)
-      (stroke
-        (width 0.05)
-        (type solid))
-      (fill no)
-      (layer "F.CrtYd"))
-    (fp_line
-      (start -0.8 -0.1)
-      (end -0.8 0.4)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start -0.8 0.4)
-      (end 0.8 0.4)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start -0.5 -0.4)
-      (end -0.8 -0.1)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start 0.8 -0.4)
-      (end -0.5 -0.4)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_line
-      (start 0.8 0.4)
-      (end 0.8 -0.4)
-      (stroke
-        (width 0.1)
-        (type solid))
-      (layer "F.Fab"))
-    (fp_text user ${REFERENCE}
-      (at 0 0 0)
-      (layer "F.Fab")
-      (effects
-        (font
-          (size 0.4 0.4)
-          (thickness 0.06))))
-    (pad "1" smd roundrect
-      (at -0.7875 0)
-      (size 0.875 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "53b7a651-214b-5708-8f79-af6692e2ae8e")
-      (net 23 "N$3"))
-    (pad "2" smd roundrect
-      (at 0.7875 0)
-      (size 0.875 0.95)
-      (layers "F.Cu" "F.Mask" "F.Paste")
-      (roundrect_rratio 0.25)
-      (uuid "984b4926-1907-5247-8bff-2c247282931c")
-      (net 8 "IRQ"))
-    (embedded_fonts no)
-    (model "${KICAD9_3DMODEL_DIR}/LED_SMD.3dshapes/LED_0603_1608Metric.step"
-      (offset
-        (xyz 0 0 0))
-      (scale
-        (xyz 1 1 1))
-      (rotate
-        (xyz 0 0 0)))
-    (uuid "d98a9568-2479-55df-b1e9-242cb28c891f"))
-  (gr_rect
-    (start 0.0 0.0)
-    (end 60.0 40.0)
-    (stroke
-      (width 0.1)
-      (type solid))
-    (fill no)
-    (layer "Edge.Cuts")
-    (uuid "a7ce3a48-7bad-5c1b-96cb-f48a515e7f5c")))
+{
+  "run_id": "41dfaa7b4aa8",
+  "job_id": "275b48a6dd2f",
+  "user_id": null,
+  "api_key_id": null,
+  "spec": {
+    "code": "\nfrom skidl import *\n\n# Power rails\nvin = Net(\"VIN\"); vin.drive = POWER\nv3v3 = Net(\"+3V3\"); v3v3.drive = POWER\ngnd = Net(\"GND\"); gnd.drive = POWER\n\n# Internal signal nets\nsda_3v3 = Net(\"SDA_3V3\")\nscl_3v3 = Net(\"SCL_3V3\")\nsda_host = Net(\"SDA\")\nscl_host = Net(\"SCL\")\nirq_net = Net(\"IRQ\")\n\n# Electrode nets\nele_nets = [Net(f\"ELE{i}\") for i in range(12)]\n\n# ==============================================================\n# 3.3V LDO Regulator (TLV70033, SOT-23-5)\n# ==============================================================\nreg = Part(\"Regulator_Linear\", \"TLV70033_SOT23-5\",\n           footprint=\"Package_TO_SOT_SMD:SOT-23-5\")\nreg[\"IN\"] += vin\nreg[\"GND\"] += gnd\nreg[\"OUT\"] += v3v3\nreg[\"EN\"] += vin\nreg[\"NC\"] += NC()\n\n# LDO decoupling caps\ncin = Part(\"Device\", \"C\", value=\"1uF\",\n           footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncin[1] += vin; cin[2] += gnd\n\ncout = Part(\"Device\", \"C\", value=\"1uF\",\n            footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncout[1] += v3v3; cout[2] += gnd\n\n# Bulk cap on 3V3 (10uF)\ncbulk = Part(\"Device\", \"C\", value=\"10uF\",\n             footprint=\"Capacitor_SMD:C_0805_2012Metric\")\ncbulk[1] += v3v3; cbulk[2] += gnd\n\n# ==============================================================\n# MPR121QR2 (LCSC C91322, QFN-20 3x3mm 0.4mm pitch)\n# Using KiCad standard UQFN-20 footprint (3x3mm, P0.4mm)\n# Pins: ~{IRQ}(1), SCL(2), SDA(3), ADDR(4), VREG(5), VSS(6),\n#       REXT(7), ELE0-ELE11(8-19), VDD(20)\n# ==============================================================\nic = Part(\"C91322\", \"MPR121QR2\",\n          footprint=\"Package_DFN_QFN:UQFN-20_3x3mm_P0.4mm\")\n\nic[\"VDD\"] += v3v3\nic[\"VSS\"] += gnd\nic[\"~{IRQ}\"] += irq_net\nic[\"SCL\"] += scl_3v3\nic[\"SDA\"] += sda_3v3\n\n# ADDR to GND = I2C address 0x5A\nr_addr = Part(\"Device\", \"R\", value=\"0R\",\n              footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_addr[1] += ic[\"ADDR\"]\nr_addr[2] += gnd\n\n# VREG bypass cap (MPR121 internal regulator output)\ncvreg = Part(\"Device\", \"C\", value=\"10nF\",\n             footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncvreg[1] += ic[\"VREG\"]\ncvreg[2] += gnd\n\n# REXT: 200k to GND (sets charge current per datasheet)\nr_rext = Part(\"Device\", \"R\", value=\"200K\",\n              footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_rext[1] += ic[\"REXT\"]\nr_rext[2] += gnd\n\n# VDD decoupling 100nF\ncdec = Part(\"Device\", \"C\", value=\"100nF\",\n            footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncdec[1] += v3v3\ncdec[2] += gnd\n\n# Electrode connections ELE0-ELE11\nfor i in range(12):\n    ic[f\"ELE{i}\"] += ele_nets[i]\n\n# ==============================================================\n# I2C Bidirectional Level Shifter (2x BSS138 N-MOSFET)\n# Gate tied to 3V3, Source on low (3V3) side, Drain on high (VIN) side\n# ==============================================================\nq_sda = Part(\"Transistor_FET\", \"BSS138\",\n             footprint=\"Package_TO_SOT_SMD:SOT-23\")\nq_sda[\"G\"] += v3v3\nq_sda[\"S\"] += sda_3v3\nq_sda[\"D\"] += sda_host\n\nr_sda_lo = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_sda_lo[1] += v3v3; r_sda_lo[2] += sda_3v3\n\nr_sda_hi = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_sda_hi[1] += vin; r_sda_hi[2] += sda_host\n\nq_scl = Part(\"Transistor_FET\", \"BSS138\",\n             footprint=\"Package_TO_SOT_SMD:SOT-23\")\nq_scl[\"G\"] += v3v3\nq_scl[\"S\"] += scl_3v3\nq_scl[\"D\"] += scl_host\n\nr_scl_lo = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_scl_lo[1] += v3v3; r_scl_lo[2] += scl_3v3\n\nr_scl_hi = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_scl_hi[1] += vin; r_scl_hi[2] += scl_host\n\n# ==============================================================\n# IRQ Pull-up + LED indicator\n# MPR121 IRQ is active-low open drain\n# LED: anode->3V3 via R_LED, cathode->IRQ (lights when IRQ is low)\n# LED K=pin1, A=pin2\n# ==============================================================\nr_irq = Part(\"Device\", \"R\", value=\"100K\",\n             footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_irq[1] += v3v3\nr_irq[2] += irq_net\n\nr_led = Part(\"Device\", \"R\", value=\"1K\",\n             footprint=\"Resistor_SMD:R_0603_1608Metric\")\nled = Part(\"Device\", \"LED\", value=\"RED\",\n           footprint=\"LED_SMD:LED_0603_1608Metric\")\n\nr_led[1] += v3v3\nr_led[2] += led[\"A\"]   # Anode to current-limit resistor\nled[\"K\"] += irq_net    # Cathode to IRQ (lit when pulled low)\n\n# ==============================================================\n# Connectors\n# ==============================================================\n# Host header (1x5): VIN, GND, SDA, SCL, IRQ\nj_host = Part(\"Connector\", \"Conn_01x05_Pin\",\n              value=\"HOST_I2C\",\n              footprint=\"Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical\")\nj_host[\"Pin_1\"] += vin\nj_host[\"Pin_2\"] += gnd\nj_host[\"Pin_3\"] += sda_host\nj_host[\"Pin_4\"] += scl_host\nj_host[\"Pin_5\"] += irq_net\nj_host.edge_preference = \"left\"\n\n# Electrode header (1x12): ELE0-ELE11\nj_ele = Part(\"Connector\", \"Conn_01x12_Pin\",\n             value=\"ELECTRODES\",\n             footprint=\"Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical\")\nfor i in range(12):\n    j_ele[f\"Pin_{i+1}\"] += ele_nets[i]\nj_ele.edge_preference = \"right\"\n",
+    "_mode": "skidl_python",
+    "board_name": "board",
+    "outline_mm": null,
+    "design_intent": "",
+    "kicad_version": "9",
+    "pipeline_goal": "manufacturing",
+    "assembly_policy": "single_sided",
+    "corner_radius_mm": null,
+    "custom_footprints": null
+  },
+  "exceptions": [
+    {
+      "id": "e-drc-unconnected",
+      "code": "DRC_UNCONNECTED",
+      "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+      "subject": {
+        "nets": {
+          "GND": 2,
+          "IRQ": 2,
+          "N$2": 2,
+          "N$3": 2,
+          "N$4": 2,
+          "+3V3": 6,
+          "ELE0": 2,
+          "ELE1": 2,
+          "ELE2": 2,
+          "ELE3": 2,
+          "ELE4": 2,
+          "ELE5": 2,
+          "ELE6": 2,
+          "ELE7": 2,
+          "ELE8": 2,
+          "ELE9": 2,
+          "ELE10": 2,
+          "ELE11": 2,
+          "SCL_3V3": 2,
+          "SDA_3V3": 4
+        },
+        "refs": [
+          "C4",
+          "ELE0",
+          "ELE1",
+          "ELE10",
+          "ELE4",
+          "J2",
+          "U2"
+        ],
+        "count": 46,
+        "examples": [
+          {
+            "descriptions": [
+              "Pad 8 [ELE0] of U2 on F.Cu",
+              "PTH pad 1 [ELE0] of J2"
+            ]
+          },
+          {
+            "descriptions": [
+              "Pad 12 [ELE4] of U2 on F.Cu",
+              "PTH pad 5 [ELE4] of J2"
+            ]
+          },
+          {
+            "descriptions": [
+              "Pad 18 [ELE10] of U2 on F.Cu",
+              "PTH pad 11 [ELE10] of J2"
+            ]
+          },
+          {
+            "descriptions": [
+              "Track [+3V3] on F.Cu, length 3.4724 mm",
+              "Pad 20 [+3V3] of U2 on F.Cu"
+            ]
+          },
+          {
+            "descriptions": [
+              "Track [+3V3] on F.Cu, length 0.4406 mm",
+              "Track [+3V3] on F.Cu, length 0.2552 mm"
+            ]
+          },
+          {
+            "descriptions": [
+              "Track [+3V3] on B.Cu, length 3.2779 mm",
+              "Track [+3V3] on F.Cu, length 0.2622 mm"
+            ]
+          },
+          {
+            "descriptions": [
+              "Pad 1 [N$3] of C4 on F.Cu",
+              "Pad 5 [N$3] of U2 on F.Cu"
+            ]
+          },
+          {
+            "descriptions": [
+              "Pad 9 [ELE1] of U2 on F.Cu",
+              "PTH pad 2 [ELE1] of J2"
+            ]
+          }
+        ],
+        "routing_diagnosis": "congestion_router_limitation",
+        "routing_diagnosis_reason": "routing congestion is high without hard placement violations",
+        "routing_diagnosis_evidence": {
+          "density": {
+            "area_mm2": 1242.869011096019,
+            "spacious": false,
+            "width_mm": 27.161740719275873,
+            "height_mm": 45.75807655118334,
+            "part_count": 21,
+            "tight_outline": true,
+            "max_margin_ratio": 0.4607719525100191,
+            "spread_area_ratio": 0.2954366767226477,
+            "sparse_on_large_outline": false,
+            "compact_outline_area_ratio": 0.971164393365966,
+            "effective_spread_area_ratio": 0.6636899604982117,
+            "clustered_on_spacious_outline": false,
+            "footprint_envelope_area_ratio": 0.6636899604982117
+          },
+          "congestion_score": 213.9055763187853
+        }
+      },
+      "severity": "error",
+      "candidates": [
+        {
+          "id": "c1",
+          "action": "regenerate",
+          "params": {},
+          "source": "deterministic",
+          "cost_hint": "free",
+          "confidence": 0.45,
+          "human_summary": "Retry routing after local congestion-aware placement changes"
+        },
+        {
+          "id": "c2",
+          "action": "scale_outline",
+          "params": {
+            "area_factor": 1.15
+          },
+          "source": "deterministic",
+          "cost_hint": "free",
+          "confidence": 0.2,
+          "human_summary": "Defer outline growth; use only after fixing the diagnosed congestion router limitation cause"
+        }
+      ],
+      "retry_hint": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+    },
+    {
+      "id": "e-product-layout",
+      "code": "PRODUCT_LAYOUT_FAILED",
+      "message": "product layout quality gates failed; preview artifacts are available for human review",
+      "subject": {
+        "top_issues": [
+          {
+            "code": "HIGH_CONGESTION",
+            "message": "layout congestion is high (213.9)",
+            "severity": "warning",
+            "recommendation": "Use this as placement feedback before growing the outline; try group movement, connector orientation, or route-aware retries first."
+          },
+          {
+            "code": "ROUTING_FAILURE_DIAGNOSIS",
+            "message": "routing failure classified as congestion-router-limitation",
+            "severity": "error",
+            "recommendation": "Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline."
+          },
+          {
+            "code": "UNUSED_OUTLINE_REGION",
+            "message": "one or more board margins are very large relative to the outline",
+            "severity": "warning",
+            "recommendation": "Review whether the board should compact. For fixed outlines, use the empty region deliberately instead of growing the board."
+          },
+          {
+            "code": "DRC_UNCONNECTED",
+            "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+            "severity": "error",
+            "recommendation": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+          }
+        ],
+        "issue_codes": [
+          "HIGH_CONGESTION",
+          "ROUTING_FAILURE_DIAGNOSIS",
+          "UNUSED_OUTLINE_REGION",
+          "DRC_UNCONNECTED"
+        ],
+        "review_state": "failed_reviewable",
+        "preview_files": [
+          "preview_2d_top.svg",
+          "preview_top.svg",
+          "preview_2d_top.png",
+          "preview_2d_bottom.svg",
+          "preview_2d_bottom.png",
+          "preview_2d_combined.svg",
+          "preview_2d_combined.png",
+          "preview_top.png",
+          "preview_assembly.svg"
+        ],
+        "product_layout_ok": false,
+        "visual_review_ready": true,
+        "blocking_issue_codes": [
+          "ROUTING_FAILURE_DIAGNOSIS",
+          "DRC_UNCONNECTED"
+        ]
+      },
+      "severity": "error",
+      "candidates": [
+        {
+          "id": "c1",
+          "action": "regenerate",
+          "params": {},
+          "source": "deterministic",
+          "cost_hint": "free",
+          "confidence": 0.9,
+          "human_summary": "revise placement or floorplan intent, then rerun with the preview artifacts preserved for review"
+        }
+      ],
+      "retry_hint": "Do not treat placement_review-only advisories as success when layout_quality.gates.product_layout_ok is false. Inspect the preview files and layout_quality issues, then revise SKiDL placement intent, edge anchors, fixed positions, footprint choices, or outline constraints before resubmitting."
+    },
+    {
+      "id": "e-high-congestion",
+      "code": "HIGH_CONGESTION",
+      "message": "layout congestion is high (213.9)",
+      "subject": {
+        "congestion_score": 213.9055763187853
+      },
+      "severity": "advisory",
+      "candidates": [
+        {
+          "id": "c1",
+          "action": "accept_advisory",
+          "params": {},
+          "source": "deterministic",
+          "cost_hint": "free",
+          "confidence": 0.9,
+          "human_summary": "accept this congestion advisory for the current spec"
+        },
+        {
+          "id": "c2",
+          "action": "scale_outline",
+          "params": {
+            "area_factor": 1.2
+          },
+          "source": "deterministic",
+          "cost_hint": "cheap",
+          "confidence": 0.9,
+          "human_summary": "increase board area by 20% and re-run placement"
+        }
+      ],
+      "retry_hint": ""
+    }
+  ],
+  "response": {
+    "ok": false,
+    "spec": {
+      "code": "\nfrom skidl import *\n\n# Power rails\nvin = Net(\"VIN\"); vin.drive = POWER\nv3v3 = Net(\"+3V3\"); v3v3.drive = POWER\ngnd = Net(\"GND\"); gnd.drive = POWER\n\n# Internal signal nets\nsda_3v3 = Net(\"SDA_3V3\")\nscl_3v3 = Net(\"SCL_3V3\")\nsda_host = Net(\"SDA\")\nscl_host = Net(\"SCL\")\nirq_net = Net(\"IRQ\")\n\n# Electrode nets\nele_nets = [Net(f\"ELE{i}\") for i in range(12)]\n\n# ==============================================================\n# 3.3V LDO Regulator (TLV70033, SOT-23-5)\n# ==============================================================\nreg = Part(\"Regulator_Linear\", \"TLV70033_SOT23-5\",\n           footprint=\"Package_TO_SOT_SMD:SOT-23-5\")\nreg[\"IN\"] += vin\nreg[\"GND\"] += gnd\nreg[\"OUT\"] += v3v3\nreg[\"EN\"] += vin\nreg[\"NC\"] += NC()\n\n# LDO decoupling caps\ncin = Part(\"Device\", \"C\", value=\"1uF\",\n           footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncin[1] += vin; cin[2] += gnd\n\ncout = Part(\"Device\", \"C\", value=\"1uF\",\n            footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncout[1] += v3v3; cout[2] += gnd\n\n# Bulk cap on 3V3 (10uF)\ncbulk = Part(\"Device\", \"C\", value=\"10uF\",\n             footprint=\"Capacitor_SMD:C_0805_2012Metric\")\ncbulk[1] += v3v3; cbulk[2] += gnd\n\n# ==============================================================\n# MPR121QR2 (LCSC C91322, QFN-20 3x3mm 0.4mm pitch)\n# Using KiCad standard UQFN-20 footprint (3x3mm, P0.4mm)\n# Pins: ~{IRQ}(1), SCL(2), SDA(3), ADDR(4), VREG(5), VSS(6),\n#       REXT(7), ELE0-ELE11(8-19), VDD(20)\n# ==============================================================\nic = Part(\"C91322\", \"MPR121QR2\",\n          footprint=\"Package_DFN_QFN:UQFN-20_3x3mm_P0.4mm\")\n\nic[\"VDD\"] += v3v3\nic[\"VSS\"] += gnd\nic[\"~{IRQ}\"] += irq_net\nic[\"SCL\"] += scl_3v3\nic[\"SDA\"] += sda_3v3\n\n# ADDR to GND = I2C address 0x5A\nr_addr = Part(\"Device\", \"R\", value=\"0R\",\n              footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_addr[1] += ic[\"ADDR\"]\nr_addr[2] += gnd\n\n# VREG bypass cap (MPR121 internal regulator output)\ncvreg = Part(\"Device\", \"C\", value=\"10nF\",\n             footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncvreg[1] += ic[\"VREG\"]\ncvreg[2] += gnd\n\n# REXT: 200k to GND (sets charge current per datasheet)\nr_rext = Part(\"Device\", \"R\", value=\"200K\",\n              footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_rext[1] += ic[\"REXT\"]\nr_rext[2] += gnd\n\n# VDD decoupling 100nF\ncdec = Part(\"Device\", \"C\", value=\"100nF\",\n            footprint=\"Capacitor_SMD:C_0603_1608Metric\")\ncdec[1] += v3v3\ncdec[2] += gnd\n\n# Electrode connections ELE0-ELE11\nfor i in range(12):\n    ic[f\"ELE{i}\"] += ele_nets[i]\n\n# ==============================================================\n# I2C Bidirectional Level Shifter (2x BSS138 N-MOSFET)\n# Gate tied to 3V3, Source on low (3V3) side, Drain on high (VIN) side\n# ==============================================================\nq_sda = Part(\"Transistor_FET\", \"BSS138\",\n             footprint=\"Package_TO_SOT_SMD:SOT-23\")\nq_sda[\"G\"] += v3v3\nq_sda[\"S\"] += sda_3v3\nq_sda[\"D\"] += sda_host\n\nr_sda_lo = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_sda_lo[1] += v3v3; r_sda_lo[2] += sda_3v3\n\nr_sda_hi = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_sda_hi[1] += vin; r_sda_hi[2] += sda_host\n\nq_scl = Part(\"Transistor_FET\", \"BSS138\",\n             footprint=\"Package_TO_SOT_SMD:SOT-23\")\nq_scl[\"G\"] += v3v3\nq_scl[\"S\"] += scl_3v3\nq_scl[\"D\"] += scl_host\n\nr_scl_lo = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_scl_lo[1] += v3v3; r_scl_lo[2] += scl_3v3\n\nr_scl_hi = Part(\"Device\", \"R\", value=\"10K\",\n                footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_scl_hi[1] += vin; r_scl_hi[2] += scl_host\n\n# ==============================================================\n# IRQ Pull-up + LED indicator\n# MPR121 IRQ is active-low open drain\n# LED: anode->3V3 via R_LED, cathode->IRQ (lights when IRQ is low)\n# LED K=pin1, A=pin2\n# ==============================================================\nr_irq = Part(\"Device\", \"R\", value=\"100K\",\n             footprint=\"Resistor_SMD:R_0603_1608Metric\")\nr_irq[1] += v3v3\nr_irq[2] += irq_net\n\nr_led = Part(\"Device\", \"R\", value=\"1K\",\n             footprint=\"Resistor_SMD:R_0603_1608Metric\")\nled = Part(\"Device\", \"LED\", value=\"RED\",\n           footprint=\"LED_SMD:LED_0603_1608Metric\")\n\nr_led[1] += v3v3\nr_led[2] += led[\"A\"]   # Anode to current-limit resistor\nled[\"K\"] += irq_net    # Cathode to IRQ (lit when pulled low)\n\n# ==============================================================\n# Connectors\n# ==============================================================\n# Host header (1x5): VIN, GND, SDA, SCL, IRQ\nj_host = Part(\"Connector\", \"Conn_01x05_Pin\",\n              value=\"HOST_I2C\",\n              footprint=\"Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical\")\nj_host[\"Pin_1\"] += vin\nj_host[\"Pin_2\"] += gnd\nj_host[\"Pin_3\"] += sda_host\nj_host[\"Pin_4\"] += scl_host\nj_host[\"Pin_5\"] += irq_net\nj_host.edge_preference = \"left\"\n\n# Electrode header (1x12): ELE0-ELE11\nj_ele = Part(\"Connector\", \"Conn_01x12_Pin\",\n             value=\"ELECTRODES\",\n             footprint=\"Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical\")\nfor i in range(12):\n    j_ele[f\"Pin_{i+1}\"] += ele_nets[i]\nj_ele.edge_preference = \"right\"\n",
+      "_mode": "skidl_python",
+      "board_name": "board",
+      "outline_mm": null,
+      "design_intent": "",
+      "kicad_version": "9",
+      "pipeline_goal": "manufacturing",
+      "assembly_policy": "single_sided",
+      "corner_radius_mm": null,
+      "custom_footprints": null
+    },
+    "stage": "complete",
+    "layout": {
+      "ok": true,
+      "score": {
+        "ok": true,
+        "score": 55.898587794634224,
+        "warnings": [],
+        "role_counts": {
+          "ic": 3,
+          "diode": 1,
+          "connector": 2,
+          "regulator": 1,
+          "decoupling_cap": 1,
+          "signal_passive": 13
+        },
+        "missing_count": 0,
+        "overlap_count": 0,
+        "total_hpwl_mm": 303.703901745527,
+        "warning_count": 0,
+        "crossing_count": 88,
+        "power_net_count": 3,
+        "congestion_score": 213.9055763187853,
+        "weighted_hpwl_mm": 363.2801004546287,
+        "compact_outline_mm": {
+          "area": 1207.0301291944234,
+          "width": 32.16174071927587,
+          "height": 37.53
+        },
+        "congestion_regions": [
+          "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+          "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+          "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+          "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]",
+          "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+        ],
+        "empty_margin_ratios": {
+          "top": 0.0,
+          "left": 0.018408245817808172,
+          "right": 0.018408245817808172,
+          "bottom": 0.4607719525100191
+        },
+        "front_panel_trace_mm": 0.0,
+        "power_corridor_count": 3,
+        "cutout_violation_count": 0,
+        "max_empty_margin_ratio": 0.4607719525100191,
+        "front_panel_trace_count": 0,
+        "keepout_violation_count": 0,
+        "outline_violation_count": 0,
+        "compact_outline_area_ratio": 0.971164393365966,
+        "footprint_envelope_bbox_mm": {
+          "area": 824.8796848787683,
+          "width": 26.161740719275873,
+          "height": 31.53
+        },
+        "footprint_envelope_area_ratio": 0.6636899604982117
+      },
+      "report": {
+        "reasons": [
+          "explicit constraints, fixed mechanics, and default placement order",
+          "unlocked rotations refined using pad/net pressure",
+          "decaps refined near actual parent power pins",
+          "local refinement accepted 24 score-gated adjustment(s): 0.0 -> 32.6",
+          "edge connectors snapped to final auto-outline edges",
+          "post-anchor local refinement accepted 5 score-gated adjustment(s): 55.5 -> 56.2",
+          "edge connectors snapped to tightened auto-outline edges",
+          "best valid candidate (6 valid of 7)"
+        ],
+        "selected": "baseline",
+        "warnings": [],
+        "top_risks": [
+          "congestion: (16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+          "congestion: (16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+          "congestion: (26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+          "congestion: (26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]",
+          "congestion: (6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]",
+          "net +3V3: bring R5 and Q2 closer on +3V3, or reserve a straighter route between them",
+          "net ELE0: bring U2 and J2 closer on ELE0, or reserve a straighter route between them",
+          "net SCL: bring J1 and R6 closer on SCL, or reserve a straighter route between them",
+          "net VIN: bring J1 and R4 closer on VIN, or reserve a straighter route between them",
+          "net GND: bring R2 and C2 closer on GND, or reserve a straighter route between them"
+        ],
+        "candidates": [
+          {
+            "name": "baseline",
+            "score": 55.898587794634224,
+            "reasons": [
+              "explicit constraints, fixed mechanics, and default placement order",
+              "unlocked rotations refined using pad/net pressure",
+              "decaps refined near actual parent power pins",
+              "local refinement accepted 24 score-gated adjustment(s): 0.0 -> 32.6",
+              "edge connectors snapped to final auto-outline edges",
+              "post-anchor local refinement accepted 5 score-gated adjustment(s): 55.5 -> 56.2",
+              "edge connectors snapped to tightened auto-outline edges"
+            ],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 303.703901745527,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "cluster_first",
+            "score": 46.29702001790618,
+            "reasons": [],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 634.4092793562097,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "connector_edge_first",
+            "score": 46.22342056754859,
+            "reasons": [],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 632.9712276055466,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "module_socket_central",
+            "score": 46.22342056754859,
+            "reasons": [],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 632.9712276055466,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "repeated_channel_array",
+            "score": 46.22342056754859,
+            "reasons": [],
+            "warnings": [],
+            "overlap_count": 0,
+            "total_hpwl_mm": 632.9712276055466,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "power_first",
+            "score": 41.11408360621914,
+            "reasons": [],
+            "warnings": [
+              "C5: decoupling cap pads average 6.8mm from U1 supply pads"
+            ],
+            "overlap_count": 0,
+            "total_hpwl_mm": 641.2636314498611,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          },
+          {
+            "name": "power_topology_first",
+            "score": 0.0,
+            "reasons": [],
+            "warnings": [
+              "C5: decoupling cap pads average 8.2mm from U1 supply pads",
+              "R1: signal passive is 21.8mm from U2",
+              "C4: signal passive is 14.1mm from U2",
+              "R2: signal passive is 19.2mm from U2",
+              "R4: signal passive is 12.6mm from Q1",
+              "R5: signal passive is 17.1mm from U2"
+            ],
+            "overlap_count": 1,
+            "total_hpwl_mm": 933.595131084277,
+            "cutout_violation_count": 0,
+            "keepout_violation_count": 0,
+            "outline_violation_count": 0
+          }
+        ],
+        "risky_nets": [
+          {
+            "name": "GND",
+            "hpwl_mm": 30.764036625649112
+          },
+          {
+            "name": "+3V3",
+            "hpwl_mm": 27.428160205458973
+          },
+          {
+            "name": "IRQ",
+            "hpwl_mm": 25.09753958699946
+          },
+          {
+            "name": "VIN",
+            "hpwl_mm": 20.592109933628713
+          },
+          {
+            "name": "SCL_3V3",
+            "hpwl_mm": 16.555443272871262
+          },
+          {
+            "name": "SCL",
+            "hpwl_mm": 16.54510677254237
+          },
+          {
+            "name": "SDA_3V3",
+            "hpwl_mm": 14.82094483559583
+          },
+          {
+            "name": "N$3",
+            "hpwl_mm": 13.860805552822837
+          },
+          {
+            "name": "SDA",
+            "hpwl_mm": 12.565961767891165
+          },
+          {
+            "name": "ELE0",
+            "hpwl_mm": 9.074834115788873
+          }
+        ],
+        "part_reasons": {
+          "C1": [
+            "power chain: VIN from J1"
+          ],
+          "C2": [
+            "power chain: +3V3 from U1",
+            "rotated to 270 deg by pad/net pressure",
+            "locally rotated to 0 deg after scoring"
+          ],
+          "C3": [
+            "power chain: +3V3 from U1",
+            "rotated to 270 deg by pad/net pressure",
+            "locally rotated to 0 deg after scoring",
+            "locally moved by passive pin gravity toward (19.8,15.1); U1 regulator owner on +3V3, GND net(s) using owner pad geometry; composed passive group slot 2/3 around U1 top side"
+          ],
+          "C4": [
+            "placed by baseline strategy",
+            "rotated to 90 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (19.1,8.9); U2 ic owner on N$3 net(s) using owner pad geometry; composed passive group slot 5/5 around U2 left side",
+            "locally moved by passive pin gravity toward (19.1,8.9); U2 ic owner on N$3 net(s) using owner pad geometry; composed passive group slot 5/5 around U2 left side"
+          ],
+          "C5": [
+            "power chain: +3V3 from U1",
+            "inferred intent: decoupling",
+            "rotated to 180 deg by pad/net pressure",
+            "placed near actual U2 +3V3/GND pads, avg pad distance 4.5mm"
+          ],
+          "C6": [
+            "power chain: VIN from J1",
+            "locally moved by passive pin gravity toward (18.6,13.2); U1 regulator owner on GND, VIN net(s) using owner pad geometry; composed passive group slot 2/2 around U1 left side",
+            "locally moved by passive pin gravity toward (18.6,13.2); U1 regulator owner on GND, VIN net(s) using owner pad geometry; composed passive group slot 2/2 around U1 left side"
+          ],
+          "D1": [
+            "mating intent: led facing right (visible_face)",
+            "inferred intent: board_ui, front_panel_subject, mechanical_mating, panel_grid_subject, panel_indicator, power_cluster",
+            "locally moved by passive pin gravity toward (27.7,22.2); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 1/5 around U2 left side",
+            "locally moved by passive pin gravity toward (27.7,22.2); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 1/5 around U2 left side"
+          ],
+          "J1": [
+            "mating intent: generic_connector facing left (pin_access)",
+            "power chain: VIN from J1",
+            "inferred intent: edge_connector, explicit_edge_anchor, mechanical_mating, power_input",
+            "rotated to 90 deg by pad/net pressure",
+            "locally rotated to 0 deg after scoring",
+            "locally moved toward connected-net centroid (11.3,18.5)",
+            "snapped to final auto-outline edge",
+            "locally moved toward connected-net centroid (10.5,20.1)",
+            "snapped to tightened auto-outline edge"
+          ],
+          "J2": [
+            "mating intent: generic_connector facing right (pin_access)",
+            "inferred intent: edge_connector, explicit_edge_anchor, mechanical_mating",
+            "rotated to 270 deg by pad/net pressure",
+            "locally rotated to 0 deg after scoring",
+            "snapped to final auto-outline edge",
+            "locally moved toward connected-net centroid (30.6,18.9)",
+            "snapped to tightened auto-outline edge"
+          ],
+          "Q1": [
+            "power chain: +3V3 from U1",
+            "rotated to 180 deg by pad/net pressure"
+          ],
+          "Q2": [
+            "power chain: +3V3 from U1",
+            "rotated to 180 deg by pad/net pressure"
+          ],
+          "R1": [
+            "placed by baseline strategy",
+            "rotated to 180 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (21.2,12.2); U2 ic owner on N$2 net(s) using owner pad geometry; composed passive group slot 4/5 around U2 left side"
+          ],
+          "R2": [
+            "placed by baseline strategy",
+            "rotated to 270 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (24.4,17.0); U2 ic owner on N$4 net(s) using owner pad geometry"
+          ],
+          "R3": [
+            "placed by baseline strategy",
+            "locally moved by passive pin gravity toward (23.4,15.6); U2 ic owner on SDA_3V3 net(s) using owner pad geometry; composed passive group slot 3/5 around U2 left side",
+            "locally moved by passive pin gravity toward (23.4,15.6); U2 ic owner on SDA_3V3 net(s) using owner pad geometry; composed passive group slot 3/5 around U2 left side"
+          ],
+          "R4": [
+            "placed by baseline strategy",
+            "rotated to 270 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (18.0,19.6); Q1 ic owner on SDA net(s) using owner pad geometry"
+          ],
+          "R5": [
+            "placed by baseline strategy",
+            "rotated to 270 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (15.6,14.1); Q2 ic owner on SCL_3V3 net(s) using owner pad geometry",
+            "locally moved by passive pin gravity toward (15.6,14.1); Q2 ic owner on SCL_3V3 net(s) using owner pad geometry",
+            "locally moved by passive pin gravity toward (15.6,14.1); Q2 ic owner on SCL_3V3 net(s) using owner pad geometry"
+          ],
+          "R6": [
+            "placed by baseline strategy",
+            "rotated to 180 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (13.8,15.1); Q2 ic owner on SCL net(s) using owner pad geometry",
+            "locally moved by passive pin gravity toward (13.8,15.1); Q2 ic owner on SCL net(s) using owner pad geometry"
+          ],
+          "R7": [
+            "placed by baseline strategy",
+            "rotated to 270 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (25.5,18.5); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 2/5 around U2 left side",
+            "locally moved by passive pin gravity toward (25.5,18.5); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 2/5 around U2 left side"
+          ],
+          "R8": [
+            "placed by baseline strategy",
+            "rotated to 90 deg by pad/net pressure",
+            "locally moved by passive pin gravity toward (20.4,23.1); Q2.1 on +3V3 (ic, pad offset 1.3mm); D1.2 on N$5 (diode, pad offset 0.8mm)",
+            "locally moved by passive pin gravity toward (25.7,22.3); Q1.1 on +3V3 (ic, pad offset 1.3mm); D1.2 on N$5 (diode, pad offset 0.8mm)"
+          ],
+          "U1": [
+            "power chain: +3V3 from U1",
+            "inferred intent: power_cluster",
+            "locally moved toward connected-net centroid (18.8,15.6)"
+          ],
+          "U2": [
+            "power chain: +3V3 from U1"
+          ]
+        },
+        "power_topology": [
+          "VIN: J1 -> U1 -> C1 -> C2 -> C3 -> C5 -> C6 -> Q1 -> Q2 -> U2",
+          "+3V3: U1 -> C2 -> C3 -> C5 -> Q1 -> Q2 -> U2"
+        ],
+        "hard_violations": [],
+        "power_corridors": [
+          "GND: 0.30mm on F.Cu across 11 refs",
+          "VIN: 0.80mm on F.Cu across 6 refs",
+          "+3V3: 0.30mm on F.Cu across 11 refs"
+        ],
+        "net_explanations": {
+          "GND": {
+            "name": "GND",
+            "refs": [
+              "R2",
+              "C6",
+              "C1",
+              "C4",
+              "U2",
+              "R1",
+              "U1",
+              "J1",
+              "C3",
+              "C5",
+              "C2"
+            ],
+            "risks": [
+              "long estimated route span 30.8mm",
+              "power corridor needs reserved routing space"
+            ],
+            "hpwl_mm": 30.764036625649112,
+            "warnings": [],
+            "risk_score": 58.76403662564911,
+            "next_actions": [
+              "bring R2 and C2 closer on GND, or reserve a straighter route between them",
+              "reserve a wide trace or plane corridor before signal routing"
+            ],
+            "power_corridors": [
+              "GND: 0.30mm on F.Cu across 11 refs"
+            ],
+            "congestion_regions": []
+          },
+          "IRQ": {
+            "name": "IRQ",
+            "refs": [
+              "R7",
+              "D1",
+              "U2",
+              "J1"
+            ],
+            "risks": [
+              "long estimated route span 25.1mm"
+            ],
+            "hpwl_mm": 25.09753958699946,
+            "warnings": [],
+            "risk_score": 35.09753958699946,
+            "next_actions": [
+              "bring R7 and J1 closer on IRQ, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          },
+          "N$3": {
+            "name": "N$3",
+            "refs": [
+              "C4",
+              "U2"
+            ],
+            "risks": [
+              "long estimated route span 13.9mm"
+            ],
+            "hpwl_mm": 13.860805552822837,
+            "warnings": [],
+            "risk_score": 23.86080555282284,
+            "next_actions": [
+              "bring C4 and U2 closer on N$3, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          },
+          "SCL": {
+            "name": "SCL",
+            "refs": [
+              "J1",
+              "Q2",
+              "R6"
+            ],
+            "risks": [
+              "long estimated route span 16.5mm",
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": 16.54510677254237,
+            "warnings": [],
+            "risk_score": 72.54510677254237,
+            "next_actions": [
+              "bring J1 and R6 closer on SCL, or reserve a straighter route between them",
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [],
+            "congestion_regions": [
+              "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+              "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+              "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+            ]
+          },
+          "SDA": {
+            "name": "SDA",
+            "refs": [
+              "Q1",
+              "R4",
+              "J1"
+            ],
+            "risks": [
+              "long estimated route span 12.6mm"
+            ],
+            "hpwl_mm": 12.565961767891165,
+            "warnings": [],
+            "risk_score": 22.565961767891167,
+            "next_actions": [
+              "bring Q1 and J1 closer on SDA, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          },
+          "VIN": {
+            "name": "VIN",
+            "refs": [
+              "J1",
+              "U1",
+              "C6",
+              "R6",
+              "C1",
+              "R4"
+            ],
+            "risks": [
+              "long estimated route span 20.6mm",
+              "power corridor needs reserved routing space",
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": 20.592109933628713,
+            "warnings": [],
+            "risk_score": 70.5921099336287,
+            "next_actions": [
+              "bring J1 and R4 closer on VIN, or reserve a straighter route between them",
+              "reserve a wide trace or plane corridor before signal routing",
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [
+              "VIN: 0.80mm on F.Cu across 6 refs"
+            ],
+            "congestion_regions": [
+              "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+            ]
+          },
+          "+3V3": {
+            "name": "+3V3",
+            "refs": [
+              "R5",
+              "U2",
+              "R3",
+              "C3",
+              "U1",
+              "C5",
+              "R8",
+              "C2",
+              "R7",
+              "Q1",
+              "Q2"
+            ],
+            "risks": [
+              "long estimated route span 27.4mm",
+              "power corridor needs reserved routing space",
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": 27.428160205458973,
+            "warnings": [],
+            "risk_score": 77.42816020545897,
+            "next_actions": [
+              "bring R5 and Q2 closer on +3V3, or reserve a straighter route between them",
+              "reserve a wide trace or plane corridor before signal routing",
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [
+              "+3V3: 0.30mm on F.Cu across 11 refs"
+            ],
+            "congestion_regions": [
+              "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+            ]
+          },
+          "ELE0": {
+            "name": "ELE0",
+            "refs": [
+              "U2",
+              "J2"
+            ],
+            "risks": [
+              "long estimated route span 9.1mm",
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": 9.074834115788873,
+            "warnings": [],
+            "risk_score": 77.07483411578887,
+            "next_actions": [
+              "bring U2 and J2 closer on ELE0, or reserve a straighter route between them",
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [],
+            "congestion_regions": [
+              "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+              "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+              "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+              "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]"
+            ]
+          },
+          "ELE4": {
+            "name": "ELE4",
+            "refs": [],
+            "risks": [
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": null,
+            "warnings": [],
+            "risk_score": 58.0,
+            "next_actions": [
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [],
+            "congestion_regions": [
+              "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+              "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+              "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+              "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]"
+            ]
+          },
+          "ELE10": {
+            "name": "ELE10",
+            "refs": [],
+            "risks": [
+              "appears in a congestion hotspot"
+            ],
+            "hpwl_mm": null,
+            "warnings": [],
+            "risk_score": 34.0,
+            "next_actions": [
+              "spread nearby refs or clear routing space through the hotspot"
+            ],
+            "power_corridors": [],
+            "congestion_regions": [
+              "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+              "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]"
+            ]
+          },
+          "SCL_3V3": {
+            "name": "SCL_3V3",
+            "refs": [
+              "Q2",
+              "R5",
+              "U2"
+            ],
+            "risks": [
+              "long estimated route span 16.6mm"
+            ],
+            "hpwl_mm": 16.555443272871262,
+            "warnings": [],
+            "risk_score": 26.555443272871262,
+            "next_actions": [
+              "bring Q2 and U2 closer on SCL_3V3, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          },
+          "SDA_3V3": {
+            "name": "SDA_3V3",
+            "refs": [
+              "Q1",
+              "R3",
+              "U2"
+            ],
+            "risks": [
+              "long estimated route span 14.8mm"
+            ],
+            "hpwl_mm": 14.82094483559583,
+            "warnings": [],
+            "risk_score": 24.82094483559583,
+            "next_actions": [
+              "bring Q1 and U2 closer on SDA_3V3, or reserve a straighter route between them"
+            ],
+            "power_corridors": [],
+            "congestion_regions": []
+          }
+        },
+        "congestion_regions": [
+          "(16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]",
+          "(16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]",
+          "(26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]",
+          "(26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]",
+          "(6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]"
+        ]
+      },
+      "outline": {
+        "width_mm": 27.161740719275873,
+        "x_max_mm": 33.86415920993775,
+        "x_min_mm": 6.702418490661881,
+        "y_max_mm": 50.1538817845822,
+        "y_min_mm": 4.395805233398852,
+        "height_mm": 45.75807655118334,
+        "corner_radius_mm": 2.0
+      },
+      "validation": {
+        "ok": true,
+        "overlaps": [],
+        "total_parts": 21,
+        "missing_refs": [],
+        "placed_parts": 21,
+        "cutout_violations": [],
+        "keepout_violations": [],
+        "outline_violations": []
+      },
+      "intent_plan": {
+        "intents": {
+          "C5": [
+            {
+              "kind": "decoupling",
+              "reasons": [
+                "decoupling capacitor"
+              ],
+              "priority": 80
+            }
+          ],
+          "D1": [
+            {
+              "kind": "mechanical_mating",
+              "reasons": [
+                "led mating intent"
+              ],
+              "priority": 88
+            },
+            {
+              "kind": "board_ui",
+              "reasons": [
+                "UI-like metadata"
+              ],
+              "priority": 75
+            },
+            {
+              "kind": "power_cluster",
+              "reasons": [
+                "diode role"
+              ],
+              "priority": 85
+            },
+            {
+              "kind": "panel_grid_subject",
+              "reasons": [
+                "visible panel/UI part should participate in panel grid grouping"
+              ],
+              "priority": 84
+            },
+            {
+              "kind": "panel_indicator",
+              "reasons": [
+                "visible LED/indicator"
+              ],
+              "priority": 82
+            },
+            {
+              "kind": "front_panel_subject",
+              "reasons": [
+                "visible LED/indicator"
+              ],
+              "priority": 80
+            }
+          ],
+          "J1": [
+            {
+              "kind": "mechanical_mating",
+              "reasons": [
+                "generic_connector mating intent"
+              ],
+              "priority": 88
+            },
+            {
+              "kind": "edge_connector",
+              "reasons": [
+                "connector-like part"
+              ],
+              "priority": 90
+            },
+            {
+              "kind": "explicit_edge_anchor",
+              "reasons": [
+                "explicit part edge preference: left"
+              ],
+              "priority": 94
+            },
+            {
+              "kind": "power_input",
+              "reasons": [
+                "connector on supply net"
+              ],
+              "priority": 85
+            }
+          ],
+          "J2": [
+            {
+              "kind": "mechanical_mating",
+              "reasons": [
+                "generic_connector mating intent"
+              ],
+              "priority": 88
+            },
+            {
+              "kind": "edge_connector",
+              "reasons": [
+                "connector-like part"
+              ],
+              "priority": 90
+            },
+            {
+              "kind": "explicit_edge_anchor",
+              "reasons": [
+                "explicit part edge preference: right"
+              ],
+              "priority": 94
+            }
+          ],
+          "U1": [
+            {
+              "kind": "power_cluster",
+              "reasons": [
+                "regulator role"
+              ],
+              "priority": 85
+            }
+          ]
+        },
+        "warnings": [],
+        "edge_anchors": [
+          {
+            "ref": "J1",
+            "edge": "left",
+            "rot_deg": null,
+            "inset_mm": 0.5,
+            "offset_mm": 15.568444755475062
+          },
+          {
+            "ref": "J2",
+            "edge": "right",
+            "rot_deg": null,
+            "inset_mm": 0.5,
+            "offset_mm": 15.568444755475062
+          }
+        ],
+        "assembly_sides": {},
+        "assembly_policy": "single_sided",
+        "far_constraints": [],
+        "fixed_positions": [],
+        "near_constraints": [],
+        "align_constraints": [],
+        "distribute_constraints": []
+      },
+      "placed_parts": [
+        {
+          "ref": "U1",
+          "side": "front",
+          "x_mm": 18.75647069646185,
+          "y_mm": 15.568444755475062,
+          "rot_deg": 0.0,
+          "footprint": "Package_TO_SOT_SMD:SOT-23-5"
+        },
+        {
+          "ref": "U2",
+          "side": "front",
+          "x_mm": 24.757926340633414,
+          "y_mm": 15.568444755475062,
+          "rot_deg": 0.0,
+          "footprint": "Package_DFN_QFN:UQFN-20_3x3mm_P0.4mm"
+        },
+        {
+          "ref": "Q1",
+          "side": "front",
+          "x_mm": 18.92908841875067,
+          "y_mm": 19.560551669188147,
+          "rot_deg": 180.0,
+          "footprint": "Package_TO_SOT_SMD:SOT-23"
+        },
+        {
+          "ref": "Q2",
+          "side": "front",
+          "x_mm": 14.709467535375504,
+          "y_mm": 15.067111821217845,
+          "rot_deg": 180.0,
+          "footprint": "Package_TO_SOT_SMD:SOT-23"
+        },
+        {
+          "ref": "J1",
+          "side": "front",
+          "x_mm": 8.99741849066188,
+          "y_mm": 22.194843508990523,
+          "rot_deg": 0.0,
+          "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical"
+        },
+        {
+          "ref": "J2",
+          "side": "front",
+          "x_mm": 31.56915920993775,
+          "y_mm": 13.304843508990526,
+          "rot_deg": 0.0,
+          "footprint": "Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical"
+        },
+        {
+          "ref": "C5",
+          "side": "front",
+          "x_mm": 24.967416840719324,
+          "y_mm": 19.95753950551638,
+          "rot_deg": 270.0,
+          "footprint": "Capacitor_SMD:C_0603_1608Metric"
+        },
+        {
+          "ref": "C1",
+          "side": "front",
+          "x_mm": 14.693813022166356,
+          "y_mm": 18.68581220757328,
+          "rot_deg": 0.0,
+          "footprint": "Capacitor_SMD:C_0603_1608Metric"
+        },
+        {
+          "ref": "C2",
+          "side": "front",
+          "x_mm": 19.25305317590553,
+          "y_mm": 12.49966434705517,
+          "rot_deg": 0.0,
+          "footprint": "Capacitor_SMD:C_0603_1608Metric"
+        },
+        {
+          "ref": "C3",
+          "side": "front",
+          "x_mm": 19.757926340633414,
+          "y_mm": 10.093444755475062,
+          "rot_deg": 0.0,
+          "footprint": "Capacitor_SMD:C_0805_2012Metric"
+        },
+        {
+          "ref": "R1",
+          "side": "front",
+          "x_mm": 22.7175933252601,
+          "y_mm": 12.234624994436958,
+          "rot_deg": 180.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "C4",
+          "side": "front",
+          "x_mm": 19.064760309886786,
+          "y_mm": 7.400805233398852,
+          "rot_deg": 90.0,
+          "footprint": "Capacitor_SMD:C_0603_1608Metric"
+        },
+        {
+          "ref": "R2",
+          "side": "front",
+          "x_mm": 22.607926340633416,
+          "y_mm": 19.9870336687206,
+          "rot_deg": 270.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R3",
+          "side": "front",
+          "x_mm": 23.370426340633415,
+          "y_mm": 10.568444755475062,
+          "rot_deg": 0.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R4",
+          "side": "front",
+          "x_mm": 15.693455089393737,
+          "y_mm": 21.488914498247766,
+          "rot_deg": 270.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R5",
+          "side": "front",
+          "x_mm": 12.673801653854072,
+          "y_mm": 11.097126169383142,
+          "rot_deg": 270.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R6",
+          "side": "front",
+          "x_mm": 9.70741849066188,
+          "y_mm": 11.36178578116178,
+          "rot_deg": 180.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R7",
+          "side": "front",
+          "x_mm": 26.526955265545016,
+          "y_mm": 19.616981754729256,
+          "rot_deg": 270.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "R8",
+          "side": "front",
+          "x_mm": 23.91001314701402,
+          "y_mm": 23.66845134924309,
+          "rot_deg": 90.0,
+          "footprint": "Resistor_SMD:R_0603_1608Metric"
+        },
+        {
+          "ref": "D1",
+          "side": "front",
+          "x_mm": 27.26900337192565,
+          "y_mm": 22.39439946121075,
+          "rot_deg": 0.0,
+          "footprint": "LED_SMD:LED_0603_1608Metric"
+        },
+        {
+          "ref": "C6",
+          "side": "front",
+          "x_mm": 15.467035302974947,
+          "y_mm": 11.674851668563608,
+          "rot_deg": 0.0,
+          "footprint": "Capacitor_SMD:C_0805_2012Metric"
+        }
+      ]
+    },
+    "policy": {},
+    "run_id": "41dfaa7b4aa8",
+    "status": "failed_reviewable",
+    "stderr": "WARNING: fp-lib-table file was not found. Component footprints are not available.\nWARNING: fp-lib-table file was not found. Component footprints are not available.\nWARNING: fp-lib-table file was not found. Component footprints are not available.\nINFO:   [auto_stub] power: +3V3(11), GND(11) @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO:   [auto_stub] fanout>=3: SCL(3), VIN(7), SDA(3), SCL_3V3(3), IRQ(4), SDA_3V3(3) @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO:   [selective_routing] Stubbed 3 complex nets after placement @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nWARNING: Routing failed on attempt 1/2, expanding area by 1.5x:  @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO:   [selective_routing] Stubbed 9 complex nets after placement @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nWARNING: KiCad ERC found issues in /tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_sch:\n @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO: Schematic written to /tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_sch @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO: ERC clean after 1 iteration(s) @ [/app/mcp_server/engine_worker.py:5286=>/app/mcp_server/engine_worker.py:4987]\nINFO: 5 warnings found while generating schematic.\nINFO: 0 errors found while generating schematic.\n\n",
+    "metrics": {
+      "pad_count": 78,
+      "pin_count": 78,
+      "cpu_time_s": 76.459097,
+      "peak_rss_mb": 263.51171875,
+      "layout_score": 55.898587794634224,
+      "preview_mode": "full",
+      "review_state": "failed_reviewable",
+      "pipeline_goal": "manufacturing",
+      "quality_gates": {
+        "drc_ok": false,
+        "placement_ok": true,
+        "schematic_ok": true,
+        "manufacturable": false,
+        "product_layout_ok": false,
+        "reviewable_failure": true,
+        "visual_review_ready": true
+      },
+      "total_hpwl_mm": 303.703901745527,
+      "board_area_mm2": 1242.869011096019,
+      "erc_iterations": 0,
+      "manufacturable": false,
+      "power_analysis": {
+        "available": true,
+        "power_tree": {
+          "findings": [
+            {
+              "ref": "U1",
+              "rail": "VIN",
+              "message": "Regulator U1 input rail VIN has no true source (battery/harness/upstream)",
+              "category": "unsourced_regulator_input",
+              "severity": "warning"
+            }
+          ],
+          "edge_count": 1,
+          "rail_count": 2,
+          "source_count": 0,
+          "regulator_count": 1
+        },
+        "rail_sanity": {
+          "findings": [],
+          "unknown_rails": [
+            {
+              "net": "+3V3",
+              "reason": "no sim_source() declared for this rail"
+            },
+            {
+              "net": "VIN",
+              "reason": "no sim_source() declared for this rail"
+            }
+          ],
+          "known_rail_count": 1,
+          "assertions_failed": 0,
+          "assertions_passed": 0,
+          "resistors_checked": 0,
+          "resistors_skipped": 7,
+          "assertions_skipped": 0,
+          "unknown_rail_count": 2
+        }
+      },
+      "congestion_score": 213.9055763187853,
+      "candidates_scored": 7,
+      "product_layout_ok": false,
+      "visual_review_ready": true,
+      "manufacturing_complete": false
+    },
+    "outputs": {
+      "pcb": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_pcb",
+      "run_dir": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8",
+      "previews": {
+        "ok": true,
+        "mode": "full",
+        "files": [
+          "preview_2d_top.svg",
+          "preview_top.svg",
+          "preview_2d_top.png",
+          "preview_2d_bottom.svg",
+          "preview_2d_bottom.png",
+          "preview_2d_combined.svg",
+          "preview_2d_combined.png",
+          "preview_top.png",
+          "preview_assembly.svg"
+        ],
+        "errors": [],
+        "warnings": []
+      },
+      "schematic": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_sch",
+      "layout_quality": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/layout_quality.json"
+    },
+    "summary": "Outline: 27.2mm x 45.8mm\n\nParts: 21/21 placed\nNo overlaps\nWorst HPWL nets:\n  GND: 30.8mm\n  +3V3: 27.4mm\n  IRQ: 25.1mm\n  VIN: 20.6mm\n  SCL_3V3: 16.6mm\n  SCL: 16.5mm\n  SDA_3V3: 14.8mm\n  N$3: 13.9mm\n  SDA: 12.6mm\n  ELE0: 9.1mm\n\nLayout score: 55.9/100\nTotal HPWL: 303.7mm\nEstimated crossings: 88\nPin escape congestion: 213.9\nTop congested regions:\n  (16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]\n  (16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]\n  (26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]\n  (26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]\n  (6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]\nPower corridors: 3\nCompact outline estimate: 32.2mm x 37.5mm (97% of outline)\n\nPower route plan:\n  GND: ground, 0.30mm, F.Cu, priority 100\n    refs: R2, C6, C1, C4, U2, R1, U1, J1\n  VIN: supply, 0.80mm, F.Cu, priority 95\n    refs: J1, U1, C6, R6, C1, R4\n  +3V3: supply, 0.30mm, F.Cu, priority 90\n    refs: R5, U2, R3, C3, U1, C5, R8, C2\nRoute intents:\n  GND: pour, 0.30mm on F.Cu, span 30.8mm\n    order: J1 -> C1 -> U1 -> C2 -> C3 -> C4 -> C6 -> R1\n  VIN: wide_trunk, 0.80mm on F.Cu, span 20.6mm\n    order: J1 -> C1 -> R4 -> U1 -> C6 -> R6\n  +3V3: trunk, 0.30mm on F.Cu, span 27.4mm\n    order: R5 -> Q2 -> U1 -> C2 -> C3 -> R3 -> U2 -> C5\nReserved power corridors:\n  GND: 0.30mm on F.Cu, bounds (7.0,5.4) to (27.0,24.2)\n    refs: J1 -> C1 -> U1 -> C2 -> C3 -> C4 -> C6 -> R1\n  VIN: 0.80mm on F.Cu, bounds (6.6,9.0) to (21.2,24.6)\n    refs: J1 -> C1 -> R4 -> U1 -> C6 -> R6\n  +3V3: 0.30mm on F.Cu, bounds (10.7,8.1) to (28.5,25.7)\n    refs: R5 -> Q2 -> U1 -> C2 -> C3 -> R3 -> U2 -> C5\nPower topology:\n  VIN: source J1 to +3V3\n    order: J1 -> U1 -> C1 -> C2 -> C3 -> C5 -> C6 -> Q1 -> Q2 -> U2\n    reason: J1 is connector-like source on VIN\n    reason: conversion refs: U1\n    reason: storage refs: C1, C2, C3, C5, C6\n    reason: load refs: Q1, Q2, U2\n  +3V3: source U1 to +3V3\n    order: U1 -> C2 -> C3 -> C5 -> Q1 -> Q2 -> U2\n    reason: U1 has a power-output pin on +3V3\n    reason: storage refs: C2, C3, C5\n    reason: load refs: Q1, Q2, U2\n\nSelected placement candidate: baseline\nReasons:\n  explicit constraints, fixed mechanics, and default placement order\n  unlocked rotations refined using pad/net pressure\n  decaps refined near actual parent power pins\n  local refinement accepted 24 score-gated adjustment(s): 0.0 -> 32.6\n  edge connectors snapped to final auto-outline edges\n  post-anchor local refinement accepted 5 score-gated adjustment(s): 55.5 -> 56.2\n  edge connectors snapped to tightened auto-outline edges\n  best valid candidate (6 valid of 7)\nCandidate scorecard:\n  baseline: 55.9/100, HPWL 303.7mm, overlaps 0, outline 0, keepout 0\n  cluster_first: 46.3/100, HPWL 634.4mm, overlaps 0, outline 0, keepout 0\n  connector_edge_first: 46.2/100, HPWL 633.0mm, overlaps 0, outline 0, keepout 0\n  module_socket_central: 46.2/100, HPWL 633.0mm, overlaps 0, outline 0, keepout 0\n  repeated_channel_array: 46.2/100, HPWL 633.0mm, overlaps 0, outline 0, keepout 0\n  power_first: 41.1/100, HPWL 641.3mm, overlaps 0, outline 0, keepout 0\n  power_topology_first: 0.0/100, HPWL 933.6mm, overlaps 1, outline 0, keepout 0\nTop risky nets:\n  GND: 30.8mm\n  +3V3: 27.4mm\n  IRQ: 25.1mm\n  VIN: 20.6mm\n  SCL_3V3: 16.6mm\n  SCL: 16.5mm\n  SDA_3V3: 14.8mm\n  N$3: 13.9mm\n  SDA: 12.6mm\n  ELE0: 9.1mm\nTop congested regions:\n  (16.7,14.4)-(26.7,24.4): 40.3 [net ELE0; net ELE4; net SCL]\n  (16.7,4.4)-(26.7,14.4): 36.7 [net ELE0; net ELE4; net SCL]\n  (26.7,14.4)-(36.7,24.4): 27.9 [net ELE0; net ELE4; net ELE10]\n  (26.7,4.4)-(36.7,14.4): 25.7 [net ELE0; net ELE4; net ELE10]\n  (6.7,14.4)-(16.7,24.4): 19.1 [net SCL; net +3V3; net VIN]\nPower corridors:\n  GND: 0.30mm on F.Cu across 11 refs\n  VIN: 0.80mm on F.Cu across 6 refs\n  +3V3: 0.30mm on F.Cu across 11 refs\nPower topology:\n  VIN: J1 -> U1 -> C1 -> C2 -> C3 -> C5 -> C6 -> Q1 -> Q2 -> U2\n  +3V3: U1 -> C2 -> C3 -> C5 -> Q1 -> Q2 -> U2\nPart placement reasons:\n  C1: power chain: VIN from J1\n  C2: power chain: +3V3 from U1; rotated to 270 deg by pad/net pressure; locally rotated to 0 deg after scoring\n  C3: power chain: +3V3 from U1; rotated to 270 deg by pad/net pressure; locally rotated to 0 deg after scoring\n  C4: placed by baseline strategy; rotated to 90 deg by pad/net pressure; locally moved by passive pin gravity toward (19.1,8.9); U2 ic owner on N$3 net(s) using owner pad geometry; composed passive group slot 5/5 around U2 left side\n  C5: power chain: +3V3 from U1; inferred intent: decoupling; rotated to 180 deg by pad/net pressure\n  C6: power chain: VIN from J1; locally moved by passive pin gravity toward (18.6,13.2); U1 regulator owner on GND, VIN net(s) using owner pad geometry; composed passive group slot 2/2 around U1 left side; locally moved by passive pin gravity toward (18.6,13.2); U1 regulator owner on GND, VIN net(s) using owner pad geometry; composed passive group slot 2/2 around U1 left side\n  D1: mating intent: led facing right (visible_face); inferred intent: board_ui, front_panel_subject, mechanical_mating, panel_grid_subject, panel_indicator, power_cluster; locally moved by passive pin gravity toward (27.7,22.2); U2 ic owner on IRQ net(s) using owner pad geometry; composed passive group slot 1/5 around U2 left side\n  J1: mating intent: generic_connector facing left (pin_access); power chain: VIN from J1; inferred intent: edge_connector, explicit_edge_anchor, mechanical_mating, power_input\n  J2: mating intent: generic_connector facing right (pin_access); inferred intent: edge_connector, explicit_edge_anchor, mechanical_mating; rotated to 270 deg by pad/net pressure\n  Q1: power chain: +3V3 from U1; rotated to 180 deg by pad/net pressure\n  Q2: power chain: +3V3 from U1; rotated to 180 deg by pad/net pressure\n  R1: placed by baseline strategy; rotated to 180 deg by pad/net pressure; locally moved by passive pin gravity toward (21.2,12.2); U2 ic owner on N$2 net(s) using owner pad geometry; composed passive group slot 4/5 around U2 left side\n\nPlacement intent:\n  board_ui: 1\n  decoupling: 1\n  edge_connector: 2\n  explicit_edge_anchor: 2\n  front_panel_subject: 1\n  mechanical_mating: 3\n  panel_grid_subject: 1\n  panel_indicator: 1\n  power_cluster: 2\n  power_input: 1\n  inferred edge anchors: 2\n  inferred face-edge constraints: 3\n  mating intents: 3",
+    "artifacts": {
+      "pcb": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_pcb",
+      "run_dir": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8",
+      "previews": {
+        "ok": true,
+        "mode": "full",
+        "files": [
+          "preview_2d_top.svg",
+          "preview_top.svg",
+          "preview_2d_top.png",
+          "preview_2d_bottom.svg",
+          "preview_2d_bottom.png",
+          "preview_2d_combined.svg",
+          "preview_2d_combined.png",
+          "preview_top.png",
+          "preview_assembly.svg"
+        ],
+        "errors": [],
+        "warnings": []
+      },
+      "schematic": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/board.kicad_sch",
+      "layout_quality": "/tmp/eda-run-0vru6ajm/41dfaa7b4aa8/layout_quality.json"
+    },
+    "exceptions": [
+      {
+        "id": "e-drc-unconnected",
+        "code": "DRC_UNCONNECTED",
+        "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+        "subject": {
+          "nets": {
+            "GND": 2,
+            "IRQ": 2,
+            "N$2": 2,
+            "N$3": 2,
+            "N$4": 2,
+            "+3V3": 6,
+            "ELE0": 2,
+            "ELE1": 2,
+            "ELE2": 2,
+            "ELE3": 2,
+            "ELE4": 2,
+            "ELE5": 2,
+            "ELE6": 2,
+            "ELE7": 2,
+            "ELE8": 2,
+            "ELE9": 2,
+            "ELE10": 2,
+            "ELE11": 2,
+            "SCL_3V3": 2,
+            "SDA_3V3": 4
+          },
+          "refs": [
+            "C4",
+            "ELE0",
+            "ELE1",
+            "ELE10",
+            "ELE4",
+            "J2",
+            "U2"
+          ],
+          "count": 46,
+          "examples": [
+            {
+              "descriptions": [
+                "Pad 8 [ELE0] of U2 on F.Cu",
+                "PTH pad 1 [ELE0] of J2"
+              ]
+            },
+            {
+              "descriptions": [
+                "Pad 12 [ELE4] of U2 on F.Cu",
+                "PTH pad 5 [ELE4] of J2"
+              ]
+            },
+            {
+              "descriptions": [
+                "Pad 18 [ELE10] of U2 on F.Cu",
+                "PTH pad 11 [ELE10] of J2"
+              ]
+            },
+            {
+              "descriptions": [
+                "Track [+3V3] on F.Cu, length 3.4724 mm",
+                "Pad 20 [+3V3] of U2 on F.Cu"
+              ]
+            },
+            {
+              "descriptions": [
+                "Track [+3V3] on F.Cu, length 0.4406 mm",
+                "Track [+3V3] on F.Cu, length 0.2552 mm"
+              ]
+            },
+            {
+              "descriptions": [
+                "Track [+3V3] on B.Cu, length 3.2779 mm",
+                "Track [+3V3] on F.Cu, length 0.2622 mm"
+              ]
+            },
+            {
+              "descriptions": [
+                "Pad 1 [N$3] of C4 on F.Cu",
+                "Pad 5 [N$3] of U2 on F.Cu"
+              ]
+            },
+            {
+              "descriptions": [
+                "Pad 9 [ELE1] of U2 on F.Cu",
+                "PTH pad 2 [ELE1] of J2"
+              ]
+            }
+          ],
+          "routing_diagnosis": "congestion_router_limitation",
+          "routing_diagnosis_reason": "routing congestion is high without hard placement violations",
+          "routing_diagnosis_evidence": {
+            "density": {
+              "area_mm2": 1242.869011096019,
+              "spacious": false,
+              "width_mm": 27.161740719275873,
+              "height_mm": 45.75807655118334,
+              "part_count": 21,
+              "tight_outline": true,
+              "max_margin_ratio": 0.4607719525100191,
+              "spread_area_ratio": 0.2954366767226477,
+              "sparse_on_large_outline": false,
+              "compact_outline_area_ratio": 0.971164393365966,
+              "effective_spread_area_ratio": 0.6636899604982117,
+              "clustered_on_spacious_outline": false,
+              "footprint_envelope_area_ratio": 0.6636899604982117
+            },
+            "congestion_score": 213.9055763187853
+          }
+        },
+        "severity": "error",
+        "candidates": [
+          {
+            "id": "c1",
+            "action": "regenerate",
+            "params": {},
+            "source": "deterministic",
+            "cost_hint": "free",
+            "confidence": 0.45,
+            "human_summary": "Retry routing after local congestion-aware placement changes"
+          },
+          {
+            "id": "c2",
+            "action": "scale_outline",
+            "params": {
+              "area_factor": 1.15
+            },
+            "source": "deterministic",
+            "cost_hint": "free",
+            "confidence": 0.2,
+            "human_summary": "Defer outline growth; use only after fixing the diagnosed congestion router limitation cause"
+          }
+        ],
+        "retry_hint": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+      },
+      {
+        "id": "e-product-layout",
+        "code": "PRODUCT_LAYOUT_FAILED",
+        "message": "product layout quality gates failed; preview artifacts are available for human review",
+        "subject": {
+          "top_issues": [
+            {
+              "code": "HIGH_CONGESTION",
+              "message": "layout congestion is high (213.9)",
+              "severity": "warning",
+              "recommendation": "Use this as placement feedback before growing the outline; try group movement, connector orientation, or route-aware retries first."
+            },
+            {
+              "code": "ROUTING_FAILURE_DIAGNOSIS",
+              "message": "routing failure classified as congestion-router-limitation",
+              "severity": "error",
+              "recommendation": "Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline."
+            },
+            {
+              "code": "UNUSED_OUTLINE_REGION",
+              "message": "one or more board margins are very large relative to the outline",
+              "severity": "warning",
+              "recommendation": "Review whether the board should compact. For fixed outlines, use the empty region deliberately instead of growing the board."
+            },
+            {
+              "code": "DRC_UNCONNECTED",
+              "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+              "severity": "error",
+              "recommendation": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+            }
+          ],
+          "issue_codes": [
+            "HIGH_CONGESTION",
+            "ROUTING_FAILURE_DIAGNOSIS",
+            "UNUSED_OUTLINE_REGION",
+            "DRC_UNCONNECTED"
+          ],
+          "review_state": "failed_reviewable",
+          "preview_files": [
+            "preview_2d_top.svg",
+            "preview_top.svg",
+            "preview_2d_top.png",
+            "preview_2d_bottom.svg",
+            "preview_2d_bottom.png",
+            "preview_2d_combined.svg",
+            "preview_2d_combined.png",
+            "preview_top.png",
+            "preview_assembly.svg"
+          ],
+          "product_layout_ok": false,
+          "visual_review_ready": true,
+          "blocking_issue_codes": [
+            "ROUTING_FAILURE_DIAGNOSIS",
+            "DRC_UNCONNECTED"
+          ]
+        },
+        "severity": "error",
+        "candidates": [
+          {
+            "id": "c1",
+            "action": "regenerate",
+            "params": {},
+            "source": "deterministic",
+            "cost_hint": "free",
+            "confidence": 0.9,
+            "human_summary": "revise placement or floorplan intent, then rerun with the preview artifacts preserved for review"
+          }
+        ],
+        "retry_hint": "Do not treat placement_review-only advisories as success when layout_quality.gates.product_layout_ok is false. Inspect the preview files and layout_quality issues, then revise SKiDL placement intent, edge anchors, fixed positions, footprint choices, or outline constraints before resubmitting."
+      },
+      {
+        "id": "e-high-congestion",
+        "code": "HIGH_CONGESTION",
+        "message": "layout congestion is high (213.9)",
+        "subject": {
+          "congestion_score": 213.9055763187853
+        },
+        "severity": "advisory",
+        "candidates": [
+          {
+            "id": "c1",
+            "action": "accept_advisory",
+            "params": {},
+            "source": "deterministic",
+            "cost_hint": "free",
+            "confidence": 0.9,
+            "human_summary": "accept this congestion advisory for the current spec"
+          },
+          {
+            "id": "c2",
+            "action": "scale_outline",
+            "params": {
+              "area_factor": 1.2
+            },
+            "source": "deterministic",
+            "cost_hint": "cheap",
+            "confidence": 0.9,
+            "human_summary": "increase board area by 20% and re-run placement"
+          }
+        ],
+        "retry_hint": ""
+      }
+    ],
+    "review_note": "failed but reviewable: call get_run(run_id) and inspect previews/artifacts before changing the design",
+    "decision_kind": "mechanical_constraint",
+    "layout_quality": {
+      "ok": false,
+      "gates": {
+        "drc_ok": false,
+        "placement_ok": true,
+        "schematic_ok": true,
+        "manufacturable": false,
+        "product_layout_ok": false,
+        "reviewable_failure": true,
+        "visual_review_ready": true
+      },
+      "stage": "complete",
+      "issues": [
+        {
+          "code": "HIGH_CONGESTION",
+          "message": "layout congestion is high (213.9)",
+          "evidence": {
+            "congestion_score": 213.9055763187853
+          },
+          "severity": "warning",
+          "recommendation": "Use this as placement feedback before growing the outline; try group movement, connector orientation, or route-aware retries first."
+        },
+        {
+          "code": "ROUTING_FAILURE_DIAGNOSIS",
+          "message": "routing failure classified as congestion-router-limitation",
+          "evidence": {
+            "reason": "routing congestion is high without hard placement violations",
+            "density": {
+              "area_mm2": 1242.869011096019,
+              "spacious": false,
+              "width_mm": 27.161740719275873,
+              "height_mm": 45.75807655118334,
+              "part_count": 21,
+              "tight_outline": true,
+              "max_margin_ratio": 0.4607719525100191,
+              "spread_area_ratio": 0.2954366767226477,
+              "sparse_on_large_outline": false,
+              "compact_outline_area_ratio": 0.971164393365966,
+              "effective_spread_area_ratio": 0.6636899604982117,
+              "clustered_on_spacious_outline": false,
+              "footprint_envelope_area_ratio": 0.6636899604982117
+            },
+            "classification": "congestion_router_limitation",
+            "congestion_score": 213.9055763187853
+          },
+          "severity": "error",
+          "recommendation": "Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline."
+        },
+        {
+          "code": "UNUSED_OUTLINE_REGION",
+          "message": "one or more board margins are very large relative to the outline",
+          "evidence": {
+            "edge_margins_mm": {
+              "top": 3.005,
+              "left": 2.295,
+              "right": 2.2950000000000017,
+              "bottom": 26.485430435339108
+            },
+            "max_margin_ratio": 0.461,
+            "empty_margin_ratios": {
+              "top": 0.0,
+              "left": 0.018408245817808172,
+              "right": 0.018408245817808172,
+              "bottom": 0.4607719525100191
+            }
+          },
+          "severity": "warning",
+          "recommendation": "Review whether the board should compact. For fixed outlines, use the empty region deliberately instead of growing the board."
+        },
+        {
+          "code": "DRC_UNCONNECTED",
+          "message": "46 unconnected item(s): +3V3(6), SDA_3V3(4), ELE0(2), ELE4(2), ELE10(2)",
+          "evidence": {
+            "nets": {
+              "GND": 2,
+              "IRQ": 2,
+              "N$2": 2,
+              "N$3": 2,
+              "N$4": 2,
+              "+3V3": 6,
+              "ELE0": 2,
+              "ELE1": 2,
+              "ELE2": 2,
+              "ELE3": 2,
+              "ELE4": 2,
+              "ELE5": 2,
+              "ELE6": 2,
+              "ELE7": 2,
+              "ELE8": 2,
+              "ELE9": 2,
+              "ELE10": 2,
+              "ELE11": 2,
+              "SCL_3V3": 2,
+              "SDA_3V3": 4
+            },
+            "refs": [
+              "C4",
+              "ELE0",
+              "ELE1",
+              "ELE10",
+              "ELE4",
+              "J2",
+              "U2"
+            ],
+            "count": 46,
+            "examples": [
+              {
+                "descriptions": [
+                  "Pad 8 [ELE0] of U2 on F.Cu",
+                  "PTH pad 1 [ELE0] of J2"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Pad 12 [ELE4] of U2 on F.Cu",
+                  "PTH pad 5 [ELE4] of J2"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Pad 18 [ELE10] of U2 on F.Cu",
+                  "PTH pad 11 [ELE10] of J2"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Track [+3V3] on F.Cu, length 3.4724 mm",
+                  "Pad 20 [+3V3] of U2 on F.Cu"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Track [+3V3] on F.Cu, length 0.4406 mm",
+                  "Track [+3V3] on F.Cu, length 0.2552 mm"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Track [+3V3] on B.Cu, length 3.2779 mm",
+                  "Track [+3V3] on F.Cu, length 0.2622 mm"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Pad 1 [N$3] of C4 on F.Cu",
+                  "Pad 5 [N$3] of U2 on F.Cu"
+                ]
+              },
+              {
+                "descriptions": [
+                  "Pad 9 [ELE1] of U2 on F.Cu",
+                  "PTH pad 2 [ELE1] of J2"
+                ]
+              }
+            ],
+            "routing_diagnosis": "congestion_router_limitation",
+            "routing_diagnosis_reason": "routing congestion is high without hard placement violations",
+            "routing_diagnosis_evidence": {
+              "density": {
+                "area_mm2": 1242.869011096019,
+                "spacious": false,
+                "width_mm": 27.161740719275873,
+                "height_mm": 45.75807655118334,
+                "part_count": 21,
+                "tight_outline": true,
+                "max_margin_ratio": 0.4607719525100191,
+                "spread_area_ratio": 0.2954366767226477,
+                "sparse_on_large_outline": false,
+                "compact_outline_area_ratio": 0.971164393365966,
+                "effective_spread_area_ratio": 0.6636899604982117,
+                "clustered_on_spacious_outline": false,
+                "footprint_envelope_area_ratio": 0.6636899604982117
+              },
+              "congestion_score": 213.9055763187853
+            }
+          },
+          "severity": "error",
+          "recommendation": "Routing diagnosis: congestion-router-limitation. routing congestion is high without hard placement violations. Try local placement movement, route-aware regrouping, or more layers before increasing the whole board outline. Existing guidance: Routing is incomplete, so the board is not manufacturable. Inspect subject.examples for representative DRC items and subject.refs for affected components. Do not blindly grow the outline if the board is already sparse or oversized; first move related parts closer, move edge connectors to sensible edges, fix connector/floorplan intent, increase layer budget when complexity warrants it, or choose smaller/clearer footprints before resubmitting."
+        }
+      ],
+      "review": {
+        "state": "failed_reviewable",
+        "message": "Layout failed quality gates, but preview artifacts are available for human placement review.",
+        "preview_available": true,
+        "requires_human_feedback": true
+      },
+      "run_id": "41dfaa7b4aa8",
+      "status": "failed_reviewable",
+      "metrics": {
+        "layout_score": 55.898587794634224,
+        "total_hpwl_mm": 303.703901745527,
+        "board_area_mm2": 1242.869011096019,
+        "congestion_score": 213.9055763187853
+      },
+      "version": 1,
+      "artifacts": {
+        "has_pcb": true,
+        "has_preview": true,
+        "has_schematic": true,
+        "preview_files": [
+          "preview_2d_top.svg",
+          "preview_top.svg",
+          "preview_2d_top.png",
+          "preview_2d_bottom.svg",
+          "preview_2d_bottom.png",
+          "preview_2d_combined.svg",
+          "preview_2d_combined.png",
+          "preview_top.png",
+          "preview_assembly.svg"
+        ],
+        "has_manufacturing": false
+      },
+      "placement": {
+        "outline_mm": {
+          "width": 27.161740719275873,
+          "height": 45.75807655118334
+        },
+        "part_count": 21,
+        "board_area_mm2": 1242.869011096019,
+        "outline_intent": "auto_or_unknown",
+        "spread_bbox_mm": {
+          "width": 22.571740719275873,
+          "height": 16.267646115844236
+        },
+        "edge_margins_mm": {
+          "top": 3.005,
+          "left": 2.295,
+          "right": 2.2950000000000017,
+          "bottom": 26.485430435339108
+        },
+        "max_margin_ratio": 0.4607719525100191,
+        "outline_bounds_mm": {
+          "x_max": 33.86415920993775,
+          "x_min": 6.702418490661881,
+          "y_max": 50.1538817845822,
+          "y_min": 4.395805233398852
+        },
+        "spread_area_ratio": 0.6636899604982117,
+        "compact_outline_mm": {
+          "area": 1207.0301291944234,
+          "width": 32.16174071927587,
+          "height": 37.53
+        },
+        "empty_margin_ratios": {
+          "top": 0.0,
+          "left": 0.018408245817808172,
+          "right": 0.018408245817808172,
+          "bottom": 0.4607719525100191
+        },
+        "center_spread_area_ratio": 0.2954366767226477,
+        "compact_outline_area_ratio": 0.971164393365966,
+        "footprint_envelope_bbox_mm": {
+          "area": 824.8796848787683,
+          "width": 26.161740719275873,
+          "height": 31.53
+        },
+        "footprint_envelope_area_ratio": 0.6636899604982117
+      },
+      "issue_counts": {
+        "error": 2,
+        "warning": 2
+      },
+      "pipeline_goal": "manufacturing"
+    },
+    "artifact_summary": {
+      "keys": [
+        "_board.zip",
+        "board.kicad_pcb",
+        "board.kicad_sch",
+        "preview_2d_bottom.png",
+        "preview_2d_bottom.svg",
+        "preview_2d_combined.png",
+        "preview_2d_combined.svg",
+        "preview_2d_top.png",
+        "preview_2d_top.svg",
+        "preview_assembly.svg",
+        "preview_top.png",
+        "preview_top.svg"
+      ],
+      "count": 12,
+      "available": true,
+      "truncated": 0,
+      "kicad_keys": [
+        "board.kicad_pcb",
+        "board.kicad_sch"
+      ],
+      "preview_keys": [
+        "preview_2d_bottom.png",
+        "preview_2d_bottom.svg",
+        "preview_2d_combined.png",
+        "preview_2d_combined.svg",
+        "preview_2d_top.png",
+        "preview_2d_top.svg",
+        "preview_assembly.svg",
+        "preview_top.png",
+        "preview_top.svg"
+      ],
+      "zip_available": true,
+      "preview_available": true,
+      "manufacturing_keys": [
+        "_board.zip"
+      ]
+    },
+    "decision_required": true,
+    "reviewable_failure": true,
+    "corrections_applied": [],
+    "visual_review_ready": true,
+    "recommended_next_tool": "",
+    "run_artifacts_available": true,
+    "recommended_artifact_tool": "get_run"
+  },
+  "feedback": [],
+  "artifacts": {
+    "available": true,
+    "count": 12,
+    "total_size_bytes": 2064989,
+    "items": [
+      {
+        "name": "_board.zip",
+        "encoding": "base64",
+        "size_bytes": 1035490,
+        "preview": false,
+        "manufacturing": true
+      },
+      {
+        "name": "board.kicad_pcb",
+        "encoding": "utf-8",
+        "size_bytes": 125307,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "board.kicad_sch",
+        "encoding": "utf-8",
+        "size_bytes": 107048,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_bottom.png",
+        "encoding": "base64",
+        "size_bytes": 93761,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_bottom.svg",
+        "encoding": "utf-8",
+        "size_bytes": 15848,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_combined.png",
+        "encoding": "base64",
+        "size_bytes": 161525,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_combined.svg",
+        "encoding": "utf-8",
+        "size_bytes": 88836,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_top.png",
+        "encoding": "base64",
+        "size_bytes": 156658,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_top.svg",
+        "encoding": "utf-8",
+        "size_bytes": 79212,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_assembly.svg",
+        "encoding": "utf-8",
+        "size_bytes": 7574,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_top.png",
+        "encoding": "base64",
+        "size_bytes": 114518,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_top.svg",
+        "encoding": "utf-8",
+        "size_bytes": 79212,
+        "preview": true,
+        "manufacturing": false
+      }
+    ]
+  },
+  "artifact_manifest": {
+    "available": true,
+    "count": 12,
+    "total_size_bytes": 2064989,
+    "items": [
+      {
+        "name": "_board.zip",
+        "encoding": "base64",
+        "size_bytes": 1035490,
+        "preview": false,
+        "manufacturing": true
+      },
+      {
+        "name": "board.kicad_pcb",
+        "encoding": "utf-8",
+        "size_bytes": 125307,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "board.kicad_sch",
+        "encoding": "utf-8",
+        "size_bytes": 107048,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_bottom.png",
+        "encoding": "base64",
+        "size_bytes": 93761,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_bottom.svg",
+        "encoding": "utf-8",
+        "size_bytes": 15848,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_combined.png",
+        "encoding": "base64",
+        "size_bytes": 161525,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_combined.svg",
+        "encoding": "utf-8",
+        "size_bytes": 88836,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_top.png",
+        "encoding": "base64",
+        "size_bytes": 156658,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_2d_top.svg",
+        "encoding": "utf-8",
+        "size_bytes": 79212,
+        "preview": false,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_assembly.svg",
+        "encoding": "utf-8",
+        "size_bytes": 7574,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_top.png",
+        "encoding": "base64",
+        "size_bytes": 114518,
+        "preview": true,
+        "manufacturing": false
+      },
+      {
+        "name": "preview_top.svg",
+        "encoding": "utf-8",
+        "size_bytes": 79212,
+        "preview": true,
+        "manufacturing": false
+      }
+    ]
+  },
+  "hint": "Run data retrieved with 11 artifact(s) (.kicad_pcb, .kicad_sch, .png, .svg). Use the _board.zip artifact (base64-encoded) for a self-contained KiCad project — includes schematic sheets, custom libraries, 3D models, and project config. Human-review previews are included: show preview_2d_top.png first for the flat 2D board view, use preview_assembly.svg when front/back assembly side assumptions matter, preview_top.svg as the KiCad vector source, or preview_top.png for the KiCad 3D render when present. After the human reviews the image, call submit_human_feedback() before revising and resubmitting."
+}

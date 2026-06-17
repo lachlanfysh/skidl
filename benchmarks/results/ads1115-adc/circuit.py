@@ -1,148 +1,115 @@
-import os
-os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
+"""
+ADS1115 16-bit ADC Breakout Board
+Generated via eda-mcp MCP server (board_id: ads1115-adc).
+
+Board: ADS1115IDGS in TSSOP-10, I2C interface, 4 analog inputs
+Connectors: separate I2C/power header and analog input header
+I2C address: 0x48 (ADDR tied to GND)
+Power: 3.3V or 5V compatible
+
+Best MCP run: job d73bb22da2d5 / run a7dec0192891
+Layout score: 84.8/100, schematic OK, 13/13 parts placed, no overlaps
+Routing: failed_reviewable (DRC_UNCONNECTED on AIN and power nets - server routing issue)
+"""
 
 from skidl import *
-set_default_tool(KICAD9)
 
-# ============================================================
-# ADS1115 16-bit I2C ADC Breakout (Adafruit-style)
-# ============================================================
-# Features:
-# - ADS1115 precision 16-bit ADC with PGA
-# - I2C interface with pull-ups
-# - 4 analog input channels (A0-A3)
-# - ALERT/RDY output
-# - ADDR pin with default GND connection
-# - Stemma QT (JST SH) connectors for I2C daisy-chain
-# - Standard breakout header
-# ============================================================
-
-# Power nets
-vdd = Net("VDD"); vdd.drive = POWER
+# Power rails
+vcc = Net("VCC"); vcc.drive = POWER
 gnd = Net("GND"); gnd.drive = POWER
 
-# Signal nets
+# I2C nets
 sda = Net("SDA")
 scl = Net("SCL")
-alert_rdy = Net("ALERT_RDY")
-addr = Net("ADDR")
+
+# Analog input nets
 ain0 = Net("AIN0")
 ain1 = Net("AIN1")
 ain2 = Net("AIN2")
 ain3 = Net("AIN3")
 
-# ----------------------------------------------------------
-# ADS1115 ADC
-# ----------------------------------------------------------
+# Alert/ready net
+alert = Net("ALERT")
+
+
 @subcircuit
-def ads1115_adc(vdd, gnd, sda, scl, alert_rdy, addr, ain0, ain1, ain2, ain3):
-    """ADS1115 16-bit ADC with decoupling."""
-    # ADS1115 IC
-    # Pins: 1=ADDR, 2=ALERT/RDY, 3=GND, 4=AIN0, 5=AIN1,
-    #        6=AIN2, 7=AIN3, 8=VDD, 9=SDA, 10=SCL
+def ads1115_block(vcc, gnd, sda, scl, ain0, ain1, ain2, ain3, alert):
     u1 = Part("Analog_ADC", "ADS1115IDGS",
               footprint="Package_SO:TSSOP-10_3x3mm_P0.5mm")
-    u1["VDD"] += vdd
-    u1["GND"] += gnd
-    u1["SDA"] += sda
-    u1["SCL"] += scl
-    u1["ALERT/RDY"] += alert_rdy
-    u1["ADDR"] += addr
-    u1["AIN0"] += ain0
-    u1["AIN1"] += ain1
-    u1["AIN2"] += ain2
-    u1["AIN3"] += ain3
 
-    # Decoupling: 100nF ceramic close to VDD
+    vcc += u1["VDD"]
+    gnd += u1["GND"]
+    sda += u1["SDA"]
+    scl += u1["SCL"]
+    ain0 += u1["AIN0"]
+    ain1 += u1["AIN1"]
+    ain2 += u1["AIN2"]
+    ain3 += u1["AIN3"]
+    alert += u1["ALERT/RDY"]
+    gnd += u1["ADDR"]  # 0x48 I2C address
+
+    # Decoupling cap (100nF auto-placed near IC)
     c1 = Part("Device", "C", value="100nF",
               footprint="Capacitor_SMD:C_0603_1608Metric")
-    c1[1] += vdd
-    c1[2] += gnd
+    vcc += c1[1]
+    gnd += c1[2]
 
-    # Bulk decoupling: 10uF
-    c2 = Part("Device", "C", value="10uF",
+    # Bulk cap on VCC rail (C_Polarized uses pin numbers 1/2, not +/-)
+    c2 = Part("Device", "C_Polarized", value="10uF",
               footprint="Capacitor_SMD:C_0805_2012Metric")
-    c2[1] += vdd
-    c2[2] += gnd
+    vcc += c2[1]
+    gnd += c2[2]
 
-# ----------------------------------------------------------
-# I2C Pull-ups and ADDR Config
-# ----------------------------------------------------------
-@subcircuit
-def addr_config(vdd, gnd, sda, scl, alert_rdy, addr):
-    """I2C pull-ups and ADDR pin configuration."""
-    # 10K pull-up on SDA
-    r_sda = Part("Device", "R", value="10K",
+    # I2C pull-up resistors (4.7k to VCC)
+    r_sda = Part("Device", "R", value="4.7K",
                  footprint="Resistor_SMD:R_0603_1608Metric")
-    r_sda[1] += vdd
-    r_sda[2] += sda
-
-    # 10K pull-up on SCL
-    r_scl = Part("Device", "R", value="10K",
+    r_scl = Part("Device", "R", value="4.7K",
                  footprint="Resistor_SMD:R_0603_1608Metric")
-    r_scl[1] += vdd
-    r_scl[2] += scl
+    vcc += r_sda[1]
+    sda += r_sda[2]
+    vcc += r_scl[1]
+    scl += r_scl[2]
 
-    # 10K pull-up on ALERT/RDY (active low, open drain)
-    r_alert = Part("Device", "R", value="10K",
-                   footprint="Resistor_SMD:R_0603_1608Metric")
-    r_alert[1] += vdd
-    r_alert[2] += alert_rdy
 
-    # ADDR to GND via 0R (default I2C address 0x48)
-    r_addr = Part("Device", "R", value="0R",
-                  footprint="Resistor_SMD:R_0603_1608Metric")
-    r_addr[1] += addr
-    r_addr[2] += gnd
+ads1115_block(vcc, gnd, sda, scl, ain0, ain1, ain2, ain3, alert)
 
-# ----------------------------------------------------------
-# Breakout Header
-# ----------------------------------------------------------
-@subcircuit
-def breakout_header(vdd, gnd, sda, scl, alert_rdy, addr, ain0, ain1, ain2, ain3):
-    """10-pin breakout header for breadboard use."""
-    j1 = Part("Connector_Generic", "Conn_01x10",
-              footprint="Connector_PinHeader_2.54mm:PinHeader_1x10_P2.54mm_Vertical")
-    j1[1] += vdd       # VDD
-    j1[2] += gnd       # GND
-    j1[3] += scl       # SCL
-    j1[4] += sda       # SDA
-    j1[5] += addr      # ADDR
-    j1[6] += alert_rdy # ALERT/RDY
-    j1[7] += ain0      # A0
-    j1[8] += ain1      # A1
-    j1[9] += ain2      # A2
-    j1[10] += ain3     # A3
+# I2C + power connector (VCC, GND, SDA, SCL)
+j_i2c = Part("Connector_Generic", "Conn_01x04",
+             footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+j_i2c.edge_preference = "left"
+vcc += j_i2c[1]
+gnd += j_i2c[2]
+sda += j_i2c[3]
+scl += j_i2c[4]
 
-# ----------------------------------------------------------
-# Stemma QT / JST SH Connectors
-# ----------------------------------------------------------
-@subcircuit
-def stemma_qt(vdd, gnd, sda, scl):
-    """Two JST SH 4-pin Stemma QT connectors for I2C daisy-chain."""
-    # Stemma QT connector 1
-    j_qt1 = Part("Connector_Generic", "Conn_01x04",
-                  footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal")
-    j_qt1[1] += gnd
-    j_qt1[2] += vdd
-    j_qt1[3] += sda
-    j_qt1[4] += scl
+# Analog inputs connector (AIN0-AIN3)
+j_ain = Part("Connector_Generic", "Conn_01x04",
+             footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+j_ain.edge_preference = "right"
+ain0 += j_ain[1]
+ain1 += j_ain[2]
+ain2 += j_ain[3]
+ain3 += j_ain[4]
 
-    # Stemma QT connector 2
-    j_qt2 = Part("Connector_Generic", "Conn_01x04",
-                  footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal")
-    j_qt2[1] += gnd
-    j_qt2[2] += vdd
-    j_qt2[3] += sda
-    j_qt2[4] += scl
+# Alert output connector
+j_alert = Part("Connector_Generic", "Conn_01x01",
+               footprint="Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical")
+j_alert.edge_preference = "top"
+alert += j_alert[1]
 
-# ----------------------------------------------------------
-# Instantiate all subcircuits
-# ----------------------------------------------------------
-ads1115_adc(vdd, gnd, sda, scl, alert_rdy, addr, ain0, ain1, ain2, ain3)
-addr_config(vdd, gnd, sda, scl, alert_rdy, addr)
-breakout_header(vdd, gnd, sda, scl, alert_rdy, addr, ain0, ain1, ain2, ain3)
-stemma_qt(vdd, gnd, sda, scl)
+# Mounting holes
+mh1 = Part("Mechanical", "MountingHole", footprint="MountingHole:MountingHole_3.2mm_M3")
+mh2 = Part("Mechanical", "MountingHole", footprint="MountingHole:MountingHole_3.2mm_M3")
+mh3 = Part("Mechanical", "MountingHole", footprint="MountingHole:MountingHole_3.2mm_M3")
+mh4 = Part("Mechanical", "MountingHole", footprint="MountingHole:MountingHole_3.2mm_M3")
 
-# Generate schematic
-generate_schematic(auto_stub=True)
+# Board outline with mounting holes - centers at 4mm inward for M3 courtyard clearance
+EDA_FLOORPLAN = {
+    "outline": {"width_mm": 40.0, "height_mm": 30.0, "corner_radius_mm": 1},
+    "fixed_positions": [
+        {"ref": "H1", "x_mm": 4.0, "y_mm": 4.0, "rotation_deg": 0},
+        {"ref": "H2", "x_mm": 36.0, "y_mm": 4.0, "rotation_deg": 0},
+        {"ref": "H3", "x_mm": 4.0, "y_mm": 26.0, "rotation_deg": 0},
+        {"ref": "H4", "x_mm": 36.0, "y_mm": 26.0, "rotation_deg": 0},
+    ],
+}

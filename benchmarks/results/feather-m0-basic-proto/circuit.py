@@ -1,535 +1,435 @@
 """
-Feather M0 Basic Proto (SAMD21)
+Adafruit Feather M0 Basic Proto
+Feather form factor (50.8 x 22.86mm) with ATSAMD21G18 ARM Cortex-M0+ MCU.
+Native USB-C, 256KB flash, 32KB SRAM. AP2112K-3.3 LDO + MCP73831 LiPo charger.
+32.768kHz crystal for RTC. Power LED + user LED (D13). Reset button.
+20 GPIO pins on standard Feather headers.
 
-ATSAMD21G18 ARM Cortex M0 processor clocked at 48 MHz at 3.3V logic.
-256K FLASH / 32K RAM. Built-in USB for programming/debug.
-MCP73831 LiPo battery charger with JST connector.
-AP2112K-3.3 LDO regulator. Auto USB/battery power switching via
-Schottky diode. Battery voltage divider on analog pin.
-Feather form factor (2.0" x 0.9") with 16+12 pin headers.
+Note: ATSAMD21G15A-A used as symbol proxy for G18A — identical TQFP-48 pinout.
+The G18 is not present in the KiCad MCU_Microchip_SAMD library; the G15A
+shares the same package and pin assignment.
 """
 
-import os
-os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
-
 from skidl import *
-set_default_tool(KICAD9)
+
+# ── Power rails ──────────────────────────────────────────────────────────────
+vbus   = Net("VBUS");   vbus.drive   = POWER
+vbat   = Net("VBAT");   vbat.drive   = POWER
+v3v3   = Net("3V3");    v3v3.drive   = POWER
+gnd    = Net("GND");    gnd.drive    = POWER
+
+# ── Signal nets ──────────────────────────────────────────────────────────────
+usb_dp    = Net("USB_DP")
+usb_dm    = Net("USB_DM")
+cc1       = Net("CC1")
+cc2       = Net("CC2")
+xin32     = Net("XIN32")
+xout32    = Net("XOUT32")
+mcu_reset = Net("NRST")
+swclk     = Net("SWCLK")
+swdio     = Net("SWDIO")
+sda       = Net("SDA")
+scl       = Net("SCL")
+mosi      = Net("MOSI")
+miso      = Net("MISO")
+sck       = Net("SCK")
+uart_tx   = Net("UART_TX")
+uart_rx   = Net("UART_RX")
+bat_div   = Net("BAT_DIV")
+
+# GPIO/header nets
+a0  = Net("A0");  a1 = Net("A1");  a2 = Net("A2")
+a3  = Net("A3");  a4 = Net("A4");  a5 = Net("A5")
+d5  = Net("D5");  d6 = Net("D6");  d9  = Net("D9")
+d10 = Net("D10"); d11 = Net("D11"); d12 = Net("D12")
+d13 = Net("D13")
 
 
-# ==== Power nets ====
-vbus = Net("VBUS")                  # USB 5V
-vbat = Net("VBAT"); vbat.drive = POWER   # Battery voltage
-vcc  = Net("VCC");  vcc.drive = POWER    # Switched power (USB or battery)
-v3v3 = Net("+3V3"); v3v3.drive = POWER   # Regulated 3.3V
-gnd  = Net("GND");  gnd.drive = POWER
-
-
-# ==== Signal nets ====
-usb_dp = Net("USB_DP")
-usb_dm = Net("USB_DM")
-xin    = Net("XIN")
-xout   = Net("XOUT")
-sda    = Net("SDA")
-scl    = Net("SCL")
-mosi   = Net("MOSI")
-miso   = Net("MISO")
-sck    = Net("SCK")
-reset_n = Net("~{RESET}")
-swdio  = Net("SWDIO")
-swclk  = Net("SWCLK")
-bat_div = Net("BAT_DIV")
-
-
-# ==============================================================
-# Subcircuit: USB connector and ESD/filtering
-# ==============================================================
 @subcircuit
-def usb_input(vbus, gnd, dp, dm):
-    """USB Micro-B connector with decoupling."""
+def usb_power_input(vbus, gnd, usb_dp, usb_dm, cc1, cc2):
+    """USB-C receptacle (USB2.0 16P) with CC pull-downs and VBUS decoupling."""
+    j = Part("Connector", "USB_C_Receptacle_USB2.0_16P",
+             footprint="Connector_USB:USB_C_Receptacle_GCT_USB4085")
+    j.ref = "J_USB"
+    j.edge_preference = "top"
 
-    usb = Part(
-        "Connector", "USB_B_Micro",
-        value="USB_Micro_B",
-        footprint="Connector_USB:USB_Micro-B_Molex_47346-0001",
-    )
-    usb["VBUS"]   += vbus
-    usb["GND"]    += gnd
-    usb["D+"]     += dp
-    usb["D-"]     += dm
-    usb["Shield"] += gnd
-    # ID pin left floating (device mode)
+    # VBUS on all four VBUS pins
+    vbus += j["A4"], j["A9"], j["B4"], j["B9"]
+    # GND on all GND/SHIELD pins
+    gnd  += j["A1"], j["A12"], j["B1"], j["B12"], j["SHIELD"]
+    # USB 2.0 data
+    usb_dp += j["A6"], j["B6"]
+    usb_dm += j["A7"], j["B7"]
+    # CC1/CC2
+    cc1 += j["CC1"]
+    cc2 += j["CC2"]
+    # SBU unused
+    gnd += j["SBU1"], j["SBU2"]
 
-    # Ferrite bead on VBUS for noise filtering
-    fb = Part(
-        "Device", "L_Ferrite",
-        value="600R@100MHz",
-        footprint="Inductor_SMD:L_0805_2012Metric",
-    )
-    fb[1] += vbus
-    # fb[2] is the filtered side — unused net, VBUS is pre-filter here
-    # Actually, we connect VBUS straight through and use fb inline later
-    # For simplicity, the ferrite is on the VBUS line (both pins on vbus net
-    # to represent a series element that the layout engine treats as inline)
-    fb[2] += vbus
+    # 5.1k CC pull-downs for USB-C power sink
+    r_cc1 = Part("Device", "R", value="5.1K",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    r_cc2 = Part("Device", "R", value="5.1K",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    cc1 += r_cc1[1]; gnd += r_cc1[2]
+    cc2 += r_cc2[1]; gnd += r_cc2[2]
 
-    # Bulk decoupling on USB VBUS
-    c_vbus = Part(
-        "Device", "C",
-        value="10uF",
-        footprint="Capacitor_SMD:C_0805_2012Metric",
-    )
-    c_vbus[1] += vbus
-    c_vbus[2] += gnd
+    # VBUS bulk decoupling
+    c_bulk = Part("Device", "C_Polarized", value="10uF",
+                  footprint="Capacitor_SMD:C_0805_2012Metric")
+    vbus += c_bulk[1]; gnd += c_bulk[2]
+
+    c_byp = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0402_1005Metric")
+    vbus += c_byp[1]; gnd += c_byp[2]
 
 
-# ==============================================================
-# Subcircuit: Battery charger (MCP73831)
-# ==============================================================
 @subcircuit
-def battery_charger(vbus, gnd, vbat):
-    """MCP73831 single-cell LiPo charger with status LED."""
+def lipo_charger(vbus, vbat, gnd):
+    """MCP73831 single-cell LiPo charger. Charge current ~100mA (Rprog=10k)."""
+    u = Part("Battery_Management", "MCP73831-2-OT",
+             footprint="Package_TO_SOT_SMD:SOT-23-5")
+    u.ref = "U_CHG"
 
-    chg = Part(
-        "Battery_Management", "MCP73831-2-OT",
-        value="MCP73831",
-        footprint="Package_TO_SOT_SMD:SOT-23-5",
-    )
-    chg["V_{DD}"]  += vbus    # Pin 4: input from USB
-    chg["V_{SS}"]  += gnd     # Pin 2: ground
-    chg["V_{BAT}"] += vbat    # Pin 3: battery output
+    vbus += u["V_{DD}"]
+    vbat += u["V_{BAT}"]
+    gnd  += u["V_{SS}"]
 
-    # PROG resistor: 2K = 500mA charge current
-    r_prog = Part(
-        "Device", "R",
-        value="2K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    r_prog[1] += chg["PROG"]
-    r_prog[2] += gnd
+    # Charge current programming: Icharge = 1000 / Rprog_kohm mA → 10k = 100mA
+    r_prog = Part("Device", "R", value="10K",
+                  footprint="Resistor_SMD:R_0402_1005Metric")
+    u["PROG"] += r_prog[1]; gnd += r_prog[2]
 
-    # Charge status LED (orange, active low)
-    r_led = Part(
-        "Device", "R",
-        value="1K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    led_chg = Part(
-        "Device", "LED",
-        value="Orange",
-        footprint="LED_SMD:LED_0603_1608Metric",
-    )
-    r_led[1] += vbus
-    r_led[2] += led_chg["A"]
-    led_chg["K"] += chg["STAT"]
+    # Charge-status LED (open-drain STAT, active-low)
+    r_stat = Part("Device", "R", value="10K",
+                  footprint="Resistor_SMD:R_0402_1005Metric")
+    led_chg = Part("Device", "LED", value="ORANGE",
+                   footprint="LED_SMD:LED_0402_1005Metric")
+    vbus += r_stat[1]
+    u["STAT"] += r_stat[2], led_chg[2]
+    gnd += led_chg[1]
 
-    # 100nF decoupling on VDD
-    c_chg = Part(
-        "Device", "C",
-        value="100nF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_chg[1] += vbus
-    c_chg[2] += gnd
+    # VBAT bulk cap
+    c_bat = Part("Device", "C_Polarized", value="10uF",
+                 footprint="Capacitor_SMD:C_0805_2012Metric")
+    vbat += c_bat[1]; gnd += c_bat[2]
 
 
-# ==============================================================
-# Subcircuit: Power switching and 3.3V regulator
-# ==============================================================
 @subcircuit
-def power_supply(vbus, vbat, gnd, vcc, v3v3):
+def power_supply(vbus, vbat, gnd, v3v3):
     """
-    Schottky diode OR for USB/battery auto-switching.
-    AP2112K-3.3 LDO produces 3.3V from VCC.
+    Auto power-path: VBUS and VBAT OR'd via Schottky diodes into VREG net.
+    AP2112K-3.3 LDO delivers 3.3V. Power LED on 3V3 rail.
     """
+    vreg = Net("VREG"); vreg.drive = POWER
 
-    # Schottky diode: VBUS -> VCC (prevents backfeed to USB)
-    d_usb = Part(
-        "Device", "D_Schottky",
-        value="MBR0520",
-        footprint="Diode_SMD:D_SOD-323",
-    )
-    d_usb["A"] += vbus
-    d_usb["K"] += vcc
+    d_usb = Part("Device", "D_Schottky", value="BAT54",
+                 footprint="Diode_SMD:D_SOD-323")
+    vbus += d_usb["A"]; vreg += d_usb["K"]
 
-    # Schottky diode: VBAT -> VCC (prevents backfeed to battery)
-    d_bat = Part(
-        "Device", "D_Schottky",
-        value="MBR0520",
-        footprint="Diode_SMD:D_SOD-323",
-    )
-    d_bat["A"] += vbat
-    d_bat["K"] += vcc
+    d_bat = Part("Device", "D_Schottky", value="BAT54",
+                 footprint="Diode_SMD:D_SOD-323")
+    vbat += d_bat["A"]; vreg += d_bat["K"]
 
-    # AP2112K-3.3 LDO regulator
-    reg = Part(
-        "Regulator_Linear", "AP2112K-3.3",
-        value="AP2112K-3.3",
-        footprint="Package_TO_SOT_SMD:SOT-23-5",
-    )
-    reg["VIN"]  += vcc
-    reg["GND"]  += gnd
-    reg["EN"]   += vcc       # Always enabled
-    reg["VOUT"] += v3v3
+    # Input bulk cap
+    c_reg_in = Part("Device", "C_Polarized", value="10uF",
+                    footprint="Capacitor_SMD:C_0805_2012Metric")
+    vreg += c_reg_in[1]; gnd += c_reg_in[2]
 
-    # Input cap on VCC
-    c_in = Part(
-        "Device", "C",
-        value="10uF",
-        footprint="Capacitor_SMD:C_0805_2012Metric",
-    )
-    c_in[1] += vcc
-    c_in[2] += gnd
+    # AP2112K-3.3 LDO
+    ldo = Part("Regulator_Linear", "AP2112K-3.3",
+               footprint="Package_TO_SOT_SMD:SOT-23-5")
+    ldo.ref = "U_LDO"
+    vreg  += ldo["VIN"]
+    gnd   += ldo["GND"]
+    v3v3  += ldo["EN"]   # tie EN to output to stay enabled
+    v3v3  += ldo["VOUT"]
+    # Pin 4 is NC — leave unconnected
 
-    # Output decoupling on 3.3V (100nF for auto-detect + 10uF bulk)
-    c_out_100n = Part(
-        "Device", "C",
-        value="100nF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_out_100n[1] += v3v3
-    c_out_100n[2] += gnd
+    # Output caps
+    c_out_bulk = Part("Device", "C_Polarized", value="10uF",
+                      footprint="Capacitor_SMD:C_0805_2012Metric")
+    v3v3 += c_out_bulk[1]; gnd += c_out_bulk[2]
 
-    c_out_10u = Part(
-        "Device", "C",
-        value="10uF",
-        footprint="Capacitor_SMD:C_0805_2012Metric",
-    )
-    c_out_10u[1] += v3v3
-    c_out_10u[2] += gnd
+    c_out_byp = Part("Device", "C", value="100nF",
+                     footprint="Capacitor_SMD:C_0402_1005Metric")
+    v3v3 += c_out_byp[1]; gnd += c_out_byp[2]
+
+    # Power LED
+    r_pwr = Part("Device", "R", value="1K",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    led_pwr = Part("Device", "LED", value="RED",
+                   footprint="LED_SMD:LED_0402_1005Metric")
+    v3v3 += r_pwr[1]
+    r_pwr[2] += led_pwr[2]
+    gnd  += led_pwr[1]
 
 
-# ==============================================================
-# Subcircuit: Battery voltage divider
-# ==============================================================
 @subcircuit
 def battery_monitor(vbat, gnd, bat_div):
-    """Resistor divider: VBAT -> 100K -> BAT_DIV -> 100K -> GND.
-    Gives half of VBAT on analog pin for battery monitoring."""
-
-    r_top = Part(
-        "Device", "R",
-        value="100K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    r_bot = Part(
-        "Device", "R",
-        value="100K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    r_top[1] += vbat
-    r_top[2] += bat_div
-    r_bot[1] += bat_div
-    r_bot[2] += gnd
+    """100K/100K voltage divider: VBAT/2 on analog input for battery monitoring."""
+    r_top = Part("Device", "R", value="100K",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    r_bot = Part("Device", "R", value="100K",
+                 footprint="Resistor_SMD:R_0402_1005Metric")
+    vbat    += r_top[1]
+    bat_div += r_top[2], r_bot[1]
+    gnd     += r_bot[2]
 
 
-# ==============================================================
-# Subcircuit: SAMD21 MCU with crystal and decoupling
-# ==============================================================
 @subcircuit
-def samd21_mcu(v3v3, gnd, usb_dp, usb_dm, xin, xout, reset_n,
-               sda, scl, mosi, miso, sck, swdio, swclk, bat_div,
-               header_left, header_right):
-    """ATSAMD21G18A-A with 32.768kHz crystal, decoupling, and reset circuit."""
+def samd21_mcu(v3v3, gnd, usb_dp, usb_dm, xin32, xout32, mcu_reset,
+               swclk, swdio, sda, scl, mosi, miso, sck,
+               uart_tx, uart_rx, bat_div,
+               a0, a1, a2, a3, a4, a5,
+               d5, d6, d9, d10, d11, d12, d13):
+    """
+    ATSAMD21G15A-A (proxy for G18A, TQFP-48) with full power and signal wiring.
+    """
+    u = Part("MCU_Microchip_SAMD", "ATSAMD21G15A-A",
+             footprint="Package_QFP:TQFP-48_7x7mm_P0.5mm")
+    u.ref = "U_MCU"
 
-    mcu = Part(
-        "MCU_Microchip_SAMD", "ATSAMD21G18A-A",
-        value="ATSAMD21G18A",
-        footprint="Package_QFP:TQFP-48_7x7mm_P0.5mm",
-    )
+    # Power
+    v3v3 += u["VDDIO"], u["VDDANA"], u["VDDIN"]
+    gnd  += u["GND"], u["GNDANA"]
 
-    # Power pins
-    mcu["VDDIO"]  += v3v3   # Pins 17, 36 — both VDDIO
-    mcu["VDDIN"]   += v3v3   # Pin 44 — main power input
-    mcu["VDDANA"]  += v3v3   # Pin 6 — analog power
-    mcu["GND"]     += gnd    # Pins 18, 35, 42
-    mcu["GNDANA"]  += gnd    # Pin 5
-
-    # 1.2V core regulator output decoupling
+    # VDDCORE: internal 1.2V regulator output — decouple with 1uF
     vddcore = Net("VDDCORE")
-    mcu["VDDCORE"] += vddcore
-    c_core = Part(
-        "Device", "C",
-        value="1uF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_core[1] += vddcore
-    c_core[2] += gnd
+    u["VDDCORE"] += vddcore
+    c_core = Part("Device", "C", value="1uF",
+                  footprint="Capacitor_SMD:C_0402_1005Metric")
+    vddcore += c_core[1]; gnd += c_core[2]
 
-    # VDDIO decoupling (100nF)
-    c_vddio = Part(
-        "Device", "C",
-        value="100nF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_vddio[1] += v3v3
-    c_vddio[2] += gnd
+    # USB D+/D- → PA24/PA25
+    usb_dp += u["PA24"]
+    usb_dm += u["PA25"]
 
-    # VDDANA decoupling (100nF)
-    c_vddana = Part(
-        "Device", "C",
-        value="100nF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_vddana[1] += v3v3
-    c_vddana[2] += gnd
+    # Reset
+    mcu_reset += u["~{RESET}"]
 
-    # VDDIN decoupling (100nF)
-    c_vddin = Part(
-        "Device", "C",
-        value="100nF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_vddin[1] += v3v3
-    c_vddin[2] += gnd
+    # SWD
+    swclk += u["PA30"]
+    swdio += u["PA31"]
 
-    # USB data lines (PA24=D-, PA25=D+)
-    mcu["PA24"] += usb_dm
-    mcu["PA25"] += usb_dp
+    # 32.768kHz RTC crystal → PA08(XIN32)/PA09(XOUT32)
+    xin32  += u["PA08"]
+    xout32 += u["PA09"]
 
-    # 32.768kHz crystal on PA00/PA01 (XIN32/XOUT32)
-    mcu["PA00"] += xin
-    mcu["PA01"] += xout
+    # I2C (SERCOM3): PA22=SDA, PA23=SCL
+    sda += u["PA22"]
+    scl += u["PA23"]
 
-    # Reset with pull-up
-    mcu["~{RESET}"] += reset_n
+    # SPI (SERCOM1): PA11=SCK, PA10=MOSI, PA12=MISO
+    sck  += u["PA11"]
+    mosi += u["PA10"]
+    miso += u["PA12"]
 
-    # SWD debug
-    mcu["PA30"] += swclk
-    mcu["PA31"] += swdio
+    # UART (SERCOM5): PB22=TX, PB23=RX
+    uart_tx += u["PB22"]
+    uart_rx += u["PB23"]
 
-    # I2C (SERCOM3: PA22=SDA, PA23=SCL)
-    mcu["PA22"] += sda
-    mcu["PA23"] += scl
+    # Analog header: PA02=A0, PB08=A1, PB09=A2, PA04=A3, PA05=A4, PB02=A5
+    a0 += u["PA02"]
+    a1 += u["PB08"]
+    a2 += u["PB09"]
+    a3 += u["PA04"]
+    a4 += u["PA05"]
+    a5 += u["PB02"]
 
-    # SPI (SERCOM4: PB10=MOSI, PA12=MISO, PB11=SCK)
-    mcu["PB10"] += mosi
-    mcu["PA12"] += miso
-    mcu["PB11"] += sck
+    # Battery divider on PA07
+    bat_div += u["PA07"]
 
-    # Battery divider on PA07 (ADC AIN7 / A7 on Feather)
-    mcu["PA07"] += bat_div
+    # Digital header
+    d5  += u["PA15"]
+    d6  += u["PA20"]
+    d9  += u["PA06"]    # D9 on Feather M0 = PA06
+    d10 += u["PA18"]
+    d11 += u["PA16"]
+    d12 += u["PA19"]
+    d13 += u["PA17"]    # D13 = also onboard LED
 
-    # Feather left header (16 pins): directly mapped GPIO/analog
-    # RST, 3V3, AREF, GND, A0-A5, SCK, MOSI, MISO, RX, TX, (x)
-    # We connect specific MCU pins to header nets
-    mcu["PA02"] += header_left[0]   # A0
-    mcu["PA03"] += header_left[1]   # AREF (actually, but mapped to header)
-    mcu["PB08"] += header_left[2]   # A1
-    mcu["PB09"] += header_left[3]   # A2
-    mcu["PA04"] += header_left[4]   # A3
-    mcu["PA05"] += header_left[5]   # A4
-    mcu["PA06"] += header_left[6]   # A5
+    # Unused pins → dedicated NC nets (avoids ERC warnings)
+    u["PA00"] += Net("NC_PA00")
+    u["PA01"] += Net("NC_PA01")
+    u["PA03"] += Net("NC_PA03")
+    u["PA13"] += Net("NC_PA13")
+    u["PA14"] += Net("NC_PA14")
+    u["PA21"] += Net("NC_PA21")
+    u["PA27"] += Net("NC_PA27")
+    u["PB03"] += Net("NC_PB03")
+    u["PB10"] += Net("NC_PB10")
+    u["PB11"] += Net("NC_PB11")
 
-    # Feather right header (12 pins): digital pins
-    # D13/LED, D12, D11, D10, D9, D6, D5, SCL, SDA, TX, RX, DIO1
-    mcu["PA17"] += header_right[0]  # D13 (also onboard LED)
-    mcu["PA19"] += header_right[1]  # D12
-    mcu["PA16"] += header_right[2]  # D11
-    mcu["PA18"] += header_right[3]  # D10
-    mcu["PA20"] += header_right[4]  # D9
-    mcu["PA15"] += header_right[5]  # D6
-    mcu["PA14"] += header_right[6]  # D5
+    # Decoupling: one 100nF per VDD power domain
+    for _ in range(4):
+        c = Part("Device", "C", value="100nF",
+                 footprint="Capacitor_SMD:C_0402_1005Metric")
+        v3v3 += c[1]; gnd += c[2]
 
-    # Serial (SERCOM0: PA11=RX, PA10=TX)
-    mcu["PA10"] += header_right[7]  # TX
-    mcu["PA11"] += header_right[8]  # RX
-
-    # Remaining pins (PA08, PA09, PA13 etc.) left unconnected
-    # PA21 used for user LED control internally
-    mcu["PA21"] += header_right[9]  # D7 spare
-
-    # PA27 and PA28 unused
-    mcu["PA27"] += Net("NC_PA27")
-    mcu["PA28"] += Net("NC_PA28")
-    mcu["PB02"] += Net("NC_PB02")
-    mcu["PB03"] += Net("NC_PB03")
-    mcu["PB22"] += Net("NC_PB22")
-    mcu["PB23"] += Net("NC_PB23")
-    mcu["PA08"] += Net("NC_PA08")
-    mcu["PA09"] += Net("NC_PA09")
-    mcu["PA13"] += Net("NC_PA13")
+    # Bulk cap on digital supply
+    c_bulk = Part("Device", "C_Polarized", value="10uF",
+                  footprint="Capacitor_SMD:C_0805_2012Metric")
+    v3v3 += c_bulk[1]; gnd += c_bulk[2]
 
 
-# ==============================================================
-# Subcircuit: 32.768kHz crystal
-# ==============================================================
 @subcircuit
-def crystal_32k(xin, xout, gnd):
-    """32.768kHz crystal with load caps for SAMD21."""
+def rtc_crystal(xin32, xout32, gnd):
+    """32.768kHz crystal with 15pF load caps for SAMD21 RTC oscillator."""
+    y = Part("Device", "Crystal",
+             value="32.768kHz",
+             footprint="Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm")
+    xin32  += y[1]
+    xout32 += y[2]
 
-    y1 = Part(
-        "Device", "Crystal",
-        value="32.768kHz",
-        footprint="Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm",
-    )
-    y1[1] += xin
-    y1[2] += xout
-
-    # Load caps (12pF typical for 32.768kHz)
-    c_x1 = Part(
-        "Device", "C",
-        value="12pF",
-        footprint="Capacitor_SMD:C_0402_1005Metric",
-    )
-    c_x1[1] += xin
-    c_x1[2] += gnd
-
-    c_x2 = Part(
-        "Device", "C",
-        value="12pF",
-        footprint="Capacitor_SMD:C_0402_1005Metric",
-    )
-    c_x2[1] += xout
-    c_x2[2] += gnd
+    c1 = Part("Device", "C", value="15pF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    c2 = Part("Device", "C", value="15pF",
+              footprint="Capacitor_SMD:C_0402_1005Metric")
+    xin32  += c1[1]; gnd += c1[2]
+    xout32 += c2[1]; gnd += c2[2]
 
 
-# ==============================================================
-# Subcircuit: Reset circuit
-# ==============================================================
 @subcircuit
-def reset_circuit(v3v3, gnd, reset_n):
-    """Reset button with pull-up and filter cap."""
+def reset_button(v3v3, gnd, mcu_reset):
+    """Reset button (SW_Push) with 10K pull-up and 100nF debounce cap."""
+    sw = Part("Switch", "SW_Push",
+              footprint="Button_Switch_SMD:SW_SPST_TL3342")
+    sw.ref = "SW_RST"
+    mcu_reset += sw[1], sw[2]
 
-    # 10K pull-up on RESET
-    r_rst = Part(
-        "Device", "R",
-        value="10K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    r_rst[1] += v3v3
-    r_rst[2] += reset_n
+    r = Part("Device", "R", value="10K",
+             footprint="Resistor_SMD:R_0402_1005Metric")
+    v3v3 += r[1]; mcu_reset += r[2]
 
-    # Reset button (momentary, NO)
-    sw_rst = Part(
-        "Device", "R",
-        value="SW_RST",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    # Using a resistor placeholder for the switch footprint
-    # In real design this would be a tactile switch
-    # Actually, let's use a proper switch
-    sw_rst[1] += reset_n
-    sw_rst[2] += gnd
-
-    # 100nF filter cap on reset
-    c_rst = Part(
-        "Device", "C",
-        value="100nF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_rst[1] += reset_n
-    c_rst[2] += gnd
+    c = Part("Device", "C", value="100nF",
+             footprint="Capacitor_SMD:C_0402_1005Metric")
+    mcu_reset += c[1]; gnd += c[2]
 
 
-# ==============================================================
-# Subcircuit: User LED (D13)
-# ==============================================================
 @subcircuit
-def user_led(pin, gnd):
-    """User LED on D13 with current-limiting resistor."""
-
-    r_led = Part(
-        "Device", "R",
-        value="1K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    led = Part(
-        "Device", "LED",
-        value="Red",
-        footprint="LED_SMD:LED_0603_1608Metric",
-    )
-    r_led[1] += pin
-    r_led[2] += led["A"]
-    led["K"] += gnd
+def user_led(d13, gnd):
+    """D13 user LED with 1K current-limit resistor."""
+    r = Part("Device", "R", value="1K",
+             footprint="Resistor_SMD:R_0402_1005Metric")
+    led = Part("Device", "LED", value="RED",
+               footprint="LED_SMD:LED_0603_1608Metric")
+    d13   += r[1]
+    r[2]  += led[2]
+    gnd   += led[1]
 
 
-# ==============================================================
-# Top-level instantiation
-# ==============================================================
+@subcircuit
+def swd_header(v3v3, gnd, swclk, swdio, mcu_reset):
+    """4-pin SWD debug header (VCC, SWDIO, SWCLK, GND)."""
+    j = Part("Connector_Generic", "Conn_01x04",
+             footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+    j.ref = "J_SWD"
+    v3v3      += j[1]
+    swdio     += j[2]
+    swclk     += j[3]
+    gnd       += j[4]
 
-# Header nets for left side (analog)
-hl = [Net(f"HL_{i}") for i in range(7)]   # A0-A5 + spare
-# Header nets for right side (digital)
-hr = [Net(f"HR_{i}") for i in range(10)]   # D13 down to D7
 
-# Instantiate all subcircuits
-usb_input(vbus, gnd, usb_dp, usb_dm)
-battery_charger(vbus, gnd, vbat)
-power_supply(vbus, vbat, gnd, vcc, v3v3)
+@subcircuit
+def battery_connector(vbat, gnd):
+    """JST-PH 2-pin LiPo battery connector."""
+    j = Part("Connector_Generic", "Conn_01x02",
+             footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal")
+    j.ref = "J_BAT"
+    j.edge_preference = "bottom"
+    vbat += j[1]; gnd += j[2]
+
+
+@subcircuit
+def feather_headers(v3v3, vbat, vbus, gnd, mcu_reset,
+                    a0, a1, a2, a3, a4, a5,
+                    sck, mosi, miso, uart_tx, uart_rx,
+                    d5, d6, d9, d10, d11, d12, d13,
+                    sda, scl):
+    """
+    Standard Feather headers:
+      Left  (J_HDR_L): 16-pin — RST/3V3/AREF/GND/A0-A5/SCK/MOSI/MISO/RX/TX/~
+      Right (J_HDR_R): 12-pin — BAT/EN/USB/D13/D12/D11/D10/D9/D6/D5/SDA/SCL
+    """
+    jl = Part("Connector_Generic", "Conn_01x16",
+              footprint="Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical")
+    jl.ref = "J_HDR_L"
+
+    mcu_reset  += jl[1]   # RST
+    v3v3       += jl[2]   # 3V3
+    v3v3       += jl[3]   # AREF (tied to 3V3 on Feather basic)
+    gnd        += jl[4]   # GND
+    a0         += jl[5]   # A0
+    a1         += jl[6]   # A1
+    a2         += jl[7]   # A2
+    a3         += jl[8]   # A3
+    a4         += jl[9]   # A4
+    a5         += jl[10]  # A5
+    nc_aref2 = Net("NC_AREF2"); nc_aref2 += jl[11]  # spare (sometimes A6/VDIV)
+    sck        += jl[12]  # SCK
+    mosi       += jl[13]  # MOSI
+    miso       += jl[14]  # MISO
+    uart_tx    += jl[15]  # TX
+    uart_rx    += jl[16]  # RX
+
+    jr = Part("Connector_Generic", "Conn_01x12",
+              footprint="Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical")
+    jr.ref = "J_HDR_R"
+
+    vbat   += jr[1]   # BAT
+    v3v3   += jr[2]   # EN (enable, pulled to 3V3)
+    vbus   += jr[3]   # USB
+    d13    += jr[4]   # D13
+    d12    += jr[5]   # D12
+    d11    += jr[6]   # D11
+    d10    += jr[7]   # D10
+    d9     += jr[8]   # D9
+    d6     += jr[9]   # D6
+    d5     += jr[10]  # D5
+    sda    += jr[11]  # SDA
+    scl    += jr[12]  # SCL
+
+
+@subcircuit
+def mounting_holes():
+    """4x M2 mounting holes at Feather corners."""
+    for _ in range(4):
+        Part("Mechanical", "MountingHole",
+             footprint="MountingHole:MountingHole_2.2mm_M2")
+
+
+# ── Top-level instantiation ───────────────────────────────────────────────────
+usb_power_input(vbus, gnd, usb_dp, usb_dm, cc1, cc2)
+lipo_charger(vbus, vbat, gnd)
+power_supply(vbus, vbat, gnd, v3v3)
 battery_monitor(vbat, gnd, bat_div)
-crystal_32k(xin, xout, gnd)
-reset_circuit(v3v3, gnd, reset_n)
-samd21_mcu(v3v3, gnd, usb_dp, usb_dm, xin, xout, reset_n,
-           sda, scl, mosi, miso, sck, swdio, swclk, bat_div,
-           hl, hr)
-user_led(hr[0], gnd)  # D13 LED
+samd21_mcu(v3v3, gnd, usb_dp, usb_dm, xin32, xout32, mcu_reset,
+           swclk, swdio, sda, scl, mosi, miso, sck,
+           uart_tx, uart_rx, bat_div,
+           a0, a1, a2, a3, a4, a5,
+           d5, d6, d9, d10, d11, d12, d13)
+rtc_crystal(xin32, xout32, gnd)
+reset_button(v3v3, gnd, mcu_reset)
+user_led(d13, gnd)
+swd_header(v3v3, gnd, swclk, swdio, mcu_reset)
+battery_connector(vbat, gnd)
+feather_headers(v3v3, vbat, vbus, gnd, mcu_reset,
+                a0, a1, a2, a3, a4, a5,
+                sck, mosi, miso, uart_tx, uart_rx,
+                d5, d6, d9, d10, d11, d12, d13,
+                sda, scl)
+mounting_holes()
 
-
-# ==== JST battery connector ====
-jst_bat = Part(
-    "Connector_Generic", "Conn_01x02",
-    value="JST_PH_2",
-    footprint="Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
-)
-jst_bat[1] += vbat
-jst_bat[2] += gnd
-
-
-# ==== Feather left header (16 pins) ====
-hdr_l = Part(
-    "Connector_Generic", "Conn_01x16",
-    value="Feather_Left",
-    footprint="Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical",
-)
-hdr_l[1]  += reset_n     # RST
-hdr_l[2]  += v3v3        # 3V3
-hdr_l[3]  += v3v3        # AREF (tied to 3V3 on basic)
-hdr_l[4]  += gnd         # GND
-hdr_l[5]  += hl[0]       # A0
-hdr_l[6]  += hl[1]       # A1 (reusing AREF net slot)
-hdr_l[7]  += hl[2]       # A2
-hdr_l[8]  += hl[3]       # A3
-hdr_l[9]  += hl[4]       # A4
-hdr_l[10] += hl[5]       # A5
-hdr_l[11] += hl[6]       # A6 (spare)
-hdr_l[12] += sck         # SCK
-hdr_l[13] += mosi        # MOSI
-hdr_l[14] += miso        # MISO
-hdr_l[15] += hr[7]       # TX (serial)
-hdr_l[16] += hr[8]       # RX (serial)
-
-
-# ==== Feather right header (12 pins) ====
-hdr_r = Part(
-    "Connector_Generic", "Conn_01x12",
-    value="Feather_Right",
-    footprint="Connector_PinHeader_2.54mm:PinHeader_1x12_P2.54mm_Vertical",
-)
-hdr_r[1]  += vbat        # BAT
-hdr_r[2]  += Net("EN")   # EN (enable)
-hdr_r[3]  += vbus        # USB (VBUS)
-hdr_r[4]  += hr[0]       # D13
-hdr_r[5]  += hr[1]       # D12
-hdr_r[6]  += hr[2]       # D11
-hdr_r[7]  += hr[3]       # D10
-hdr_r[8]  += hr[4]       # D9
-hdr_r[9]  += hr[5]       # D6
-hdr_r[10] += hr[6]       # D5
-hdr_r[11] += sda         # SDA
-hdr_r[12] += scl         # SCL
-
-
-# ==== SWD debug header (for programming) ====
-swd_hdr = Part(
-    "Connector_Generic", "Conn_01x04",
-    value="SWD",
-    footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
-)
-swd_hdr[1] += v3v3
-swd_hdr[2] += swdio
-swd_hdr[3] += swclk
-swd_hdr[4] += gnd
-
-
-# ---- Generate schematic ----
-generate_schematic(auto_stub=True, auto_stub_fanout=3)
+# ── Board outline (Feather standard: 50.8 x 22.86mm) ────────────────────────
+EDA_FLOORPLAN = {
+    "outline": {
+        "width_mm": 50.8,
+        "height_mm": 22.86,
+        "corner_radius_mm": 1.5,
+    },
+    "edge_anchors": [
+        {"ref": "J_USB", "edge": "left"},
+        {"ref": "J_BAT", "edge": "right"},
+    ],
+}

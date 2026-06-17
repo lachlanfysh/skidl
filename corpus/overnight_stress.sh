@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY env var}"
-SERVER="https://mcp-server-production-5d58.up.railway.app/mcp"
+SERVER="${MCP_SERVER:-https://mcp-server-production-5d58.up.railway.app/mcp}"
 TOKEN="${MCP_TOKEN:?Set MCP_TOKEN env var}"
 OUT_BASE="/tmp/eda-ux-overnight"
 LOG="$OUT_BASE/overnight.log"

@@ -1,454 +1,195 @@
 """
-FT232H Multi-Protocol USB Breakout Board
-=========================================
+FT232H USB-to-Multipurpose Breakout Board
 Swiss-army-knife USB breakout for SPI, I2C, serial UART, JTAG protocols.
 Built-in GPIO pins for LED control and button reading.
 Direct computer-to-device communication without intermediate microcontroller.
 
-Functional blocks:
-  - USB-C connector + ESD protection
-  - FT232H USB-to-multi-protocol bridge (LQFP-48)
-  - 93C46 EEPROM for FT232H configuration
-  - 12 MHz crystal oscillator
-  - Power regulation (3.3V LDO from USB 5V)
-  - Status LEDs (power, TX, RX)
-  - User button (active low, directly on GPIO)
-  - Breakout headers: ADBUS[0:7] + ACBUS[0:9] + power
+Submit via MCP server: submit_skidl_code(code, board_name='ft232h-breakout')
 """
-
-import os
-os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
-
-import sys
-sys.path.insert(0, "/home/lachlan/Projects/skidl/src")
-
 from skidl import *
-set_default_tool(KICAD9)
 
+vbus = Net("VBUS"); vbus.drive = POWER
+vcc3v3 = Net("3V3"); vcc3v3.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
 
-def make_skidl_part(name, footprint, pin_defs):
-    """Create a SKIDL-tool Part with proper draw_cmds for schematic generation.
+# USB Mini-B connector at bottom edge
+usb = Part("Connector", "USB_B_Mini",
+           footprint="Connector_USB:USB_Mini-B_Wuerth_65100516121_Horizontal")
+usb.edge_preference = "bottom"
+usb["VBUS"] += vbus
+usb["GND"] += gnd
+usb["ID"] += gnd
+c_shield = Part("Device", "C", value="100nF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_shield[1] += usb["Shield"]; c_shield[2] += gnd
 
-    pin_defs: list of (num, name, func) tuples.
-    Each pin is placed at 2.54mm spacing on the left side of a rectangle.
-    """
-    n_pins = len(pin_defs)
-    # Symbol size in mm: width=10mm, height = max(n_pins * 2.54, 5)mm
-    sym_w = 10.0
-    sym_h = max(n_pins * 2.54, 5.0)
-    pin_len = 2.54  # standard pin length in mm
+# 3.3V LDO (AP2112K-3.3): pin 4 is NC, tied to GND for footprint pad match
+ldo = Part("Regulator_Linear", "AP2112K-3.3",
+           footprint="Package_TO_SOT_SMD:SOT-23-5")
+ldo["VIN"] += vbus; ldo["GND"] += gnd; ldo["EN"] += vbus; ldo["VOUT"] += vcc3v3
+ldo["NC"] += gnd  # tie NC pad to GND so footprint pad gets a net
 
-    pins = []
-    draw_cmds = {1: [], 0: []}
+c_ldo_in_bulk = Part("Device", "C", value="10uF",
+    footprint="Capacitor_SMD:C_0805_2012Metric")
+c_ldo_in_bulk[1] += vbus; c_ldo_in_bulk[2] += gnd
 
-    # Add a rectangle for the body
-    draw_cmds[1].append([
-        "rectangle",
-        ["start", 0, 0],
-        ["end", sym_w, sym_h],
-    ])
+c_ldo_in_byp = Part("Device", "C", value="100nF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_ldo_in_byp[1] += vbus; c_ldo_in_byp[2] += gnd
 
-    # Place pins on the left side
-    for i, (num, pname, func) in enumerate(pin_defs):
-        py = sym_h / 2 - (i - (n_pins - 1) / 2) * 2.54
-        px = -pin_len
-        pins.append(Pin(
-            num=num, name=pname, func=func,
-            orientation="R", x=px, y=py,
-            length=pin_len * 1000 / 25.4,  # convert mm to mils for length
-            rotation=0,
-        ))
-        draw_cmds[1].append([
-            "pin", "passive", "line",
-            ["at", px, py, 0],
-            ["length", pin_len],
-            ["name", pname],
-            ["number", str(num)],
-        ])
+c_ldo_out_bulk = Part("Device", "C", value="10uF",
+    footprint="Capacitor_SMD:C_0805_2012Metric")
+c_ldo_out_bulk[1] += vcc3v3; c_ldo_out_bulk[2] += gnd
 
-    part = Part(name=name, tool=SKIDL, dest=NETLIST,
-                footprint=footprint, pins=pins)
-    part.draw_cmds = draw_cmds
-    return part
+c_ldo_out_byp = Part("Device", "C", value="100nF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_ldo_out_byp[1] += vcc3v3; c_ldo_out_byp[2] += gnd
 
+# FT232H USB Hi-Speed UART/FIFO/SPI/I2C/JTAG IC (LQFP-48)
+ft = Part("Interface_USB", "FT232H",
+          footprint="Package_QFP:LQFP-48_7x7mm_P0.5mm")
 
-# ─── Global Nets ─────────────────────────────────────────────────────
-vbus = Net("VBUS")
-vbus.drive = POWER
-vcc3v3 = Net("+3V3")
-vcc3v3.drive = POWER
-gnd = Net("GND")
-gnd.drive = POWER
+usb["D+"] += ft["DP"]
+usb["D-"] += ft["DM"]
+ft["VREGIN"] += vbus  # USB 5V to internal regulator
 
+# Internal 3.3V regulator output (VCCD) - connect VPHY and VPLL here too
+vccd_net = Net("VCCD")
+ft["VCCD"] += vccd_net; ft["VPHY"] += vccd_net; ft["VPLL"] += vccd_net
+c_vccd1 = Part("Device", "C", value="100nF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_vccd1[1] += vccd_net; c_vccd1[2] += gnd
+c_vccd2 = Part("Device", "C", value="100nF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_vccd2[1] += vccd_net; c_vccd2[2] += gnd
 
-# ═══════════════════════════════════════════════════════════════════════
-# SUBCIRCUIT: USB input + ESD protection
-# ═══════════════════════════════════════════════════════════════════════
-@subcircuit
-def usb_input(vbus, dm, dp, gnd):
-    """USB-C 16-pin connector with CC pull-downs and ESD TVS diodes."""
-    usb = make_skidl_part(
-        "USB_C_16P",
-        "Connector_USB:USB_C_Receptacle_XKB_U262-16XN-4BVC11",
-        [
-            ("A1",  "GND",      Pin.types.PWRIN),
-            ("A4",  "VBUS",     Pin.types.PWRIN),
-            ("A5",  "CC1",      Pin.types.BIDIR),
-            ("A6",  "DP",       Pin.types.BIDIR),
-            ("A7",  "DM",       Pin.types.BIDIR),
-            ("A8",  "SBU1",     Pin.types.PASSIVE),
-            ("A9",  "VBUS_A9",  Pin.types.PASSIVE),
-            ("A12", "GND_A12",  Pin.types.PASSIVE),
-            ("B1",  "GND_B1",   Pin.types.PASSIVE),
-            ("B4",  "VBUS_B4",  Pin.types.PASSIVE),
-            ("B5",  "CC2",      Pin.types.BIDIR),
-            ("B6",  "DP_B6",    Pin.types.PASSIVE),
-            ("B7",  "DM_B7",    Pin.types.PASSIVE),
-            ("B8",  "SBU2",     Pin.types.PASSIVE),
-            ("B9",  "VBUS_B9",  Pin.types.PASSIVE),
-            ("B12", "GND_B12",  Pin.types.PASSIVE),
-            ("S1",  "SHIELD",   Pin.types.PASSIVE),
-        ],
-    )
+# Internal core supply output
+vcccore_net = Net("VCCCORE")
+ft["VCCCORE"] += vcccore_net
+c_vcccore = Part("Device", "C", value="100nF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_vcccore[1] += vcccore_net; c_vcccore[2] += gnd
 
-    usb["VBUS"] += vbus
-    usb["VBUS_A9"] += vbus
-    usb["VBUS_B4"] += vbus
-    usb["VBUS_B9"] += vbus
+# Analog supply output
+vcca_net = Net("VCCA")
+ft["VCCA"] += vcca_net
+c_vcca = Part("Device", "C", value="100nF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_vcca[1] += vcca_net; c_vcca[2] += gnd
 
-    usb["GND"] += gnd
-    usb["GND_A12"] += gnd
-    usb["GND_B1"] += gnd
-    usb["GND_B12"] += gnd
-    usb["SHIELD"] += gnd
+# I/O supply from external 3.3V LDO
+ft["VCCIO"] += vcc3v3
+c_vccio = Part("Device", "C", value="100nF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_vccio[1] += vcc3v3; c_vccio[2] += gnd
 
-    usb["DM"] += dm
-    usb["DM_B7"] += dm
-    usb["DP"] += dp
-    usb["DP_B6"] += dp
+ft["GND"] += gnd; ft["AGND"] += gnd
 
-    usb["SBU1"] += NC()
-    usb["SBU2"] += NC()
+# USB current reference: 12K to GND (per FT232H datasheet)
+r_ref = Part("Device", "R", value="12K",
+    footprint="Resistor_SMD:R_0402_1005Metric")
+r_ref[1] += ft["REF"]; r_ref[2] += gnd
 
-    # CC pull-down resistors (5.1k for UFP/device mode)
-    r_cc1 = Part("Device", "R", value="5.1K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_cc2 = Part("Device", "R", value="5.1K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_cc1[1] += usb["CC1"]
-    r_cc1[2] += gnd
-    r_cc2[1] += usb["CC2"]
-    r_cc2[2] += gnd
+# RESET: 10K pull-up to 3.3V
+r_rst = Part("Device", "R", value="10K",
+    footprint="Resistor_SMD:R_0402_1005Metric")
+r_rst[1] += ft["~{RESET}"]; r_rst[2] += vcc3v3
 
-    # ESD protection TVS diodes on D+/D-
-    tvs_dm = Part("Device", "D_TVS", value="ESD5V0",
-                  footprint="Diode_SMD:D_SOD-323_HandSoldering")
-    tvs_dp = Part("Device", "D_TVS", value="ESD5V0",
-                  footprint="Diode_SMD:D_SOD-323_HandSoldering")
-    tvs_dm[1] += dm
-    tvs_dm[2] += gnd
-    tvs_dp[1] += dp
-    tvs_dp[2] += gnd
+ft["TEST"] += gnd  # required for normal operation per datasheet
 
-    # VBUS input capacitor
-    c_vbus = Part("Device", "C", value="10uF",
-                  footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_vbus[1] += vbus
-    c_vbus[2] += gnd
+# 12MHz crystal (FT232H requires 12MHz for Hi-Speed USB)
+# Crystal_GND24: pins 1,2 = signal; pins 3,4 = GND pads
+xtal = Part("Device", "Crystal_GND24",
+            footprint="Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm")
+xtal[1] += ft["XCSI"]
+xtal[2] += ft["XCSO"]
+xtal[3] += gnd
+xtal[4] += gnd
 
+c_xtal1 = Part("Device", "C", value="12pF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_xtal1[1] += ft["XCSI"]; c_xtal1[2] += gnd
 
-# ═══════════════════════════════════════════════════════════════════════
-# SUBCIRCUIT: 3.3V LDO voltage regulator
-# ═══════════════════════════════════════════════════════════════════════
-@subcircuit
-def power_regulation(vin, vout, gnd):
-    """AMS1117-3.3 LDO: 5V USB to 3.3V for FT232H VCCIO and peripherals."""
-    ldo = make_skidl_part(
-        "AMS1117-3.3",
-        "Package_TO_SOT_SMD:SOT-223-3",
-        [
-            ("1", "GND", Pin.types.PWRIN),
-            ("2", "VO",  Pin.types.PWROUT),
-            ("3", "VI",  Pin.types.PWRIN),
-        ],
-    )
-    ldo["VI"] += vin
-    ldo["VO"] += vout
-    ldo["GND"] += gnd
+c_xtal2 = Part("Device", "C", value="12pF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_xtal2[1] += ft["XCSO"]; c_xtal2[2] += gnd
 
-    # Input cap
-    c_in = Part("Device", "C", value="10uF",
-                footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_in[1] += vin
-    c_in[2] += gnd
-
-    # Output cap
-    c_out = Part("Device", "C", value="22uF",
-                 footprint="Capacitor_SMD:C_0805_2012Metric")
-    c_out[1] += vout
-    c_out[2] += gnd
-
-    # 100nF decoupling on output
-    c_dec = Part("Device", "C", value="100nF",
-                 footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_dec[1] += vout
-    c_dec[2] += gnd
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# SUBCIRCUIT: FT232H core + crystal + decoupling
-# ═══════════════════════════════════════════════════════════════════════
-@subcircuit
-def ft232h_core(vbus, vcc3v3, gnd, dm, dp,
-                adbus, acbus,
-                eecs, eeclk, eedata):
-    """
-    FT232H with 12MHz crystal, proper decoupling, and all IO broken out.
-    adbus: list of 8 nets (ADBUS0-7)
-    acbus: list of 10 nets (ACBUS0-9)
-    """
-    ft = Part("Interface_USB", "FT232H",
-              footprint="Package_QFP:LQFP-48_7x7mm_P0.5mm")
-
-    # ── Power ──
-    ft["VREGIN"] += vbus
-    ft["VCCD"] += vcc3v3
-
-    vcccore = Net("VCCCORE")
-    vcca = Net("VCCA")
-    ft["VCCCORE"] += vcccore
-    ft["VCCA"] += vcca
-
-    ft["VCCIO"] += vcc3v3
-
-    vphy = Net("VPHY")
-    vpll = Net("VPLL")
-    ft["VPHY"] += vphy
-    ft["VPLL"] += vpll
-
-    # ── Ground ──
-    ft["GND"] += gnd
-    ft["AGND"] += gnd
-
-    # ── Decoupling caps ──
-    c_vregin = Part("Device", "C", value="100nF",
-                    footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_vregin[1] += vbus
-    c_vregin[2] += gnd
-
-    c_vcccore = Part("Device", "C", value="100nF",
-                     footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_vcccore[1] += vcccore
-    c_vcccore[2] += gnd
-
-    c_vcca = Part("Device", "C", value="100nF",
-                  footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_vcca[1] += vcca
-    c_vcca[2] += gnd
-
-    c_vphy = Part("Device", "C", value="100nF",
-                  footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_vphy[1] += vphy
-    c_vphy[2] += gnd
-
-    c_vpll = Part("Device", "C", value="100nF",
-                  footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_vpll[1] += vpll
-    c_vpll[2] += gnd
-
-    c_vccio = Part("Device", "C", value="100nF",
-                   footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_vccio[1] += vcc3v3
-    c_vccio[2] += gnd
-
-    c_vccd = Part("Device", "C", value="100nF",
-                  footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_vccd[1] += vcc3v3
-    c_vccd[2] += gnd
-
-    # ── USB Data ──
-    ft["DM"] += dm
-    ft["DP"] += dp
-
-    # ── Reset ──
-    reset_net = Net("RESET_N")
-    ft["~{RESET}"] += reset_net
-    r_reset = Part("Device", "R", value="10K",
-                   footprint="Resistor_SMD:R_0402_1005Metric")
-    r_reset[1] += vcc3v3
-    r_reset[2] += reset_net
-
-    sw_rst = make_skidl_part(
-        "SW_RST",
-        "Button_Switch_SMD:SW_Push_1P1T_NO_CK_KSC6xxJ",
-        [
-            ("1", "1", Pin.types.PASSIVE),
-            ("2", "2", Pin.types.PASSIVE),
-        ],
-    )
-    sw_rst["1"] += reset_net
-    sw_rst["2"] += gnd
-
-    # ── REF pin: 12K to GND ──
-    r_ref = Part("Device", "R", value="12K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    ft["REF"] += r_ref[1]
-    r_ref[2] += gnd
-
-    # ── Crystal: 12MHz ──
-    xtal = Part("Device", "Crystal", value="12MHz",
-                footprint="Crystal:Crystal_SMD_2012-2Pin_2.0x1.2mm")
-    xtal[1] += ft["XCSI"]
-    xtal[2] += ft["XCSO"]
-
-    c_xtal1 = Part("Device", "C", value="18pF",
-                   footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_xtal2 = Part("Device", "C", value="18pF",
-                   footprint="Capacitor_SMD:C_0402_1005Metric")
-    c_xtal1[1] += ft["XCSI"]
-    c_xtal1[2] += gnd
-    c_xtal2[1] += ft["XCSO"]
-    c_xtal2[2] += gnd
-
-    # ── TEST pin: tie to GND ──
-    ft["TEST"] += gnd
-
-    # ── EEPROM interface ──
-    ft["EECS"] += eecs
-    ft["EECLK"] += eeclk
-    ft["EEDATA"] += eedata
-
-    # ── ADBUS[0:7] ──
-    for i in range(8):
-        ft[f"ADBUS{i}"] += adbus[i]
-
-    # ── ACBUS[0:9] ──
-    for i in range(10):
-        ft[f"ACBUS{i}"] += acbus[i]
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# SUBCIRCUIT: EEPROM (93C46)
-# ═══════════════════════════════════════════════════════════════════════
-@subcircuit
-def eeprom_93c46(vcc, gnd, cs, clk, data):
-    """93C46 1Kbit EEPROM for FT232H USB descriptor storage."""
-    ee = Part("Memory_EEPROM", "93CxxC",
+# 93LC46BT EEPROM for FT232H device configuration storage (SOIC-8)
+# Symbol from LCSC C16253 via EasyEDA conversion
+# Bug note: pins 6,7 are NC in schematic but exist as pads in SOIC-8 footprint;
+# must tie to GND to avoid FOOTPRINT_PAD_UNMATCHED errors in MCP pipeline
+eeprom = Part("C16253", "93LC46BT-I_SN_C16253",
               footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
-    ee["VCC"] += vcc
-    ee["GND"] += gnd
-    ee["CS"] += cs
-    ee["SCLK"] += clk
-    ee["DI"] += data
-    ee["DO"] += data
-    ee["ORG"] += gnd
-    ee["NC"] += NC()
+eeprom["VCC"] += vcc3v3
+eeprom["VSS"] += gnd
+eeprom["CS"] += ft["EECS"]
+eeprom["CLK"] += ft["EECLK"]
+eeprom["DI"] += ft["EEDATA"]
+eeprom["DO"] += ft["EEDATA"]
+eeprom[6] += gnd  # NC pin - tied to GND for pad matching
+eeprom[7] += gnd  # NC pin - tied to GND for pad matching
 
-    c_ee = Part("Device", "C", value="100nF",
-                footprint="Capacitor_SMD:C_0603_1608Metric")
-    c_ee[1] += vcc
-    c_ee[2] += gnd
+c_ee = Part("Device", "C", value="100nF",
+    footprint="Capacitor_SMD:C_0402_1005Metric")
+c_ee[1] += vcc3v3; c_ee[2] += gnd
 
+# Power LED (green, VBUS present indicator)
+led_pwr = Part("Device", "LED",
+               footprint="LED_SMD:LED_0402_1005Metric")
+r_led_pwr = Part("Device", "R", value="1K",
+    footprint="Resistor_SMD:R_0402_1005Metric")
+r_led_pwr[1] += vbus; r_led_pwr[2] += led_pwr["A"]
+led_pwr["K"] += gnd
 
-# ═══════════════════════════════════════════════════════════════════════
-# SUBCIRCUIT: Status LEDs + user button
-# ═══════════════════════════════════════════════════════════════════════
-@subcircuit
-def status_io(vcc, gnd, tx_gpio, rx_gpio, btn_gpio):
-    """Power LED, TX/RX activity LEDs, user pushbutton."""
-    # Power LED (green)
-    led_pwr = Part("Device", "LED", value="GREEN",
-                   footprint="LED_SMD:LED_0603_1608Metric")
-    r_pwr = Part("Device", "R", value="1K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_pwr[1] += vcc
-    r_pwr[2] += led_pwr[1]
-    led_pwr[2] += gnd
+# Activity LED on ACBUS6 (configurable as TXLED#/RXLED# via EEPROM)
+led_act = Part("Device", "LED",
+               footprint="LED_SMD:LED_0402_1005Metric")
+r_led_act = Part("Device", "R", value="1K",
+    footprint="Resistor_SMD:R_0402_1005Metric")
+act_net = Net("ACT_LED")
+act_net += ft["ACBUS6"]
+r_led_act[1] += vcc3v3; r_led_act[2] += led_act["A"]
+led_act["K"] += act_net
 
-    # TX LED (yellow)
-    led_tx = Part("Device", "LED", value="YELLOW",
-                  footprint="LED_SMD:LED_0603_1608Metric")
-    r_tx = Part("Device", "R", value="1K",
-                footprint="Resistor_SMD:R_0402_1005Metric")
-    r_tx[1] += vcc
-    r_tx[2] += led_tx[1]
-    led_tx[2] += tx_gpio
+# ADBUS0-7 breakout header at right edge (SPI/JTAG/MPSSE data bus)
+hdr_adbus = Part("Connector_Generic", "Conn_01x08",
+                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical")
+hdr_adbus.edge_preference = "right"
+adbus_nets = [Net(f"ADBUS{i}") for i in range(8)]
+for i in range(8):
+    adbus_nets[i] += ft[f"ADBUS{i}"]
+    hdr_adbus[i+1] += adbus_nets[i]
 
-    # RX LED (yellow)
-    led_rx = Part("Device", "LED", value="YELLOW",
-                  footprint="LED_SMD:LED_0603_1608Metric")
-    r_rx = Part("Device", "R", value="1K",
-                footprint="Resistor_SMD:R_0402_1005Metric")
-    r_rx[1] += vcc
-    r_rx[2] += led_rx[1]
-    led_rx[2] += rx_gpio
+# ACBUS0-7 breakout header at left edge (GPIO, JTAG signals)
+hdr_acbus = Part("Connector_Generic", "Conn_01x08",
+                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical")
+hdr_acbus.edge_preference = "left"
+acbus_nets_low = [Net(f"ACBUS{i}") for i in range(8)]
+for i in range(8):
+    acbus_nets_low[i] += ft[f"ACBUS{i}"]
+    hdr_acbus[i+1] += acbus_nets_low[i]
 
-    # User button (active low with pull-up)
-    r_btn = Part("Device", "R", value="10K",
-                 footprint="Resistor_SMD:R_0402_1005Metric")
-    r_btn[1] += vcc
-    r_btn[2] += btn_gpio
+# ACBUS8, ACBUS9 + power reference at top edge
+hdr_misc = Part("Connector_Generic", "Conn_01x04",
+               footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+hdr_misc.edge_preference = "top"
+acbus8_net = Net("ACBUS8"); acbus8_net += ft["ACBUS8"]
+acbus9_net = Net("ACBUS9"); acbus9_net += ft["ACBUS9"]
+hdr_misc[1] += acbus8_net
+hdr_misc[2] += acbus9_net
+hdr_misc[3] += vcc3v3
+hdr_misc[4] += gnd
 
-    sw_btn = make_skidl_part(
-        "SW_USER",
-        "Button_Switch_SMD:SW_Push_1P1T_NO_CK_KSC6xxJ",
-        [
-            ("1", "1", Pin.types.PASSIVE),
-            ("2", "2", Pin.types.PASSIVE),
-        ],
-    )
-    sw_btn["1"] += btn_gpio
-    sw_btn["2"] += gnd
+# Reset/power breakout header at top edge
+hdr_pwr = Part("Connector_Generic", "Conn_01x04",
+               footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+hdr_pwr.edge_preference = "top"
+hdr_pwr[1] += vcc3v3
+hdr_pwr[2] += vbus
+hdr_pwr[3] += gnd
+hdr_pwr[4] += ft["~{RESET}"]
 
-
-# ═══════════════════════════════════════════════════════════════════════
-# SUBCIRCUIT: Breakout headers
-# ═══════════════════════════════════════════════════════════════════════
-@subcircuit
-def breakout_headers(vcc3v3, vbus, gnd, adbus, acbus):
-    """Pin headers exposing all IO."""
-    hdr_a = Part("Connector_Generic", "Conn_01x10",
-                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x10_P2.54mm_Vertical")
-    hdr_a[1] += vcc3v3
-    hdr_a[2] += gnd
-    for i in range(8):
-        hdr_a[3 + i] += adbus[i]
-
-    hdr_b = Part("Connector_Generic", "Conn_01x10",
-                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x10_P2.54mm_Vertical")
-    hdr_b[1] += vbus
-    hdr_b[2] += gnd
-    for i in range(8):
-        hdr_b[3 + i] += acbus[i]
-
-    hdr_c = Part("Connector_Generic", "Conn_01x04",
-                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
-    hdr_c[1] += vcc3v3
-    hdr_c[2] += gnd
-    hdr_c[3] += acbus[8]
-    hdr_c[4] += acbus[9]
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# TOP-LEVEL CIRCUIT ASSEMBLY
-# ═══════════════════════════════════════════════════════════════════════
-
-dm = Net("USB_DM")
-dp = Net("USB_DP")
-
-eecs = Net("EECS")
-eeclk = Net("EECLK")
-eedata = Net("EEDATA")
-
-adbus = [Net(f"ADBUS{i}") for i in range(8)]
-acbus = [Net(f"ACBUS{i}") for i in range(10)]
-
-usb_input(vbus, dm, dp, gnd)
-power_regulation(vbus, vcc3v3, gnd)
-ft232h_core(vbus, vcc3v3, gnd, dm, dp, adbus, acbus, eecs, eeclk, eedata)
-eeprom_93c46(vcc3v3, gnd, eecs, eeclk, eedata)
-status_io(vcc3v3, gnd, tx_gpio=acbus[6], rx_gpio=acbus[5], btn_gpio=acbus[4])
-breakout_headers(vcc3v3, vbus, gnd, adbus, acbus)
-
-# ── Generate Schematic ──
-generate_schematic(auto_stub=True)
+# Board outline: development breakout size
+EDA_FLOORPLAN = {
+    "outline": {"width_mm": 62, "height_mm": 51},
+}
