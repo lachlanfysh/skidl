@@ -1169,6 +1169,7 @@ def test_generic_module_pin_socket_is_not_edge_anchored():
     assert "module_socket" in _kinds(plan, "U_MODULE")
     assert "internal_connector" in _kinds(plan, "U_MODULE")
     assert "edge_connector" not in _kinds(plan, "U_MODULE")
+    assert "rf_module" not in _kinds(plan, "U_MODULE")
     assert not any(anchor.ref == "U_MODULE" for anchor in plan.edge_anchors)
     assert not any(face.ref == "U_MODULE" for face in plan.face_edges)
     assert any(anchor.ref == "J_LEFT" for anchor in plan.edge_anchors)

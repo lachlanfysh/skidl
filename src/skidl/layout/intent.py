@@ -35,7 +35,11 @@ from .roles import (
 CHANNEL_RE = re.compile(r"(?:^|[_/.-])(?:CH|CHAN|CHANNEL)(\d+)(?:[_/.-]|$)", re.I)
 REF_SUFFIX_RE = re.compile(r"([A-Za-z]+)(\d+)$")
 MUX_RE = re.compile(r"(mux|multiplex|tca954|pca954|switch)", re.I)
-RF_RE = re.compile(r"(antenna|rf|wifi|wi-fi|ble|bluetooth|esp32|nrf52|wroom)", re.I)
+RF_RE = re.compile(
+    r"(antenna|(?:^|[\s_/:.,-])rf(?:$|[\s_/:.,-])|wi[-\s]?fi|"
+    r"(?:^|[\s_/:.,-])ble(?:$|[\s_/:.,-])|bluetooth|esp32|nrf52|wroom)",
+    re.I,
+)
 UI_RE = re.compile(r"(button|switch|encoder|pot|display|oled|lcd|led)", re.I)
 DEBUG_RE = re.compile(r"(swd|jtag|icsp|debug|program|uart|serial)", re.I)
 POWER_INPUT_RE = re.compile(r"(usb|barrel|battery|batt|jst|terminal|power)", re.I)
