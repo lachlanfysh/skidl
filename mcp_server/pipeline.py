@@ -464,6 +464,7 @@ def run_pipeline(
     netlist_match_score: float | None = None,
     pipeline_goal: str | None = None,
     placement_preview_mode: str | None = None,
+    progress_path: str | Path | None = None,
 ) -> DesignResponse:
     """Run translate -> schematic -> layout -> PCB in an isolated worker."""
 
@@ -480,6 +481,7 @@ def run_pipeline(
         "route_timeout_s": route_timeout_s,
         "pipeline_goal": pipeline_goal or "manufacturing",
         "placement_preview_mode": placement_preview_mode,
+        "progress_path": str(progress_path) if progress_path else None,
     }
     proc = subprocess.Popen(
         [sys.executable, "-m", "mcp_server.engine_worker"],
@@ -613,6 +615,7 @@ def run_pipeline_code(
     pipeline_goal: str | None = None,
     placement_preview_mode: str | None = None,
     custom_footprints: dict | list | None = None,
+    progress_path: str | Path | None = None,
 ) -> DesignResponse:
     """Run SKiDL Python code through the engine pipeline in an isolated worker."""
 
@@ -635,6 +638,7 @@ def run_pipeline_code(
         "custom_footprints": custom_footprints,
         "marketing_text": design_intent or "",
         "route_timeout_s": route_timeout_s,
+        "progress_path": str(progress_path) if progress_path else None,
     }
     proc = subprocess.Popen(
         [sys.executable, "-m", "mcp_server.engine_worker"],

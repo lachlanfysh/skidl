@@ -8,16 +8,21 @@ CREATE TABLE IF NOT EXISTS jobs (
     options JSONB DEFAULT '{}',
     policy JSONB DEFAULT '{}',
     result JSONB,
+    progress JSONB DEFAULT '{}',
     parent_job_id TEXT,
     error TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     started_at TIMESTAMPTZ,
+    last_seen_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ,
     worker_id TEXT
 );
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS progress JSONB DEFAULT '{}';
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_parent ON jobs(parent_job_id) WHERE parent_job_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_jobs_last_seen ON jobs(last_seen_at) WHERE status = 'running';
 
 -- Runs (replaces filesystem RunStore)
 CREATE TABLE IF NOT EXISTS runs (

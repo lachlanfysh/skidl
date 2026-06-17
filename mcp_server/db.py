@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -63,9 +64,19 @@ class DB:
         return job_id
 
     async def claim_job(self, worker_id: str) -> dict | None:
+        progress = _progress_payload(
+            stage="claimed",
+            message="worker claimed job",
+            worker_id=worker_id,
+        )
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(
-                """UPDATE jobs SET status = 'running', started_at = NOW(), worker_id = $1
+                """UPDATE jobs
+                   SET status = 'running',
+                       started_at = NOW(),
+                       last_seen_at = NOW(),
+                       worker_id = $1,
+                       progress = $2::jsonb
                    WHERE id = (
                        SELECT id FROM jobs
                        WHERE status = 'queued'
@@ -75,6 +86,7 @@ class DB:
                    )
                    RETURNING id, spec, options, policy, parent_job_id""",
                 worker_id,
+                json.dumps(progress),
             )
         if row is None:
             return None
@@ -93,15 +105,60 @@ class DB:
         result: dict | None = None,
         error: str | None = None,
     ) -> None:
+        progress = _terminal_progress_payload(status, result, error)
         async with self.pool.acquire() as conn:
             await conn.execute(
                 """UPDATE jobs
-                   SET status = $2, result = $3, error = $4, finished_at = NOW()
+                   SET status = $2,
+                       result = $3,
+                       error = $4,
+                       progress = COALESCE(progress, '{}'::jsonb) || $5::jsonb,
+                       last_seen_at = NOW(),
+                       finished_at = NOW()
                    WHERE id = $1""",
                 job_id,
                 status,
                 json.dumps(result) if result else None,
                 error,
+                json.dumps(progress),
+            )
+
+    async def update_job_progress(
+        self,
+        job_id: str,
+        *,
+        worker_id: str | None = None,
+        stage: str = "",
+        message: str = "",
+        run_id: str | None = None,
+        progress: dict | None = None,
+    ) -> None:
+        """Heartbeat the current worker/engine stage for a running job."""
+
+        payload = dict(progress or {})
+        if stage:
+            payload["stage"] = stage
+        if message:
+            payload["message"] = message
+        if run_id:
+            payload["run_id"] = run_id
+        if worker_id:
+            payload["worker_id"] = worker_id
+        payload.setdefault("stage", "running")
+        payload.setdefault("message", "worker is still processing")
+        payload["updated_at"] = _now_iso()
+
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                """UPDATE jobs
+                   SET progress = COALESCE(progress, '{}'::jsonb) || $3::jsonb,
+                       last_seen_at = NOW()
+                   WHERE id = $1
+                     AND status = 'running'
+                     AND ($2::text IS NULL OR worker_id = $2)""",
+                job_id,
+                worker_id,
+                json.dumps(payload),
             )
 
     async def get_job(self, job_id: str) -> dict:
@@ -133,8 +190,8 @@ class DB:
                     COUNT(*) FILTER (WHERE status = 'running') AS running,
                     COUNT(*) FILTER (
                         WHERE status = 'running'
-                        AND started_at IS NOT NULL
-                        AND started_at < NOW() - make_interval(
+                        AND COALESCE(last_seen_at, started_at) IS NOT NULL
+                        AND COALESCE(last_seen_at, started_at) < NOW() - make_interval(
                             secs => CASE
                                 WHEN $2::double precision > 0 THEN GREATEST(
                                     COALESCE((options->>'timeout_s')::double precision, 300.0)
@@ -177,6 +234,15 @@ class DB:
                 """
                 UPDATE jobs
                 SET status = 'crashed',
+                    progress = jsonb_build_object(
+                        'stage', 'worker_lost',
+                        'message', 'worker lost while job was running',
+                        'status', 'crashed',
+                        'terminal', true,
+                        'worker_id', worker_id,
+                        'updated_at', NOW()
+                    ),
+                    last_seen_at = NOW(),
                     result = COALESCE(
                         result,
                         jsonb_build_object(
@@ -222,6 +288,7 @@ class DB:
                                         'job_id', id,
                                         'worker_id', worker_id,
                                         'started_at', started_at,
+                                        'last_seen_at', last_seen_at,
                                         'timeout_s',
                                             COALESCE(
                                                 (options->>'timeout_s')::double precision,
@@ -253,7 +320,8 @@ class DB:
                     finished_at = NOW()
                 WHERE status = 'running'
                   AND started_at IS NOT NULL
-                  AND started_at < NOW() - make_interval(
+                  AND COALESCE(last_seen_at, started_at) IS NOT NULL
+                  AND COALESCE(last_seen_at, started_at) < NOW() - make_interval(
                       secs => CASE
                           WHEN $2::double precision > 0 THEN GREATEST(
                               COALESCE((options->>'timeout_s')::double precision, 300.0)
@@ -306,6 +374,15 @@ class DB:
                 """
                 UPDATE jobs
                 SET status = 'crashed',
+                    progress = jsonb_build_object(
+                        'stage', 'worker_lost',
+                        'message', 'worker lost while job was running',
+                        'status', 'crashed',
+                        'terminal', true,
+                        'worker_id', worker_id,
+                        'updated_at', NOW()
+                    ),
+                    last_seen_at = NOW(),
                     result = COALESCE(
                         result,
                         jsonb_build_object(
@@ -351,6 +428,7 @@ class DB:
                                         'job_id', id,
                                         'worker_id', worker_id,
                                         'started_at', started_at,
+                                        'last_seen_at', last_seen_at,
                                         'timeout_s',
                                             COALESCE(
                                                 (options->>'timeout_s')::double precision,
@@ -687,13 +765,54 @@ def _job_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:
     d: dict[str, Any] = {}
     for key in ("id", "status", "parent_job_id", "error", "worker_id"):
         d[key] = row[key]
-    for key in ("spec", "options", "policy", "result"):
+    for key in ("spec", "options", "policy", "result", "progress"):
         val = row[key]
         d[key] = json.loads(val) if val else None
-    for key in ("created_at", "started_at", "finished_at"):
+    for key in ("created_at", "started_at", "last_seen_at", "finished_at"):
         ts = row[key]
         d[key] = ts.isoformat() if ts else None
     return d
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _progress_payload(
+    *,
+    stage: str,
+    message: str,
+    worker_id: str | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "stage": stage,
+        "message": message,
+        "updated_at": _now_iso(),
+    }
+    if worker_id:
+        payload["worker_id"] = worker_id
+    if run_id:
+        payload["run_id"] = run_id
+    return payload
+
+
+def _terminal_progress_payload(
+    status: str,
+    result: dict | None,
+    error: str | None,
+) -> dict[str, Any]:
+    result = result if isinstance(result, dict) else {}
+    stage = str(result.get("stage") or status)
+    message = str(result.get("summary") or error or f"job finished with status {status}")
+    payload = _progress_payload(
+        stage=stage,
+        message=message[:500],
+        run_id=result.get("run_id"),
+    )
+    payload["status"] = status
+    payload["terminal"] = True
+    return payload
 
 
 def _beta_signup_row_to_dict(row: asyncpg.Record) -> dict[str, Any]:

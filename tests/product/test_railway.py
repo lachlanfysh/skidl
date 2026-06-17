@@ -28,6 +28,7 @@ from mcp_server.worker import (
     _execute_job_with_deadline,
     _find_artifacts,
     _prepare_job_for_execution,
+    _read_progress_file,
     _worker_timeout_result,
     _worker_exception_result,
     worker_loop,
@@ -140,7 +141,58 @@ class TestDB:
         job = await db.get_job(job_id)
         assert job["status"] == "running"
         assert job["started_at"] is not None
+        assert job["last_seen_at"] is not None
         assert job["worker_id"] == "test-worker"
+        assert job["progress"]["stage"] == "claimed"
+        assert job["progress"]["worker_id"] == "test-worker"
+
+    @pytest.mark.asyncio
+    async def test_update_job_progress_heartbeats_running_job(self, db):
+        job_id = await db.create_job(SIMPLE_SPEC)
+        await db.claim_job("test-worker")
+
+        await db.update_job_progress(
+            job_id,
+            worker_id="test-worker",
+            stage="placement",
+            message="placing components",
+            run_id="run-heartbeat",
+            progress={"percent": 40},
+        )
+
+        job = await db.get_job(job_id)
+        assert job["status"] == "running"
+        assert job["progress"]["stage"] == "placement"
+        assert job["progress"]["message"] == "placing components"
+        assert job["progress"]["run_id"] == "run-heartbeat"
+        assert job["progress"]["percent"] == 40
+
+    @pytest.mark.asyncio
+    async def test_stale_reaping_uses_last_seen_heartbeat(self, db):
+        job_id = await db.create_job(SIMPLE_SPEC, {"timeout_s": 1})
+        await db.claim_job("active-worker")
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                """UPDATE jobs
+                   SET started_at = NOW() - INTERVAL '10 minutes',
+                       last_seen_at = NOW()
+                   WHERE id = $1""",
+                job_id,
+            )
+
+        counts = await db.job_status_counts(
+            stale_grace_seconds=0,
+            min_stale_seconds=30,
+        )
+        assert counts["stale_running"] == 0
+
+        failed = await db.fail_stale_running_jobs(
+            stale_grace_seconds=0,
+            min_stale_seconds=30,
+        )
+
+        assert failed == 0
+        assert (await db.get_job(job_id))["status"] == "running"
 
     @pytest.mark.asyncio
     async def test_claim_skip_locked(self, db):
@@ -545,7 +597,26 @@ class TestWorkerRuntimeSemantics:
         prepared = _prepare_job_for_execution(job)
 
         assert prepared["options"]["run_id"]
+        assert prepared["options"]["progress_path"]
+        assert prepared["options"]["run_id"] in prepared["options"]["progress_path"]
         assert "run_id" not in job["options"]
+        assert "progress_path" not in job["options"]
+
+    def test_read_progress_file_returns_current_stage(self, tmp_path):
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps({
+                "run_id": "run-progress",
+                "stage": "placement",
+                "message": "placing parts",
+            })
+        )
+
+        progress = _read_progress_file(str(progress_path))
+
+        assert progress["run_id"] == "run-progress"
+        assert progress["stage"] == "placement"
+        assert progress["message"] == "placing parts"
 
     def test_worker_timeout_result_is_distinct_backend_feedback(self, monkeypatch):
         monkeypatch.setattr(worker_mod, "WORKER_RUNTIME_GRACE_S", 2.0)
@@ -1787,6 +1858,27 @@ class TestAgentUX:
     These run without Postgres or KiCad — they only inspect the MCP
     server's metadata and the guide content.
     """
+
+    def test_running_get_job_hint_includes_progress_stage_and_heartbeat(self):
+        from mcp_server.server_http import _annotate_progress_for_agent, _get_job_hint
+
+        job = {
+            "status": "running",
+            "last_seen_at": "2026-06-17T00:00:00+00:00",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "progress": {
+                "stage": "placement",
+                "message": "placing PCB components",
+            },
+            "result": None,
+        }
+
+        _annotate_progress_for_agent(job)
+        hint = _get_job_hint(job)
+
+        assert "Still processing (placement)" in hint
+        assert "placing PCB components" in hint
+        assert "Last heartbeat" in hint
 
     def _extract_json_blocks(self, markdown: str) -> list[dict]:
         """Pull every ```json fenced block out of a guide."""

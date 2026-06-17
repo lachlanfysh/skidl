@@ -13,8 +13,10 @@ import os
 import re
 import shutil
 import sys
+import time
 import traceback
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from resource import RUSAGE_SELF, getrusage
 
@@ -75,6 +77,31 @@ MOUNTING_HOLE_DIAMETER_RE = re.compile(
     r"MountingHole[_:-]([0-9]+(?:\.[0-9]+)?)mm",
     re.I,
 )
+
+
+def _progress(envelope: dict, stage: str, message: str = "", **details) -> None:
+    """Write current engine stage for the outer hosted worker heartbeat."""
+
+    path = envelope.get("progress_path")
+    if not path:
+        return
+    payload = {
+        "run_id": str(envelope.get("run_id") or ""),
+        "stage": stage,
+        "message": message or stage.replace("_", " "),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "monotonic_s": time.monotonic(),
+    }
+    payload.update({k: v for k, v in details.items() if v is not None})
+    try:
+        progress_path = Path(path)
+        progress_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = progress_path.with_suffix(progress_path.suffix + ".tmp")
+        tmp_path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+        os.replace(tmp_path, progress_path)
+    except Exception:
+        # Progress reporting must never interfere with the generation result.
+        pass
 
 
 def _default_corner_radius_mm(width_mm: float, height_mm: float) -> float:
@@ -3883,6 +3910,12 @@ def _run_skidl_code(envelope: dict) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(out_dir)
 
+    _progress(
+        envelope,
+        "exec",
+        "executing submitted SKiDL code",
+        pipeline_goal=_normalize_pipeline_goal(envelope.get("pipeline_goal")),
+    )
     _configure_kicad_env()
     fp_dirs = [os.environ["KICAD9_FOOTPRINT_DIR"]]
     pipeline_goal = _normalize_pipeline_goal(envelope.get("pipeline_goal"))
@@ -3924,6 +3957,7 @@ def _run_skidl_code(envelope: dict) -> dict:
         )
 
     try:
+        _progress(envelope, "footprint_bundle", "loading inline/custom footprints")
         inline_fp_root, inline_fp_meta = _write_inline_footprints(
             namespace.get("EDA_FOOTPRINTS"),
             out_dir,
@@ -3942,6 +3976,7 @@ def _run_skidl_code(envelope: dict) -> dict:
 
     # Server-side enrichment: add missing passives and functional blocks
     try:
+        _progress(envelope, "design_review", "enriching and reviewing circuit intent")
         orig_spec = _circuit_to_spec_dict(circuit)
         marketing = envelope.get("marketing_text", "")
         working, block_actions = enrich_blocks(orig_spec, marketing)
@@ -3971,6 +4006,7 @@ def _run_skidl_code(envelope: dict) -> dict:
             summary=f"design review: {len(review_errors)} error(s)",
         )
 
+    _progress(envelope, "footprint_preflight", "checking footprints before layout")
     footprint_exception = _preflight_footprints(circuit, fp_dirs)
     if footprint_exception is not None:
         return _json_result(
@@ -3986,6 +4022,7 @@ def _run_skidl_code(envelope: dict) -> dict:
     pcb_path = out_dir / f"{board_name}.kicad_pcb"
 
     try:
+        _progress(envelope, "schematic_generation", "generating KiCad schematic")
         circuit.generate_schematic(
             filepath=str(out_dir),
             top_name=board_name,
@@ -4033,6 +4070,7 @@ def _run_skidl_code(envelope: dict) -> dict:
         namespace.get("EDA_FLOORPLAN")
     )
     _apply_floorplan_part_attributes(circuit, floorplan_meta)
+    _progress(envelope, "floorplan_preflight", "checking explicit floorplan intent")
     floorplan_preflight = _floorplan_intent_preflight_exception(
         circuit,
         floorplan_meta=floorplan_meta,
@@ -4062,6 +4100,7 @@ def _run_skidl_code(envelope: dict) -> dict:
             *radius_context,
         )
     )
+    _progress(envelope, "placement", "placing PCB components")
     layout_result = plan_layout(
         circuit,
         fp_lib_dirs=fp_dirs,
@@ -4082,6 +4121,7 @@ def _run_skidl_code(envelope: dict) -> dict:
         )
 
     try:
+        _progress(envelope, "layout_write", "writing KiCad PCB")
         write_kicad_pcb(
             layout_result.placed_parts, circuit, fp_dirs,
             str(pcb_path), outline=layout_result.outline,
@@ -4124,6 +4164,7 @@ def _run_skidl_code(envelope: dict) -> dict:
     if pipeline_goal == "placement_review":
         all_exceptions.append(_placement_review_only_exception(pipeline_goal))
     elif not layout_errors:
+        _progress(envelope, "routing", "running autorouter")
         route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
         route_exceptions = enrich_routing_failure_exceptions(
             _route_pcb(str(pcb_path), timeout_s=route_timeout),
@@ -4139,6 +4180,7 @@ def _run_skidl_code(envelope: dict) -> dict:
             e.code == ExcCode.ROUTE_UNAVAILABLE for e in route_exceptions
         )
         if not route_failed and not route_skipped:
+            _progress(envelope, "drc", "running KiCad DRC")
             drc_exceptions = enrich_routing_failure_exceptions(
                 _run_drc(str(pcb_path)),
                 layout=layout_result,
@@ -4149,6 +4191,7 @@ def _run_skidl_code(envelope: dict) -> dict:
                 if e.severity in (Severity.FATAL, Severity.ERROR)
             ]
             if not drc_errors:
+                _progress(envelope, "manufacturing_export", "exporting manufacturing files")
                 mfg = _generate_manufacturing_files(
                     str(pcb_path), circuit, layout_result, out_dir,
                 )
@@ -4157,6 +4200,7 @@ def _run_skidl_code(envelope: dict) -> dict:
                 else:
                     manufacturable = True
 
+    _progress(envelope, "preview_generation", "generating review previews")
     previews = _generate_pipeline_previews(
         str(pcb_path),
         out_dir,
@@ -4193,6 +4237,11 @@ def _run_skidl_code(envelope: dict) -> dict:
         manufacturable=manufacturable,
     )
 
+    _progress(
+        envelope,
+        "placement_review" if pipeline_goal == "placement_review" else "complete",
+        "engine worker completed",
+    )
     return _json_result(
         run_id=run_id,
         ok=(
@@ -4240,6 +4289,12 @@ def run(envelope: dict) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(out_dir)
 
+    _progress(
+        envelope,
+        "spec",
+        "validating legacy/internal circuit spec",
+        pipeline_goal=_normalize_pipeline_goal(envelope.get("pipeline_goal")),
+    )
     _configure_kicad_env()
     fp_dirs = [os.environ["KICAD9_FOOTPRINT_DIR"]]
     pipeline_goal = _normalize_pipeline_goal(envelope.get("pipeline_goal"))
@@ -4261,6 +4316,7 @@ def run(envelope: dict) -> dict:
         )
 
     # Server-side enrichment: inject passives agents shouldn't need to know about
+    _progress(envelope, "design_review", "enriching and reviewing circuit intent")
     working = spec.model_dump(mode="json")
     marketing = envelope.get("marketing_text", "")
     working, _block_actions = enrich_blocks(working, marketing)
@@ -4272,6 +4328,7 @@ def run(envelope: dict) -> dict:
     # get completeness feedback even when lib/pin matching fails)
     review_exceptions = design_review_exceptions(spec.model_dump(mode="json"))
 
+    _progress(envelope, "translate", "translating spec into SKiDL circuit")
     translated = translate(spec, fp_dirs=fp_dirs)
     if translated.exceptions:
         return _json_result(
@@ -4302,6 +4359,7 @@ def run(envelope: dict) -> dict:
     pcb_path = out_dir / f"{board_name}.kicad_pcb"
 
     try:
+        _progress(envelope, "schematic_generation", "generating KiCad schematic")
         circuit.generate_schematic(
             filepath=str(out_dir),
             top_name=board_name,
@@ -4340,6 +4398,7 @@ def run(envelope: dict) -> dict:
         circuit,
         floorplan_meta={},
     )
+    _progress(envelope, "floorplan_preflight", "checking floorplan intent")
     if floorplan_preflight is not None:
         return _json_result(
             run_id=run_id,
@@ -4360,6 +4419,7 @@ def run(envelope: dict) -> dict:
         if spec.board.outline_hint_mm is None and spec.board.form_factor is None
         else None
     )
+    _progress(envelope, "placement", "placing PCB components")
     layout_result = plan_layout(
         circuit,
         fp_lib_dirs=fp_dirs,
@@ -4381,6 +4441,7 @@ def run(envelope: dict) -> dict:
             _spec_corner_context(spec),
         )
     try:
+        _progress(envelope, "layout_write", "writing KiCad PCB")
         write_kicad_pcb(
             layout_result.placed_parts,
             circuit,
@@ -4415,6 +4476,7 @@ def run(envelope: dict) -> dict:
     if pipeline_goal == "placement_review":
         all_exceptions.append(_placement_review_only_exception(pipeline_goal))
     elif not layout_errors:
+        _progress(envelope, "routing", "running autorouter")
         route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
         route_exceptions = enrich_routing_failure_exceptions(
             _route_pcb(str(pcb_path), timeout_s=route_timeout),
@@ -4430,6 +4492,7 @@ def run(envelope: dict) -> dict:
         route_skipped = any(e.code == ExcCode.ROUTE_UNAVAILABLE for e in route_exceptions)
 
         if not route_failed and not route_skipped:
+            _progress(envelope, "drc", "running KiCad DRC")
             drc_exceptions = enrich_routing_failure_exceptions(
                 _run_drc(str(pcb_path)),
                 layout=layout_result,
@@ -4438,6 +4501,7 @@ def run(envelope: dict) -> dict:
             drc_errors = [e for e in drc_exceptions
                           if e.severity in (Severity.FATAL, Severity.ERROR)]
             if not drc_errors:
+                _progress(envelope, "manufacturing_export", "exporting manufacturing files")
                 mfg = _generate_manufacturing_files(
                     str(pcb_path), circuit, layout_result, out_dir, spec=spec,
                 )
@@ -4446,6 +4510,7 @@ def run(envelope: dict) -> dict:
                 else:
                     manufacturable = True
 
+    _progress(envelope, "preview_generation", "generating review previews")
     previews = _generate_pipeline_previews(
         str(pcb_path),
         out_dir,
@@ -4478,6 +4543,11 @@ def run(envelope: dict) -> dict:
         manufacturable=manufacturable,
     )
 
+    _progress(
+        envelope,
+        "placement_review" if pipeline_goal == "placement_review" else "complete",
+        "engine worker completed",
+    )
     return _json_result(
         run_id=run_id,
         ok=(

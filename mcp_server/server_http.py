@@ -17,6 +17,7 @@ import logging
 import os
 import re
 from copy import deepcopy
+from datetime import datetime, timezone
 
 from pydantic import ValidationError
 
@@ -456,9 +457,37 @@ async def get_job(job_id: str) -> dict:
     if isinstance(result, dict):
         _compact_job_result_for_agent(result)
 
+    _annotate_progress_for_agent(job)
     job["hint"] = _get_job_hint(job)
     job.pop("spec", None)
     return job
+
+
+def _annotate_progress_for_agent(job: dict) -> None:
+    """Add a small heartbeat age so agents can distinguish slow from stale."""
+
+    progress = job.get("progress")
+    if not isinstance(progress, dict):
+        return
+    heartbeat_at = job.get("last_seen_at") or progress.get("updated_at")
+    age = _iso_age_seconds(heartbeat_at)
+    if age is not None:
+        progress["heartbeat_age_s"] = round(age, 1)
+
+
+def _iso_age_seconds(value: object) -> float | None:
+    if not value:
+        return None
+    try:
+        text = str(value)
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        dt = datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return max(0.0, (datetime.now(timezone.utc) - dt.astimezone(timezone.utc)).total_seconds())
 
 
 def _trim_agent_value(value, *, max_str: int = 800, max_items: int = 24, depth: int = 0):
@@ -560,7 +589,12 @@ def _get_job_hint(job: dict) -> str:
     spec = job.get("spec") or {}
     is_skidl_python = isinstance(spec, dict) and spec.get("_mode") == "skidl_python"
     if status in ("queued", "running"):
-        return "Still processing. Poll again in 10s."
+        progress = job.get("progress") if isinstance(job.get("progress"), dict) else {}
+        stage = str(progress.get("stage") or status)
+        message = str(progress.get("message") or "still processing")
+        age = progress.get("heartbeat_age_s")
+        age_note = f" Last heartbeat {age:.1f}s ago." if isinstance(age, (int, float)) else ""
+        return f"Still processing ({stage}): {message}.{age_note} Poll again in 10s."
 
     result = job.get("result")
     if not isinstance(result, dict):

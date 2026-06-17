@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import json
 import os
 import re
@@ -24,6 +25,7 @@ from schemas.corrections import apply_candidate
 
 STALE_REAP_INTERVAL_S = float(os.environ.get("WORKER_STALE_REAP_INTERVAL_S", "15"))
 WORKER_RUNTIME_GRACE_S = float(os.environ.get("WORKER_RUNTIME_GRACE_S", "15"))
+WORKER_HEARTBEAT_INTERVAL_S = float(os.environ.get("WORKER_HEARTBEAT_INTERVAL_S", "5"))
 EASYEDA_CACHE = Path(__file__).resolve().parent.parent / "corpus" / "jlc" / "easyeda_cache"
 LCSC_RE = re.compile(r"\bC\d{2,}\b", re.IGNORECASE)
 
@@ -123,6 +125,13 @@ def _prepare_job_for_execution(job: dict) -> dict:
     prepared = dict(job)
     prepared["options"] = dict(job.get("options") or {})
     prepared["options"].setdefault("run_id", uuid.uuid4().hex[:12])
+    prepared["options"].setdefault(
+        "progress_path",
+        str(
+            Path(tempfile.gettempdir())
+            / f"eda-progress-{prepared.get('id', 'job')}-{prepared['options']['run_id']}.json"
+        ),
+    )
     return prepared
 
 
@@ -138,7 +147,8 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
             last_stale_reap = now
             await _reap_stale_jobs(db, label)
 
-        job = await db.claim_job(f"{worker_id}-{slot}")
+        worker_ref = f"{worker_id}-{slot}"
+        job = await db.claim_job(worker_ref)
         if job is None:
             await asyncio.sleep(2)
             continue
@@ -147,6 +157,13 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
         print(f"{label}: claimed job {job_id}", flush=True)
 
         try:
+            await _safe_update_job_progress(
+                db,
+                job_id,
+                worker_ref,
+                stage="restore_assets",
+                message="restoring shared converted part assets",
+            )
             restored = await _restore_lcsc_assets_for_job(db, job["spec"], label)
             if restored:
                 print(
@@ -154,7 +171,29 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
                     flush=True,
                 )
             job = _prepare_job_for_execution(job)
-            result = await _execute_job_with_deadline(job, label)
+            await _safe_update_job_progress(
+                db,
+                job_id,
+                worker_ref,
+                stage="engine_start",
+                message="starting engine worker",
+                run_id=job["options"].get("run_id"),
+            )
+            heartbeat = asyncio.create_task(
+                _heartbeat_job_progress(
+                    db,
+                    job_id,
+                    worker_ref,
+                    job["options"].get("progress_path"),
+                    run_id=job["options"].get("run_id"),
+                )
+            )
+            try:
+                result = await _execute_job_with_deadline(job, label)
+            finally:
+                heartbeat.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await heartbeat
             # Extract artifact file contents before storing — they bloat
             # the jobs.result column and can cause tool response truncation.
             artifacts = _collect_artifacts(result)
@@ -185,6 +224,78 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
             print(f"{label}: job {job_id} crashed: {exc}\n{tb}", flush=True)
             result = _worker_exception_result(job, job_id, label, exc, tb)
             await db.complete_job(job_id, "crashed", result=result, error=str(exc))
+
+
+async def _safe_update_job_progress(
+    db: DB,
+    job_id: str,
+    worker_ref: str,
+    *,
+    stage: str,
+    message: str,
+    run_id: str | None = None,
+    progress: dict | None = None,
+) -> None:
+    """Best-effort DB heartbeat; never let observability crash a job."""
+
+    updater = getattr(db, "update_job_progress", None)
+    if updater is None:
+        return
+    try:
+        await updater(
+            job_id,
+            worker_id=worker_ref,
+            stage=stage,
+            message=message,
+            run_id=run_id,
+            progress=progress,
+        )
+    except Exception as exc:
+        print(f"worker progress update failed for {job_id}: {exc}", flush=True)
+
+
+async def _heartbeat_job_progress(
+    db: DB,
+    job_id: str,
+    worker_ref: str,
+    progress_path: str | None,
+    *,
+    run_id: str | None = None,
+) -> None:
+    """Copy the inner engine's current stage into the hosted job row."""
+
+    while True:
+        progress = _read_progress_file(progress_path)
+        if progress:
+            stage = str(progress.get("stage") or "engine_running")
+            message = str(progress.get("message") or "engine worker is still running")
+            run_id = str(progress.get("run_id") or run_id or "")
+        else:
+            stage = "engine_running"
+            message = "engine worker is still running"
+        await _safe_update_job_progress(
+            db,
+            job_id,
+            worker_ref,
+            stage=stage,
+            message=message,
+            run_id=run_id or None,
+            progress=progress or None,
+        )
+        await asyncio.sleep(max(1.0, WORKER_HEARTBEAT_INTERVAL_S))
+
+
+def _read_progress_file(progress_path: str | None) -> dict[str, Any]:
+    if not progress_path:
+        return {}
+    try:
+        path = Path(progress_path)
+        if not path.exists():
+            return {}
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 async def _reap_stale_jobs(db: DB, label: str) -> int:
@@ -592,6 +703,7 @@ def _execute_job(job: dict) -> dict:
             "pipeline_goal": opts.get("pipeline_goal"),
             "placement_preview_mode": opts.get("placement_preview_mode")
             or opts.get("preview_mode"),
+            "progress_path": opts.get("progress_path"),
         }
 
         response = run_pipeline(
@@ -682,6 +794,7 @@ def _execute_skidl_job(job: dict) -> dict:
             placement_preview_mode=opts.get("placement_preview_mode")
             or opts.get("preview_mode"),
             custom_footprints=raw.get("custom_footprints"),
+            progress_path=opts.get("progress_path"),
         )
 
         result = response.model_dump(mode="json")
