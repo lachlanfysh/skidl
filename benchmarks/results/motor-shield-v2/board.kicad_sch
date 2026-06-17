@@ -1,0 +1,605 @@
+(kicad_sch
+  (version 20230409)
+  (generator "skidl")
+  (generator_version "2.2.3")
+  (uuid 3ea74fdb-6c75-4e60-b37f-e220f8167b75)
+  (paper "A3")
+  (title_block
+    (title "SKiDL-Generated Schematic")
+    (date "2026-06-17")
+    (company "")
+    (comment 1 "Generated with SKiDL")
+    (comment 2 "")
+    (comment 3 "")
+    (comment 4 ""))
+  (lib_symbols
+    (symbol "Device:C"
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "C"
+        (at 2.032 0 90)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Value" "C"
+        (at 0 0 90)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" "~"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Unpolarized capacitor"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "C_0_1"
+        (polyline
+          (pts
+            (xy -2.032 0.762)
+            (xy 2.032 0.762))
+          (stroke
+            (width 0.508)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy -2.032 -0.762)
+            (xy 2.032 -0.762))
+          (stroke
+            (width 0.508)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "C_1_1"
+        (polyline
+          (pts
+            (xy -2.032 0.762)
+            (xy 2.032 0.762))
+          (stroke
+            (width 0.508)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy -2.032 -0.762)
+            (xy 2.032 -0.762))
+          (stroke
+            (width 0.508)
+            (type default))
+          (fill
+            (type none)))
+        (pin passive line
+          (at 0 3.81 270)
+          (length 2.794)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27)))))
+        (pin passive line
+          (at 0 -3.81 90)
+          (length 2.794)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "2"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no))
+    (symbol "power:GND"
+      (power)
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0)
+        (hide yes))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "#PWR"
+        (at 0 -6.35 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Value" "GND"
+        (at 0 -3.81 0)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "ki_keywords" "global power"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "GND_0_1"
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 -1.27)
+            (xy 1.27 -1.27)
+            (xy 0 -2.54)
+            (xy -1.27 -1.27)
+            (xy 0 -1.27))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "GND_1_1"
+        (pin power_in line
+          (at 0 0 270)
+          (length 0)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no)))
+  (sheet
+    (at 200.41 59.69)
+    (size 23.37 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid c9dcabac-d270-56bc-8e40-cd9300771271)
+    (property "Sheetname" "pwm_driver1"
+      (at 200.41 58.98 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_pwm_driver1.kicad_sch"
+      (at 200.41 78.05 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top))))
+  (sheet
+    (at 198.37 241.3)
+    (size 27.43 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid 1b815bf4-5125-596a-8158-731a1d92a068)
+    (property "Sheetname" "shift_register1"
+      (at 198.37 240.59 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_shift_register1.kicad_sch"
+      (at 198.37 259.66 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top))))
+  (sheet
+    (at 198.37 218.44)
+    (size 27.43 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid 5f236101-8c8b-56b5-921d-178f2631a954)
+    (property "Sheetname" "shift_register2"
+      (at 198.37 217.73 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_shift_register2.kicad_sch"
+      (at 198.37 236.8 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top)))
+    (pin SR2_Q0 bidirectional
+      (at 198.37 220.98 180)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left))
+      (uuid bb9380a0-646a-5444-91fe-0c5d0ae2e80e))
+    (pin SR2_Q1 bidirectional
+      (at 198.37 223.52 180)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left))
+      (uuid c26c9cb4-91f5-5cd8-8d6c-20c4745e9352))
+    (pin SR2_Q2 bidirectional
+      (at 198.37 226.06 180)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left))
+      (uuid c46eaab6-a60e-52cf-bcbc-5bead0edd66f))
+    (pin SR2_Q3 bidirectional
+      (at 198.37 228.6 180)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left))
+      (uuid 24dd436c-ea7b-5832-b764-8ed129937faa)))
+  (sheet
+    (at 199.39 36.83)
+    (size 25.4 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid 0ca82d03-ef1d-5385-b89f-185264db5dfa)
+    (property "Sheetname" "motor_driver1"
+      (at 199.39 36.12 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_motor_driver1.kicad_sch"
+      (at 199.39 55.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top))))
+  (sheet
+    (at 199.39 195.58)
+    (size 25.4 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid 0db62aff-ccb0-5e2c-ab6c-172834af7079)
+    (property "Sheetname" "motor_driver2"
+      (at 199.39 194.87 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_motor_driver2.kicad_sch"
+      (at 199.39 213.94 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top)))
+    (pin SR2_Q0 bidirectional
+      (at 199.39 198.12 180)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left))
+      (uuid 1ced71b1-e8e9-5269-b995-268ca0db9e04))
+    (pin SR2_Q1 bidirectional
+      (at 199.39 200.66 180)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left))
+      (uuid 033cd479-cde3-5039-bcb6-ce3052686fec))
+    (pin SR2_Q2 bidirectional
+      (at 199.39 203.2 180)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left))
+      (uuid ceb271ef-9799-5296-8843-a40d10484333))
+    (pin SR2_Q3 bidirectional
+      (at 199.39 205.74 180)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left))
+      (uuid 9a3a1427-6718-5dcd-b35e-15395b50c3fa)))
+  (sheet
+    (at 197.87 82.55)
+    (size 28.45 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid 6af0493d-8089-5abe-a2b7-81c24c776184)
+    (property "Sheetname" "motor_terminals1"
+      (at 197.87 81.84 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_motor_terminals1.kicad_sch"
+      (at 197.87 100.91 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top))))
+  (sheet
+    (at 197.87 128.27)
+    (size 33.53 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid 6439b776-4bfc-5957-a653-17c814e7afee)
+    (property "Sheetname" "power_input_terminal1"
+      (at 197.87 127.56 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_power_input_terminal1.kicad_sch"
+      (at 197.87 146.63 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top))))
+  (sheet
+    (at 197.87 105.41)
+    (size 28.45 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid 521fd3ef-f7d0-5512-ba44-dec8fdb0accb)
+    (property "Sheetname" "address_jumpers1"
+      (at 197.87 104.7 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_address_jumpers1.kicad_sch"
+      (at 197.87 123.77 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top))))
+  (sheet
+    (at 197.87 151.13)
+    (size 28.45 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid 90584cfe-2544-5241-8e99-844ee9ff7b49)
+    (property "Sheetname" "arduino_headers1"
+      (at 197.87 150.42 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_arduino_headers1.kicad_sch"
+      (at 197.87 169.49 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top))))
+  (sheet
+    (at 200.41 172.72)
+    (size 23.37 17.78)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (stroke
+      (width 0.1524)
+      (type solid))
+    (fill
+      (color 0 0 0 0.0))
+    (uuid ded5a8b4-d52c-5fa5-8190-d476a33a45d6)
+    (property "Sheetname" "status_led1"
+      (at 200.41 172.01 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left bottom)))
+    (property "Sheetfile" "board_status_led1.kicad_sch"
+      (at 200.41 191.08 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left top))))
+  (symbol
+    (lib_id "Device:C")
+    (at 190.5 146.05 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 2932345d-4f49-56ea-874e-6a87a258356f)
+    (property "Reference" "C12"
+      (at 190.5 143.51000000000002 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "10uF"
+      (at 190.5 148.59 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Capacitor_SMD:C_0805_2012Metric"
+      (at 190.5 146.05 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 190.5 146.05 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Unpolarized capacitor"
+      (at 190.5 146.05 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 9d7f5de1-7056-5481-bc7b-416d106c8610))
+    (pin "2"
+      (uuid 6de63428-a40f-5d6a-aa65-01cbf1a93603))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/3ea74fdb-6c75-4e60-b37f-e220f8167b75"
+          (reference "C12")
+          (unit 1)))))
+  (global_label "VIN"
+    (shape bidirectional)
+    (at 190.5 134.62 270)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify right))
+    (uuid 79993530-2d28-56f5-9763-b9c41b3e4b60))
+  (global_label "VIN"
+    (shape bidirectional)
+    (at 190.5 142.24 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 78b2dd32-87a8-53de-b7b2-cad211f4c05c))
+  (symbol
+    (lib_id "power:GND")
+    (at 190.5 149.86 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 6c286784-0e11-5a5c-8ccc-5d02d87436b2)
+    (property "Reference" "#PWR067"
+      (at 190.5 148.59 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 190.5 146.05 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 190.5 149.86 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 190.5 149.86 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid dcbd1e89-342a-5e44-acef-1129a08efc00))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR067")
+          (unit 1))))))
