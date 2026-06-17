@@ -9,10 +9,27 @@ from .candidates import (
     copy_constraints,
     generate_placement_candidates,
 )
-from .constraints import BoardCutout, BoardOutline, EdgeAnchor, KeepOut, LayoutConstraints
+from .connector_metadata import (
+    infer_connector_mating_face,
+    normalize_local_exit,
+    rotation_for_local_exit,
+)
+from .constraints import (
+    BoardCutout,
+    BoardOutline,
+    EdgeAnchor,
+    FixedPosition,
+    KeepOut,
+    LayoutConstraints,
+)
 from .context import LayoutContext
 from .decaps import refine_candidate_decaps
-from .geometry import FootprintGeometry, geometry_bboxes, load_footprint_geometries
+from .geometry import (
+    FootprintGeometry,
+    geometry_bboxes,
+    load_footprint_geometries,
+    transform_point,
+)
 from .hierarchy import PlacementGroup, extract_groups
 from .intent import PlacementIntentPlan, infer_placement_intents
 from .orientation import refine_candidate_orientations
@@ -268,6 +285,272 @@ def _edge_distance(
     return None
 
 
+def _mating_intent_by_ref(intent_plan: PlacementIntentPlan | None):
+    if intent_plan is None:
+        return {}
+    return {
+        intent.ref: intent
+        for intent in intent_plan.mating_intents
+    }
+
+
+def _connector_mating_face_for_ref(
+    ref: str,
+    footprint: str,
+    intent_plan: PlacementIntentPlan | None,
+):
+    intent = _mating_intent_by_ref(intent_plan).get(ref)
+    kind = intent.kind if intent is not None else None
+    text = f"{ref} {footprint}"
+    return infer_connector_mating_face(None, text=text, mating_kind=kind)
+
+
+def _local_bounds_for_face(
+    width: float,
+    height: float,
+    geometry: FootprintGeometry | None,
+):
+    if geometry is not None:
+        return geometry.body_bounds or geometry.bounds
+    return (-width / 2, -height / 2, width / 2, height / 2)
+
+
+def _face_local_points(
+    bounds: tuple[float, float, float, float],
+    local_exit: str,
+    local_face_offset_mm: float | None,
+) -> list[tuple[float, float]]:
+    x_min, y_min, x_max, y_max = bounds
+    local_exit = normalize_local_exit(local_exit)
+    if local_exit == "+x":
+        x = x_max if local_face_offset_mm is None else local_face_offset_mm
+        return [(x, y_min), (x, y_max)]
+    if local_exit == "-x":
+        x = x_min if local_face_offset_mm is None else local_face_offset_mm
+        return [(x, y_min), (x, y_max)]
+    if local_exit == "+y":
+        y = y_max if local_face_offset_mm is None else local_face_offset_mm
+        return [(x_min, y), (x_max, y)]
+    if local_exit == "-y":
+        y = y_min if local_face_offset_mm is None else local_face_offset_mm
+        return [(x_min, y), (x_max, y)]
+    return []
+
+
+def _bounds_at_origin(
+    ref: str,
+    footprint: str,
+    width: float,
+    height: float,
+    rot_deg: float,
+    geometry: FootprintGeometry | None,
+):
+    return _placed_bounds(
+        PlacedPart(
+            ref=ref,
+            x_mm=0.0,
+            y_mm=0.0,
+            rot_deg=rot_deg,
+            footprint=footprint,
+        ),
+        {footprint: (width, height)},
+        {footprint: geometry} if geometry is not None else None,
+    )
+
+
+def _face_world_points(
+    placed: PlacedPart,
+    face,
+    local_bounds: tuple[float, float, float, float],
+    *,
+    use_face_offset: bool,
+) -> list[tuple[float, float]]:
+    local_points = _face_local_points(
+        local_bounds,
+        face.local_exit,
+        face.local_face_offset_mm if use_face_offset else None,
+    )
+    return [
+        transform_point(placed.x_mm, placed.y_mm, placed.rot_deg, x, y)
+        for x, y in local_points
+    ]
+
+
+def _edge_face_distance(
+    edge: str,
+    placed: PlacedPart,
+    fp_bboxes: dict[str, tuple[float, float]],
+    outline: BoardOutline,
+    inset_mm: float,
+    intent_plan: PlacementIntentPlan | None,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> float | None:
+    width, height = fp_bboxes.get(placed.footprint, (2.0, 2.0))
+    geometry = (fp_geometries or {}).get(placed.footprint)
+    if geometry is None:
+        return _edge_distance(
+            edge,
+            _placed_bounds(placed, fp_bboxes, fp_geometries),
+            outline,
+            inset_mm,
+        )
+    face = _connector_mating_face_for_ref(placed.ref, placed.footprint, intent_plan)
+    if face is None:
+        return _edge_distance(
+            edge,
+            _placed_bounds(placed, fp_bboxes, fp_geometries),
+            outline,
+            inset_mm,
+        )
+
+    local_bounds = _local_bounds_for_face(width, height, geometry)
+    points = _face_world_points(
+        placed,
+        face,
+        local_bounds,
+        use_face_offset=geometry is not None,
+    )
+    if not points:
+        return None
+    if edge == "top":
+        return abs((sum(y for _, y in points) / len(points)) - (outline.y_min + inset_mm))
+    if edge == "bottom":
+        return abs((sum(y for _, y in points) / len(points)) - (outline.y_max - inset_mm))
+    if edge == "left":
+        return abs((sum(x for x, _ in points) / len(points)) - (outline.x_min + inset_mm))
+    if edge == "right":
+        return abs((sum(x for x, _ in points) / len(points)) - (outline.x_max - inset_mm))
+    return None
+
+
+def _rotation_delta_deg(a: float, b: float) -> float:
+    return abs((float(a) - float(b) + 180.0) % 360.0 - 180.0)
+
+
+def _inferred_edge_rotation_for_ref(
+    ref: str,
+    edge: str,
+    intent_plan: PlacementIntentPlan | None,
+) -> float | None:
+    if intent_plan is None:
+        return None
+    edge = str(edge or "").lower()
+    for anchor in intent_plan.edge_anchors:
+        if anchor.ref == ref and anchor.edge.lower() == edge:
+            return anchor.rot_deg
+    return None
+
+
+def _expected_edge_rotation(
+    edge: str,
+    ref: str,
+    face,
+    intent_plan: PlacementIntentPlan | None,
+) -> float | None:
+    if face is not None:
+        expected = rotation_for_local_exit(edge, face.local_exit)
+        if expected is not None:
+            return expected
+    return _inferred_edge_rotation_for_ref(ref, edge, intent_plan)
+
+
+def _rotation_faces_edge(rot_deg: float, expected: float | None) -> bool:
+    if expected is None:
+        return True
+    return _rotation_delta_deg(rot_deg, expected) <= 1e-6
+
+
+def _edge_anchor_origin_position_for_mating_face(
+    anchor: EdgeAnchor,
+    width: float,
+    height: float,
+    outline: BoardOutline,
+    *,
+    geometry: FootprintGeometry | None,
+    ref: str,
+    footprint: str,
+    intent_plan: PlacementIntentPlan | None,
+) -> tuple[float, float, float, float, float, float, float]:
+    original = _edge_anchor_origin_position(
+        anchor,
+        width,
+        height,
+        outline,
+        geometry=geometry,
+        ref=ref,
+        footprint=footprint,
+    )
+    if geometry is None:
+        return original
+    face = _connector_mating_face_for_ref(ref, footprint, intent_plan)
+    if face is None:
+        return original
+
+    _, _, rot_deg, *_ = original
+    local_bounds = _local_bounds_for_face(width, height, geometry)
+    face_points = _face_world_points(
+        PlacedPart(ref, 0.0, 0.0, rot_deg, footprint),
+        face,
+        local_bounds,
+        use_face_offset=geometry is not None,
+    )
+    if not face_points:
+        return original
+
+    bounds = _bounds_at_origin(ref, footprint, width, height, rot_deg, geometry)
+    face_x = sum(x for x, _ in face_points) / len(face_points)
+    face_y = sum(y for _, y in face_points) / len(face_points)
+    edge = anchor.edge.lower()
+    x_mid = (outline.x_min + outline.x_max) / 2
+    y_mid = (outline.y_min + outline.y_max) / 2
+
+    origin_x = 0.0
+    origin_y = 0.0
+    if edge in {"top", "bottom"}:
+        desired_x = anchor.offset_mm if anchor.offset_mm is not None else x_mid
+        target_y = (
+            outline.y_min + anchor.inset_mm
+            if edge == "top"
+            else outline.y_max - anchor.inset_mm
+        )
+        origin_x = desired_x - face_x
+        origin_y = target_y - face_y
+        moved = _translated_bounds(bounds, origin_x, origin_y)
+        if moved[0] < outline.x_min:
+            origin_x += outline.x_min - moved[0]
+        if moved[2] > outline.x_max:
+            origin_x -= moved[2] - outline.x_max
+    elif edge in {"left", "right"}:
+        desired_y = anchor.offset_mm if anchor.offset_mm is not None else y_mid
+        target_x = (
+            outline.x_min + anchor.inset_mm
+            if edge == "left"
+            else outline.x_max - anchor.inset_mm
+        )
+        origin_x = target_x - face_x
+        origin_y = desired_y - face_y
+        moved = _translated_bounds(bounds, origin_x, origin_y)
+        if moved[1] < outline.y_min:
+            origin_y += outline.y_min - moved[1]
+        if moved[3] > outline.y_max:
+            origin_y -= moved[3] - outline.y_max
+    else:
+        return original
+
+    final_bounds = _translated_bounds(bounds, origin_x, origin_y)
+    center_x = (final_bounds[0] + final_bounds[2]) / 2
+    center_y = (final_bounds[1] + final_bounds[3]) / 2
+    return (
+        origin_x,
+        origin_y,
+        rot_deg,
+        center_x,
+        center_y,
+        final_bounds[2] - final_bounds[0],
+        final_bounds[3] - final_bounds[1],
+    )
+
+
 def _edge_parallel_required_refs(
     intent_plan: PlacementIntentPlan | None,
 ) -> set[str]:
@@ -282,6 +565,41 @@ def _edge_parallel_required_refs(
     }
 
 
+_CONNECTOR_EDGE_WARNING_RE = re.compile(
+    r"^([^:]+): connector is [0-9.]+mm from nearest board edge$"
+)
+
+
+def _filter_fixed_floorplan_connector_warnings(
+    score: LayoutScore,
+    constraints: LayoutConstraints | None,
+) -> LayoutScore:
+    if constraints is None:
+        return score
+    fixed_refs = {fixed.ref for fixed in (constraints.fixed or [])}
+    explicit_edge_refs = {anchor.ref for anchor in (constraints.edge_anchors or [])}
+    fixed_only_refs = fixed_refs - explicit_edge_refs
+    if not fixed_only_refs:
+        return score
+
+    warnings = []
+    removed = 0
+    for warning in score.warnings:
+        match = _CONNECTOR_EDGE_WARNING_RE.match(warning)
+        if match is not None and match.group(1) in fixed_only_refs:
+            removed += 1
+            continue
+        warnings.append(warning)
+    if removed == 0:
+        return score
+    return replace(
+        score,
+        score=min(100.0, score.score + removed * 5.0),
+        warning_count=len(warnings),
+        warnings=warnings,
+    )
+
+
 def _apply_edge_intent_score(
     score: LayoutScore,
     placed_parts: list[PlacedPart],
@@ -292,6 +610,7 @@ def _apply_edge_intent_score(
     fp_geometries: dict[str, FootprintGeometry] | None = None,
 ) -> LayoutScore:
     """Treat violated edge-mating intent as product risk, not decoration."""
+    score = _filter_fixed_floorplan_connector_warnings(score, constraints)
     if outline is None:
         return score
 
@@ -303,13 +622,27 @@ def _apply_edge_intent_score(
     warnings = list(score.warnings)
     penalty = 0.0
     parallel_required = _edge_parallel_required_refs(intent_plan)
+    fixed_refs = {fixed.ref for fixed in (constraints.fixed if constraints else []) or []}
+    explicit_edge_refs = {
+        anchor.ref for anchor in ((constraints.edge_anchors if constraints else []) or [])
+    }
     for ref, anchor in sorted(anchors.items()):
         placed = placed_by_ref.get(ref)
         if placed is None:
             continue
+        if ref in fixed_refs and ref not in explicit_edge_refs:
+            continue
         edge = anchor.edge.lower()
         bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
-        distance = _edge_distance(edge, bounds, outline, anchor.inset_mm)
+        distance = _edge_face_distance(
+            edge,
+            placed,
+            fp_bboxes,
+            outline,
+            anchor.inset_mm,
+            intent_plan,
+            fp_geometries,
+        )
         if distance is not None and distance > 1.0:
             warnings.append(
                 f"{ref}: violates {edge}-edge mating intent "
@@ -1018,6 +1351,7 @@ def _snap_edge_anchors_to_outline(
             geometry=geometry,
             ref=placed.ref,
             footprint=placed.footprint,
+            intent_plan=intent_plan,
             keepouts=[
                 *((constraints.keepouts if constraints else []) or []),
                 *mounting_keepouts,
@@ -1032,6 +1366,7 @@ def _snap_edge_anchors_to_outline(
                 geometry=geometry,
                 ref=placed.ref,
                 footprint=placed.footprint,
+                intent_plan=intent_plan,
                 keepouts=[
                     *((constraints.keepouts if constraints else []) or []),
                     *mounting_keepouts,
@@ -1236,10 +1571,11 @@ def _edge_anchor_position_avoiding_keepouts(
     geometry: FootprintGeometry | None,
     ref: str,
     footprint: str,
+    intent_plan: PlacementIntentPlan | None,
     keepouts: list | None,
     clearance_mm: float = 0.5,
 ) -> tuple[float, float, float, float, float, float, float]:
-    original = _edge_anchor_origin_position(
+    original = _edge_anchor_origin_position_for_mating_face(
         anchor,
         width,
         height,
@@ -1247,6 +1583,7 @@ def _edge_anchor_position_avoiding_keepouts(
         geometry=geometry,
         ref=ref,
         footprint=footprint,
+        intent_plan=intent_plan,
     )
     if not keepouts:
         return original
@@ -1303,7 +1640,7 @@ def _edge_anchor_position_avoiding_keepouts(
             inset_mm=anchor.inset_mm,
             rot_deg=anchor.rot_deg,
         )
-        candidate = _edge_anchor_origin_position(
+        candidate = _edge_anchor_origin_position_for_mating_face(
             candidate_anchor,
             width,
             height,
@@ -1311,6 +1648,7 @@ def _edge_anchor_position_avoiding_keepouts(
             geometry=geometry,
             ref=ref,
             footprint=footprint,
+            intent_plan=intent_plan,
         )
         candidate_bounds = _bounds(candidate)
         hits = sum(_bounds_touch_keepout(candidate_bounds, ko) for ko in keepouts)
@@ -1336,10 +1674,12 @@ def _prefer_parallel_edge_anchor_position(
     geometry: FootprintGeometry | None,
     ref: str,
     footprint: str,
+    intent_plan: PlacementIntentPlan | None,
     keepouts: list | None,
     current: tuple[float, float, float],
 ) -> tuple[float, float, float, float, float, float, float]:
     """Repair contradictory edge-anchor rotations for pin-access connectors."""
+    face = _connector_mating_face_for_ref(ref, footprint, intent_plan)
 
     def _candidate_for(rotation: float):
         candidate_anchor = EdgeAnchor(
@@ -1357,6 +1697,7 @@ def _prefer_parallel_edge_anchor_position(
             geometry=geometry,
             ref=ref,
             footprint=footprint,
+            intent_plan=intent_plan,
             keepouts=keepouts,
         )
 
@@ -1374,14 +1715,43 @@ def _prefer_parallel_edge_anchor_position(
             {footprint: geometry} if geometry is not None else None,
         )
 
+    def _candidate_part(candidate) -> PlacedPart:
+        x_mm, y_mm, rot_deg, *_ = candidate
+        return PlacedPart(
+            ref=ref,
+            x_mm=x_mm,
+            y_mm=y_mm,
+            rot_deg=rot_deg,
+            footprint=footprint,
+        )
+
+    def _candidate_edge_distance(candidate, bounds) -> float:
+        distance = _edge_face_distance(
+            edge,
+            _candidate_part(candidate),
+            {footprint: (width, height)},
+            outline,
+            anchor.inset_mm,
+            intent_plan,
+            {footprint: geometry} if geometry is not None else None,
+        )
+        if distance is None:
+            distance = _edge_distance(edge, bounds, outline, anchor.inset_mm)
+        return distance or 0.0
+
     edge = anchor.edge.lower()
+    expected_rotation = _expected_edge_rotation(edge, ref, face, intent_plan)
     current_full = (*current, current[0], current[1], width, height)
     current_bounds = _candidate_bounds(current_full)
-    if _edge_parallel(edge, current_bounds):
+    if _edge_parallel(edge, current_bounds) and _rotation_faces_edge(
+        current[2],
+        expected_rotation,
+    ):
         return current_full
 
     rotations: list[float] = []
     for rotation in (
+        expected_rotation,
         current[2] + 90.0,
         current[2] - 90.0,
         0.0,
@@ -1389,31 +1759,37 @@ def _prefer_parallel_edge_anchor_position(
         180.0,
         270.0,
     ):
+        if rotation is None:
+            continue
         normalized = float(rotation % 360)
         if normalized not in rotations:
             rotations.append(normalized)
 
+    current_distance = _candidate_edge_distance(current_full, current_bounds)
     best = current_full
     best_key = (
-        1,
-        _edge_distance(edge, current_bounds, outline, anchor.inset_mm) or 0.0,
+        0 if _edge_parallel(edge, current_bounds) else 1,
+        0 if _rotation_faces_edge(current[2], expected_rotation) else 1,
+        current_distance,
         0.0,
     )
     for rotation in rotations:
         candidate = _candidate_for(rotation)
         bounds = _candidate_bounds(candidate)
         parallel = _edge_parallel(edge, bounds)
-        distance = _edge_distance(edge, bounds, outline, anchor.inset_mm) or 0.0
-        rotation_delta = min(
-            abs(rotation - current[2]),
-            abs((rotation + 360.0) - current[2]),
-            abs(rotation - (current[2] + 360.0)),
+        faces_outward = _rotation_faces_edge(rotation, expected_rotation)
+        distance = _candidate_edge_distance(candidate, bounds)
+        rotation_delta = _rotation_delta_deg(rotation, current[2])
+        key = (
+            0 if parallel else 1,
+            0 if faces_outward else 1,
+            distance,
+            rotation_delta,
         )
-        key = (0 if parallel else 1, distance, rotation_delta)
         if key < best_key:
             best = candidate
             best_key = key
-            if parallel and distance <= 1e-6:
+            if parallel and faces_outward and distance <= 1e-6:
                 break
 
     return best
@@ -1491,6 +1867,30 @@ def _translated_bounds(
     dy: float,
 ) -> tuple[float, float, float, float]:
     return bounds[0] + dx, bounds[1] + dy, bounds[2] + dx, bounds[3] + dy
+
+
+def _lock_current_positions(
+    constraints: LayoutConstraints,
+    placed_parts: list[PlacedPart],
+    refs: list[str],
+) -> None:
+    if not refs:
+        return
+    placed_by_ref = {placed.ref: placed for placed in placed_parts}
+    fixed_refs = {fixed.ref for fixed in constraints.fixed or []}
+    for ref in refs:
+        placed = placed_by_ref.get(ref)
+        if placed is None or ref in fixed_refs:
+            continue
+        constraints.fixed.append(
+            FixedPosition(
+                ref=ref,
+                x_mm=placed.x_mm,
+                y_mm=placed.y_mm,
+                rot_deg=placed.rot_deg,
+            )
+        )
+        fixed_refs.add(ref)
 
 
 def _clamp_delta_to_outline(
@@ -2507,6 +2907,11 @@ def plan_layout(
                 gridded_passive_refs,
                 "simple passives arranged on an even grid between opposing headers",
                 "arranged on passive grid between opposing headers",
+            )
+            _lock_current_positions(
+                candidate_constraints,
+                placed_parts,
+                gridded_passive_refs,
             )
 
             placed_parts, moved_neighbor_refs = _legalize_edge_anchor_neighbors(

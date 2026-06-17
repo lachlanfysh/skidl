@@ -191,7 +191,7 @@ class DB:
                             'reviewable_failure', false,
                             'decision_required', true,
                             'decision_kind', 'backend_failure',
-                            'recommended_next_tool', 'submit_skidl_code',
+                            'recommended_next_tool', 'get_job',
                             'artifact_summary', jsonb_build_object(
                                 'available', false,
                                 'count', 0,
@@ -248,7 +248,7 @@ class DB:
                     ),
                     error = COALESCE(
                         error,
-                        'worker lost while job was running; resubmit the design'
+                        'worker lost while job was running; retry once unchanged'
                     ),
                     finished_at = NOW()
                 WHERE status = 'running'
@@ -320,7 +320,7 @@ class DB:
                             'reviewable_failure', false,
                             'decision_required', true,
                             'decision_kind', 'backend_failure',
-                            'recommended_next_tool', 'submit_skidl_code',
+                            'recommended_next_tool', 'get_job',
                             'artifact_summary', jsonb_build_object(
                                 'available', false,
                                 'count', 0,
@@ -377,7 +377,7 @@ class DB:
                     ),
                     error = COALESCE(
                         error,
-                        'worker lost while job was running; resubmit the design'
+                        'worker lost while job was running; retry once unchanged'
                     ),
                     finished_at = NOW()
                 WHERE id = $1

@@ -462,6 +462,8 @@ def run_pipeline(
     parent_run_id: str | None = None,
     bom_match_score: float | None = None,
     netlist_match_score: float | None = None,
+    pipeline_goal: str | None = None,
+    placement_preview_mode: str | None = None,
 ) -> DesignResponse:
     """Run translate -> schematic -> layout -> PCB in an isolated worker."""
 
@@ -476,6 +478,8 @@ def run_pipeline(
         "out_dir": str(run_dir),
         "spec": circuit_spec.model_dump(mode="json"),
         "route_timeout_s": route_timeout_s,
+        "pipeline_goal": pipeline_goal or "manufacturing",
+        "placement_preview_mode": placement_preview_mode,
     }
     proc = subprocess.Popen(
         [sys.executable, "-m", "mcp_server.engine_worker"],
@@ -607,6 +611,7 @@ def run_pipeline_code(
     corner_radius_mm: float | None = None,
     assembly_policy: str | None = None,
     pipeline_goal: str | None = None,
+    placement_preview_mode: str | None = None,
     custom_footprints: dict | list | None = None,
 ) -> DesignResponse:
     """Run SKiDL Python code through the engine pipeline in an isolated worker."""
@@ -626,6 +631,7 @@ def run_pipeline_code(
         "corner_radius_mm": corner_radius_mm,
         "assembly_policy": assembly_policy,
         "pipeline_goal": pipeline_goal or "manufacturing",
+        "placement_preview_mode": placement_preview_mode,
         "custom_footprints": custom_footprints,
         "marketing_text": design_intent or "",
         "route_timeout_s": route_timeout_s,
@@ -675,6 +681,7 @@ def run_pipeline_code(
                 "board_name": board_name,
                 "design_intent": design_intent or "",
                 "pipeline_goal": pipeline_goal or "manufacturing",
+                "placement_preview_mode": placement_preview_mode,
                 "custom_footprints": custom_footprints,
             },
             response.exceptions, response,
@@ -747,6 +754,7 @@ def run_pipeline_code(
             "board_name": board_name,
             "design_intent": design_intent or "",
             "pipeline_goal": pipeline_goal or "manufacturing",
+            "placement_preview_mode": placement_preview_mode,
             "custom_footprints": custom_footprints,
         },
         response.exceptions, response,

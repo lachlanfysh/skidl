@@ -55,6 +55,8 @@ BBOXES = {
     "Package_QFP:MCU": (12.0, 12.0),
     "Capacitor:C_0805": (2.0, 1.25),
     "Potentiometer_THT:Potentiometer_Alpha": (9.5, 9.5),
+    "Module:DaisySeed": (8.0, 8.0),
+    "Resistor_SMD:R_0603": (1.6, 0.8),
 }
 
 
@@ -182,6 +184,30 @@ def test_score_decoupling_cap_warns_when_far_from_parent():
     assert score.power_net_count == 2
 
 
+def test_score_named_decap_warns_from_token_matched_owner_without_geometry():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    mcu = _Part("U1", name="ESP32-S3 module", footprint="Package_QFP:MCU", nets=[vcc, gnd], pins=8)
+    sensor = _Part(
+        "U4",
+        name="BME280 environmental sensor",
+        footprint="Package_QFP:MCU",
+        nets=[vcc, gnd],
+        pins=8,
+    )
+    cap = _Part("CBME1", value="100nF", footprint="Capacitor:C_0805", nets=[vcc, gnd])
+    circuit = _Circuit([mcu, sensor, cap], [vcc, gnd])
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("U4", 70.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("CBME1", 22.0, 20.0, 0.0, "Capacitor:C_0805"),
+    ]
+
+    score = score_placement(placed, circuit, BBOXES)
+
+    assert any("CBME1: decoupling cap" in warning and "U4" in warning for warning in score.warnings)
+
+
 def test_score_warns_when_signal_passive_is_far_from_ic_parent():
     sig = _Net("SIG")
     gnd = _Net("GND")
@@ -204,6 +230,35 @@ def test_score_warns_when_signal_passive_is_far_from_ic_parent():
 
     assert any("signal passive" in warning for warning in score.warnings)
     assert score.score < 100.0
+
+
+def test_score_signal_passive_warns_from_module_owner_not_panel_endpoint():
+    cv_tip = _Net("CV_TIP")
+    cv_in = _Net("CV_IN")
+    module = _Part(
+        "A1",
+        name="Electrosmith Daisy Seed Rev4",
+        footprint="Module:DaisySeed",
+        nets=[cv_in],
+        pins=40,
+    )
+    jack = _Part(
+        "J_CV",
+        name="Thonkiconn PJ398SM panel jack",
+        footprint="Connector_Audio:Thonkiconn_PJ398SM",
+        nets=[cv_tip],
+    )
+    resistor = _Part("R_CV", value="100K", footprint="Resistor_SMD:R_0603", nets=[cv_tip, cv_in])
+    circuit = _Circuit([module, jack, resistor], [cv_tip, cv_in])
+    placed = [
+        PlacedPart("A1", 68.0, 20.0, 0.0, "Module:DaisySeed"),
+        PlacedPart("J_CV", 4.0, 20.0, 0.0, "Connector_Audio:Thonkiconn_PJ398SM"),
+        PlacedPart("R_CV", 12.0, 20.0, 0.0, "Resistor_SMD:R_0603"),
+    ]
+
+    score = score_placement(placed, circuit, BBOXES, outline=BoardOutline(90.0, 40.0))
+
+    assert any("R_CV: signal passive" in warning and "A1" in warning for warning in score.warnings)
 
 
 def test_score_decoupling_cap_ignores_panel_controls_as_parents():

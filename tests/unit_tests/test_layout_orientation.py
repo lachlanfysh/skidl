@@ -152,6 +152,21 @@ def test_explicit_connector_mating_face_metadata_overrides_footprint_guess():
     assert infer_edge_mating_rotation(header, "top", mating_kind="header") == 0.0
 
 
+def test_usb_mating_face_can_be_inferred_from_footprint_text_without_part():
+    face = infer_connector_mating_face(
+        None,
+        text=(
+            "Connector_USB:"
+            "USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal"
+        ),
+        mating_kind="usb",
+    )
+
+    assert face is not None
+    assert face.local_exit == "+y"
+    assert face.local_face_offset_mm == pytest.approx(3.1)
+
+
 def test_vertical_panel_audio_jack_has_no_edge_mating_face():
     jack = _connector_part(
         "J1",

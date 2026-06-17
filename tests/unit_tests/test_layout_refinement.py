@@ -72,6 +72,9 @@ BBOXES = {
     "Capacitor_SMD:C_0603": (1.6, 0.8),
     "Capacitor_SMD:C_0805": (2.0, 1.25),
     "Package_TO_SOT_SMD:SOT-23-5": (3.0, 3.0),
+    "Module:DaisySeed": (8.0, 8.0),
+    "Connector_Audio:Jack": (8.0, 8.0),
+    "Package_TO_SOT_SMD:SOT-23": (3.0, 3.0),
 }
 
 
@@ -401,6 +404,183 @@ def test_refinement_moves_decap_toward_nearby_common_rail_ic_group():
         u1_supply_target,
     )
     assert "passive pin gravity" in reasons
+
+
+def test_refinement_named_decap_uses_token_matched_rail_owner():
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    u1 = _Part("U1", "Package_QFP:MCU", name="ESP32 module", nets=[vcc, gnd], pins=8)
+    u4 = _Part(
+        "U4",
+        "Package_QFP:MCU",
+        name="BME280 environmental sensor",
+        nets=[gnd, vcc],
+        pins=8,
+    )
+    cbme1 = _Part("CBME1", "Capacitor_SMD:C_0603", value="100nF", nets=[vcc, gnd])
+    circuit = _Circuit([u1, u4, cbme1], [vcc, gnd])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(95.0, 40.0),
+        fixed=[FixedPosition("U1", 20.0, 20.0), FixedPosition("U4", 70.0, 20.0)],
+    )
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("U4", 70.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("CBME1", 22.0, 20.0, 0.0, "Capacitor_SMD:C_0603"),
+    ]
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=_mcu_cap_geometries(),
+        max_passes=1,
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+    cap_xy = (by_ref["CBME1"].x_mm, by_ref["CBME1"].y_mm)
+
+    assert result.accepted_moves >= 1
+    assert by_ref["U1"].x_mm == pytest.approx(20.0)
+    assert by_ref["U4"].x_mm == pytest.approx(70.0)
+    assert _distance(cap_xy, (74.0, 20.0)) < _distance((22.0, 20.0), (74.0, 20.0))
+    assert _distance(cap_xy, (70.0, 20.0)) < _distance(cap_xy, (20.0, 20.0))
+    assert "U4 ic owner" in "; ".join(result.ref_reasons["CBME1"])
+    assert "name affinity" in "; ".join(result.ref_reasons["CBME1"])
+
+
+def test_refinement_series_passive_prefers_module_pin_over_panel_endpoint():
+    cv_tip = _Net("CV_TIP")
+    cv_in = _Net("CV_IN")
+    module = _Part(
+        "A1",
+        "Module:DaisySeed",
+        name="Electrosmith Daisy Seed Rev4",
+        nets=[cv_in],
+        pins=40,
+    )
+    jack = _Part(
+        "J_CV",
+        "Connector_Audio:Jack",
+        name="Thonkiconn PJ398SM panel jack",
+        nets=[cv_tip],
+        pins=2,
+    )
+    resistor = _Part("R_CV", "Resistor_SMD:R_0603", nets=[cv_tip, cv_in])
+    circuit = _Circuit([module, jack, resistor], [cv_tip, cv_in])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(90.0, 40.0),
+        fixed=[FixedPosition("A1", 68.0, 20.0)],
+        edge_anchors=[EdgeAnchor("J_CV", "left", offset_mm=20.0)],
+    )
+    geometries = {
+        "Module:DaisySeed": FootprintGeometry(
+            footprint="Module:DaisySeed",
+            courtyard_bounds=(-4.0, -4.0, 4.0, 4.0),
+            pads=[PadGeometry("1", -4.0, 0.0, 0.6, 0.6)],
+        ),
+        "Connector_Audio:Jack": FootprintGeometry(
+            footprint="Connector_Audio:Jack",
+            courtyard_bounds=(-4.0, -4.0, 4.0, 4.0),
+            pads=[PadGeometry("1", 4.0, 0.0, 0.8, 0.8)],
+        ),
+        "Resistor_SMD:R_0603": FootprintGeometry(
+            footprint="Resistor_SMD:R_0603",
+            courtyard_bounds=(-0.8, -0.4, 0.8, 0.4),
+            pads=[
+                PadGeometry("1", -0.45, 0.0, 0.4, 0.5),
+                PadGeometry("2", 0.45, 0.0, 0.4, 0.5),
+            ],
+        ),
+    }
+    placed = [
+        PlacedPart("A1", 68.0, 20.0, 0.0, "Module:DaisySeed"),
+        PlacedPart("J_CV", 4.0, 20.0, 0.0, "Connector_Audio:Jack"),
+        PlacedPart("R_CV", 12.0, 20.0, 0.0, "Resistor_SMD:R_0603"),
+    ]
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=geometries,
+        max_passes=1,
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+
+    assert result.accepted_moves >= 1
+    assert by_ref["A1"].x_mm == pytest.approx(68.0)
+    assert by_ref["J_CV"].x_mm == pytest.approx(4.0)
+    assert by_ref["R_CV"].x_mm > 50.0
+    assert "A1 module_socket owner" in "; ".join(result.ref_reasons["R_CV"])
+
+
+def test_refinement_series_passive_prefers_transistor_pin_over_panel_endpoint():
+    fm_cv = _Net("FM_CV")
+    expo_base = _Net("EXPO_BASE")
+    q1 = _Part(
+        "Q1",
+        "Package_TO_SOT_SMD:SOT-23",
+        name="MMBT3904 expo transistor",
+        nets=[expo_base],
+        pins=3,
+    )
+    jack = _Part(
+        "J_FM",
+        "Connector_Audio:Jack",
+        name="Thonkiconn PJ398SM panel jack",
+        nets=[fm_cv],
+        pins=2,
+    )
+    resistor = _Part("R_FM", "Resistor_SMD:R_0603", nets=[fm_cv, expo_base])
+    circuit = _Circuit([q1, jack, resistor], [fm_cv, expo_base])
+    constraints = LayoutConstraints(
+        outline=BoardOutline(80.0, 40.0),
+        fixed=[FixedPosition("Q1", 62.0, 20.0)],
+        edge_anchors=[EdgeAnchor("J_FM", "left", offset_mm=20.0)],
+    )
+    geometries = {
+        "Package_TO_SOT_SMD:SOT-23": FootprintGeometry(
+            footprint="Package_TO_SOT_SMD:SOT-23",
+            courtyard_bounds=(-1.5, -1.5, 1.5, 1.5),
+            pads=[PadGeometry("1", -1.5, 0.0, 0.4, 0.6)],
+        ),
+        "Connector_Audio:Jack": FootprintGeometry(
+            footprint="Connector_Audio:Jack",
+            courtyard_bounds=(-4.0, -4.0, 4.0, 4.0),
+            pads=[PadGeometry("1", 4.0, 0.0, 0.8, 0.8)],
+        ),
+        "Resistor_SMD:R_0603": FootprintGeometry(
+            footprint="Resistor_SMD:R_0603",
+            courtyard_bounds=(-0.8, -0.4, 0.8, 0.4),
+            pads=[
+                PadGeometry("1", -0.45, 0.0, 0.4, 0.5),
+                PadGeometry("2", 0.45, 0.0, 0.4, 0.5),
+            ],
+        ),
+    }
+    placed = [
+        PlacedPart("Q1", 62.0, 20.0, 0.0, "Package_TO_SOT_SMD:SOT-23"),
+        PlacedPart("J_FM", 4.0, 20.0, 0.0, "Connector_Audio:Jack"),
+        PlacedPart("R_FM", 12.0, 20.0, 0.0, "Resistor_SMD:R_0603"),
+    ]
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=constraints,
+        fp_geometries=geometries,
+        max_passes=1,
+    )
+    by_ref = {part.ref: part for part in result.placed_parts}
+
+    assert result.accepted_moves >= 1
+    assert by_ref["Q1"].x_mm == pytest.approx(62.0)
+    assert by_ref["J_FM"].x_mm == pytest.approx(4.0)
+    assert by_ref["R_FM"].x_mm > 48.0
+    assert "Q1 ic owner" in "; ".join(result.ref_reasons["R_FM"])
 
 
 def test_refinement_preanchored_decap_skips_generic_pin_gravity():

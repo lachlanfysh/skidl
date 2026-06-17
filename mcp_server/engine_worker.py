@@ -1655,10 +1655,76 @@ def _generate_board_previews(pcb_path: str, out_dir: Path) -> dict:
     return result
 
 
+def _placement_review_preview_mode(value) -> str:
+    text = str(value or "fast").strip().lower().replace("-", "_")
+    if text in {"full", "complete", "kicad", "all"}:
+        return "full"
+    return "fast"
+
+
+def _placement_review_only_exception(pipeline_goal: str) -> DesignException:
+    return DesignException(
+        id="i-placement-review",
+        code=ExcCode.PLACEMENT_REVIEW_ONLY,
+        severity=Severity.ADVISORY,
+        message=(
+            "Placement review goal selected: routing, DRC, and "
+            "manufacturing export were skipped deliberately."
+        ),
+        subject={"pipeline_goal": pipeline_goal},
+        candidates=[],
+        retry_hint=(
+            "Show the PCB/preview artifact to the human. After visual "
+            "and mechanical placement are acceptable, resubmit with "
+            "run_options.pipeline_goal='manufacturing'."
+        ),
+    )
+
+
+def _generate_pipeline_previews(
+    pcb_path: str,
+    out_dir: Path,
+    layout_result,
+    *,
+    pipeline_goal: str,
+    preview_mode: str,
+) -> dict:
+    if pipeline_goal == "placement_review" and preview_mode == "fast":
+        previews = {
+            "files": [],
+            "errors": [],
+            "warnings": [
+                "placement_review fast preview mode: KiCad SVG/3D preview "
+                "exports were skipped to return reviewable artifacts sooner"
+            ],
+            "mode": "fast",
+        }
+        side_preview_warning = _write_layout_mockup_svg(layout_result, out_dir)
+        _add_layout_mockup_preview(
+            previews,
+            out_dir,
+            side_preview_warning,
+            fallback_reason=(
+                "because placement_review fast preview mode skipped KiCad "
+                "PCB preview export"
+            ),
+        )
+        previews["ok"] = bool(previews.get("files"))
+        return previews
+
+    previews = _generate_board_previews(str(pcb_path), out_dir)
+    previews["mode"] = "full"
+    side_preview_warning = _write_layout_mockup_svg(layout_result, out_dir)
+    _add_layout_mockup_preview(previews, out_dir, side_preview_warning)
+    return previews
+
+
 def _add_layout_mockup_preview(
     previews: dict,
     out_dir: Path,
     side_preview_warning: str | None,
+    *,
+    fallback_reason: str = "because KiCad PCB preview export was unavailable",
 ) -> None:
     """Add side-aware SVG and PNG fallback when KiCad preview export fails."""
     if side_preview_warning is not None:
@@ -1682,7 +1748,7 @@ def _add_layout_mockup_preview(
             previews.setdefault("warnings", []).append(brand_warning)
         previews.setdefault("warnings", []).append(
             "preview_2d_top.png was generated from preview_assembly.svg "
-            "because KiCad PCB preview export was unavailable"
+            f"{fallback_reason}"
         )
     else:
         previews.setdefault("warnings", []).append(
@@ -3799,6 +3865,10 @@ def _run_skidl_code(envelope: dict) -> dict:
 
     _configure_kicad_env()
     fp_dirs = [os.environ["KICAD9_FOOTPRINT_DIR"]]
+    pipeline_goal = _normalize_pipeline_goal(envelope.get("pipeline_goal"))
+    preview_mode = _placement_review_preview_mode(
+        envelope.get("placement_preview_mode") or envelope.get("preview_mode")
+    )
 
     fp_dirs.extend(_easyeda_fp_dirs())
 
@@ -4031,26 +4101,8 @@ def _run_skidl_code(envelope: dict) -> dict:
     ]
     manufacturable = False
     mfg = {}
-    pipeline_goal = _normalize_pipeline_goal(envelope.get("pipeline_goal"))
     if pipeline_goal == "placement_review":
-        all_exceptions.append(
-            DesignException(
-                id="i-placement-review",
-                code=ExcCode.PLACEMENT_REVIEW_ONLY,
-                severity=Severity.ADVISORY,
-                message=(
-                    "Placement review goal selected: routing, DRC, and "
-                    "manufacturing export were skipped deliberately."
-                ),
-                subject={"pipeline_goal": pipeline_goal},
-                candidates=[],
-                retry_hint=(
-                    "Show the PCB/preview artifact to the human. After visual "
-                    "and mechanical placement are acceptable, resubmit with "
-                    "run_options.pipeline_goal='manufacturing'."
-                ),
-            )
-        )
+        all_exceptions.append(_placement_review_only_exception(pipeline_goal))
     elif not layout_errors:
         route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
         route_exceptions = enrich_routing_failure_exceptions(
@@ -4085,9 +4137,13 @@ def _run_skidl_code(envelope: dict) -> dict:
                 else:
                     manufacturable = True
 
-    previews = _generate_board_previews(str(pcb_path), out_dir)
-    side_preview_warning = _write_layout_mockup_svg(layout_result, out_dir)
-    _add_layout_mockup_preview(previews, out_dir, side_preview_warning)
+    previews = _generate_pipeline_previews(
+        str(pcb_path),
+        out_dir,
+        layout_result,
+        pipeline_goal=pipeline_goal,
+        preview_mode=preview_mode,
+    )
 
     outputs = {
         "run_dir": str(out_dir),
@@ -4109,6 +4165,9 @@ def _run_skidl_code(envelope: dict) -> dict:
     metrics["manufacturable"] = manufacturable
     metrics["manufacturing_complete"] = manufacturable
     metrics["pipeline_goal"] = pipeline_goal
+    metrics["preview_mode"] = (
+        preview_mode if pipeline_goal == "placement_review" else "full"
+    )
     all_exceptions = _drop_clean_manufacturing_advisories(
         all_exceptions,
         manufacturable=manufacturable,
@@ -4163,6 +4222,10 @@ def run(envelope: dict) -> dict:
 
     _configure_kicad_env()
     fp_dirs = [os.environ["KICAD9_FOOTPRINT_DIR"]]
+    pipeline_goal = _normalize_pipeline_goal(envelope.get("pipeline_goal"))
+    preview_mode = _placement_review_preview_mode(
+        envelope.get("placement_preview_mode") or envelope.get("preview_mode")
+    )
 
     fp_dirs.extend(_easyeda_fp_dirs())
 
@@ -4329,7 +4392,9 @@ def run(envelope: dict) -> dict:
     layout_errors = [e for e in all_exceptions if e.severity in (Severity.FATAL, Severity.ERROR)]
     manufacturable = False
     mfg = {}
-    if not layout_errors:
+    if pipeline_goal == "placement_review":
+        all_exceptions.append(_placement_review_only_exception(pipeline_goal))
+    elif not layout_errors:
         route_timeout = max(30.0, float(envelope.get("route_timeout_s", 120)))
         route_exceptions = enrich_routing_failure_exceptions(
             _route_pcb(str(pcb_path), timeout_s=route_timeout),
@@ -4361,9 +4426,13 @@ def run(envelope: dict) -> dict:
                 else:
                     manufacturable = True
 
-    previews = _generate_board_previews(str(pcb_path), out_dir)
-    side_preview_warning = _write_layout_mockup_svg(layout_result, out_dir)
-    _add_layout_mockup_preview(previews, out_dir, side_preview_warning)
+    previews = _generate_pipeline_previews(
+        str(pcb_path),
+        out_dir,
+        layout_result,
+        pipeline_goal=pipeline_goal,
+        preview_mode=preview_mode,
+    )
 
     outputs = {
         "run_dir": str(out_dir),
@@ -4380,6 +4449,10 @@ def run(envelope: dict) -> dict:
     metrics = _metrics(layout_result, circuit, fp_dirs=fp_dirs)
     metrics["manufacturable"] = manufacturable
     metrics["manufacturing_complete"] = manufacturable
+    metrics["pipeline_goal"] = pipeline_goal
+    metrics["preview_mode"] = (
+        preview_mode if pipeline_goal == "placement_review" else "full"
+    )
     all_exceptions = _drop_clean_manufacturing_advisories(
         all_exceptions,
         manufacturable=manufacturable,
@@ -4387,10 +4460,15 @@ def run(envelope: dict) -> dict:
 
     return _json_result(
         run_id=run_id,
-        ok=layout_result.ok and manufacturable and not any(
-            e.severity in (Severity.FATAL, Severity.ERROR) for e in all_exceptions
+        ok=(
+            layout_result.ok
+            and (pipeline_goal == "placement_review" or manufacturable)
+            and not any(
+                e.severity in (Severity.FATAL, Severity.ERROR)
+                for e in all_exceptions
+            )
         ),
-        stage="complete",
+        stage="placement_review" if pipeline_goal == "placement_review" else "complete",
         spec=spec,
         exceptions=all_exceptions,
         outputs=outputs,

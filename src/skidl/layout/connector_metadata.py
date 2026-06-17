@@ -11,6 +11,7 @@ class ConnectorMatingFace:
     confidence: float
     reasons: tuple[str, ...] = ()
     edge_inset_mm: float = 0.0
+    local_face_offset_mm: float | None = None
 
 
 AUDIO_JACK_RE = re.compile(
@@ -200,11 +201,13 @@ def infer_connector_mating_face(
         )
 
     if kind == "usb" or USB_RE.search(combined):
+        face_offset = 3.1 if "usb4105" in footprint else None
         return ConnectorMatingFace(
             kind="usb",
             local_exit="+y",
             confidence=0.9,
             reasons=("KiCad USB receptacle PCB-edge marker is local +Y",),
+            local_face_offset_mm=face_offset,
         )
 
     if kind == "barrel" or BARREL_RE.search(combined):
@@ -216,11 +219,13 @@ def infer_connector_mating_face(
         )
 
     if kind == "jst" or JST_RE.search(combined):
+        face_offset = 2.575 if "jst_sh" in footprint and "horizontal" in footprint else None
         return ConnectorMatingFace(
             kind="jst",
             local_exit="+y",
             confidence=0.85,
             reasons=("side-entry JST/Qwiic connector exits local +Y",),
+            local_face_offset_mm=face_offset,
         )
 
     if TERMINAL_BLOCK_RE.search(combined):

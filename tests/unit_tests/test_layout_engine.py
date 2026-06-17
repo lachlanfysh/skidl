@@ -15,6 +15,7 @@ from skidl.layout.constraints import (
 )
 from skidl.layout.engine import (
     LayoutResult,
+    _apply_edge_intent_score,
     _edge_parallel,
     _effective_keepouts,
     _footprint_names,
@@ -27,9 +28,10 @@ from skidl.layout.engine import (
 )
 from skidl.layout.geometry import FootprintGeometry, PadGeometry
 from skidl.layout.grid import points_form_clean_grid
-from skidl.layout.intent import PlacementIntent, PlacementIntentPlan
+from skidl.layout.intent import MatingIntent, PlacementIntent, PlacementIntentPlan
 from skidl.layout.placer import derive_outline
 from skidl.layout.routability import RoutabilityFeedback
+from skidl.layout.scoring import LayoutScore
 from skidl.layout.writer import PlacedPart
 
 
@@ -93,6 +95,11 @@ BBOXES = {
         "TerminalBlock_Phoenix_MKDS-3-2-5.08_1x02_P5.08mm_Horizontal"
     ): (10.16, 8.0),
 }
+
+USB4105_FP = (
+    "Connector_USB:"
+    "USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal"
+)
 
 
 def _distance(point_a, point_b):
@@ -586,6 +593,50 @@ def test_right_angle_pin_header_is_centered_on_edge_and_faces_outward():
     assert (bounds[2] - bounds[0]) > (bounds[3] - bounds[1])
 
 
+def test_pin_header_parallel_repair_prefers_outward_mating_face():
+    outline = BoardOutline(42.0, 24.0)
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[
+            EdgeAnchor("J1", "bottom", offset_mm=21.0, inset_mm=0.0, rot_deg=270.0),
+        ],
+        mating_intents=[
+            MatingIntent(
+                "J1",
+                "header",
+                edge_preference="bottom",
+                mating_side="pin_access",
+            ),
+        ],
+    )
+
+    snapped, moved = _snap_edge_anchors_to_outline(
+        [PlacedPart("J1", 12.0, 12.0, 90.0, "Connector:PinHeader_1x06")],
+        outline,
+        intent_plan,
+        LayoutConstraints(
+            outline=outline,
+            edge_anchors=[
+                EdgeAnchor(
+                    "J1",
+                    "bottom",
+                    offset_mm=21.0,
+                    inset_mm=0.0,
+                    rot_deg=90.0,
+                ),
+            ],
+        ),
+        BBOXES,
+        None,
+    )
+
+    placed = {part.ref: part for part in snapped}
+    bounds = _placed_bounds(placed["J1"], BBOXES)
+    assert moved == ["J1"]
+    assert placed["J1"].rot_deg == pytest.approx(270.0)
+    assert bounds[3] == pytest.approx(outline.y_max)
+    assert (bounds[2] - bounds[0]) > (bounds[3] - bounds[1])
+
+
 def test_terminal_block_is_parallel_to_edge_and_faces_outward():
     outline = BoardOutline(48.0, 30.0)
     vin = _Net("VIN")
@@ -667,6 +718,105 @@ def test_plan_layout_clamps_geometry_backed_edge_header_inside_outline(monkeypat
     assert bounds[2] <= outline.x_max + 1e-6
     assert bounds[3] == pytest.approx(outline.y_max - 0.5)
     assert placed["J1"].rot_deg == 90.0
+
+
+def test_edge_anchor_snap_places_noncenter_origin_usb_mating_face_on_bottom_edge():
+    outline = BoardOutline(40.0, 20.0)
+    geometries = {
+        USB4105_FP: FootprintGeometry(
+            footprint=USB4105_FP,
+            body_bounds=(-4.0, -2.0, 6.0, 4.0),
+            courtyard_bounds=(-5.0, -3.0, 7.0, 5.0),
+        ),
+    }
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[EdgeAnchor("J_USB", "bottom", offset_mm=20.0, inset_mm=0.0, rot_deg=0.0)],
+        mating_intents=[
+            MatingIntent("J_USB", "usb", edge_preference="bottom"),
+        ],
+    )
+
+    snapped, moved = _snap_edge_anchors_to_outline(
+        [PlacedPart("J_USB", 8.0, 8.0, 0.0, USB4105_FP)],
+        outline,
+        intent_plan,
+        LayoutConstraints(outline=outline),
+        {USB4105_FP: (12.0, 8.0)},
+        geometries,
+    )
+
+    placed = {part.ref: part for part in snapped}
+    assert moved == ["J_USB"]
+    assert placed["J_USB"].x_mm + 1.0 == pytest.approx(20.0)
+    assert placed["J_USB"].y_mm + 3.1 == pytest.approx(outline.y_max)
+
+
+def test_edge_intent_score_uses_mating_face_not_courtyard_edge():
+    outline = BoardOutline(40.0, 20.0)
+    geometries = {
+        USB4105_FP: FootprintGeometry(
+            footprint=USB4105_FP,
+            body_bounds=(-4.0, -2.0, 6.0, 4.0),
+            courtyard_bounds=(-5.0, -3.0, 7.0, 5.0),
+        ),
+    }
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[EdgeAnchor("J_USB", "bottom", offset_mm=20.0, inset_mm=0.0, rot_deg=0.0)],
+        mating_intents=[
+            MatingIntent("J_USB", "usb", edge_preference="bottom"),
+        ],
+    )
+    constraints = LayoutConstraints(
+        outline=outline,
+        edge_anchors=[
+            EdgeAnchor("J_USB", "bottom", offset_mm=20.0, inset_mm=0.0, rot_deg=0.0),
+        ],
+    )
+    placed = [PlacedPart("J_USB", 20.0, outline.y_max - 3.1, 0.0, USB4105_FP)]
+
+    result = _apply_edge_intent_score(
+        LayoutScore(score=80.0),
+        placed,
+        {USB4105_FP: (12.0, 8.0)},
+        outline,
+        intent_plan,
+        constraints=constraints,
+        fp_geometries=geometries,
+    )
+
+    assert result.warnings == []
+
+
+def test_fixed_floorplan_position_suppresses_inferred_connector_edge_warning():
+    outline = BoardOutline(40.0, 20.0)
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[EdgeAnchor("J_USB", "bottom", offset_mm=20.0, inset_mm=0.0, rot_deg=0.0)],
+        mating_intents=[
+            MatingIntent("J_USB", "usb", edge_preference="bottom"),
+        ],
+    )
+    constraints = LayoutConstraints(
+        outline=outline,
+        fixed=[FixedPosition("J_USB", 20.0, 12.0, 0.0)],
+    )
+    score = LayoutScore(
+        score=40.0,
+        warning_count=1,
+        warnings=["J_USB: connector is 7.0mm from nearest board edge"],
+    )
+
+    result = _apply_edge_intent_score(
+        score,
+        [PlacedPart("J_USB", 20.0, 12.0, 0.0, USB4105_FP)],
+        {USB4105_FP: (12.0, 8.0)},
+        outline,
+        intent_plan,
+        constraints=constraints,
+        fp_geometries={},
+    )
+
+    assert result.warnings == []
+    assert result.score == pytest.approx(45.0)
 
 
 def test_plan_layout_stamps_eurorack_front_back_sides_on_placements():

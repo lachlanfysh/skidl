@@ -324,7 +324,7 @@ class TestDB:
         assert job["result"]["artifact_summary"]["available"] is False
         assert job["result"]["reviewable_failure"] is False
         assert job["result"]["decision_required"] is True
-        assert job["result"]["recommended_next_tool"] == "submit_skidl_code"
+        assert job["result"]["recommended_next_tool"] == "get_job"
         assert job["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
         assert job["result"]["exceptions"][0]["subject"]["stage"] == "worker_lost"
         assert job["result"]["exceptions"][0]["candidates"][0]["action"] == "regenerate"
@@ -362,6 +362,7 @@ class TestDB:
         assert probe["status"] == "crashed"
         assert probe["result"]["stage"] == "worker_lost"
         assert probe["result"]["failure_kind"] == "worker_lost"
+        assert probe["result"]["recommended_next_tool"] == "get_job"
         assert probe["result"]["artifact_summary"]["available"] is False
         assert probe["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
 
@@ -408,7 +409,12 @@ class TestWorkerOptionPassthrough:
 
         job = {
             "spec": SIMPLE_SPEC,
-            "options": {"timeout_s": 600, "route_timeout_s": 420},
+            "options": {
+                "timeout_s": 600,
+                "route_timeout_s": 420,
+                "pipeline_goal": "placement_review",
+                "preview_mode": "full",
+            },
             "policy": {},
         }
         result = _execute_job(job)
@@ -416,6 +422,8 @@ class TestWorkerOptionPassthrough:
         assert result["run_id"] == "fake-run"
         assert seen["timeout_s"] == 600
         assert seen["route_timeout_s"] == 420
+        assert seen["pipeline_goal"] == "placement_review"
+        assert seen["placement_preview_mode"] == "full"
 
     def test_skidl_code_route_timeout_reaches_pipeline(self, monkeypatch):
         seen = {}
@@ -453,6 +461,7 @@ class TestWorkerOptionPassthrough:
                 "run_id": "stable-code-run",
                 "assembly_policy": "double_sided",
                 "pipeline_goal": "placement_review",
+                "placement_preview_mode": "full",
             },
             "policy": {},
         }
@@ -465,9 +474,68 @@ class TestWorkerOptionPassthrough:
         assert seen["board_id"] == "route-timeout-test"
         assert seen["assembly_policy"] == "double_sided"
         assert seen["pipeline_goal"] == "placement_review"
+        assert seen["placement_preview_mode"] == "full"
         assert seen["custom_footprints"] == {
             "MyLib:MyFootprint": '(footprint "MyFootprint" (layer "F.Cu"))',
         }
+
+    def test_placement_review_does_not_run_hidden_internal_corrections(self, monkeypatch):
+        from schemas.exceptions import (
+            ActionType,
+            Candidate,
+            DesignException,
+            ExcCode,
+            Severity,
+        )
+
+        calls = {"run_pipeline": 0}
+
+        def fake_run_pipeline(spec, out_dir, **kwargs):
+            calls["run_pipeline"] += 1
+            return DesignResponse(
+                run_id=f"review-run-{calls['run_pipeline']}",
+                ok=False,
+                status="failed",
+                stage="placement_review",
+                exceptions=[
+                    DesignException(
+                        id="e-layout",
+                        code=ExcCode.SCH_PLACEMENT_FAILURE,
+                        severity=Severity.FATAL,
+                        message="placement needs another attempt",
+                        candidates=[
+                            Candidate(
+                                id="c1",
+                                action=ActionType.REGENERATE,
+                                params={},
+                                human_summary="retry unchanged",
+                            )
+                        ],
+                    )
+                ],
+                metrics={"manufacturable": False, "manufacturing_complete": False},
+            )
+
+        def fail_apply_choices(*args, **kwargs):
+            raise AssertionError("placement_review must not auto-apply corrections")
+
+        monkeypatch.setattr("mcp_server.worker.run_pipeline", fake_run_pipeline)
+        monkeypatch.setattr("mcp_server.worker._apply_choices", fail_apply_choices)
+
+        result = _execute_job({
+            "spec": SIMPLE_SPEC,
+            "options": {"pipeline_goal": "placement_review", "timeout_s": 600},
+            "policy": {"auto_apply": "safe", "max_internal_corrections": 3},
+        })
+
+        assert calls["run_pipeline"] == 1
+        assert result["run_id"] == "review-run-1"
+        assert result["corrections_applied"] == []
+        assert result["metrics"]["internal_corrections_skipped"] is True
+        assert (
+            "first reviewable placement"
+            in result["metrics"]["internal_corrections_skip_reason"]
+        )
 
 
 class TestWorkerRuntimeSemantics:
@@ -496,6 +564,7 @@ class TestWorkerRuntimeSemantics:
         assert result["failure_kind"] == "worker_runtime_timeout"
         assert result["worker_timeout"] is True
         assert result["decision_kind"] == "backend_failure"
+        assert result["recommended_next_tool"] == "get_job"
         assert result["visual_review_ready"] is False
         assert result["reviewable_failure"] is False
         exc = result["exceptions"][0]
@@ -503,6 +572,108 @@ class TestWorkerRuntimeSemantics:
         assert exc["subject"]["timeout_s"] == 10
         assert exc["subject"]["worker_deadline_s"] == 12
         assert exc["subject"]["partial_artifacts"] == []
+
+    def test_worker_exception_result_is_backend_feedback(self):
+        job = {
+            "id": "job-crash",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "options": {"timeout_s": 10},
+            "policy": {},
+        }
+
+        result = _worker_exception_result(
+            job,
+            "job-crash",
+            "worker-test",
+            RuntimeError("database went away"),
+            "Traceback\nRuntimeError: database went away",
+        )
+
+        assert result["status"] == "crashed"
+        assert result["stage"] == "worker_exception"
+        assert result["failure_kind"] == "worker_exception"
+        assert result["worker_backend_failure"] is True
+        assert result["decision_kind"] == "backend_failure"
+        assert result["recommended_next_tool"] == "get_job"
+        assert result["visual_review_ready"] is False
+        assert result["reviewable_failure"] is False
+        assert result["exceptions"][0]["code"] == "ENGINE_CRASH"
+
+    def test_engine_timeout_result_is_backend_feedback(self, monkeypatch):
+        from schemas.exceptions import DesignException, ExcCode, Severity
+
+        def fake_run_pipeline(spec, out_dir, **kwargs):
+            return DesignResponse(
+                run_id="engine-timeout-run",
+                ok=False,
+                status="timeout",
+                stage="timeout",
+                exceptions=[
+                    DesignException(
+                        id="e-timeout",
+                        code=ExcCode.ENGINE_TIMEOUT,
+                        severity=Severity.FATAL,
+                        message="engine subprocess timed out",
+                    )
+                ],
+                metrics={"manufacturable": False, "manufacturing_complete": False},
+            )
+
+        monkeypatch.setattr("mcp_server.worker.run_pipeline", fake_run_pipeline)
+
+        result = _execute_job({
+            "spec": SIMPLE_SPEC,
+            "options": {"timeout_s": 5},
+            "policy": {},
+        })
+
+        assert result["status"] == "timeout"
+        assert result["failure_kind"] == "engine_timeout"
+        assert result["engine_timeout"] is True
+        assert result["decision_required"] is True
+        assert result["decision_kind"] == "backend_failure"
+        assert result["recommended_next_tool"] == "get_job"
+        assert result["visual_review_ready"] is False
+        assert result["reviewable_failure"] is False
+
+    def test_skidl_engine_crash_result_is_backend_feedback(self, monkeypatch):
+        from schemas.exceptions import DesignException, ExcCode, Severity
+
+        def fake_run_pipeline_code(**kwargs):
+            return DesignResponse(
+                run_id="engine-crash-run",
+                ok=False,
+                status="crashed",
+                stage="worker_crash",
+                exceptions=[
+                    DesignException(
+                        id="e-crash",
+                        code=ExcCode.ENGINE_CRASH,
+                        severity=Severity.FATAL,
+                        message="engine subprocess crashed",
+                    )
+                ],
+                metrics={"manufacturable": False, "manufacturing_complete": False},
+            )
+
+        monkeypatch.setattr("mcp_server.worker.run_pipeline_code", fake_run_pipeline_code)
+
+        result = _execute_job({
+            "spec": {
+                "_mode": "skidl_python",
+                "code": "from skidl import *",
+                "board_name": "crash-board",
+            },
+            "options": {"timeout_s": 5},
+            "policy": {},
+        })
+
+        assert result["status"] == "crashed"
+        assert result["failure_kind"] == "engine_crash"
+        assert result["worker_backend_failure"] is True
+        assert result["decision_required"] is True
+        assert result["decision_kind"] == "backend_failure"
+        assert result["recommended_next_tool"] == "get_job"
 
     @pytest.mark.asyncio
     async def test_execute_job_with_deadline_marks_worker_timeout(self, monkeypatch):

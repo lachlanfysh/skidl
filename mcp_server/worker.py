@@ -57,6 +57,66 @@ def _worker_deadline_s(job: dict) -> float:
     return _job_timeout_s(job) + max(0.0, WORKER_RUNTIME_GRACE_S)
 
 
+def _job_pipeline_goal(job: dict) -> str:
+    """Return the requested pipeline goal using the worker's accepted aliases."""
+
+    raw = job.get("spec") or {}
+    opts = job.get("options") or {}
+    value = opts.get("pipeline_goal")
+    if value is None and isinstance(raw, dict):
+        value = raw.get("pipeline_goal")
+    text = str(value or "manufacturing").strip().lower().replace("-", "_")
+    aliases = {
+        "place": "placement_review",
+        "placement": "placement_review",
+        "placement_only": "placement_review",
+        "review": "placement_review",
+        "review_placement": "placement_review",
+        "preview": "placement_review",
+    }
+    normalized = aliases.get(text, text)
+    if normalized not in {"manufacturing", "placement_review"}:
+        return "manufacturing"
+    return normalized
+
+
+def _is_placement_review_job(job: dict) -> bool:
+    return _job_pipeline_goal(job) == "placement_review"
+
+
+def _exception_codes(result: dict[str, Any]) -> set[str]:
+    codes: set[str] = set()
+    for exc in result.get("exceptions") or []:
+        if isinstance(exc, dict):
+            code = exc.get("code")
+        else:
+            raw_code = getattr(exc, "code", None)
+            code = getattr(raw_code, "value", raw_code)
+        if code:
+            codes.add(str(code))
+    return codes
+
+
+def _annotate_backend_failure_result(result: dict[str, Any]) -> None:
+    """Make engine timeout/crash results unambiguously backend feedback."""
+
+    codes = _exception_codes(result)
+    if "ENGINE_TIMEOUT" in codes:
+        result.setdefault("failure_kind", "engine_timeout")
+        result.setdefault("engine_timeout", True)
+    elif "ENGINE_CRASH" in codes:
+        result.setdefault("failure_kind", "engine_crash")
+        result.setdefault("worker_backend_failure", True)
+    else:
+        return
+
+    result["decision_required"] = True
+    result["decision_kind"] = "backend_failure"
+    result["recommended_next_tool"] = "get_job"
+    result.setdefault("visual_review_ready", False)
+    result.setdefault("reviewable_failure", False)
+
+
 def _prepare_job_for_execution(job: dict) -> dict:
     """Give every hosted execution a stable run_id before the worker starts."""
 
@@ -297,7 +357,9 @@ def _worker_exception_result(
         "stage": "worker_exception",
         "decision_required": True,
         "decision_kind": "backend_failure",
-        "recommended_next_tool": "submit_skidl_code",
+        "recommended_next_tool": "get_job",
+        "failure_kind": "worker_exception",
+        "worker_backend_failure": True,
         "exceptions": [
             {
                 "id": "e-worker-exception",
@@ -338,6 +400,8 @@ def _worker_exception_result(
         ],
         "summary": f"Worker crashed before returning an engine result: {exc}",
         "metrics": {"manufacturable": False, "manufacturing_complete": False},
+        "visual_review_ready": False,
+        "reviewable_failure": False,
     }
 
 
@@ -359,7 +423,7 @@ def _worker_timeout_result(job: dict, job_id: str, worker_id: str) -> dict[str, 
         "worker_timeout": True,
         "decision_required": True,
         "decision_kind": "backend_failure",
-        "recommended_next_tool": "submit_skidl_code",
+        "recommended_next_tool": "get_job",
         "exceptions": [
             {
                 "id": "e-worker-runtime-timeout",
@@ -520,6 +584,9 @@ def _execute_job(job: dict) -> dict:
             "model_tier": opts.get("model_tier"),
             "bom_match_score": opts.get("bom_match_score"),
             "netlist_match_score": opts.get("netlist_match_score"),
+            "pipeline_goal": opts.get("pipeline_goal"),
+            "placement_preview_mode": opts.get("placement_preview_mode")
+            or opts.get("preview_mode"),
         }
 
         response = run_pipeline(
@@ -536,8 +603,12 @@ def _execute_job(job: dict) -> dict:
         corrections: list[dict] = []
         correction_strings: list[str] = []
         history: set[str] = set()
+        skip_internal_corrections = _is_placement_review_job(job)
 
-        for iteration in range(policy.max_internal_corrections):
+        correction_limit = (
+            0 if skip_internal_corrections else policy.max_internal_corrections
+        )
+        for iteration in range(correction_limit):
             if not response.exceptions:
                 break
             kind = decision_kind(response.exceptions)
@@ -563,10 +634,18 @@ def _execute_job(job: dict) -> dict:
         result = response.model_dump(mode="json")
         result["spec"] = spec.model_dump(mode="json")
         result["corrections_applied"] = corrections
+        if skip_internal_corrections and policy.max_internal_corrections:
+            result.setdefault("metrics", {})
+            result["metrics"]["internal_corrections_skipped"] = True
+            result["metrics"]["internal_corrections_skip_reason"] = (
+                "placement_review returns the first reviewable placement "
+                "instead of spending the job timeout on hidden retries"
+            )
 
         if response.exceptions:
             result["decision_required"] = True
             result["decision_kind"] = decision_kind(response.exceptions)
+        _annotate_backend_failure_result(result)
 
         result["_artifact_paths"] = _find_artifacts(Path(tmpdir))
         return result
@@ -595,6 +674,8 @@ def _execute_skidl_job(job: dict) -> dict:
             design_intent=raw.get("design_intent") or raw.get("marketing_text"),
             assembly_policy=assembly_policy,
             pipeline_goal=pipeline_goal,
+            placement_preview_mode=opts.get("placement_preview_mode")
+            or opts.get("preview_mode"),
             custom_footprints=raw.get("custom_footprints"),
         )
 
@@ -604,6 +685,7 @@ def _execute_skidl_job(job: dict) -> dict:
         if response.exceptions:
             result["decision_required"] = True
             result["decision_kind"] = decision_kind(response.exceptions)
+        _annotate_backend_failure_result(result)
 
         result["_artifact_paths"] = _find_artifacts(Path(tmpdir))
         return result

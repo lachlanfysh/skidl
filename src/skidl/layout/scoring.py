@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 
 from .congestion import build_congestion_map
@@ -159,6 +160,140 @@ def _net_weight(name: str) -> float:
     if any(token in name.upper() for token in ("USB", "D+", "D-", "CLK", "XTAL")):
         return 1.5
     return 1.0
+
+
+_PRIMARY_OWNER_ROLES = {"ic", "regulator", "module_socket"}
+
+
+def _is_supply_or_ground_net(net_name: str) -> bool:
+    return bool(POWER_NET_RE.match(net_name) or GND_NET_RE.match(net_name))
+
+
+def _role_weight(role_name: str) -> float:
+    return {
+        "regulator": 6.0,
+        "module_socket": 5.5,
+        "ic": 5.0,
+    }.get(role_name, 1.0)
+
+
+def _alpha_tokens(text: str) -> set[str]:
+    generic_tokens = {
+        "CAP",
+        "CAPACITOR",
+        "DEVICE",
+        "FOOTPRINT",
+        "IC",
+        "LGA",
+        "MCU",
+        "METRIC",
+        "MODULE",
+        "PACKAGE",
+        "PKG",
+        "RESISTOR",
+        "SENSOR",
+        "SMD",
+    }
+    tokens: set[str] = set()
+    for match in re.finditer(r"[A-Za-z]{3,}", str(text or "")):
+        token = match.group(0).upper()
+        if token not in generic_tokens:
+            tokens.add(token)
+        if token[0] in {"C", "R", "L", "D", "U", "J", "Q"} and len(token) >= 4:
+            stripped = token[1:]
+            if stripped not in generic_tokens:
+                tokens.add(stripped)
+    return tokens
+
+
+def _part_tokens(part) -> set[str]:
+    tokens: set[str] = set()
+    for field_name in ("ref", "name", "value", "footprint"):
+        tokens.update(_alpha_tokens(str(getattr(part, field_name, "") or "")))
+    return tokens
+
+
+def _token_affinity(passive_part, owner_part) -> int:
+    passive_tokens = _part_tokens(passive_part)
+    owner_tokens = _part_tokens(owner_part)
+    if not passive_tokens or not owner_tokens:
+        return 0
+    best = 0
+    for passive_token in passive_tokens:
+        for owner_token in owner_tokens:
+            if passive_token == owner_token:
+                best = max(best, 3)
+            elif passive_token in owner_token or owner_token in passive_token:
+                best = max(best, 2)
+    return best
+
+
+def _select_primary_owner_ref(
+    ref: str,
+    part_by_ref: dict,
+    nets_by_ref: dict[str, set[str]],
+    roles: dict[str, PartRole],
+    placed_by_ref: dict[str, PlacedPart],
+    *,
+    require_signal: bool,
+    require_power_and_ground: bool = False,
+) -> str | None:
+    part = part_by_ref.get(ref)
+    placed = placed_by_ref.get(ref)
+    if part is None or placed is None:
+        return None
+    passive_nets = nets_by_ref.get(ref, set())
+    signal_nets = {
+        net_name
+        for net_name in passive_nets
+        if not _is_supply_or_ground_net(net_name)
+    }
+    candidates = []
+    for other_ref, other_role in roles.items():
+        if other_ref == ref or other_ref not in placed_by_ref:
+            continue
+        role_name = other_role.role if other_role is not None else "unknown"
+        if role_name not in _PRIMARY_OWNER_ROLES:
+            continue
+        shared = passive_nets & nets_by_ref.get(other_ref, set())
+        if not shared:
+            continue
+        shared_signal = {
+            net_name
+            for net_name in shared
+            if not _is_supply_or_ground_net(net_name)
+        }
+        if require_signal and signal_nets and not shared_signal:
+            continue
+        if require_power_and_ground:
+            if not any(POWER_NET_RE.match(net_name) for net_name in shared):
+                continue
+            if not any(GND_NET_RE.match(net_name) for net_name in shared):
+                continue
+        other = placed_by_ref[other_ref]
+        distance = math.hypot(placed.x_mm - other.x_mm, placed.y_mm - other.y_mm)
+        if require_power_and_ground:
+            candidates.append(
+                (
+                    -_token_affinity(part, part_by_ref.get(other_ref)),
+                    distance,
+                    -_role_weight(role_name),
+                    other_ref,
+                )
+            )
+        else:
+            candidates.append(
+                (
+                    -_token_affinity(part, part_by_ref.get(other_ref)),
+                    -len(shared_signal),
+                    -_role_weight(role_name),
+                    distance,
+                    other_ref,
+                )
+            )
+    if not candidates:
+        return None
+    return min(candidates)[-1]
 
 
 def _weighted_hpwl(placed_parts: list[PlacedPart], circuit) -> float:
@@ -594,7 +729,16 @@ def _role_warnings(
                     f"{pad_distance.parent_ref} supply pads"
                 )
             continue
-        nearest_ref = min(
+        owner_ref = _select_primary_owner_ref(
+            ref,
+            part_by_ref,
+            nets_by_ref,
+            roles,
+            placed_by_ref,
+            require_signal=False,
+            require_power_and_ground=True,
+        )
+        nearest_ref = owner_ref or min(
             candidates,
             key=lambda other_ref: _distance(
                 placed_by_ref[ref], placed_by_ref[other_ref]
@@ -626,7 +770,15 @@ def _role_warnings(
         ]
         if not candidates:
             continue
-        nearest_ref = min(
+        owner_ref = _select_primary_owner_ref(
+            ref,
+            part_by_ref,
+            nets_by_ref,
+            roles,
+            placed_by_ref,
+            require_signal=True,
+        )
+        nearest_ref = owner_ref or min(
             candidates,
             key=lambda other_ref: _distance(
                 placed_by_ref[ref], placed_by_ref[other_ref]

@@ -40,6 +40,7 @@ from mcp_server.engine_worker import (
     _footprint_missing_exception,
     _freerouting_jar_path,
     _generate_board_previews,
+    _generate_pipeline_previews,
     _import_ses_with_pcbnew,
     _manufacturing_output_exception,
     _metrics,
@@ -1464,6 +1465,73 @@ class TestBoardPreviews:
         assert previews["files"] == ["preview_assembly.svg", "preview_2d_top.png"]
         assert (tmp_path / "preview_2d_top.png").read_bytes().startswith(b"\x89PNG")
         assert any("preview_assembly.svg" in warning for warning in previews["warnings"])
+
+    def test_placement_review_fast_previews_skip_kicad_exports(
+        self, monkeypatch, tmp_path
+    ):
+        def fail_full_preview(*args, **kwargs):
+            raise AssertionError("fast placement review must not export full KiCad previews")
+
+        def fake_mockup(layout_result, out_dir):
+            (out_dir / "preview_assembly.svg").write_text(
+                "<svg><rect width='10' height='10'/></svg>",
+                encoding="utf-8",
+            )
+            return None
+
+        def fake_rasterize(svg_path, png_path, width_px=1600):
+            png_path.write_bytes(b"\x89PNG\r\n\x1a\nmockup")
+            return None
+
+        monkeypatch.setattr(engine_worker_mod, "_generate_board_previews", fail_full_preview)
+        monkeypatch.setattr(engine_worker_mod, "_write_layout_mockup_svg", fake_mockup)
+        monkeypatch.setattr(engine_worker_mod, "_rasterize_svg_preview", fake_rasterize)
+        monkeypatch.setattr(engine_worker_mod, "_brand_preview_png", lambda png_path: None)
+
+        previews = _generate_pipeline_previews(
+            str(tmp_path / "board.kicad_pcb"),
+            tmp_path,
+            SimpleNamespace(),
+            pipeline_goal="placement_review",
+            preview_mode="fast",
+        )
+
+        assert previews["ok"] is True
+        assert previews["mode"] == "fast"
+        assert previews["files"] == ["preview_assembly.svg", "preview_2d_top.png"]
+        assert any("return reviewable artifacts sooner" in w for w in previews["warnings"])
+        assert any("fast preview mode skipped" in w for w in previews["warnings"])
+
+    def test_placement_review_full_preview_mode_keeps_kicad_exports(
+        self, monkeypatch, tmp_path
+    ):
+        called = {"full_preview": False}
+
+        def fake_full_preview(pcb_path, out_dir):
+            called["full_preview"] = True
+            return {"files": ["preview_2d_top.png"], "errors": [], "warnings": [], "ok": True}
+
+        def fake_mockup(layout_result, out_dir):
+            (out_dir / "preview_assembly.svg").write_text(
+                "<svg><rect width='10' height='10'/></svg>",
+                encoding="utf-8",
+            )
+            return None
+
+        monkeypatch.setattr(engine_worker_mod, "_generate_board_previews", fake_full_preview)
+        monkeypatch.setattr(engine_worker_mod, "_write_layout_mockup_svg", fake_mockup)
+
+        previews = _generate_pipeline_previews(
+            str(tmp_path / "board.kicad_pcb"),
+            tmp_path,
+            SimpleNamespace(),
+            pipeline_goal="placement_review",
+            preview_mode="full",
+        )
+
+        assert called["full_preview"] is True
+        assert previews["mode"] == "full"
+        assert previews["files"] == ["preview_2d_top.png", "preview_assembly.svg"]
 
 
 class TestKiCadEnv:
@@ -3626,6 +3694,140 @@ class TestWorkerAndPipeline:
         if response.ok:
             assert os.path.exists(response.outputs["pcb"])
             assert os.path.exists(response.artifacts["pcb"])
+
+
+class TestPlacementReviewRuntime:
+    def test_circuit_spec_placement_review_skips_routing_and_full_previews(
+        self, monkeypatch, tmp_path
+    ):
+        import skidl.layout as layout_mod
+
+        run_dir = tmp_path / "placement-review-spec"
+
+        class FakeCircuit:
+            parts = [
+                SimpleNamespace(
+                    ref="R1",
+                    footprint="Resistor_SMD:R_0603_1608Metric",
+                    pins=[object(), object()],
+                )
+            ]
+
+            def generate_schematic(self, filepath, top_name, **kwargs):
+                Path(filepath, f"{top_name}.kicad_sch").write_text(
+                    "(kicad_sch)",
+                    encoding="utf-8",
+                )
+
+        class FakeLayoutResult:
+            ok = True
+            placed_parts = [
+                PlacedPart(
+                    "R1",
+                    10.0,
+                    10.0,
+                    0.0,
+                    "Resistor_SMD:R_0603_1608Metric",
+                )
+            ]
+            outline = BoardOutline(30.0, 20.0)
+            validation = SimpleNamespace(
+                overlaps=[],
+                outline_violations=[],
+                keepout_violations=[],
+                cutout_violations=[],
+                missing_refs=[],
+            )
+            score = SimpleNamespace(
+                score=95.0,
+                total_hpwl_mm=0.0,
+                congestion_score=0.0,
+                warnings=[],
+            )
+            candidates = []
+
+            def summary(self):
+                return "fake placement review"
+
+            def to_dict(self):
+                return {
+                    "ok": True,
+                    "outline": {"width_mm": 30.0, "height_mm": 20.0},
+                    "placed_parts": [
+                        {"ref": "R1", "x_mm": 10.0, "y_mm": 10.0}
+                    ],
+                    "validation": {"ok": True},
+                }
+
+        def configure_env():
+            os.environ["KICAD9_FOOTPRINT_DIR"] = str(tmp_path)
+
+        def fake_write_pcb(placed, circuit, fp_dirs, output_path, **kwargs):
+            Path(output_path).write_text("(kicad_pcb)", encoding="utf-8")
+
+        def fail_route(*args, **kwargs):
+            raise AssertionError("placement_review must not call routing")
+
+        def fail_full_preview(*args, **kwargs):
+            raise AssertionError("placement_review fast mode must not export full previews")
+
+        def fake_mockup(layout_result, out_dir):
+            (out_dir / "preview_assembly.svg").write_text(
+                "<svg><rect width='10' height='10'/></svg>",
+                encoding="utf-8",
+            )
+            return None
+
+        def fake_rasterize(svg_path, png_path, width_px=1600):
+            png_path.write_bytes(b"\x89PNG\r\n\x1a\nmockup")
+            return None
+
+        monkeypatch.setattr(engine_worker_mod, "_configure_kicad_env", configure_env)
+        monkeypatch.setattr(engine_worker_mod, "_easyeda_fp_dirs", lambda: [])
+        monkeypatch.setattr(
+            engine_worker_mod,
+            "translate",
+            lambda spec, fp_dirs: SimpleNamespace(
+                exceptions=[],
+                circuit=FakeCircuit(),
+            ),
+        )
+        monkeypatch.setattr(engine_worker_mod, "design_review_exceptions", lambda *a, **k: [])
+        monkeypatch.setattr(engine_worker_mod, "_floorplan_intent_preflight_exception", lambda *a, **k: None)
+        monkeypatch.setattr(engine_worker_mod, "layout_exceptions", lambda result: [])
+        monkeypatch.setattr(layout_mod, "plan_layout", lambda *a, **k: FakeLayoutResult())
+        monkeypatch.setattr(layout_mod, "write_kicad_pcb", fake_write_pcb)
+        monkeypatch.setattr(engine_worker_mod, "_route_pcb", fail_route)
+        monkeypatch.setattr(engine_worker_mod, "_generate_board_previews", fail_full_preview)
+        monkeypatch.setattr(engine_worker_mod, "_write_layout_mockup_svg", fake_mockup)
+        monkeypatch.setattr(engine_worker_mod, "_rasterize_svg_preview", fake_rasterize)
+        monkeypatch.setattr(engine_worker_mod, "_brand_preview_png", lambda png_path: None)
+
+        cwd = os.getcwd()
+        try:
+            result = engine_worker_mod.run({
+                "run_id": "placement-review-spec",
+                "out_dir": str(run_dir),
+                "spec": trivial_spec(),
+                "pipeline_goal": "placement_review",
+            })
+        finally:
+            os.chdir(cwd)
+
+        assert result["stage"] == "placement_review"
+        assert result["metrics"]["pipeline_goal"] == "placement_review"
+        assert result["metrics"]["preview_mode"] == "fast"
+        assert result["artifacts"]["pcb"].endswith(".kicad_pcb")
+        assert "manufacturing" not in result["artifacts"]
+        assert result["artifacts"]["previews"]["mode"] == "fast"
+        assert result["artifacts"]["previews"]["files"] == [
+            "preview_assembly.svg",
+            "preview_2d_top.png",
+        ]
+        assert any(
+            exc["code"] == "PLACEMENT_REVIEW_ONLY"
+            for exc in result["exceptions"]
+        )
 
 
 class TestInlineFootprintBundle:

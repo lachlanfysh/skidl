@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field, replace
 
 from .candidates import PlacementCandidate
@@ -45,6 +46,23 @@ class _PassiveGravityTarget:
     parent_ref: str | None = None
     parent_center: tuple[float, float] | None = None
     side: str | None = None
+
+
+@dataclass(frozen=True)
+class _PassiveOwnerCandidate:
+    ref: str
+    role_name: str
+    shared_signal_nets: tuple[str, ...]
+    shared_supply_nets: tuple[str, ...]
+    target_nets: tuple[str, ...]
+    target_points: tuple[tuple[float, float], ...]
+    center_xy: tuple[float, float]
+    distance: float
+    affinity: int
+
+
+_PRIMARY_OWNER_ROLES = {"ic", "regulator", "module_socket"}
+_FALLBACK_OWNER_ROLES = {"connector", "panel_jack", "control"}
 
 
 def _clone_placed(placed_parts: list[PlacedPart]) -> list[PlacedPart]:
@@ -207,6 +225,81 @@ def _part_pin_nets_by_number(part) -> dict[str, str]:
     return pin_nets
 
 
+def _part_net_names(part) -> set[str]:
+    return set(_part_pin_nets_by_number(part).values())
+
+
+def _is_supply_or_ground_net(net_name: str) -> bool:
+    return bool(POWER_NET_RE.match(net_name) or GND_NET_RE.match(net_name))
+
+
+def _role_name_for_ref(ref: str, roles: dict) -> str:
+    role = roles.get(ref)
+    return role.role if role is not None else "unknown"
+
+
+def _role_weight(role_name: str) -> float:
+    return {
+        "regulator": 6.0,
+        "module_socket": 5.5,
+        "ic": 5.0,
+        "connector": 2.2,
+        "panel_jack": 2.0,
+        "control": 1.8,
+    }.get(role_name, 1.0)
+
+
+def _alpha_tokens(text: str) -> set[str]:
+    generic_tokens = {
+        "CAP",
+        "CAPACITOR",
+        "DEVICE",
+        "FOOTPRINT",
+        "IC",
+        "LGA",
+        "MCU",
+        "METRIC",
+        "MODULE",
+        "PACKAGE",
+        "PKG",
+        "RESISTOR",
+        "SENSOR",
+        "SMD",
+    }
+    tokens: set[str] = set()
+    for match in re.finditer(r"[A-Za-z]{3,}", str(text or "")):
+        token = match.group(0).upper()
+        if token not in generic_tokens:
+            tokens.add(token)
+        if token[0] in {"C", "R", "L", "D", "U", "J", "Q"} and len(token) >= 4:
+            stripped = token[1:]
+            if stripped not in generic_tokens:
+                tokens.add(stripped)
+    return tokens
+
+
+def _part_tokens(part) -> set[str]:
+    tokens: set[str] = set()
+    for field_name in ("ref", "name", "value", "footprint"):
+        tokens.update(_alpha_tokens(str(getattr(part, field_name, "") or "")))
+    return tokens
+
+
+def _token_affinity(passive_part, owner_part) -> int:
+    passive_tokens = _part_tokens(passive_part)
+    owner_tokens = _part_tokens(owner_part)
+    if not passive_tokens or not owner_tokens:
+        return 0
+    best = 0
+    for passive_token in passive_tokens:
+        for owner_token in owner_tokens:
+            if passive_token == owner_token:
+                best = max(best, 3)
+            elif passive_token in owner_token or owner_token in passive_token:
+                best = max(best, 2)
+    return best
+
+
 def _pad_net_name(
     pad: PadGeometry,
     pin_nets: dict[str, str],
@@ -311,6 +404,201 @@ def _target_pad_candidates_for_net(
     return sorted(
         candidates,
         key=lambda item: (item.role_sort, item.origin_distance, item.reason),
+    )
+
+
+def _weighted_pad_points_for_owner(
+    owner_part,
+    owner_placed: PlacedPart,
+    owner_geometry: FootprintGeometry | None,
+    target_nets: list[str],
+    signal_nets: set[str],
+) -> tuple[tuple[float, float], ...]:
+    if owner_geometry is None:
+        return ()
+    points: list[tuple[float, float]] = []
+    for net_name in target_nets:
+        pads = _pads_for_net(owner_part, owner_geometry, net_name)
+        repeat = 4 if net_name in signal_nets else 1
+        for pad in pads:
+            points.extend([_pad_world_xy(pad, owner_placed)] * repeat)
+    return tuple(points)
+
+
+def _passive_owner_candidates(
+    ref: str,
+    placed_by_ref: dict[str, PlacedPart],
+    circuit,
+    roles: dict,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> list[_PassiveOwnerCandidate]:
+    part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
+    part = part_by_ref.get(ref)
+    placed = placed_by_ref.get(ref)
+    if part is None or placed is None:
+        return []
+
+    role_name = _role_name_for_ref(ref, roles)
+    passive_nets = _part_net_names(part)
+    signal_nets = {
+        net_name
+        for net_name in passive_nets
+        if not _is_supply_or_ground_net(net_name)
+    }
+    is_decap = role_name == "decoupling_cap"
+    candidates: list[_PassiveOwnerCandidate] = []
+    for other_ref, other_part in part_by_ref.items():
+        if other_ref == ref or other_ref not in placed_by_ref:
+            continue
+        other_role_name = _role_name_for_ref(other_ref, roles)
+        if other_role_name not in _PRIMARY_OWNER_ROLES | _FALLBACK_OWNER_ROLES:
+            continue
+
+        other_nets = _part_net_names(other_part)
+        shared = sorted(passive_nets & other_nets)
+        if not shared:
+            continue
+        shared_signal = tuple(
+            net_name
+            for net_name in shared
+            if not _is_supply_or_ground_net(net_name)
+        )
+        shared_supply = tuple(
+            net_name for net_name in shared if _is_supply_or_ground_net(net_name)
+        )
+        if is_decap:
+            if other_role_name not in _PRIMARY_OWNER_ROLES:
+                continue
+            if not any(POWER_NET_RE.match(net_name) for net_name in shared_supply):
+                continue
+            if not any(GND_NET_RE.match(net_name) for net_name in shared_supply):
+                continue
+            target_nets = list(shared_supply)
+        else:
+            if signal_nets and not shared_signal:
+                continue
+            target_nets = list(shared_signal or shared)
+
+        owner_placed = placed_by_ref[other_ref]
+        owner_geometry = (fp_geometries or {}).get(owner_placed.footprint)
+        target_points = _weighted_pad_points_for_owner(
+            other_part,
+            owner_placed,
+            owner_geometry,
+            target_nets,
+            signal_nets,
+        )
+        center_xy = _ref_center_from_geometry(owner_placed, fp_geometries)
+        candidates.append(
+            _PassiveOwnerCandidate(
+                ref=other_ref,
+                role_name=other_role_name,
+                shared_signal_nets=shared_signal,
+                shared_supply_nets=shared_supply,
+                target_nets=tuple(target_nets),
+                target_points=target_points,
+                center_xy=center_xy,
+                distance=math.hypot(
+                    placed.x_mm - owner_placed.x_mm,
+                    placed.y_mm - owner_placed.y_mm,
+                ),
+                affinity=_token_affinity(part, other_part),
+            )
+        )
+
+    primary = [
+        candidate
+        for candidate in candidates
+        if candidate.role_name in _PRIMARY_OWNER_ROLES
+    ]
+    return primary or candidates
+
+
+def _select_passive_owner_candidate(
+    ref: str,
+    placed_by_ref: dict[str, PlacedPart],
+    circuit,
+    roles: dict,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> _PassiveOwnerCandidate | None:
+    candidates = _passive_owner_candidates(
+        ref,
+        placed_by_ref,
+        circuit,
+        roles,
+        fp_geometries,
+    )
+    if not candidates:
+        return None
+    role_name = _role_name_for_ref(ref, roles)
+    if role_name == "decoupling_cap":
+        return min(
+            candidates,
+            key=lambda candidate: (
+                -candidate.affinity,
+                candidate.distance,
+                -_role_weight(candidate.role_name),
+                candidate.ref,
+            ),
+        )
+    return min(
+        candidates,
+        key=lambda candidate: (
+            -candidate.affinity,
+            -len(candidate.shared_signal_nets),
+            -_role_weight(candidate.role_name),
+            candidate.distance,
+            candidate.ref,
+        ),
+    )
+
+
+def _passive_owner_gravity_target(
+    ref: str,
+    placed_by_ref: dict[str, PlacedPart],
+    circuit,
+    roles: dict,
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> _PassiveGravityTarget | None:
+    owner = _select_passive_owner_candidate(
+        ref,
+        placed_by_ref,
+        circuit,
+        roles,
+        fp_geometries,
+    )
+    if owner is None:
+        return None
+    target_points = owner.target_points or (owner.center_xy,)
+    target_xy = (
+        sum(point[0] for point in target_points) / len(target_points),
+        sum(point[1] for point in target_points) / len(target_points),
+    )
+    signal_text = ", ".join(owner.shared_signal_nets)
+    supply_text = ", ".join(owner.shared_supply_nets)
+    if signal_text:
+        net_text = signal_text
+    else:
+        net_text = supply_text
+    affinity_text = (
+        f", name affinity {owner.affinity}"
+        if owner.affinity
+        else ""
+    )
+    reason = (
+        f"{owner.ref} {owner.role_name} owner on {net_text} "
+        f"net(s){affinity_text}"
+    )
+    if owner.target_points:
+        reason += " using owner pad geometry"
+    else:
+        reason += "; no owner pad geometry available"
+    return _PassiveGravityTarget(
+        xy=target_xy,
+        reason=reason,
+        parent_ref=owner.ref,
+        parent_center=owner.center_xy,
+        side=_target_side(owner.center_xy, target_xy),
     )
 
 
@@ -435,11 +723,12 @@ def _passive_pin_gravity_target(
     }:
         return None
 
+    near_target: _PassiveGravityTarget | None = None
     for constraint in (constraints.near if constraints is not None else []) or []:
         if constraint.ref != ref or constraint.target_ref not in placed_by_ref:
             continue
         target = placed_by_ref[constraint.target_ref]
-        return _PassiveGravityTarget(
+        near_target = _PassiveGravityTarget(
             xy=(target.x_mm, target.y_mm),
             reason=(
                 f"near constraint to {constraint.target_ref} "
@@ -448,6 +737,25 @@ def _passive_pin_gravity_target(
             parent_ref=constraint.target_ref,
             parent_center=(target.x_mm, target.y_mm),
         )
+        if (
+            not fp_geometries
+            or _role_name_for_ref(constraint.target_ref, roles)
+            in _PRIMARY_OWNER_ROLES
+        ):
+            return near_target
+        break
+
+    owner_target = _passive_owner_gravity_target(
+        ref,
+        placed_by_ref,
+        circuit,
+        roles,
+        fp_geometries,
+    )
+    if owner_target is not None:
+        return owner_target
+    if near_target is not None:
+        return near_target
 
     if not fp_geometries:
         return _passive_center_gravity_target(ref, placed_by_ref, circuit, roles)
@@ -739,6 +1047,26 @@ def _targeted_clear_move_trials(
             continue
         seen.add(key)
         trials.append(replace(placed, x_mm=x, y_mm=y))
+    directions = [
+        (-1.0, 0.0),
+        (1.0, 0.0),
+        (0.0, -1.0),
+        (0.0, 1.0),
+    ]
+    if math.hypot(placed.x_mm - target_x, placed.y_mm - target_y) > 18.0:
+        radii = (2.0, 4.0, 6.0, 9.0, 12.0, 16.0)
+    else:
+        radii = (1.5, 3.0, 5.0, 8.0, 12.0)
+    for radius in radii:
+        for dir_x, dir_y in directions:
+            x = target_x + dir_x * radius
+            y = target_y + dir_y * radius
+            x, y = _clamp_to_bounds(x, y, width_mm, height_mm, bounds)
+            key = (round(x, 4), round(y, 4))
+            if key in seen:
+                continue
+            seen.add(key)
+            trials.append(replace(placed, x_mm=x, y_mm=y))
     return trials
 
 
@@ -815,25 +1143,28 @@ def _best_pin_gravity_trial(
     )
     current_hard = _hard_violation_key(current_score)
     best: tuple[tuple[float, float], list[PlacedPart], LayoutScore, PlacedPart] | None = None
-    for trial in trials:
+    ranked_trials = sorted(
+        trials,
+        key=lambda trial: (
+            math.hypot(trial.x_mm - target_xy[0], trial.y_mm - target_xy[1]),
+            trial.x_mm,
+            trial.y_mm,
+            trial.rot_deg,
+        ),
+    )
+    scored_candidates = 0
+    checked_candidates = 0
+    for trial in ranked_trials:
         target_distance = math.hypot(
             trial.x_mm - target_xy[0],
             trial.y_mm - target_xy[1],
         )
         if target_distance >= current_distance - 0.25:
             continue
+        if best is not None and checked_candidates >= 24:
+            break
+        checked_candidates += 1
         trial_parts = _replace_ref(placed_parts, ref, trial)
-        trial_score = _score(
-            trial_parts,
-            circuit,
-            fp_bboxes,
-            constraints,
-            fp_geometries,
-            clearance_mm,
-            board_layers,
-        )
-        if _hard_violation_key(trial_score) > current_hard:
-            continue
         if not _ref_is_clear_of_hard_violations(
             ref,
             trial_parts,
@@ -852,9 +1183,23 @@ def _best_pin_gravity_trial(
             fp_geometries,
         ):
             continue
+        trial_score = _score(
+            trial_parts,
+            circuit,
+            fp_bboxes,
+            constraints,
+            fp_geometries,
+            clearance_mm,
+            board_layers,
+        )
+        scored_candidates += 1
+        if _hard_violation_key(trial_score) > current_hard:
+            continue
         key = (target_distance, -trial_score.score)
         if best is None or key < best[0]:
             best = (key, trial_parts, trial_score, trial)
+        if best is not None and scored_candidates >= 3:
+            break
     if best is None:
         return None
     _, best_parts, best_score, best_trial = best
