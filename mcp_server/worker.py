@@ -52,9 +52,9 @@ def _job_timeout_s(job: dict) -> float:
 
 
 def _worker_deadline_s(job: dict) -> float:
-    """Slightly larger than engine timeout so cleanup can finish."""
+    """Return the requested job timeout for the worker wrapper."""
 
-    return _job_timeout_s(job) + max(0.0, WORKER_RUNTIME_GRACE_S)
+    return _job_timeout_s(job)
 
 
 def _job_pipeline_goal(job: dict) -> str:
@@ -191,7 +191,14 @@ async def _reap_stale_jobs(db: DB, label: str) -> int:
     """Fail orphaned running jobs so queues recover without a deploy restart."""
 
     try:
-        stale = await db.fail_stale_running_jobs()
+        try:
+            stale = await db.fail_stale_running_jobs(
+                stale_grace_seconds=WORKER_RUNTIME_GRACE_S,
+            )
+        except TypeError as exc:
+            if "stale_grace_seconds" not in str(exc):
+                raise
+            stale = await db.fail_stale_running_jobs()
     except Exception as exc:
         print(f"{label}: stale job reap failed: {exc}", flush=True)
         return 0
@@ -210,10 +217,8 @@ async def _execute_job_with_deadline(job: dict, worker_label: str) -> dict:
         )
     except asyncio.TimeoutError:
         timeout_s = _job_timeout_s(job)
-        deadline_s = _worker_deadline_s(job)
         print(
-            f"{worker_label}: job {job.get('id')} exceeded worker deadline "
-            f"{deadline_s:.1f}s for requested timeout_s={timeout_s:.1f}",
+            f"{worker_label}: job {job.get('id')} exceeded timeout_s={timeout_s:.1f}",
             flush=True,
         )
         return _worker_timeout_result(job, str(job.get("id") or ""), worker_label)
@@ -462,8 +467,8 @@ def _worker_timeout_result(job: dict, job_id: str, worker_id: str) -> dict[str, 
             }
         ],
         "summary": (
-            f"Hosted worker exceeded timeout_s={timeout_s:.1f}s "
-            f"(deadline {deadline_s:.1f}s) before returning an engine result."
+            f"Hosted worker exceeded timeout_s={timeout_s:.1f}s before "
+            "returning an engine result."
         ),
         "metrics": {
             "manufacturable": False,
@@ -902,7 +907,9 @@ def health_app(db: DB, worker_id: str, concurrency: int):
         }
         if db_ok:
             try:
-                counts = await db.job_status_counts()
+                counts = await db.job_status_counts(
+                    stale_grace_seconds=WORKER_RUNTIME_GRACE_S,
+                )
             except Exception:
                 db_ok = False
         return JSONResponse({
@@ -931,7 +938,9 @@ async def main() -> None:
 
     db = DB()
     await db.connect(database_url)
-    stale = await db.fail_stale_running_jobs()
+    stale = await db.fail_stale_running_jobs(
+        stale_grace_seconds=WORKER_RUNTIME_GRACE_S,
+    )
     print(f"Worker {worker_id} started, concurrency={concurrency}", flush=True)
     if stale:
         print(f"Marked {stale} stale running job(s) failed", flush=True)

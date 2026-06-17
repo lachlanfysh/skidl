@@ -580,6 +580,30 @@ def _get_job_hint(job: dict) -> str:
     exceptions = result.get("exceptions", [])
     decision_required = result.get("decision_required", False)
     run_id = result.get("run_id", "")
+    exc_codes = [e.get("code", "") for e in exceptions if isinstance(e, dict)]
+    reviewable_failure = bool(
+        result.get("reviewable_failure")
+        or status == "failed_reviewable"
+    )
+    worker_timeout = bool(
+        result.get("worker_timeout")
+        or result.get("failure_kind") == "worker_runtime_timeout"
+    )
+    worker_lost = bool(
+        result.get("worker_lost")
+        or result.get("failure_kind") == "worker_lost"
+        or any(
+            isinstance(exc, dict)
+            and exc.get("code") == "ENGINE_CRASH"
+            and isinstance(exc.get("subject"), dict)
+            and exc["subject"].get("stage") == "worker_lost"
+            for exc in exceptions
+        )
+    )
+    engine_timeout = bool(
+        result.get("engine_timeout")
+        or ("ENGINE_TIMEOUT" in exc_codes and not worker_timeout)
+    )
 
     if not exceptions:
         mfg = (result.get("outputs") or {}).get("manufacturing")
@@ -594,7 +618,32 @@ def _get_job_hint(job: dict) -> str:
             f"with get_run('{run_id}').{mfg_note}"
         )
 
-    exc_codes = [e.get("code", "") for e in exceptions if isinstance(e, dict)]
+    if reviewable_failure:
+        if run_id:
+            return (
+                f"Terminal reviewable failure ({status}). Preview artifacts are "
+                "available; show them to the human, then fetch "
+                f"get_run('{run_id}') and revise placement or floorplan "
+                "intent before resubmitting."
+            )
+        return (
+            f"Terminal reviewable failure ({status}). Preview artifacts are "
+            "available; show them to the human, then revise placement or "
+            "floorplan intent before resubmitting."
+        )
+
+    if worker_timeout:
+        if run_id:
+            return (
+                "Terminal timeout: this hosted job hit timeout_s and is done. "
+                f"Fetch get_run('{run_id}') to inspect any partial_artifacts, "
+                "then raise timeout_s or simplify the design."
+            )
+        return (
+            "Terminal timeout: this hosted job hit timeout_s and is done. "
+            "Raise timeout_s or simplify the design."
+        )
+
     has_pin_errors = any("PIN" in c for c in exc_codes)
     has_footprint_errors = any("FOOTPRINT" in c or "BAD_FOOTPRINT" in c for c in exc_codes)
     has_lib_errors = any("LIB" in c or "PART" in c for c in exc_codes)
@@ -615,13 +664,40 @@ def _get_job_hint(job: dict) -> str:
     )
 
     if decision_required:
+        if worker_lost:
+            if not run_id:
+                return (
+                    "Worker lost while the job was running. This is backend "
+                    "failure, not circuit feedback. Retry unchanged once; no "
+                    "run artifacts were produced before the worker was lost. "
+                    "If it repeats, report the service failure instead of "
+                    "rewriting the circuit."
+                )
+            return (
+                "Worker lost while the job was running. This is backend "
+                "failure, not circuit feedback. Retry unchanged once; if it "
+                f"repeats, fetch get_run('{run_id}') to inspect stderr_tail "
+                "and any partial_artifacts, then report the service failure."
+            )
+        if engine_timeout:
+            if not run_id:
+                return (
+                    "Engine hit timeout_s while processing the job. This is "
+                    "backend failure, not circuit feedback. Raise timeout_s or "
+                    "simplify the design, then resubmit."
+                )
+            return (
+                "Engine hit timeout_s while processing the job. This is "
+                f"backend failure, not circuit feedback. Fetch get_run('{run_id}') "
+                "to inspect stderr_tail and any partial_artifacts, then raise "
+                "timeout_s or simplify the design."
+            )
         if has_engine_failure:
             if not run_id:
                 return (
                     "Backend engine failure, not circuit feedback. Retry once "
-                    "unchanged; no run artifacts were produced before the worker "
-                    "was lost. If it repeats, report the service failure instead "
-                    "of rewriting the circuit."
+                    "unchanged; if it repeats, report the service failure "
+                    "instead of rewriting the circuit."
                 )
             return (
                 "Backend engine failure, not circuit feedback. Retry once unchanged; "

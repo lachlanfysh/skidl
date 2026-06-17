@@ -570,8 +570,9 @@ class TestWorkerRuntimeSemantics:
         exc = result["exceptions"][0]
         assert exc["code"] == "ENGINE_TIMEOUT"
         assert exc["subject"]["timeout_s"] == 10
-        assert exc["subject"]["worker_deadline_s"] == 12
+        assert exc["subject"]["worker_deadline_s"] == 10
         assert exc["subject"]["partial_artifacts"] == []
+        assert "timeout_s=10.0s" in result["summary"]
 
     def test_worker_exception_result_is_backend_feedback(self):
         job = {
@@ -677,7 +678,7 @@ class TestWorkerRuntimeSemantics:
 
     @pytest.mark.asyncio
     async def test_execute_job_with_deadline_marks_worker_timeout(self, monkeypatch):
-        monkeypatch.setattr(worker_mod, "WORKER_RUNTIME_GRACE_S", 0.0)
+        monkeypatch.setattr(worker_mod, "WORKER_RUNTIME_GRACE_S", 999.0)
 
         def slow_execute(job):
             time.sleep(0.05)
@@ -2227,10 +2228,50 @@ class TestAgentUX:
                 }],
             },
         })
-        assert "Backend engine failure" in hint
+        assert "Worker lost while the job was running" in hint
+        assert "backend failure" in hint
         assert "no run artifacts were produced" in hint
         assert "not circuit feedback" in hint
         assert "get_run" not in hint
+
+    def test_get_job_hint_for_failed_reviewable_is_terminal_and_reviewable(self):
+        from mcp_server.server_http import _get_job_hint
+        hint = _get_job_hint({
+            "status": "failed_reviewable",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "result": {
+                "run_id": "run-reviewable",
+                "reviewable_failure": True,
+                "decision_required": True,
+                "exceptions": [{
+                    "code": "PRODUCT_LAYOUT_FAILED",
+                    "subject": {"preview_files": ["preview_2d_top.png"]},
+                }],
+            },
+        })
+        assert "Terminal reviewable failure" in hint
+        assert "preview artifacts are available" in hint.lower()
+        assert "show them to the human" in hint
+        assert "get_run('run-reviewable')" in hint
+
+    def test_get_job_hint_for_worker_timeout_says_timeout_s(self):
+        from mcp_server.server_http import _get_job_hint
+        hint = _get_job_hint({
+            "status": "timeout",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "result": {
+                "run_id": "run-timeout",
+                "worker_timeout": True,
+                "decision_required": True,
+                "exceptions": [{
+                    "code": "ENGINE_TIMEOUT",
+                    "subject": {"timeout_s": 10},
+                }],
+            },
+        })
+        assert "Terminal timeout" in hint
+        assert "timeout_s" in hint
+        assert "get_run('run-timeout')" in hint
 
     def test_get_job_hint_for_post_artifact_failure_says_fetch_artifacts(self):
         from mcp_server.server_http import _get_job_hint

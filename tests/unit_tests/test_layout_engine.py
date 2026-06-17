@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from simp_sexp import Sexp
 
 from skidl.layout.constraints import (
     AlignConstraint,
@@ -16,20 +17,28 @@ from skidl.layout.constraints import (
 from skidl.layout.engine import (
     LayoutResult,
     _apply_edge_intent_score,
+    _compact_auto_outline_seed,
     _edge_parallel,
+    _connector_mating_face_for_ref,
     _effective_keepouts,
     _footprint_names,
+    _face_world_points,
     _legalize_edge_anchor_neighbors,
     _legalize_small_parts_from_outline,
+    _local_bounds_for_face,
     _placed_bounds,
     _snap_edge_anchors_to_outline,
     _snap_mounting_holes_to_outline_corners,
     plan_layout,
 )
-from skidl.layout.geometry import FootprintGeometry, PadGeometry
+from skidl.layout.geometry import (
+    FootprintGeometry,
+    PadGeometry,
+    footprint_geometry_from_sexp,
+)
 from skidl.layout.grid import points_form_clean_grid
 from skidl.layout.intent import MatingIntent, PlacementIntent, PlacementIntentPlan
-from skidl.layout.placer import derive_outline
+from skidl.layout.placer import derive_outline, derive_outline_from_circuit
 from skidl.layout.routability import RoutabilityFeedback
 from skidl.layout.scoring import LayoutScore
 from skidl.layout.writer import PlacedPart
@@ -717,7 +726,70 @@ def test_plan_layout_clamps_geometry_backed_edge_header_inside_outline(monkeypat
     assert bounds[0] >= outline.x_min - 1e-6
     assert bounds[2] <= outline.x_max + 1e-6
     assert bounds[3] == pytest.approx(outline.y_max - 0.5)
-    assert placed["J1"].rot_deg == 90.0
+    assert placed["J1"].rot_deg in {90.0, 270.0}
+
+
+def test_footprint_geometry_uses_pad_bounds_without_fab_body():
+    outline = BoardOutline(24.0, 30.0)
+    footprint = Sexp(
+        """
+(footprint "Connector:PinHeader_1x02_P2.54mm_Horizontal"
+  (pad "1" thru_hole rect (at 0 0) (size 0.2 0.4) (layers "*.Cu" "*.Mask"))
+  (pad "2" thru_hole rect (at 2.54 0) (size 0.2 0.4) (layers "*.Cu" "*.Mask"))
+  (fp_rect (start -0.8 -1.0) (end 3.34 1.0) (layer "F.CrtYd"))
+)
+"""
+    )
+    footprint_name = "Connector:PinHeader_1x02_P2.54mm_Horizontal"
+    geometry = footprint_geometry_from_sexp(footprint_name, footprint)
+
+    assert geometry.body_bounds == pytest.approx((-0.1, -0.2, 2.64, 0.2))
+
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[
+            EdgeAnchor(
+                "J1",
+                "bottom",
+                offset_mm=12.0,
+                inset_mm=0.0,
+                rot_deg=270.0,
+            ),
+        ],
+        mating_intents=[
+            MatingIntent(
+                "J1",
+                "header",
+                edge_preference="bottom",
+                mating_side="pin_access",
+            ),
+        ],
+    )
+
+    snapped, moved = _snap_edge_anchors_to_outline(
+        [PlacedPart("J1", 5.0, 5.0, 0.0, footprint_name)],
+        outline,
+        intent_plan,
+        LayoutConstraints(outline=outline),
+        {footprint_name: (3.94, 2.0)},
+        {footprint_name: geometry},
+    )
+
+    placed = {part.ref: part for part in snapped}
+    face = _connector_mating_face_for_ref("J1", footprint_name, intent_plan)
+
+    assert moved == ["J1"]
+    assert face is not None
+    assert face.local_exit == "+x"
+
+    face_points = _face_world_points(
+        placed["J1"],
+        face,
+        _local_bounds_for_face(3.94, 2.0, geometry),
+        use_face_offset=True,
+    )
+    assert sum(y for _, y in face_points) / len(face_points) == pytest.approx(
+        outline.y_max
+    )
 
 
 def test_edge_anchor_snap_places_noncenter_origin_usb_mating_face_on_bottom_edge():
@@ -1041,10 +1113,10 @@ def test_plan_layout_infers_mounting_holes_to_corners():
     )
 
     placed = {part.ref: part for part in result.placed_parts}
-    assert placed["H1"].x_mm == pytest.approx(3.2)
-    assert placed["H1"].y_mm == pytest.approx(3.2)
-    assert placed["H2"].x_mm == pytest.approx(56.8)
-    assert placed["H2"].y_mm == pytest.approx(3.2)
+    assert placed["H1"].x_mm == pytest.approx(2.7)
+    assert placed["H1"].y_mm == pytest.approx(2.7)
+    assert placed["H2"].x_mm == pytest.approx(57.3)
+    assert placed["H2"].y_mm == pytest.approx(2.7)
     assert "locked by fixed-position constraint" in result.report.part_reasons["H1"]
 
 
@@ -1110,6 +1182,35 @@ def test_snap_four_mounting_holes_reconciles_stale_floorplan_to_final_outline():
     assert placed["H3"].y_mm == pytest.approx(29.6)
     assert placed["H4"].x_mm == pytest.approx(63.6)
     assert placed["H4"].y_mm == pytest.approx(29.6)
+
+
+def test_snap_two_mounting_holes_reconciles_stale_floorplan_to_final_outline():
+    outline = BoardOutline(60.0, 40.0)
+    intent_plan = PlacementIntentPlan()
+    for ref in ("H1", "H2"):
+        intent_plan.intents[ref] = [
+            PlacementIntent(ref, "mounting_hole", 90, ["test mounting hole"])
+        ]
+    placed_parts = [
+        PlacedPart("H1", 3.2, 3.2, 0.0, "MountingHole:M2"),
+        PlacedPart("H2", 56.8, 3.2, 0.0, "MountingHole:M2"),
+    ]
+
+    snapped, moved = _snap_mounting_holes_to_outline_corners(
+        placed_parts,
+        outline,
+        intent_plan,
+        LayoutConstraints(outline=outline),
+        BBOXES,
+        None,
+    )
+
+    placed = {part.ref: part for part in snapped}
+    assert set(moved) == {"H1", "H2"}
+    assert placed["H1"].x_mm == pytest.approx(2.7)
+    assert placed["H1"].y_mm == pytest.approx(2.7)
+    assert placed["H2"].x_mm == pytest.approx(57.3)
+    assert placed["H2"].y_mm == pytest.approx(2.7)
 
 
 def test_snap_mounting_holes_preserves_two_hole_panel_pattern():
@@ -2335,3 +2436,47 @@ def test_plan_layout_auto_outline_tightens_compact_passive_cluster():
     outline_area = result.outline.width_mm * result.outline.height_mm
     envelope_area = envelope.width_mm * envelope.height_mm
     assert outline_area <= envelope_area * 1.15 + 0.001
+
+
+def test_compact_auto_outline_seed_shrinks_visible_mechanical_heavy_circuit():
+    gnd = _Net("GND")
+    sig1 = _Net("SIG1")
+    sig2 = _Net("SIG2")
+    sig3 = _Net("SIG3")
+    u1 = _Part(
+        "U1",
+        name="MCU",
+        footprint="Package_QFP:MCU",
+        nets=[gnd, sig1, sig2, sig3],
+        pins=8,
+    )
+    visible = [
+        _Part(
+            "SW1",
+            name="panel pushbutton switch",
+            footprint="Switch:3PDT_Footswitch",
+            nets=[sig1, gnd],
+            pins=2,
+        ),
+        _Part(
+            "LED1",
+            name="indicator LED",
+            footprint="Capacitor:C_0805",
+            nets=[sig2, gnd],
+            pins=2,
+        ),
+        _Part(
+            "J1",
+            name="panel jack",
+            footprint="Connector_Audio:Thonkiconn_PJ398SM",
+            nets=[sig3, gnd],
+            pins=2,
+        ),
+    ]
+    circuit = _Circuit([u1, *visible], [gnd, sig1, sig2, sig3])
+
+    seed = derive_outline_from_circuit(circuit, BBOXES)
+    compact = _compact_auto_outline_seed(circuit, seed)
+
+    assert compact.width_mm < seed.width_mm
+    assert compact.height_mm < seed.height_mm

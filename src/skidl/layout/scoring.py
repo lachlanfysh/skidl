@@ -9,7 +9,14 @@ from .decaps import measure_decap_pad_distances
 from .geometry import FootprintGeometry
 from .grid import points_form_clean_grid
 from .power import plan_power_routes
-from .roles import GND_NET_RE, POWER_NET_RE, PartRole, classify_parts, pin_net_names
+from .roles import (
+    GND_NET_RE,
+    POWER_NET_RE,
+    PartRole,
+    classify_parts,
+    is_ui_grid_part,
+    pin_net_names,
+)
 from .validator import validate
 from .writer import PlacedPart
 
@@ -812,20 +819,24 @@ def _role_warnings(
                 f"{ref}: crystal is {distance:.1f}mm from nearest IC {nearest_ref}"
             )
 
-    panel_refs = [
+    grid_refs = [
         ref
         for ref, role in roles.items()
-        if role.role in {"panel_jack", "control"} and ref in placed_by_ref
+        if ref in placed_by_ref
+        and (
+            role.role in {"panel_jack", "control"}
+            or is_ui_grid_part(part_by_ref.get(ref))
+        )
     ]
-    if len(panel_refs) >= 2:
-        xs = [placed_by_ref[ref].x_mm for ref in panel_refs]
-        ys = [placed_by_ref[ref].y_mm for ref in panel_refs]
+    if len(grid_refs) >= 2:
+        xs = [placed_by_ref[ref].x_mm for ref in grid_refs]
+        ys = [placed_by_ref[ref].y_mm for ref in grid_refs]
         x_span = max(xs) - min(xs)
         y_span = max(ys) - min(ys)
         clean_grid = points_form_clean_grid(
             [
                 (placed_by_ref[ref].x_mm, placed_by_ref[ref].y_mm)
-                for ref in panel_refs
+                for ref in grid_refs
             ]
         )
         tall_panel = (
@@ -837,21 +848,21 @@ def _role_warnings(
             expected_y_span = min(55.0, outline.height_mm * 0.45)
             if not clean_grid and x_span > max(12.0, outline.width_mm * 0.45):
                 warnings.append(
-                    "panel controls/jacks are not aligned into clean columns"
+                    "visible/mechanical subjects are not aligned into clean columns"
                 )
             if y_span < expected_y_span:
                 warnings.append(
-                    "panel controls/jacks are bunched instead of distributed vertically"
+                    "visible/mechanical subjects are bunched instead of distributed vertically"
                 )
         else:
             expected_x_span = min(20.0, outline.width_mm * 0.35) if outline else 12.0
-            if len(panel_refs) <= 4 and y_span > 2.0 and not clean_grid:
+            if len(grid_refs) <= 4 and y_span > 2.0 and not clean_grid:
                 warnings.append(
-                    "panel controls/jacks are not aligned into a clean row"
+                    "visible/mechanical subjects are not aligned into a clean row"
                 )
             if x_span < expected_x_span:
                 warnings.append(
-                    "panel controls/jacks are bunched instead of distributed"
+                    "visible/mechanical subjects are bunched instead of distributed"
                 )
 
     return warnings

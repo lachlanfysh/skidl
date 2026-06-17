@@ -412,6 +412,12 @@ def footprint_geometry_from_sexp(footprint: str, fp: Sexp) -> FootprintGeometry:
 
     courtyard = _graphic_bounds(fp, ".CrtYd")
     body = _graphic_bounds(fp, ".Fab") or _graphic_bounds(fp, ".SilkS")
+    if body is None and pads:
+        # When the footprint omits Fab/Silk body graphics, fall back to the pad
+        # envelope instead of the courtyard halo.  Edge connector placement uses
+        # this shape as the local body proxy, so the mating face stays anchored
+        # to the actual footprint instead of drifting to the courtyard extents.
+        body = _bounds_union(pad.local_bounds for pad in pads)
     return FootprintGeometry(
         footprint=footprint,
         pads=pads,

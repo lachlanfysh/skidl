@@ -46,6 +46,7 @@ from .report import PlacementReport, build_placement_report
 from .roles import GND_NET_RE, POWER_NET_RE, classify_parts, is_ui_grid_part
 from .routability import RoutabilityFeedback
 from .scoring import LayoutScore, score_placement, score_placement_quick
+from .grid import choose_grid_columns, points_form_clean_grid
 from .validator import (
     ValidationResult,
     _same_physical_side,
@@ -224,6 +225,35 @@ def _auto_outline_from_circuit(
     if form_factor:
         return derive_outline([], fp_bboxes, form_factor=form_factor)
     return derive_outline_from_circuit(circuit, fp_bboxes)
+
+
+def _compact_auto_outline_seed(
+    circuit,
+    outline: BoardOutline | None,
+) -> BoardOutline | None:
+    """Trim the provisional auto outline when the board is mostly visible UI."""
+
+    if outline is None or circuit is None:
+        return outline
+
+    visible_count = sum(
+        1 for part in getattr(circuit, "parts", []) or [] if is_ui_grid_part(part)
+    )
+    if visible_count < 2:
+        return outline
+
+    if visible_count <= 3:
+        scale = 0.92
+    elif visible_count <= 5:
+        scale = 0.88
+    else:
+        scale = 0.84
+
+    return BoardOutline(
+        width_mm=max(18.0, outline.width_mm * scale),
+        height_mm=max(18.0, outline.height_mm * scale),
+        corner_radius_mm=getattr(outline, "corner_radius_mm", 0.0),
+    )
 
 
 def _placed_bounds(
@@ -683,6 +713,7 @@ def _panel_mechanical_refs(intent_plan: PlacementIntentPlan | None) -> set[str]:
     refs = set(intent_plan.refs_with_kind("front_panel_subject"))
     refs.update(intent_plan.refs_with_kind("panel_control"))
     refs.update(intent_plan.refs_with_kind("panel_jack"))
+    refs.update(intent_plan.refs_with_kind("sensor_grid_subject"))
     for mating in intent_plan.mating_intents:
         if mating.kind in {
             "button",
@@ -976,6 +1007,21 @@ def _final_outline_constraints(
     return final
 
 
+def _mounting_hole_corner_inset(
+    placed: PlacedPart,
+    outline: BoardOutline,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> float:
+    bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
+    hole_radius = max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 2.0
+    inset = hole_radius + 0.5
+    rounded_corner_radius = getattr(outline, "corner_radius_mm", 0.0) or 0.0
+    if rounded_corner_radius > 0:
+        inset = max(inset, float(rounded_corner_radius))
+    return min(inset, outline.width_mm / 2, outline.height_mm / 2)
+
+
 def _snap_mounting_holes_to_outline_corners(
     placed_parts: list[PlacedPart],
     outline: BoardOutline | None,
@@ -991,44 +1037,119 @@ def _snap_mounting_holes_to_outline_corners(
     if not mounting_refs:
         return placed_parts, []
 
-    placed_mounting_refs = [placed.ref for placed in placed_parts if placed.ref in mounting_refs]
-    if len(placed_mounting_refs) < 4:
+    placed_mounting_parts = [
+        placed for placed in placed_parts if placed.ref in mounting_refs
+    ]
+    if len(placed_mounting_parts) < 2:
         return placed_parts, []
 
     center_x = (outline.x_min + outline.x_max) / 2
     center_y = (outline.y_min + outline.y_max) / 2
+    hole_inset = max(
+        _mounting_hole_corner_inset(placed, outline, fp_bboxes, fp_geometries)
+        for placed in placed_mounting_parts
+    )
     moved: list[str] = []
     snapped: list[PlacedPart] = []
-    clearance = 0.8
-    rounded_corner_radius = getattr(outline, "corner_radius_mm", 0.0) or 0.0
 
+    placed_by_ref = {placed.ref: placed for placed in placed_parts}
+    if len(placed_mounting_parts) == 2:
+        h0, h1 = placed_mounting_parts
+        edge = None
+        corner_threshold = max(4.0, hole_inset + 0.75)
+        if abs(h0.y_mm - h1.y_mm) <= 2.0:
+            average_y = (h0.y_mm + h1.y_mm) / 2
+            if min(average_y - outline.y_min, outline.y_max - average_y) <= corner_threshold:
+                edge = "top" if average_y <= center_y else "bottom"
+                ordered_refs = [
+                    ref
+                    for ref in sorted(
+                        (h0.ref, h1.ref),
+                        key=lambda ref: (placed_by_ref[ref].x_mm, _natural_ref_key(ref)),
+                    )
+                ]
+                if edge == "top":
+                    positions = [
+                        (outline.x_min + hole_inset, outline.y_min + hole_inset),
+                        (outline.x_max - hole_inset, outline.y_min + hole_inset),
+                    ]
+                else:
+                    positions = [
+                        (outline.x_min + hole_inset, outline.y_max - hole_inset),
+                        (outline.x_max - hole_inset, outline.y_max - hole_inset),
+                    ]
+        elif abs(h0.x_mm - h1.x_mm) <= 2.0:
+            average_x = (h0.x_mm + h1.x_mm) / 2
+            if min(average_x - outline.x_min, outline.x_max - average_x) <= corner_threshold:
+                edge = "left" if average_x <= center_x else "right"
+                ordered_refs = [
+                    ref
+                    for ref in sorted(
+                        (h0.ref, h1.ref),
+                        key=lambda ref: (placed_by_ref[ref].y_mm, _natural_ref_key(ref)),
+                    )
+                ]
+                if edge == "left":
+                    positions = [
+                        (outline.x_min + hole_inset, outline.y_min + hole_inset),
+                        (outline.x_min + hole_inset, outline.y_max - hole_inset),
+                    ]
+                else:
+                    positions = [
+                        (outline.x_max - hole_inset, outline.y_min + hole_inset),
+                        (outline.x_max - hole_inset, outline.y_max - hole_inset),
+                    ]
+        if edge is None:
+            return placed_parts, []
+
+        positions_by_ref = {
+            ref: position for ref, position in zip(ordered_refs, positions)
+        }
+        for placed in placed_parts:
+            if placed.ref not in mounting_refs:
+                snapped.append(placed)
+                continue
+            x_mm, y_mm = positions_by_ref.get(
+                placed.ref,
+                (placed.x_mm, placed.y_mm),
+            )
+            if abs(x_mm - placed.x_mm) > 1e-6 or abs(y_mm - placed.y_mm) > 1e-6:
+                moved.append(placed.ref)
+                snapped.append(
+                    PlacedPart(
+                        ref=placed.ref,
+                        x_mm=x_mm,
+                        y_mm=y_mm,
+                        rot_deg=placed.rot_deg,
+                        footprint=placed.footprint,
+                        side=getattr(placed, "side", "front"),
+                    )
+                )
+            else:
+                snapped.append(placed)
+        return snapped, moved
+
+    # Four-hole corner-mount patterns always use the outer corners.
+    corner_mounting_parts = placed_mounting_parts[:4]
+    corner_mounting_refs = {part.ref for part in corner_mounting_parts}
     for placed in placed_parts:
         if placed.ref not in mounting_refs:
             snapped.append(placed)
             continue
 
-        bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
-        left_margin = max(0.0, placed.x_mm - bounds[0])
-        right_margin = max(0.0, bounds[2] - placed.x_mm)
-        top_margin = max(0.0, placed.y_mm - bounds[1])
-        bottom_margin = max(0.0, bounds[3] - placed.y_mm)
-
-        if rounded_corner_radius > 0:
-            x_inset = min(float(rounded_corner_radius), outline.width_mm / 2)
-            y_inset = min(float(rounded_corner_radius), outline.height_mm / 2)
-        else:
-            x_inset = left_margin + clearance if placed.x_mm <= center_x else right_margin + clearance
-            y_inset = top_margin + clearance if placed.y_mm <= center_y else bottom_margin + clearance
+        if placed.ref not in corner_mounting_refs:
+            snapped.append(placed)
+            continue
 
         if placed.x_mm <= center_x:
-            x_mm = outline.x_min + x_inset
+            x_mm = outline.x_min + hole_inset
         else:
-            x_mm = outline.x_max - x_inset
+            x_mm = outline.x_max - hole_inset
 
         if placed.y_mm <= center_y:
-            y_mm = outline.y_min + y_inset
+            y_mm = outline.y_min + hole_inset
         else:
-            y_mm = outline.y_max - y_inset
+            y_mm = outline.y_max - hole_inset
 
         if abs(x_mm - placed.x_mm) > 1e-6 or abs(y_mm - placed.y_mm) > 1e-6:
             moved.append(placed.ref)
@@ -2580,16 +2701,16 @@ def _spread_grid_subjects_on_generous_outline(
             or role_name in {"panel_jack", "control"}
             or intent_kinds
             & {
-                "array_subject",
                 "front_panel_subject",
                 "panel_control",
                 "panel_jack",
+                "sensor_grid_subject",
             }
         ):
             subject_refs.append(ref)
 
     subject_refs = sorted(subject_refs, key=_natural_ref_key)
-    if len(subject_refs) < 4:
+    if len(subject_refs) < 2:
         return placed_parts, []
 
     subject_bounds = [
@@ -2608,32 +2729,54 @@ def _spread_grid_subjects_on_generous_outline(
         return placed_parts, []
 
     area_ratio = outline_area / compact_area
-    if area_ratio < 2.0:
+    if area_ratio < 1.4:
         return placed_parts, []
+
+    points = [(placed_by_ref[ref].x_mm, placed_by_ref[ref].y_mm) for ref in subject_refs]
+    if points_form_clean_grid(points, tolerance_mm=1.0):
+        dominant_span_ratio = max(
+            current_w / max(outline.width_mm, 1.0),
+            current_h / max(outline.height_mm, 1.0),
+        )
+        if dominant_span_ratio >= (0.35 if len(subject_refs) <= 3 else 0.45):
+            return placed_parts, []
 
     count = len(subject_refs)
-    if outline.height_mm >= outline.width_mm * 1.4:
-        cols = 1 if count <= 5 else 2
-    elif count == 4:
-        cols = 2
-    elif count <= 3:
-        cols = count
-    else:
-        aspect = max(outline.width_mm, 1.0) / max(outline.height_mm, 1.0)
-        cols = max(2, min(count, round(math.sqrt(count * aspect))))
-    rows = math.ceil(count / cols)
-    if rows < 2 and current_w >= outline.width_mm * 0.45:
-        return placed_parts, []
-    if rows >= 2 and current_h >= outline.height_mm * 0.25:
-        return placed_parts, []
-
-    x_pad = max(6.0, outline.width_mm * 0.18)
-    y_pad = max(6.0, outline.height_mm * 0.24)
+    max_width = max(bounds[2] - bounds[0] for bounds in subject_bounds)
+    max_height = max(bounds[3] - bounds[1] for bounds in subject_bounds)
+    x_pad = max(6.0, outline.width_mm * 0.16, max_width / 2 + 1.0)
+    y_pad = max(6.0, outline.height_mm * 0.16, max_height / 2 + 1.0)
     x_start = outline.x_min + x_pad
     x_end = outline.x_max - x_pad
     y_start = outline.y_min + y_pad
     y_end = outline.y_max - y_pad
     if x_start >= x_end or y_start >= y_end:
+        return placed_parts, []
+
+    preferred_cols = choose_grid_columns(
+        count,
+        outline.width_mm,
+        outline.height_mm,
+        max_columns=min(count, 4),
+    )
+    if count == 2:
+        preferred_cols = 2 if outline.width_mm >= outline.height_mm else 1
+
+    cols = None
+    rows = None
+    for candidate_cols in range(preferred_cols, 0, -1):
+        candidate_rows = math.ceil(count / candidate_cols)
+        x_step = 0.0 if candidate_cols <= 1 else (x_end - x_start) / (candidate_cols - 1)
+        y_step = 0.0 if candidate_rows <= 1 else (y_end - y_start) / (candidate_rows - 1)
+        if candidate_cols > 1 and x_step < max_width + 2.0:
+            continue
+        if candidate_rows > 1 and y_step < max_height + 2.0:
+            continue
+        cols = candidate_cols
+        rows = candidate_rows
+        break
+
+    if cols is None or rows is None:
         return placed_parts, []
 
     replacements: dict[str, PlacedPart] = {}
@@ -2713,7 +2856,10 @@ def plan_layout(
                 form_factor,
             )
         else:
-            density_outline = derive_outline_from_circuit(circuit, resolved_bboxes)
+            density_outline = _compact_auto_outline_seed(
+                circuit,
+                derive_outline_from_circuit(circuit, resolved_bboxes),
+            )
             resolved_outline = density_outline
         if resolved_outline is not None and corner_radius_mm is not None:
             resolved_outline.corner_radius_mm = max(0.0, float(corner_radius_mm))
