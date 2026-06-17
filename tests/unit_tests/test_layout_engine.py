@@ -1650,6 +1650,42 @@ def test_edge_anchor_snap_avoids_mounting_hole_halos():
     )
 
 
+def test_edge_anchor_snap_clamps_candidate_inside_outline(monkeypatch):
+    outline = BoardOutline(32.0, 24.0)
+    intent_plan = PlacementIntentPlan(
+        edge_anchors=[
+            EdgeAnchor("J1", "bottom", offset_mm=5.0, rot_deg=0.0),
+        ],
+    )
+
+    def off_board_candidate(*_args, **_kwargs):
+        return (-6.0, 20.0, 0.0, -6.0, 20.0, 15.0, 2.0)
+
+    monkeypatch.setattr(
+        "skidl.layout.engine._edge_anchor_position_avoiding_keepouts",
+        off_board_candidate,
+    )
+
+    snapped, moved = _snap_edge_anchors_to_outline(
+        [PlacedPart("J1", 12.0, 12.0, 0.0, "Connector:PinHeader_1x06")],
+        outline,
+        intent_plan,
+        LayoutConstraints(
+            outline=outline,
+            edge_anchors=[EdgeAnchor("J1", "bottom", offset_mm=5.0, rot_deg=0.0)],
+        ),
+        BBOXES,
+        None,
+    )
+
+    placed = {part.ref: part for part in snapped}
+    bounds = _placed_bounds(placed["J1"], BBOXES, None)
+
+    assert "J1" in moved
+    assert bounds[0] >= outline.x_min - 1e-6
+    assert bounds[2] <= outline.x_max + 1e-6
+
+
 def test_edge_anchor_snap_separates_same_edge_connectors_after_keepout_avoidance():
     outline = BoardOutline(56.0, 26.0)
     intent_plan = PlacementIntentPlan(
@@ -1793,6 +1829,44 @@ def test_plan_layout_aligns_panel_jacks_without_edge_anchoring():
     xs = [placed[ref].x_mm for ref in ("J1", "J2", "J3")]
     assert max(ys) - min(ys) <= 1.0
     assert max(xs) - min(xs) >= 30.0
+
+
+def test_plan_layout_keeps_tall_panel_jacks_on_inferred_vertical_grid():
+    outline = BoardOutline(24.0, 128.5)
+    gnd = _Net("GND")
+    signals = [_Net(f"JACK_{idx}") for idx in range(1, 5)]
+    jacks = [
+        _Part(
+            f"J{idx}",
+            name="Thonkiconn PJ398SM panel jack",
+            footprint="Connector_Audio:Thonkiconn_PJ398SM",
+            nets=[signal, gnd],
+        )
+        for idx, signal in enumerate(signals, start=1)
+    ]
+    circuit = _Circuit(jacks, [gnd, *signals])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+
+    assert all(
+        anchor.ref not in {jack.ref for jack in jacks}
+        for anchor in result.intent_plan.edge_anchors
+    )
+    assert any(
+        constraint.axis == "y"
+        and set(constraint.refs) == {jack.ref for jack in jacks}
+        for constraint in result.intent_plan.distribute_constraints
+    )
+    placed = {part.ref: part for part in result.placed_parts}
+    xs = [placed[jack.ref].x_mm for jack in jacks]
+    ys = [placed[jack.ref].y_mm for jack in jacks]
+    assert max(xs) - min(xs) <= 1.0
+    assert max(ys) - min(ys) >= outline.height_mm * 0.60
+    assert result.validation.overlaps == []
 
 
 def test_plan_layout_grids_repeated_sensors_without_ejecting_local_caps():

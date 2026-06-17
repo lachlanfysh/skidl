@@ -858,6 +858,48 @@ def crash_exception(
             ),
         )
 
+    if (
+        stage in {"schematic_generation", "schematic_routing"}
+        and "schematics/route.py" in text
+        and (
+            "AssertionError" in text
+            or "Schematic router internal invariant failed" in text
+        )
+    ):
+        subject = {
+            "message": message,
+            "stage": "schematic_routing",
+            "exception": "AssertionError",
+        }
+        if stderr:
+            subject["stderr_tail"] = stderr[-4000:]
+        if artifact_keys:
+            subject["partial_artifacts"] = sorted(artifact_keys)
+        return DesignException(
+            id="e-sch-route",
+            code=ExcCode.SCH_ROUTING_FAILURE,
+            severity=Severity.FATAL,
+            message=(
+                "schematic auto-router failed while rendering the circuit "
+                "(AssertionError)"
+            ),
+            subject=subject,
+            candidates=[
+                _candidate(
+                    "c1",
+                    ActionType.REGENERATE,
+                    {},
+                    "retry unchanged; this is a schematic rendering failure, not PCB layout feedback",
+                    "cheap",
+                )
+            ],
+            retry_hint=(
+                "Retry once unchanged. If it repeats, treat it as a schematic "
+                "renderer limitation; preserve the circuit and report the "
+                "stderr_tail rather than rewriting unrelated circuitry."
+            ),
+        )
+
     if stage == "after_pcb_write" and artifact_keys:
         subject = {
             "message": message,

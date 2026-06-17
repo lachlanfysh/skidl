@@ -346,6 +346,8 @@ def _handle_fallback(circuit, tool_module, filepath, top_name, title, flatness,
     """
     import warnings
 
+    from skidl.schematics.place import PlacementFailure
+    from skidl.schematics.route import RoutingFailure
     from skidl.schematics.sch_node import SchNode
     from skidl.tools.kicad9.sexp_schematic import write_top_schematic
 
@@ -353,7 +355,6 @@ def _handle_fallback(circuit, tool_module, filepath, top_name, title, flatness,
 
     if fallback == "raise":
         finalize_parts_and_nets(circuit, **options)
-        from skidl.schematics.route import RoutingFailure
 
         raise RoutingFailure(
             f"{reason}. Set auto_stub_fallback='labels' to produce "
@@ -369,8 +370,15 @@ def _handle_fallback(circuit, tool_module, filepath, top_name, title, flatness,
 
     preprocess_circuit(circuit, **options)
     node = SchNode(circuit, tool_module, filepath, top_name, title, flatness)
-    node.place(expansion_factor=1.0, **options)
-    node.route(**options)
+    try:
+        node.place(expansion_factor=1.0, **options)
+        node.route(**options)
+    except (PlacementFailure, RoutingFailure, AssertionError) as exc:
+        finalize_parts_and_nets(circuit, **options)
+        raise RoutingFailure(
+            f"{reason}. Labels-only schematic fallback also failed: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
     output_file = write_top_schematic(
         circuit, node, filepath, top_name, title, version=20230409
     )
@@ -672,6 +680,14 @@ def gen_schematic(
     expansion_factor = 1.0
     failure_type = None
 
+    def _as_routing_failure(exc):
+        if isinstance(exc, RoutingFailure):
+            return exc
+        return RoutingFailure(
+            "Schematic router internal invariant failed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
     for attempt in range(retries):
         preprocess_circuit(circuit, **options)
 
@@ -693,7 +709,8 @@ def gen_schematic(
             )
             continue
 
-        except RoutingFailure as e:
+        except (RoutingFailure, AssertionError) as e:
+            e = _as_routing_failure(e)
             finalize_parts_and_nets(circuit, **options)
             expansion_factor *= 1.5
             failure_type = e
@@ -764,7 +781,9 @@ def gen_schematic(
                         finalize_parts_and_nets(circuit, **options)
                         erc_regen_ok = True
                         break
-                    except (RoutingFailure, PlacementFailure) as inner_e:
+                    except (RoutingFailure, PlacementFailure, AssertionError) as inner_e:
+                        if isinstance(inner_e, AssertionError):
+                            inner_e = _as_routing_failure(inner_e)
                         finalize_parts_and_nets(circuit, **options)
                         if erc_expansion < 2.25:
                             active_logger.info(

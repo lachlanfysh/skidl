@@ -1363,6 +1363,36 @@ class TestBoardPreviews:
         assert 'fill="none" stroke="#D8CEC8"' in svg
         assert 'fill="#A66A53" opacity="0.78">U1</text>' in svg
 
+    def test_write_layout_mockup_svg_uses_geometry_and_hides_hole_labels(
+        self,
+        tmp_path,
+    ):
+        class FakeGeometry:
+            def transformed_bounds(self, placed):
+                assert placed.ref == "H1"
+                return (0.6, 0.8, 4.6, 4.8)
+
+        intent_plan = SimpleNamespace(
+            assembly_sides={},
+            refs_with_kind=lambda kind: ["H1"] if kind == "mounting_hole" else [],
+        )
+        layout_result = SimpleNamespace(
+            outline=BoardOutline(20.0, 12.0, corner_radius_mm=2.0),
+            placed_parts=[
+                PlacedPart("H1", 2.7, 2.7, 0.0, "MountingHole:M2"),
+            ],
+            fp_bboxes={"MountingHole:M2": (9.0, 9.0)},
+            fp_geometries={"MountingHole:M2": FakeGeometry()},
+            intent_plan=intent_plan,
+        )
+
+        warning = _write_layout_mockup_svg(layout_result, tmp_path)
+
+        assert warning is None
+        svg = (tmp_path / "preview_assembly.svg").read_text(encoding="utf-8")
+        assert 'x="0.6000" y="0.8000" width="4.0000" height="4.0000"' in svg
+        assert ">H1</text>" not in svg
+
     def test_generate_board_previews_writes_png_and_svg(self, monkeypatch, tmp_path):
         pcb_path = tmp_path / "board.kicad_pcb"
         pcb_path.write_text("(kicad_pcb)")
@@ -2538,6 +2568,23 @@ class TestHelpfulFailures:
         assert exc.severity == Severity.FATAL
         assert exc.subject["stage"] == "schematic_routing"
         assert exc.subject["exception"] == "TerminalClashException"
+        assert exc.candidates[0].action == ActionType.REGENERATE
+        assert "schematic renderer limitation" in exc.retry_hint
+
+    def test_schematic_route_assertion_maps_to_schematic_routing_failure(self):
+        stderr = "\n".join([
+            "Traceback (most recent call last):",
+            "  File \"/app/src/skidl/schematics/route.py\", line 703, in audit",
+            "    assert len(self.switchboxes) <= 2",
+            "AssertionError",
+        ])
+
+        exc = crash_exception("AssertionError: ", stderr, stage="schematic_generation")
+
+        assert exc.code == ExcCode.SCH_ROUTING_FAILURE
+        assert exc.severity == Severity.FATAL
+        assert exc.subject["stage"] == "schematic_routing"
+        assert exc.subject["exception"] == "AssertionError"
         assert exc.candidates[0].action == ActionType.REGENERATE
         assert "schematic renderer limitation" in exc.retry_hint
 
@@ -3967,6 +4014,110 @@ def test_skidl_worker_schematic_terminal_clash_returns_stage_result(tmp_path, mo
     assert result["exceptions"][0]["code"] == ExcCode.SCH_ROUTING_FAILURE.value
     assert result["exceptions"][0]["subject"]["exception"] == "TerminalClashException"
     assert result["outputs"]["run_dir"] == str(tmp_path.resolve())
+
+
+def test_kicad9_schematic_route_assertion_uses_labels_fallback(
+    monkeypatch,
+    tmp_path,
+):
+    import importlib
+
+    import skidl
+    from skidl import KICAD9
+    from skidl.schematics.route import RoutingFailure
+
+    gen_schematic_mod = importlib.import_module("skidl.tools.kicad9.gen_schematic")
+    sexp_schematic_mod = importlib.import_module(
+        "skidl.tools.kicad9.sexp_schematic"
+    )
+    sch_node_mod = importlib.import_module("skidl.schematics.sch_node")
+
+    class FakeNet:
+        name = "SIG"
+        _stub = False
+        _stub_explicit = False
+
+        def get_pins(self):
+            return []
+
+    class FakeCircuit:
+        nets = [FakeNet()]
+        parts = []
+
+    calls = {"route": 0}
+
+    class FakeNode:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def place(self, *_args, **_kwargs):
+            pass
+
+        def route(self, *_args, **_kwargs):
+            calls["route"] += 1
+            if calls["route"] <= 2:
+                raise AssertionError("too many switchboxes on face")
+
+    def fake_write_top_schematic(_circuit, _node, filepath, top_name, *_args, **_kwargs):
+        path = Path(filepath) / f"{top_name}.kicad_sch"
+        path.write_text("(kicad_sch)", encoding="utf-8")
+        return str(path)
+
+    monkeypatch.setattr(skidl, "get_default_tool", lambda: KICAD9)
+    monkeypatch.setattr(gen_schematic_mod, "_setup_kicad_env", lambda: None)
+    monkeypatch.setattr(gen_schematic_mod, "auto_stub_nets", lambda *a, **k: None)
+    monkeypatch.setattr(gen_schematic_mod, "preprocess_circuit", lambda *a, **k: None)
+    monkeypatch.setattr(
+        gen_schematic_mod,
+        "finalize_parts_and_nets",
+        lambda *a, **k: None,
+    )
+    monkeypatch.setattr(
+        gen_schematic_mod,
+        "_classify_and_stub_complex_nets",
+        lambda *a, **k: None,
+    )
+    monkeypatch.setattr(gen_schematic_mod, "_run_erc", lambda *_a, **_k: "")
+    monkeypatch.setattr(
+        gen_schematic_mod,
+        "write_top_schematic",
+        fake_write_top_schematic,
+    )
+    monkeypatch.setattr(
+        sexp_schematic_mod,
+        "write_top_schematic",
+        fake_write_top_schematic,
+    )
+    monkeypatch.setattr(gen_schematic_mod.shutil, "which", lambda *_a, **_k: None)
+    monkeypatch.setattr(sch_node_mod, "SchNode", FakeNode)
+
+    gen_schematic_mod.gen_schematic(
+        FakeCircuit(),
+        filepath=str(tmp_path),
+        top_name="assertion_fallback",
+        auto_stub=True,
+        retries=2,
+    )
+
+    assert calls["route"] == 3
+    assert (tmp_path / "assertion_fallback.kicad_sch").exists()
+    assert FakeCircuit.nets[0]._stub is True
+
+    monkeypatch.setattr(
+        FakeNode,
+        "route",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("fallback failed")
+        ),
+    )
+    with pytest.raises(RoutingFailure):
+        gen_schematic_mod.gen_schematic(
+            FakeCircuit(),
+            filepath=str(tmp_path),
+            top_name="assertion_fallback_failed",
+            auto_stub=True,
+            retries=1,
+        )
 
 
 def test_skidl_worker_rejects_malformed_custom_footprint_payload(

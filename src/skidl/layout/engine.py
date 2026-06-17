@@ -1373,6 +1373,24 @@ def _snap_edge_anchors_to_outline(
                 ],
                 current=(x_mm, y_mm, rot_deg),
             )
+        candidate_part = PlacedPart(
+            ref=placed.ref,
+            x_mm=x_mm,
+            y_mm=y_mm,
+            rot_deg=rot_deg,
+            footprint=placed.footprint,
+            side=getattr(placed, "side", "front"),
+        )
+        bounds = _placed_bounds(candidate_part, fp_bboxes, fp_geometries)
+        dx, dy = _clamp_delta_to_outline(bounds, 0.0, 0.0, outline, 0.0)
+        if _connector_mating_face_for_ref(placed.ref, placed.footprint, intent_plan):
+            if edge in {"top", "bottom"}:
+                dy = 0.0
+            elif edge in {"left", "right"}:
+                dx = 0.0
+        if abs(dx) > 1e-6 or abs(dy) > 1e-6:
+            x_mm += dx
+            y_mm += dy
         if (
             abs(x_mm - placed.x_mm) > 1e-6
             or abs(y_mm - placed.y_mm) > 1e-6
@@ -2231,6 +2249,19 @@ def _constraint_floorplan_refs(constraints: LayoutConstraints | None) -> set[str
     return refs
 
 
+def _constraint_pattern_refs(constraints: LayoutConstraints | None) -> set[str]:
+    """Refs that are already part of an intentional alignment/distribution."""
+
+    if constraints is None:
+        return set()
+    refs: set[str] = set()
+    for constraint in constraints.align or []:
+        refs.update(constraint.refs or [])
+    for constraint in constraints.distribute or []:
+        refs.update(constraint.refs or [])
+    return refs
+
+
 def _arrange_passive_grid_between_opposing_headers(
     placed_parts: list[PlacedPart],
     circuit,
@@ -2473,6 +2504,7 @@ def _spread_grid_subjects_on_generous_outline(
     protected_refs.update(
         fixed.ref for fixed in (constraints.fixed if constraints else []) or []
     )
+    protected_refs.update(_constraint_pattern_refs(constraints))
     protected_refs.update(_constraint_floorplan_refs(user_constraints))
 
     roles = classify_parts(circuit)

@@ -310,7 +310,16 @@ def _brand_preview_svg(svg_path: Path) -> str | None:
     return None
 
 
-def _part_mockup_bounds(placed, fp_bboxes: dict[str, tuple[float, float]]):
+def _part_mockup_bounds(
+    placed,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict | None = None,
+):
+    geometry = (fp_geometries or {}).get(placed.footprint)
+    if geometry is not None:
+        x_min, y_min, x_max, y_max = geometry.transformed_bounds(placed)
+        return x_min, y_min, x_max - x_min, y_max - y_min
+
     width, height = fp_bboxes.get(placed.footprint, (2.0, 2.0))
     if placed.rot_deg % 180 == 90:
         width, height = height, width
@@ -331,8 +340,12 @@ def _write_layout_mockup_svg(layout_result, out_dir: Path) -> str | None:
             return "side-aware preview skipped: missing outline or placements"
 
         fp_bboxes = getattr(layout_result, "fp_bboxes", {}) or {}
+        fp_geometries = getattr(layout_result, "fp_geometries", {}) or {}
         intent_plan = getattr(layout_result, "intent_plan", None)
         sides = dict(getattr(intent_plan, "assembly_sides", {}) or {})
+        mounting_refs = set()
+        if intent_plan is not None and hasattr(intent_plan, "refs_with_kind"):
+            mounting_refs = set(intent_plan.refs_with_kind("mounting_hole"))
 
         width = max(1.0, float(outline.width_mm))
         height = max(1.0, float(outline.height_mm))
@@ -382,7 +395,7 @@ def _write_layout_mockup_svg(layout_result, out_dir: Path) -> str | None:
             )
 
         for placed in sorted(placed_parts, key=lambda p: str(p.ref)):
-            x, y, w, h = _part_mockup_bounds(placed, fp_bboxes)
+            x, y, w, h = _part_mockup_bounds(placed, fp_bboxes, fp_geometries)
             ref = html.escape(str(placed.ref))
             side = str(
                 sides.get(str(placed.ref), getattr(placed, "side", "front"))
@@ -410,16 +423,23 @@ def _write_layout_mockup_svg(layout_result, out_dir: Path) -> str | None:
                 text_fill = PREVIEW_SILKSCREEN
                 text_opacity = "0.92"
 
+            label = ""
+            if str(placed.ref) not in mounting_refs:
+                font_size = min(1.75, max(0.85, min(w, h) * 0.42))
+                label = (
+                    f'<text x="{placed.x_mm:.4f}" y="{placed.y_mm:.4f}" '
+                    f'font-family="Arial, Helvetica, sans-serif" '
+                    f'font-size="{font_size:.3f}" '
+                    f'text-anchor="middle" dominant-baseline="central" '
+                    f'fill="{text_fill}" opacity="{text_opacity}">{ref}</text>'
+                )
+
             lines.append(
                 f'<g data-ref="{ref}" data-side="{html.escape(side)}">'
                 f'<rect x="{x:.4f}" y="{y:.4f}" width="{w:.4f}" height="{h:.4f}" '
                 f'rx="{min(w, h, 1.2) * 0.16:.4f}" fill="{fill}" '
                 f'stroke="{stroke}" stroke-width="{stroke_width}"{dash}/>'
-                f'<text x="{placed.x_mm:.4f}" y="{placed.y_mm:.4f}" '
-                f'font-family="Arial, Helvetica, sans-serif" font-size="1.75" '
-                f'text-anchor="middle" dominant-baseline="central" '
-                f'fill="{text_fill}" opacity="{text_opacity}">{ref}</text>'
-                "</g>"
+                f"{label}</g>"
             )
 
         lines.append("</svg>")
