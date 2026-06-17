@@ -60,6 +60,32 @@ def test_classify_connector_from_ref_and_text():
     assert classify_part(part).role == "connector"
 
 
+def test_classify_generic_module_pin_socket_as_internal_socket():
+    part = _Part(
+        "U_MODULE",
+        value="Generic controller module socket",
+        name="Conn_02x05_Odd_Even module socket",
+        footprint="Connector_PinSocket_2.54mm:PinSocket_2x05_P2.54mm_Vertical",
+        pins=10,
+    )
+
+    role = classify_part(part)
+
+    assert role.role == "module_socket"
+    assert "module/socket" in "; ".join(role.reasons)
+
+
+def test_classify_microsd_socket_stays_connector():
+    part = _Part(
+        "J2",
+        name="microSD card socket",
+        footprint="Connector_Card:microSD_Hirose_DM3AT",
+        pins=12,
+    )
+
+    assert classify_part(part).role == "connector"
+
+
 def test_classify_usb_capable_ic_not_as_connector():
     part = _Part(
         "U1",

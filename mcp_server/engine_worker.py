@@ -4021,6 +4021,42 @@ def _floorplan_constraint_conflict_exception(
             or by_max + clearance <= ay_min
         )
 
+    def _overlap_amount(a, b) -> tuple[float, float]:
+        ax_min, ay_min, ax_max, ay_max = a
+        bx_min, by_min, bx_max, by_max = b
+        return (
+            max(0.0, min(ax_max, bx_max) - max(ax_min, bx_min)),
+            max(0.0, min(ay_max, by_max) - max(ay_min, by_min)),
+        )
+
+    def _is_panel_control_ref(ref: str) -> bool:
+        text = _part_text(ref).lower()
+        return bool(
+            re.match(r"^(rv|pot|sw|s|k|key|led)\d+", str(ref), re.I)
+            or re.search(
+                r"(pot|potentiometer|encoder|knob|switch|button|key.?switch|"
+                r"led|neopixel|audio.?jack|3\.5mm|3\.5\s*mm|thonk|pj398|pj301)",
+                text,
+                re.I,
+            )
+        )
+
+    def _fixed_overlap_fix(a_ref: str, b_ref: str, overlap_x: float, overlap_y: float) -> str:
+        dominant_axis = "x" if overlap_x >= overlap_y else "y"
+        separation = max(overlap_x, overlap_y) + 0.25
+        if _is_panel_control_ref(a_ref) and _is_panel_control_ref(b_ref):
+            return (
+                "increase the panel/control grid spacing or move one control "
+                f"by at least {separation:.1f}mm on the {dominant_axis} axis; "
+                "use actual footprint/courtyard dimensions when choosing row "
+                "or column pitch"
+            )
+        return (
+            "separate the fixed_position footprints by at least "
+            f"{separation:.1f}mm on the {dominant_axis} axis, or relax one "
+            "fixed_position into an anchor zone so the placer can avoid collision"
+        )
+
     def _edge_distance(bounds, edge: str) -> float:
         x_min, y_min, x_max, y_max = bounds
         edge = str(edge or "").lower()
@@ -4074,11 +4110,22 @@ def _floorplan_constraint_conflict_exception(
     for idx, (a_ref, a_bounds) in enumerate(fixed_items):
         for b_ref, b_bounds in fixed_items[idx + 1:]:
             if _intersects(a_bounds, b_bounds, clearance=0.15):
+                overlap_x, overlap_y = _overlap_amount(a_bounds, b_bounds)
                 issues.append({
                     "kind": "fixed_overlap",
                     "refs": [a_ref, b_ref],
                     "a_bounds_mm": [round(v, 3) for v in a_bounds],
                     "b_bounds_mm": [round(v, 3) for v in b_bounds],
+                    "overlap_mm": {
+                        "x": round(overlap_x, 3),
+                        "y": round(overlap_y, 3),
+                    },
+                    "suggested_fix": _fixed_overlap_fix(
+                        a_ref,
+                        b_ref,
+                        overlap_x,
+                        overlap_y,
+                    ),
                 })
 
     for keepout in getattr(constraints, "keepouts", []) or []:
@@ -4198,6 +4245,18 @@ def _floorplan_constraint_conflict_exception(
         )
         human_summary = (
             "Move mounting holes inward or expand the outline, then regenerate"
+        )
+    if "fixed_overlap" in issue_kinds:
+        required_actions.insert(
+            0,
+            (
+                "increase spacing between fixed-position refs that overlap, "
+                "especially panel-control grids; do not retry the same fixed "
+                "coordinates unchanged"
+            ),
+        )
+        human_summary = (
+            "Separate overlapping fixed-position footprints, then regenerate"
         )
     if "fixed_edge_anchor_conflict" in issue_kinds:
         required_actions.append(

@@ -1139,6 +1139,41 @@ def test_daisy_seed_is_internal_module_socket_not_edge_header():
     }
 
 
+def test_generic_module_pin_socket_is_not_edge_anchored():
+    vcc = _Net("3V3")
+    gnd = _Net("GND")
+    io1 = _Net("IO1")
+    io2 = _Net("IO2")
+    module = _Part(
+        "U_MODULE",
+        value="Generic controller module socket",
+        name="Conn_02x05_Odd_Even module socket",
+        footprint="Connector_PinSocket_2.54mm:PinSocket_2x05_P2.54mm_Vertical",
+        nets=[vcc, gnd, io1, io2],
+        pins=10,
+    )
+    left = _Part(
+        "J_LEFT",
+        name="Left expansion header",
+        footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+        nets=[vcc, gnd, io1, io2],
+        pins=4,
+    )
+    circuit = _Circuit([module, left], [vcc, gnd, io1, io2])
+
+    plan = infer_placement_intents(circuit, outline=BoardOutline(70.0, 35.0))
+
+    mating = next(intent for intent in plan.mating_intents if intent.ref == "U_MODULE")
+    assert mating.kind == "module_socket"
+    assert mating.edge_preference is None
+    assert "module_socket" in _kinds(plan, "U_MODULE")
+    assert "internal_connector" in _kinds(plan, "U_MODULE")
+    assert "edge_connector" not in _kinds(plan, "U_MODULE")
+    assert not any(anchor.ref == "U_MODULE" for anchor in plan.edge_anchors)
+    assert not any(face.ref == "U_MODULE" for face in plan.face_edges)
+    assert any(anchor.ref == "J_LEFT" for anchor in plan.edge_anchors)
+
+
 def test_infers_mux_and_repeated_channel_intent():
     ch0 = _Net("CH0_SIG")
     ch1 = _Net("CH1_SIG")

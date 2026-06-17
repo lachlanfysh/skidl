@@ -4434,6 +4434,47 @@ def test_floorplan_constraint_preflight_gives_mounting_hole_specific_fix():
     assert "hole centers" in exc.retry_hint
 
 
+def test_floorplan_constraint_preflight_reports_fixed_overlap_spacing():
+    circuit = SimpleNamespace(
+        parts=[
+            SimpleNamespace(
+                ref="RV1",
+                name="Potentiometer",
+                footprint="Potentiometer_THT:Potentiometer_Alps_RK09K_Single_Horizontal",
+                pins=[object()] * 3,
+            ),
+            SimpleNamespace(
+                ref="RV2",
+                name="Potentiometer",
+                footprint="Potentiometer_THT:Potentiometer_Alps_RK09K_Single_Horizontal",
+                pins=[object()] * 3,
+            ),
+        ]
+    )
+    constraints = LayoutConstraints(
+        outline=BoardOutline(60.0, 35.0),
+        fixed=[
+            FixedPosition("RV1", 20.0, 18.0, 0.0),
+            FixedPosition("RV2", 21.0, 18.0, 0.0),
+        ],
+    )
+
+    exc = _floorplan_constraint_conflict_exception(
+        circuit,
+        constraints,
+        floorplan_meta={"outline": "explicit"},
+        fp_dirs=[],
+    )
+
+    assert exc is not None
+    issue = exc.subject["issues"][0]
+    assert issue["kind"] == "fixed_overlap"
+    assert issue["refs"] == ["RV1", "RV2"]
+    assert issue["overlap_mm"]["x"] > 0
+    assert "panel/control grid spacing" in issue["suggested_fix"]
+    assert "increase spacing" in exc.candidates[0].params["required_action"]
+
+
 def test_floorplan_constraint_preflight_blocks_fixed_edge_anchor_conflict():
     circuit = SimpleNamespace(
         parts=[

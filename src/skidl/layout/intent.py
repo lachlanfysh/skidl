@@ -100,6 +100,16 @@ LARGE_MODULE_RE = re.compile(
     r"module|castellated|stamp|s3-?mini)\b",
     re.I,
 )
+MODULE_SOCKET_RE = re.compile(
+    r"(module.?socket|plug.?in.?module|daughter.?board|daughterboard|"
+    r"mezzanine|board.?to.?board|b2b|carrier.?board|dev(?:elopment)?.?board|"
+    r"feather|teensy|raspberry.?pi.?pico|arduino)",
+    re.I,
+)
+PIN_SOCKET_RE = re.compile(
+    r"(pin.?socket|pinsocket|socket.?strip|female.?header)",
+    re.I,
+)
 
 
 @dataclass
@@ -665,6 +675,21 @@ def _is_panel_mounted_jack_text(text: str) -> bool:
     )
 
 
+def _looks_like_module_socket_text(ref: str, text: str) -> bool:
+    match = re.match(r"[A-Za-z]+", str(ref or ""))
+    prefix = match.group(0).upper() if match else ""
+    if MODULE_SOCKET_RE.search(text):
+        return True
+    if PIN_SOCKET_RE.search(text) and (
+        prefix == "U"
+        or re.search(r"\b(module|daughter|carrier|mezzanine|breakout)\b", text, re.I)
+    ):
+        return True
+    if prefix == "U" and re.search(r"\bconn_0[12]x\d+\b", text, re.I) and "socket" in text:
+        return True
+    return False
+
+
 def _mating_intent_for_part(
     ref: str,
     text: str,
@@ -672,7 +697,8 @@ def _mating_intent_for_part(
     nets: list[str],
 ) -> MatingIntent | None:
     role_name = role.role if role is not None else ""
-    if role_name == "module_socket":
+    module_socket_text = _looks_like_module_socket_text(ref, text)
+    if role_name == "module_socket" or module_socket_text:
         return MatingIntent(
             ref=ref,
             kind="module_socket",
@@ -2352,8 +2378,14 @@ def infer_placement_intents(
                 )
 
         panel_mounted_jack = _is_panel_mounted_jack_text(text)
+        module_socket_text = _looks_like_module_socket_text(ref, text)
 
-        if role is not None and role.role == "connector" and not panel_mounted_jack:
+        if (
+            role is not None
+            and role.role == "connector"
+            and not panel_mounted_jack
+            and not module_socket_text
+        ):
             edge = _edge_for_part(text, role, nets)
             _add_intent(plan, ref, "edge_connector", 90, "connector-like part")
             if edge is not None:

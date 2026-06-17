@@ -32,6 +32,16 @@ DAISY_SEED_RE = re.compile(
     r"(electrosmith.?daisy|daisy.?seed|electrosmith_daisy_seed)",
     re.IGNORECASE,
 )
+MODULE_SOCKET_RE = re.compile(
+    r"(module.?socket|plug.?in.?module|daughter.?board|daughterboard|"
+    r"mezzanine|board.?to.?board|b2b|carrier.?board|dev(?:elopment)?.?board|"
+    r"feather|teensy|raspberry.?pi.?pico|arduino)",
+    re.IGNORECASE,
+)
+PIN_SOCKET_RE = re.compile(
+    r"(pin.?socket|pinsocket|socket.?strip|female.?header)",
+    re.IGNORECASE,
+)
 PANEL_CONTROL_RE = re.compile(
     r"(switch|button|potentiometer|encoder|rotary|knob|trimmer|"
     r"key.?switch|keyboard|keycap|cherry.?mx|kailh|mx.?key|"
@@ -113,6 +123,21 @@ def is_audio_jack_part(part) -> bool:
     return bool(AUDIO_JACK_RE.search(text) and not POWER_JACK_RE.search(text))
 
 
+def _looks_like_module_socket(prefix: str, text: str) -> bool:
+    if DAISY_SEED_RE.search(text):
+        return True
+    if MODULE_SOCKET_RE.search(text):
+        return True
+    if PIN_SOCKET_RE.search(text) and (
+        prefix == "U"
+        or re.search(r"\b(module|daughter|carrier|mezzanine|breakout)\b", text)
+    ):
+        return True
+    if prefix == "U" and re.search(r"\bconn_0[12]x\d+\b", text) and "socket" in text:
+        return True
+    return False
+
+
 def is_ui_grid_part(part) -> bool:
     """Return true for parts whose panel/front-face grid should be authoritative."""
     prefix = _ref_prefix(part)
@@ -180,8 +205,8 @@ def classify_part(part) -> PartRole:
         reasons.append("edge/audio jack metadata")
         return PartRole(ref, "connector", 0.9, reasons)
 
-    if DAISY_SEED_RE.search(text):
-        reasons.append("Daisy Seed plug-in module/socket metadata")
+    if _looks_like_module_socket(prefix, text):
+        reasons.append("plug-in module/socket metadata")
         return PartRole(ref, "module_socket", 0.95, reasons)
 
     if prefix in {"J", "P", "CON", "CN"} or CONNECTOR_METADATA_RE.search(text):
