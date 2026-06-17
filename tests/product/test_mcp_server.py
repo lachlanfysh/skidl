@@ -34,6 +34,7 @@ from mcp_server.engine_worker import (
     _drop_clean_manufacturing_advisories,
     _ensure_kicad_project_profile,
     _exec_skidl,
+    _floorplan_constraint_conflict_exception,
     _export_dsn_with_pcbnew,
     _find_kicad_python,
     _floorplan_intent_preflight_exception,
@@ -72,7 +73,13 @@ from mcp_server.worker import (
 )
 from schemas.circuit_spec import CircuitSpec
 from schemas.exceptions import ActionType, Candidate, DesignException, ExcCode, Severity
-from skidl.layout.constraints import BoardOutline
+from skidl.layout.constraints import (
+    BoardOutline,
+    EdgeAnchor,
+    FixedPosition,
+    KeepOut,
+    LayoutConstraints,
+)
 from skidl.layout.writer import PlacedPart
 
 
@@ -4331,6 +4338,96 @@ def test_floorplan_preflight_blocks_large_module_connector_board():
     assert {"J1", "J2", "J3"}.issubset(set(exc.subject["connector_refs"]))
     assert exc.candidates[0].action == ActionType.REGENERATE
     assert "EDA_FLOORPLAN['edge_anchors']" in exc.retry_hint
+
+
+def test_floorplan_constraint_preflight_blocks_fixed_ref_outside_outline():
+    circuit = SimpleNamespace(
+        parts=[
+            SimpleNamespace(
+                ref="U1",
+                footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+                pins=[object()] * 8,
+            ),
+        ]
+    )
+    constraints = LayoutConstraints(
+        outline=BoardOutline(20.0, 10.0),
+        fixed=[FixedPosition("U1", 24.0, 5.0, 0.0)],
+    )
+
+    exc = _floorplan_constraint_conflict_exception(
+        circuit,
+        constraints,
+        floorplan_meta={"outline": "explicit"},
+        fp_dirs=[],
+    )
+
+    assert exc is not None
+    assert exc.code == ExcCode.DESIGN_MISSING_FEATURE
+    assert exc.severity == Severity.ERROR
+    assert exc.subject["classification"] == "floorplan_constraints_conflict"
+    assert exc.subject["issues"][0]["kind"] == "fixed_outside_outline"
+    assert exc.subject["issues"][0]["ref"] == "U1"
+    assert exc.candidates[0].action == ActionType.REGENERATE
+    assert exc.candidates[0].params["fix_refs"] == ["U1"]
+
+
+def test_floorplan_constraint_preflight_blocks_fixed_ref_inside_keepout():
+    circuit = SimpleNamespace(
+        parts=[
+            SimpleNamespace(
+                ref="CIN",
+                footprint="Capacitor_SMD:C_0603_1608Metric",
+                pins=[object()] * 2,
+            ),
+        ]
+    )
+    constraints = LayoutConstraints(
+        outline=BoardOutline(40.0, 20.0),
+        fixed=[FixedPosition("CIN", 10.0, 10.0, 0.0)],
+        keepouts=[KeepOut(8.0, 8.0, 12.0, 12.0)],
+    )
+
+    exc = _floorplan_constraint_conflict_exception(
+        circuit,
+        constraints,
+        floorplan_meta={"outline": "explicit"},
+        fp_dirs=[],
+    )
+
+    assert exc is not None
+    assert exc.subject["issue_count"] == 1
+    assert exc.subject["issues"][0]["kind"] == "fixed_in_keepout"
+    assert exc.subject["issues"][0]["ref"] == "CIN"
+
+
+def test_floorplan_constraint_preflight_blocks_fixed_edge_anchor_conflict():
+    circuit = SimpleNamespace(
+        parts=[
+            SimpleNamespace(
+                ref="J1",
+                footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+                pins=[object()] * 4,
+            ),
+        ]
+    )
+    constraints = LayoutConstraints(
+        outline=BoardOutline(50.0, 30.0),
+        fixed=[FixedPosition("J1", 25.0, 15.0, 0.0)],
+        edge_anchors=[EdgeAnchor("J1", "bottom", offset_mm=25.0)],
+    )
+
+    exc = _floorplan_constraint_conflict_exception(
+        circuit,
+        constraints,
+        floorplan_meta={"outline": "explicit"},
+        fp_dirs=[],
+    )
+
+    assert exc is not None
+    assert exc.subject["issues"][0]["kind"] == "fixed_edge_anchor_conflict"
+    assert exc.subject["issues"][0]["ref"] == "J1"
+    assert exc.subject["issues"][0]["edge"] == "bottom"
 
 
 @needs_kicad

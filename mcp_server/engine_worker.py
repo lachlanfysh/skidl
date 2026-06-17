@@ -3892,6 +3892,297 @@ def _floorplan_intent_preflight_exception(
     )
 
 
+def _floorplan_constraint_conflict_exception(
+    circuit,
+    constraints,
+    *,
+    floorplan_meta: dict | None,
+    fp_dirs: list[str] | None = None,
+) -> DesignException | None:
+    """Return a blocking error when explicit floorplan constraints conflict."""
+
+    if constraints is None or getattr(constraints, "outline", None) is None:
+        return None
+
+    outline = constraints.outline
+    if not getattr(outline, "vertices", None):
+        return None
+
+    parts = {
+        str(getattr(part, "ref", "") or ""): part
+        for part in getattr(circuit, "parts", []) or []
+        if str(getattr(part, "ref", "") or "")
+    }
+    if not parts:
+        return None
+
+    fp_names = {
+        str(getattr(part, "footprint", "") or getattr(part, "foot", "") or "")
+        for part in parts.values()
+    }
+    fp_names.discard("")
+    geometries = {}
+    try:
+        from skidl.layout.geometry import load_footprint_geometries
+
+        geometries = load_footprint_geometries(fp_names, list(fp_dirs or []))
+    except Exception:
+        geometries = {}
+
+    try:
+        from skidl.layout.writer import PlacedPart
+    except Exception:
+        PlacedPart = None
+
+    def _footprint(part) -> str:
+        return str(getattr(part, "footprint", "") or getattr(part, "foot", "") or "")
+
+    def _pin_count(part) -> int:
+        try:
+            return len(part)
+        except Exception:
+            try:
+                return len(getattr(part, "pins", []) or [])
+            except Exception:
+                return 0
+
+    def _fallback_size(part) -> tuple[float, float]:
+        if part is None or not _footprint(part):
+            return (0.0, 0.0)
+        if _pin_count(part) == 2:
+            return (3.2, 1.6)
+        return (6.0, 4.0)
+
+    def _fixed_bounds(fixed) -> tuple[float, float, float, float]:
+        ref = str(getattr(fixed, "ref", "") or "")
+        part = parts.get(ref)
+        x = float(getattr(fixed, "x_mm", 0.0) or 0.0)
+        y = float(getattr(fixed, "y_mm", 0.0) or 0.0)
+        rot = float(getattr(fixed, "rot_deg", 0.0) or 0.0)
+        if part is not None and PlacedPart is not None:
+            footprint = _footprint(part)
+            geometry = geometries.get(footprint)
+            if geometry is not None:
+                return geometry.transformed_bounds(
+                    PlacedPart(ref=ref, x_mm=x, y_mm=y, rot_deg=rot, footprint=footprint)
+                )
+        w, h = _fallback_size(part) if part is not None else (0.0, 0.0)
+        if int(round(rot)) % 180 == 90:
+            w, h = h, w
+        return (x - w / 2, y - h / 2, x + w / 2, y + h / 2)
+
+    def _bounds_size(bounds) -> tuple[float, float]:
+        x_min, y_min, x_max, y_max = bounds
+        return (x_max - x_min, y_max - y_min)
+
+    def _outside_outline(bounds, *, tol: float = 0.25) -> bool:
+        x_min, y_min, x_max, y_max = bounds
+        return (
+            x_min < outline.x_min - tol
+            or y_min < outline.y_min - tol
+            or x_max > outline.x_max + tol
+            or y_max > outline.y_max + tol
+        )
+
+    def _intersects(a, b, *, clearance: float = 0.25) -> bool:
+        ax_min, ay_min, ax_max, ay_max = a
+        bx_min, by_min, bx_max, by_max = b
+        return not (
+            ax_max + clearance <= bx_min
+            or bx_max + clearance <= ax_min
+            or ay_max + clearance <= by_min
+            or by_max + clearance <= ay_min
+        )
+
+    def _edge_distance(bounds, edge: str) -> float:
+        x_min, y_min, x_max, y_max = bounds
+        edge = str(edge or "").lower()
+        if edge == "top":
+            return abs(y_min - outline.y_min)
+        if edge == "bottom":
+            return abs(outline.y_max - y_max)
+        if edge == "left":
+            return abs(x_min - outline.x_min)
+        if edge == "right":
+            return abs(outline.x_max - x_max)
+        return 0.0
+
+    fixed_by_ref = {
+        str(getattr(fixed, "ref", "") or ""): fixed
+        for fixed in getattr(constraints, "fixed", []) or []
+        if str(getattr(fixed, "ref", "") or "")
+    }
+    fixed_bounds = {
+        ref: _fixed_bounds(fixed)
+        for ref, fixed in fixed_by_ref.items()
+        if ref in parts
+    }
+
+    issues: list[dict] = []
+
+    for ref, bounds in fixed_bounds.items():
+        if _outside_outline(bounds):
+            issues.append({
+                "kind": "fixed_outside_outline",
+                "ref": ref,
+                "bounds_mm": [round(v, 3) for v in bounds],
+                "outline_mm": [
+                    round(outline.x_min, 3),
+                    round(outline.y_min, 3),
+                    round(outline.x_max, 3),
+                    round(outline.y_max, 3),
+                ],
+            })
+
+    fixed_items = list(fixed_bounds.items())
+    for idx, (a_ref, a_bounds) in enumerate(fixed_items):
+        for b_ref, b_bounds in fixed_items[idx + 1:]:
+            if _intersects(a_bounds, b_bounds, clearance=0.15):
+                issues.append({
+                    "kind": "fixed_overlap",
+                    "refs": [a_ref, b_ref],
+                    "a_bounds_mm": [round(v, 3) for v in a_bounds],
+                    "b_bounds_mm": [round(v, 3) for v in b_bounds],
+                })
+
+    for keepout in getattr(constraints, "keepouts", []) or []:
+        keep_bounds = (
+            float(getattr(keepout, "x_min", 0.0) or 0.0),
+            float(getattr(keepout, "y_min", 0.0) or 0.0),
+            float(getattr(keepout, "x_max", 0.0) or 0.0),
+            float(getattr(keepout, "y_max", 0.0) or 0.0),
+        )
+        allowed = {str(ref) for ref in getattr(keepout, "allowed_refs", []) or []}
+        for ref, bounds in fixed_bounds.items():
+            if ref in allowed:
+                continue
+            if _intersects(bounds, keep_bounds, clearance=0.0):
+                issues.append({
+                    "kind": "fixed_in_keepout",
+                    "ref": ref,
+                    "keepout_mm": [round(v, 3) for v in keep_bounds],
+                    "bounds_mm": [round(v, 3) for v in bounds],
+                })
+
+    for zone in getattr(constraints, "zones", []) or []:
+        zone_bounds = (
+            float(getattr(zone, "x_min", 0.0) or 0.0),
+            float(getattr(zone, "y_min", 0.0) or 0.0),
+            float(getattr(zone, "x_max", 0.0) or 0.0),
+            float(getattr(zone, "y_max", 0.0) or 0.0),
+        )
+        if _outside_outline(zone_bounds):
+            issues.append({
+                "kind": "zone_outside_outline",
+                "group": str(getattr(zone, "group_name", "") or ""),
+                "bounds_mm": [round(v, 3) for v in zone_bounds],
+            })
+
+    for anchor in getattr(constraints, "edge_anchors", []) or []:
+        ref = str(getattr(anchor, "ref", "") or "")
+        edge = str(getattr(anchor, "edge", "") or "").lower()
+        if ref not in parts or edge not in {"top", "bottom", "left", "right"}:
+            continue
+        if ref in fixed_bounds:
+            distance = _edge_distance(fixed_bounds[ref], edge)
+            if distance > 2.0:
+                issues.append({
+                    "kind": "fixed_edge_anchor_conflict",
+                    "ref": ref,
+                    "edge": edge,
+                    "distance_mm": round(distance, 3),
+                })
+            continue
+        part = parts[ref]
+        footprint = _footprint(part)
+        geometry = geometries.get(footprint)
+        if geometry is not None and PlacedPart is not None:
+            rot = (
+                float(getattr(anchor, "rot_deg", 0.0))
+                if getattr(anchor, "rot_deg", None) is not None
+                else (90.0 if edge in {"left", "right"} else 0.0)
+            )
+            bounds = geometry.transformed_bounds(
+                PlacedPart(ref=ref, x_mm=0.0, y_mm=0.0, rot_deg=rot, footprint=footprint)
+            )
+            width, height = _bounds_size(bounds)
+        else:
+            width, height = _fallback_size(part)
+            if edge in {"left", "right"}:
+                width, height = height, width
+        if edge in {"top", "bottom"} and width > outline.width_mm + 0.5:
+            issues.append({
+                "kind": "edge_anchor_too_wide",
+                "ref": ref,
+                "edge": edge,
+                "footprint_width_mm": round(width, 3),
+                "outline_width_mm": round(outline.width_mm, 3),
+            })
+        elif edge in {"left", "right"} and height > outline.height_mm + 0.5:
+            issues.append({
+                "kind": "edge_anchor_too_tall",
+                "ref": ref,
+                "edge": edge,
+                "footprint_height_mm": round(height, 3),
+                "outline_height_mm": round(outline.height_mm, 3),
+            })
+
+    if not issues:
+        return None
+
+    focus_refs: list[str] = []
+    for issue in issues:
+        if "ref" in issue:
+            focus_refs.append(str(issue["ref"]))
+        for ref in issue.get("refs", []) or []:
+            focus_refs.append(str(ref))
+    focus_refs = sorted(set(focus_refs))
+    shown_issues = issues[:20]
+    return DesignException(
+        id="e-floorplan-constraints",
+        code=ExcCode.DESIGN_MISSING_FEATURE,
+        severity=Severity.ERROR,
+        message=(
+            "explicit floorplan constraints conflict with the board outline, "
+            "keepouts, or edge anchors"
+        ),
+        subject={
+            "feature": "placement_floorplan_constraints",
+            "classification": "floorplan_constraints_conflict",
+            "issue_count": len(issues),
+            "issues": shown_issues,
+            "truncated": len(issues) > len(shown_issues),
+            "floorplan": dict(floorplan_meta or {}),
+        },
+        candidates=[
+            Candidate(
+                id="c1",
+                action=ActionType.REGENERATE,
+                params={
+                    "fix_refs": focus_refs,
+                    "issues": shown_issues,
+                    "required_action": (
+                        "revise EDA_FLOORPLAN fixed_positions, keepouts, zones, "
+                        "edge_anchors, or outline_mm so every fixed footprint fits "
+                        "inside the outline and fixed refs do not collide"
+                    ),
+                },
+                human_summary=(
+                    "Fix the contradictory floorplan constraints, then regenerate"
+                ),
+                cost_hint="free",
+                confidence=0.9,
+            )
+        ],
+        retry_hint=(
+            "Do not retry unchanged. Update the submitted floorplan: keep fixed "
+            "refs inside the board outline, move fixed refs out of keepouts, "
+            "separate fixed refs that overlap, and make any fixed_position for an "
+            "edge-anchored ref actually sit on that requested edge."
+        ),
+    )
+
+
 def _run_skidl_code(envelope: dict) -> dict:
     """Execute SKiDL Python code and run the generation pipeline."""
     code = envelope.get("code", "")
@@ -4070,7 +4361,32 @@ def _run_skidl_code(envelope: dict) -> dict:
         namespace.get("EDA_FLOORPLAN")
     )
     _apply_floorplan_part_attributes(circuit, floorplan_meta)
+    if floorplan_constraints is None:
+        constraints = LayoutConstraints(outline=outline)
+    else:
+        constraints = floorplan_constraints
+        if outline is not None and floorplan_meta.get("outline") != "explicit":
+            constraints.outline = outline
     _progress(envelope, "floorplan_preflight", "checking explicit floorplan intent")
+    constraint_preflight = _floorplan_constraint_conflict_exception(
+        circuit,
+        constraints,
+        floorplan_meta={
+            **(floorplan_meta or {}),
+            **({"outline_source": "outline_mm"} if outline_mm else {}),
+        },
+        fp_dirs=fp_dirs,
+    )
+    if constraint_preflight is not None:
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="floorplan_preflight",
+            exceptions=[constraint_preflight] + review_exceptions,
+            outputs={"run_dir": str(out_dir), "schematic": str(schematic_path)},
+            metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
+            summary=constraint_preflight.message,
+        )
     floorplan_preflight = _floorplan_intent_preflight_exception(
         circuit,
         floorplan_meta=floorplan_meta,
@@ -4085,12 +4401,6 @@ def _run_skidl_code(envelope: dict) -> dict:
             metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
             summary=floorplan_preflight.message,
         )
-    if floorplan_constraints is None:
-        constraints = LayoutConstraints(outline=outline)
-    else:
-        constraints = floorplan_constraints
-        if outline is not None and floorplan_meta.get("outline") != "explicit":
-            constraints.outline = outline
     auto_corner_radius_mm = (
         None
         if outline_mm
@@ -4394,11 +4704,28 @@ def run(envelope: dict) -> dict:
         outline=_outline_for_spec(spec),
         form_factor=spec.board.form_factor,
     )
+    _progress(envelope, "floorplan_preflight", "checking floorplan intent")
+    constraint_preflight = _floorplan_constraint_conflict_exception(
+        circuit,
+        constraints,
+        floorplan_meta={},
+        fp_dirs=fp_dirs,
+    )
+    if constraint_preflight is not None:
+        return _json_result(
+            run_id=run_id,
+            ok=False,
+            stage="floorplan_preflight",
+            spec=spec,
+            exceptions=[constraint_preflight] + review_exceptions,
+            outputs={"run_dir": str(out_dir), "schematic": str(schematic_path)},
+            metrics=_metrics(circuit=circuit, fp_dirs=fp_dirs),
+            summary=constraint_preflight.message,
+        )
     floorplan_preflight = _floorplan_intent_preflight_exception(
         circuit,
         floorplan_meta={},
     )
-    _progress(envelope, "floorplan_preflight", "checking floorplan intent")
     if floorplan_preflight is not None:
         return _json_result(
             run_id=run_id,
