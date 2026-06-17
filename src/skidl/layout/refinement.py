@@ -314,6 +314,78 @@ def _target_pad_candidates_for_net(
     )
 
 
+def _passive_center_gravity_target(
+    ref: str,
+    placed_by_ref: dict[str, PlacedPart],
+    circuit,
+    roles: dict,
+) -> _PassiveGravityTarget | None:
+    """Fallback passive gravity when footprint pad geometry is unavailable."""
+
+    part_by_ref = {getattr(part, "ref", None): part for part in circuit.parts}
+    part = part_by_ref.get(ref)
+    placed = placed_by_ref.get(ref)
+    if part is None or placed is None:
+        return None
+
+    nets = set(_part_pin_nets_by_number(part).values())
+    if not nets:
+        return None
+
+    parent_roles = {"ic", "regulator", "module_socket"}
+    candidates: list[tuple[float, float, str, tuple[float, float], list[str]]] = []
+    for other_ref, other_part in part_by_ref.items():
+        if other_ref == ref or other_ref not in placed_by_ref:
+            continue
+        role = roles.get(other_ref)
+        role_name = role.role if role is not None else "unknown"
+        if role_name not in parent_roles:
+            continue
+        other_nets = set(_part_pin_nets_by_number(other_part).values())
+        shared = sorted(nets & other_nets)
+        if not shared:
+            continue
+        signal_shared = [
+            name
+            for name in shared
+            if not POWER_NET_RE.match(name) and not GND_NET_RE.match(name)
+        ]
+        if signal_shared:
+            net_score = 4.0 + len(signal_shared)
+        else:
+            net_score = 0.6 * len(shared)
+        if net_score <= 0.0:
+            continue
+        parent = placed_by_ref[other_ref]
+        parent_center = (parent.x_mm, parent.y_mm)
+        distance = math.hypot(placed.x_mm - parent.x_mm, placed.y_mm - parent.y_mm)
+        role_weight = {"ic": 5.0, "regulator": 5.0, "module_socket": 4.5}[role_name]
+        candidates.append(
+            (
+                -(role_weight + net_score),
+                distance,
+                other_ref,
+                parent_center,
+                signal_shared or shared,
+            )
+        )
+
+    if not candidates:
+        return None
+    _sort, _distance, parent_ref, parent_center, shared = min(candidates)
+    target_xy = parent_center
+    return _PassiveGravityTarget(
+        xy=target_xy,
+        reason=(
+            f"{parent_ref} center on shared "
+            f"{', '.join(shared[:3])} net(s); no pad geometry available"
+        ),
+        parent_ref=parent_ref,
+        parent_center=parent_center,
+        side=_target_side(parent_center, target_xy),
+    )
+
+
 def _target_side(
     parent_center: tuple[float, float],
     target_xy: tuple[float, float],
@@ -378,10 +450,10 @@ def _passive_pin_gravity_target(
         )
 
     if not fp_geometries:
-        return None
+        return _passive_center_gravity_target(ref, placed_by_ref, circuit, roles)
     geometry = fp_geometries.get(placed.footprint)
     if geometry is None or not geometry.pads:
-        return None
+        return _passive_center_gravity_target(ref, placed_by_ref, circuit, roles)
 
     target_points: list[tuple[float, float]] = []
     reasons: list[str] = []
@@ -414,7 +486,7 @@ def _passive_pin_gravity_target(
         parent_centers[candidate.ref] = candidate.center_xy
 
     if not target_points:
-        return None
+        return _passive_center_gravity_target(ref, placed_by_ref, circuit, roles)
     target_xy = (
         sum(point[0] for point in target_points) / len(target_points),
         sum(point[1] for point in target_points) / len(target_points),

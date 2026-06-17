@@ -19,6 +19,10 @@ AUDIO_JACK_RE = re.compile(
     r"6\.35\s*mm|6\.35mm|1/4\s*(?:in|inch)?|quarter.?inch|phone.?jack)",
     re.I,
 )
+PANEL_AUDIO_JACK_RE = re.compile(
+    r"(thonk|thonkiconn|pj398|pj301|vertical|eurorack.?jack)",
+    re.I,
+)
 BARREL_RE = re.compile(r"(barrel|dc.?jack|power.?jack)", re.I)
 HEADER_RE = re.compile(
     r"(pin.?header|header|angled.?header|right.?angle.?header|tagconnect|swd|jtag)",
@@ -75,6 +79,20 @@ def normalize_local_exit(value: object | None) -> str | None:
         "north": "-y",
     }
     return aliases.get(text)
+
+
+def is_panel_style_audio_jack_text(text: object) -> bool:
+    """Return true when text names a front-panel vertical 3.5 mm jack style."""
+    combined = str(text or "")
+    return bool(
+        AUDIO_JACK_RE.search(combined)
+        and PANEL_AUDIO_JACK_RE.search(combined)
+        and not HORIZONTAL_RE.search(combined)
+    )
+
+
+def is_panel_style_audio_jack_part(part) -> bool:
+    return is_panel_style_audio_jack_text(_part_text(part))
 
 
 def rotation_for_local_exit(edge: str | None, local_exit: str | None) -> float | None:
@@ -158,6 +176,10 @@ def infer_connector_mating_face(
     kind = str(mating_kind or "").lower()
 
     is_audio = kind == "audio_jack" or AUDIO_JACK_RE.search(combined)
+    if (kind == "panel_jack" or is_audio) and is_panel_style_audio_jack_text(
+        combined
+    ):
+        return None
     if is_audio and ("cui_sj1" in footprint or "sj1-35" in footprint):
         return ConnectorMatingFace(
             kind="audio_jack",

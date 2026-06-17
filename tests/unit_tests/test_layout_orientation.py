@@ -152,6 +152,17 @@ def test_explicit_connector_mating_face_metadata_overrides_footprint_guess():
     assert infer_edge_mating_rotation(header, "top", mating_kind="header") == 0.0
 
 
+def test_vertical_panel_audio_jack_has_no_edge_mating_face():
+    jack = _connector_part(
+        "J1",
+        "Thonkiconn PJ398SM vertical 3.5mm audio jack",
+        "Connector_Audio:Jack_3.5mm_PJ398SM_Vertical",
+    )
+
+    assert infer_connector_mating_face(jack, mating_kind="panel_jack") is None
+    assert infer_edge_mating_rotation(jack, "right", mating_kind="panel_jack") is None
+
+
 def test_refine_orientations_rotates_pad_toward_connected_neighbor():
     sig = _Net("SIG")
     u1 = _Part("U1", "Pkg:Directional", [(1, sig)])

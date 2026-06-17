@@ -26,7 +26,7 @@ from .power import PowerRoutePlan, infer_power_topology, plan_power_routes
 from .reader import read_board_outline
 from .refinement import refine_candidate_placement, refine_placement
 from .report import PlacementReport, build_placement_report
-from .roles import GND_NET_RE, POWER_NET_RE, classify_parts
+from .roles import GND_NET_RE, POWER_NET_RE, classify_parts, is_ui_grid_part
 from .routability import RoutabilityFeedback
 from .scoring import LayoutScore, score_placement, score_placement_quick
 from .validator import (
@@ -36,6 +36,9 @@ from .validator import (
     validate,
 )
 from .writer import PlacedPart, load_footprint_bboxes
+
+
+AUTO_OUTLINE_MAX_DENSITY_GROWTH = 1.12
 
 
 @dataclass
@@ -2047,6 +2050,144 @@ def _arrange_passive_grid_between_opposing_headers(
     return [replacements.get(placed.ref, placed) for placed in placed_parts], moved_refs
 
 
+def _spread_grid_subjects_on_generous_outline(
+    placed_parts: list[PlacedPart],
+    circuit,
+    outline: BoardOutline | None,
+    intent_plan: PlacementIntentPlan | None,
+    constraints: LayoutConstraints | None,
+    user_constraints: LayoutConstraints | None,
+    fp_bboxes: dict[str, tuple[float, float]],
+    fp_geometries: dict[str, FootprintGeometry] | None,
+) -> tuple[list[PlacedPart], list[str]]:
+    """Use a generous fixed outline for visible/grid subjects instead of bunching."""
+
+    if outline is None or circuit is None:
+        return placed_parts, []
+
+    anchors = _edge_anchor_map(intent_plan, constraints)
+    protected_refs = set(anchors)
+    protected_refs.update(
+        intent_plan.refs_with_kind("mounting_hole") if intent_plan else []
+    )
+    protected_refs.update(
+        fixed.ref for fixed in (constraints.fixed if constraints else []) or []
+    )
+    protected_refs.update(_constraint_floorplan_refs(user_constraints))
+
+    roles = classify_parts(circuit)
+    part_by_ref = {
+        str(getattr(part, "ref", "") or ""): part
+        for part in getattr(circuit, "parts", []) or []
+    }
+    placed_by_ref = {placed.ref: placed for placed in placed_parts}
+
+    subject_refs: list[str] = []
+    for ref, part in part_by_ref.items():
+        if ref in protected_refs or ref not in placed_by_ref:
+            continue
+        role = roles.get(ref)
+        role_name = role.role if role is not None else ""
+        intents = intent_plan.intents_for(ref) if intent_plan else []
+        intent_kinds = {intent.kind for intent in intents}
+        if (
+            is_ui_grid_part(part)
+            or role_name in {"panel_jack", "control"}
+            or intent_kinds
+            & {
+                "array_subject",
+                "front_panel_subject",
+                "panel_control",
+                "panel_jack",
+            }
+        ):
+            subject_refs.append(ref)
+
+    subject_refs = sorted(subject_refs, key=_natural_ref_key)
+    if len(subject_refs) < 4:
+        return placed_parts, []
+
+    subject_bounds = [
+        _placed_bounds(placed_by_ref[ref], fp_bboxes, fp_geometries)
+        for ref in subject_refs
+    ]
+    x_min = min(bounds[0] for bounds in subject_bounds)
+    y_min = min(bounds[1] for bounds in subject_bounds)
+    x_max = max(bounds[2] for bounds in subject_bounds)
+    y_max = max(bounds[3] for bounds in subject_bounds)
+    current_w = max(0.0, x_max - x_min)
+    current_h = max(0.0, y_max - y_min)
+    compact_area = (current_w + 6.0) * (current_h + 6.0)
+    outline_area = outline.width_mm * outline.height_mm
+    if outline_area <= 0.0 or compact_area <= 0.0:
+        return placed_parts, []
+
+    area_ratio = outline_area / compact_area
+    if area_ratio < 2.0:
+        return placed_parts, []
+
+    count = len(subject_refs)
+    if outline.height_mm >= outline.width_mm * 1.4:
+        cols = 1 if count <= 5 else 2
+    elif count == 4:
+        cols = 2
+    elif count <= 3:
+        cols = count
+    else:
+        aspect = max(outline.width_mm, 1.0) / max(outline.height_mm, 1.0)
+        cols = max(2, min(count, round(math.sqrt(count * aspect))))
+    rows = math.ceil(count / cols)
+    if rows < 2 and current_w >= outline.width_mm * 0.45:
+        return placed_parts, []
+    if rows >= 2 and current_h >= outline.height_mm * 0.25:
+        return placed_parts, []
+
+    x_pad = max(6.0, outline.width_mm * 0.18)
+    y_pad = max(6.0, outline.height_mm * 0.24)
+    x_start = outline.x_min + x_pad
+    x_end = outline.x_max - x_pad
+    y_start = outline.y_min + y_pad
+    y_end = outline.y_max - y_pad
+    if x_start >= x_end or y_start >= y_end:
+        return placed_parts, []
+
+    replacements: dict[str, PlacedPart] = {}
+    moved_refs: list[str] = []
+    for index, ref in enumerate(subject_refs):
+        row = index // cols
+        col = index % cols
+        row_count = min(cols, count - row * cols)
+        if row_count == 1:
+            x_mm = (x_start + x_end) / 2
+        else:
+            x_mm = x_start + (x_end - x_start) * col / (row_count - 1)
+        if rows == 1:
+            y_mm = (y_start + y_end) / 2
+        else:
+            y_mm = y_start + (y_end - y_start) * row / (rows - 1)
+
+        placed = placed_by_ref[ref]
+        bounds = _placed_bounds(placed, fp_bboxes, fp_geometries)
+        dx = x_mm - placed.x_mm
+        dy = y_mm - placed.y_mm
+        dx, dy = _clamp_delta_to_outline(bounds, dx, dy, outline, 0.8)
+        if abs(dx) <= 1e-6 and abs(dy) <= 1e-6:
+            continue
+        replacements[ref] = PlacedPart(
+            ref=placed.ref,
+            x_mm=placed.x_mm + dx,
+            y_mm=placed.y_mm + dy,
+            rot_deg=placed.rot_deg,
+            footprint=placed.footprint,
+            side=getattr(placed, "side", "front"),
+        )
+        moved_refs.append(ref)
+
+    if not moved_refs:
+        return placed_parts, []
+    return [replacements.get(placed.ref, placed) for placed in placed_parts], moved_refs
+
+
 def plan_layout(
     circuit,
     fp_bboxes: dict[str, tuple[float, float]] | None = None,
@@ -2308,7 +2449,7 @@ def plan_layout(
                 margin_mm=margin_mm,
                 form_factor=form_factor,
                 min_area_mm2=min_area,
-                max_min_area_growth=1.35,
+                max_min_area_growth=AUTO_OUTLINE_MAX_DENSITY_GROWTH,
                 intent_plan=intent_plan,
                 constraints=candidate_constraints,
                 fp_geometries=fp_geometries,
@@ -2415,7 +2556,7 @@ def plan_layout(
                 margin_mm=margin_mm,
                 form_factor=form_factor,
                 min_area_mm2=min_area,
-                max_min_area_growth=1.35,
+                max_min_area_growth=AUTO_OUTLINE_MAX_DENSITY_GROWTH,
             )
             if corner_radius_mm is not None:
                 candidate_outline.corner_radius_mm = max(
@@ -2471,6 +2612,24 @@ def plan_layout(
                 moved_neighbor_refs,
                 "near-edge parts nudged clear of fixed-outline edge connectors",
                 "nudged clear of fixed-outline edge connector",
+            )
+
+            placed_parts, gridded_subject_refs = _spread_grid_subjects_on_generous_outline(
+                placed_parts,
+                circuit,
+                candidate_outline,
+                intent_plan,
+                candidate_constraints,
+                constraints,
+                resolved_bboxes,
+                fp_geometries,
+            )
+            _note_move(
+                candidate,
+                placed_parts,
+                gridded_subject_refs,
+                "visible grid subjects spread over generous fixed outline",
+                "spread over generous fixed outline grid",
             )
 
             placed_parts, moved_interior_refs = _legalize_small_parts_from_outline(
@@ -2546,7 +2705,7 @@ def plan_layout(
                 margin_mm=margin_mm,
                 form_factor=form_factor,
                 min_area_mm2=min_area,
-                max_min_area_growth=1.35,
+                max_min_area_growth=AUTO_OUTLINE_MAX_DENSITY_GROWTH,
                 intent_plan=intent_plan,
                 constraints=candidate_constraints,
                 fp_geometries=fp_geometries,

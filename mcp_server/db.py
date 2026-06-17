@@ -120,7 +120,7 @@ class DB:
     async def job_status_counts(
         self,
         *,
-        stale_grace_seconds: float = 120.0,
+        stale_grace_seconds: float = 15.0,
         min_stale_seconds: float = 0.0,
     ) -> dict[str, int]:
         """Return queue counters, including orphaned running jobs."""
@@ -167,7 +167,7 @@ class DB:
     async def fail_stale_running_jobs(
         self,
         *,
-        stale_grace_seconds: float = 120.0,
+        stale_grace_seconds: float = 15.0,
         min_stale_seconds: float = 0.0,
     ) -> int:
         """Mark orphaned running jobs failed after deploys/worker loss."""
@@ -184,9 +184,32 @@ class DB:
                             'ok', false,
                             'status', 'crashed',
                             'stage', 'worker_lost',
+                            'failure_kind', 'worker_lost',
+                            'worker_lost', true,
+                            'stale_running', true,
+                            'visual_review_ready', false,
+                            'reviewable_failure', false,
                             'decision_required', true,
                             'decision_kind', 'backend_failure',
                             'recommended_next_tool', 'submit_skidl_code',
+                            'artifact_summary', jsonb_build_object(
+                                'available', false,
+                                'count', 0,
+                                'keys', '[]'::jsonb,
+                                'truncated', 0,
+                                'preview_available', false,
+                                'preview_keys', '[]'::jsonb,
+                                'kicad_keys', '[]'::jsonb,
+                                'manufacturing_keys', '[]'::jsonb,
+                                'zip_available', false
+                            ),
+                            'run_artifacts_available', false,
+                            'metrics', jsonb_build_object(
+                                'manufacturable', false,
+                                'manufacturing_complete', false,
+                                'visual_review_ready', false,
+                                'product_layout_ok', false
+                            ),
                             'exceptions', jsonb_build_array(
                                 jsonb_build_object(
                                     'id', 'e-worker-lost',
@@ -290,9 +313,32 @@ class DB:
                             'ok', false,
                             'status', 'crashed',
                             'stage', 'worker_lost',
+                            'failure_kind', 'worker_lost',
+                            'worker_lost', true,
+                            'stale_running', true,
+                            'visual_review_ready', false,
+                            'reviewable_failure', false,
                             'decision_required', true,
                             'decision_kind', 'backend_failure',
                             'recommended_next_tool', 'submit_skidl_code',
+                            'artifact_summary', jsonb_build_object(
+                                'available', false,
+                                'count', 0,
+                                'keys', '[]'::jsonb,
+                                'truncated', 0,
+                                'preview_available', false,
+                                'preview_keys', '[]'::jsonb,
+                                'kicad_keys', '[]'::jsonb,
+                                'manufacturing_keys', '[]'::jsonb,
+                                'zip_available', false
+                            ),
+                            'run_artifacts_available', false,
+                            'metrics', jsonb_build_object(
+                                'manufacturable', false,
+                                'manufacturing_complete', false,
+                                'visual_review_ready', false,
+                                'product_layout_ok', false
+                            ),
                             'exceptions', jsonb_build_array(
                                 jsonb_build_object(
                                     'id', 'e-worker-lost',

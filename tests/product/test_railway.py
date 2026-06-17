@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import tempfile
+import time
 import traceback
 import zipfile
 from io import BytesIO
@@ -20,9 +21,14 @@ os.environ.setdefault("KICAD9_SYMBOL_DIR", "/usr/share/kicad/symbols")
 
 from mcp_server.db import DB
 from mcp_server.pipeline import DesignResponse
+from mcp_server import worker as worker_mod
 from mcp_server.worker import (
+    _annotate_result_for_job_payload,
     _execute_job,
+    _execute_job_with_deadline,
     _find_artifacts,
+    _prepare_job_for_execution,
+    _worker_timeout_result,
     _worker_exception_result,
     worker_loop,
 )
@@ -313,6 +319,10 @@ class TestDB:
         assert "worker lost" in job["error"]
         assert job["result"]["status"] == "crashed"
         assert job["result"]["stage"] == "worker_lost"
+        assert job["result"]["failure_kind"] == "worker_lost"
+        assert job["result"]["worker_lost"] is True
+        assert job["result"]["artifact_summary"]["available"] is False
+        assert job["result"]["reviewable_failure"] is False
         assert job["result"]["decision_required"] is True
         assert job["result"]["recommended_next_tool"] == "submit_skidl_code"
         assert job["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
@@ -351,6 +361,8 @@ class TestDB:
         probe = await db.get_job(probe_id)
         assert probe["status"] == "crashed"
         assert probe["result"]["stage"] == "worker_lost"
+        assert probe["result"]["failure_kind"] == "worker_lost"
+        assert probe["result"]["artifact_summary"]["available"] is False
         assert probe["result"]["exceptions"][0]["code"] == "ENGINE_CRASH"
 
         await db.complete_job(normal_id, "failed", error="test cleanup")
@@ -438,6 +450,7 @@ class TestWorkerOptionPassthrough:
                 "timeout_s": 600,
                 "route_timeout_s": 420,
                 "board_id": "route-timeout-test",
+                "run_id": "stable-code-run",
                 "assembly_policy": "double_sided",
                 "pipeline_goal": "placement_review",
             },
@@ -448,11 +461,111 @@ class TestWorkerOptionPassthrough:
         assert result["run_id"] == "fake-code-run"
         assert seen["timeout_s"] == 600
         assert seen["route_timeout_s"] == 420
+        assert seen["run_id"] == "stable-code-run"
         assert seen["board_id"] == "route-timeout-test"
         assert seen["assembly_policy"] == "double_sided"
         assert seen["pipeline_goal"] == "placement_review"
         assert seen["custom_footprints"] == {
             "MyLib:MyFootprint": '(footprint "MyFootprint" (layer "F.Cu"))',
+        }
+
+
+class TestWorkerRuntimeSemantics:
+    def test_prepare_job_for_execution_sets_stable_run_id_without_mutating_input(self):
+        job = {"id": "job-run-id", "spec": SIMPLE_SPEC, "options": {}, "policy": {}}
+
+        prepared = _prepare_job_for_execution(job)
+
+        assert prepared["options"]["run_id"]
+        assert "run_id" not in job["options"]
+
+    def test_worker_timeout_result_is_distinct_backend_feedback(self, monkeypatch):
+        monkeypatch.setattr(worker_mod, "WORKER_RUNTIME_GRACE_S", 2.0)
+        job = {
+            "id": "job-timeout",
+            "spec": {"_mode": "skidl_python", "code": "from skidl import *"},
+            "options": {"timeout_s": 10, "run_id": "run-timeout"},
+            "policy": {},
+        }
+
+        result = _worker_timeout_result(job, "job-timeout", "worker-test")
+
+        assert result["run_id"] == "run-timeout"
+        assert result["status"] == "timeout"
+        assert result["stage"] == "worker_runtime_timeout"
+        assert result["failure_kind"] == "worker_runtime_timeout"
+        assert result["worker_timeout"] is True
+        assert result["decision_kind"] == "backend_failure"
+        assert result["visual_review_ready"] is False
+        assert result["reviewable_failure"] is False
+        exc = result["exceptions"][0]
+        assert exc["code"] == "ENGINE_TIMEOUT"
+        assert exc["subject"]["timeout_s"] == 10
+        assert exc["subject"]["worker_deadline_s"] == 12
+        assert exc["subject"]["partial_artifacts"] == []
+
+    @pytest.mark.asyncio
+    async def test_execute_job_with_deadline_marks_worker_timeout(self, monkeypatch):
+        monkeypatch.setattr(worker_mod, "WORKER_RUNTIME_GRACE_S", 0.0)
+
+        def slow_execute(job):
+            time.sleep(0.05)
+            return {"run_id": job["options"]["run_id"], "ok": True, "status": "succeeded"}
+
+        monkeypatch.setattr(worker_mod, "_execute_job", slow_execute)
+        job = _prepare_job_for_execution({
+            "id": "job-deadline",
+            "spec": SIMPLE_SPEC,
+            "options": {"timeout_s": 0.001},
+            "policy": {},
+        })
+
+        result = await _execute_job_with_deadline(job, "worker-test")
+
+        assert result["run_id"] == job["options"]["run_id"]
+        assert result["status"] == "timeout"
+        assert result["stage"] == "worker_runtime_timeout"
+        assert result["failure_kind"] == "worker_runtime_timeout"
+
+    def test_annotate_result_for_job_payload_exposes_reviewable_artifacts(self):
+        result = {
+            "run_id": "run-reviewable",
+            "ok": False,
+            "status": "failed_reviewable",
+            "metrics": {
+                "visual_review_ready": True,
+                "product_layout_ok": False,
+            },
+        }
+        artifacts = {
+            "preview_2d_top.png": "png",
+            "preview_top.svg": "<svg />",
+            "board.kicad_pcb": "(kicad_pcb)",
+            "_board.zip": "zip",
+        }
+
+        _annotate_result_for_job_payload(result, artifacts)
+
+        assert result["visual_review_ready"] is True
+        assert result["reviewable_failure"] is True
+        assert result["run_artifacts_available"] is True
+        assert result["recommended_artifact_tool"] == "get_run"
+        assert "failed but reviewable" in result["review_note"]
+        assert result["artifact_summary"] == {
+            "available": True,
+            "count": 4,
+            "keys": [
+                "_board.zip",
+                "board.kicad_pcb",
+                "preview_2d_top.png",
+                "preview_top.svg",
+            ],
+            "truncated": 0,
+            "preview_available": True,
+            "preview_keys": ["preview_2d_top.png", "preview_top.svg"],
+            "kicad_keys": ["board.kicad_pcb"],
+            "manufacturing_keys": ["_board.zip"],
+            "zip_available": True,
         }
 
 

@@ -1226,6 +1226,8 @@ class TestLayoutQuality:
 
         assert updated.ok is False
         assert updated.status == "failed_reviewable"
+        assert updated.visual_review_ready is True
+        assert updated.reviewable_failure is True
         assert updated.layout_quality["status"] == "failed_reviewable"
         assert updated.layout_quality["gates"]["visual_review_ready"] is True
         assert updated.layout_quality["gates"]["product_layout_ok"] is False
@@ -1281,6 +1283,8 @@ class TestLayoutQuality:
 
         assert updated.ok is False
         assert updated.status == "failed_reviewable"
+        assert updated.visual_review_ready is True
+        assert updated.reviewable_failure is True
         assert updated.layout_quality["gates"]["visual_review_ready"] is True
         assert updated.layout_quality["gates"]["product_layout_ok"] is False
         product_exc = next(
@@ -3182,11 +3186,13 @@ class TestFloorplanParsing:
         assert len(constraints.distribute) == 5
 
         assert meta["fixed_positions"] == 5
-        assert meta["fixed_refs"] == ["U1"]
+        assert meta["fixed_refs"] == ["SW1", "SW2", "SW3", "SW4", "U1"]
+        assert meta["explicit_fixed_refs"] == ["U1"]
         assert meta["edge_anchors"] == 1
         assert meta["keepouts"] == 1
         assert meta["outline"] == "explicit"
         assert meta["grids"] == 1
+        assert meta["grid_refs"] == ["SW1", "SW2", "SW3", "SW4"]
         assert meta["grid_fixed_positions"] == 4
         assert meta["align_constraints"] == 5
         assert meta["distribute_constraints"] == 5
@@ -3194,6 +3200,73 @@ class TestFloorplanParsing:
         assert meta["assembly_sides"]["U2"] == "back"
         assert meta["assembly_sides"]["SW4"] == "front"
         assert meta["assembly_side_counts"] == {"back": 2, "front": 5}
+
+    def test_floorplan_accepts_layout_constraint_objects(self):
+        from skidl.layout import (
+            AlignConstraint,
+            BoardCutout,
+            BoardOutline,
+            DistributeConstraint,
+            EdgeAnchor,
+            FixedPosition,
+            KeepOut,
+            LayoutConstraints,
+        )
+
+        constraints, meta = engine_worker_mod._floorplan_constraints(
+            LayoutConstraints(
+                outline=BoardOutline(65.0, 40.0, corner_radius_mm=1.25),
+                fixed=[
+                    FixedPosition("U_DAISY", 32.5, 22.0, 180.0),
+                    FixedPosition("OLED1", 48.0, 10.0, 0.0),
+                ],
+                edge_anchors=[
+                    EdgeAnchor("J_USB", "bottom", offset_mm=32.0, inset_mm=0.75, rot_deg=180.0),
+                ],
+                keepouts=[
+                    KeepOut(0.0, 0.0, 65.0, 4.0, allowed_refs=["H1", "H2"]),
+                ],
+                cutouts=[
+                    BoardCutout(12.0, 7.0, 28.0, 15.0, name="display_window"),
+                ],
+                align=[
+                    AlignConstraint(["LED1", "LED2"], "y", 5.0),
+                ],
+                distribute=[
+                    DistributeConstraint(["LED1", "LED2", "LED3"], "x", 8.0, 34.0),
+                ],
+            )
+        )
+
+        assert constraints is not None
+        assert constraints.outline.width_mm == pytest.approx(65.0)
+        assert constraints.outline.height_mm == pytest.approx(40.0)
+        assert constraints.outline.corner_radius_mm == pytest.approx(1.25)
+        assert [item.ref for item in constraints.fixed] == ["U_DAISY", "OLED1"]
+        assert constraints.edge_anchors[0].ref == "J_USB"
+        assert constraints.edge_anchors[0].edge == "bottom"
+        assert constraints.edge_anchors[0].offset_mm == pytest.approx(32.0)
+        assert constraints.edge_anchors[0].inset_mm == pytest.approx(0.75)
+        assert constraints.keepouts[0].allowed_refs == ["H1", "H2"]
+        assert constraints.cutouts[0].name == "display_window"
+        assert constraints.align[0].refs == ["LED1", "LED2"]
+        assert constraints.distribute[0].refs == ["LED1", "LED2", "LED3"]
+        assert meta["outline"] == "explicit"
+        assert meta["fixed_refs"] == ["OLED1", "U_DAISY"]
+        assert meta["explicit_fixed_refs"] == ["OLED1", "U_DAISY"]
+        assert meta["edge_anchor_refs"] == [
+            {
+                "ref": "J_USB",
+                "edge": "bottom",
+                "offset_mm": 32.0,
+                "rot_deg": 180.0,
+            }
+        ]
+        assert meta["keepouts"] == 1
+        assert meta["cutouts"] == 1
+        assert meta["cutout_shapes"][0]["name"] == "display_window"
+        assert meta["align_constraints"] == 1
+        assert meta["distribute_constraints"] == 1
 
     def test_floorplan_parses_cutouts_apertures_and_slots_as_geometry(self):
         constraints, meta = engine_worker_mod._floorplan_constraints(
@@ -3482,6 +3555,28 @@ class TestFloorplanParsing:
         assert captured["part_edges"]["J1"] == "right"
         assert result["layout"]["floorplan"]["outline"] == "explicit"
         assert result["layout"]["floorplan"]["fixed_positions"] == 5
+        assert result["layout"]["floorplan"]["fixed_refs"] == [
+            "SW1",
+            "SW2",
+            "SW3",
+            "SW4",
+            "U1",
+        ]
+        assert result["layout"]["floorplan"]["explicit_fixed_refs"] == ["U1"]
+        assert result["layout"]["floorplan"]["grid_refs"] == [
+            "SW1",
+            "SW2",
+            "SW3",
+            "SW4",
+        ]
+        assert result["layout"]["floorplan"]["edge_anchor_refs"] == [
+            {
+                "ref": "J1",
+                "edge": "right",
+                "offset_mm": 12.0,
+                "rot_deg": None,
+            }
+        ]
         assert result["layout"]["floorplan"]["cutouts"] == 1
         assert result["layout"]["cutouts"][0]["name"] == "sensor_window"
         assert captured["write_cutouts"][0].name == "sensor_window"

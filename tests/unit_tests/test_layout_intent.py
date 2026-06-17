@@ -635,6 +635,122 @@ def test_eurorack_double_sided_policy_keeps_panel_front_and_electronics_back():
     assert not any("single_sided policy avoids" in warning for warning in plan.warnings)
 
 
+def test_eurorack_lfo_panel_parts_are_grid_subjects_not_edge_anchors():
+    plus12 = _Net("+12V")
+    minus12 = _Net("-12V")
+    gnd = _Net("GND")
+    vco_out = _Net("VCO_OUT")
+    lfo_out = _Net("LFO_OUT")
+    rate_cv = _Net("RATE_CV")
+    depth_cv = _Net("DEPTH_CV")
+    led_drive = _Net("LED_DRIVE")
+    power = _Part(
+        "J10",
+        name="Eurorack shrouded IDC power header",
+        footprint="Connector_IDC:IDC-Header_2x05_P2.54mm_Vertical",
+        nets=[plus12, minus12, gnd],
+        pins=10,
+    )
+    jacks = [
+        _Part(
+            "J1",
+            name="3.5mm mono VCO output jack",
+            footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+            nets=[vco_out, gnd],
+            pins=3,
+        ),
+        _Part(
+            "J2",
+            name="3.5mm mono LFO output jack",
+            footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal",
+            nets=[lfo_out, gnd],
+            pins=3,
+        ),
+    ]
+    controls = [
+        _Part(
+            "RV1",
+            name="front panel rate potentiometer",
+            footprint="Potentiometer_THT:Potentiometer_Alpha_RD901F",
+            nets=[plus12, rate_cv, gnd],
+            pins=3,
+        ),
+        _Part(
+            "RV2",
+            name="front panel depth potentiometer",
+            footprint="Potentiometer_THT:Potentiometer_Alpha_RD901F",
+            nets=[plus12, depth_cv, gnd],
+            pins=3,
+        ),
+    ]
+    led = _Part(
+        "D1",
+        name="front panel LFO LED indicator",
+        footprint="LED_THT:LED_D3.0mm",
+        nets=[led_drive, gnd],
+        pins=2,
+    )
+    ic = _Part(
+        "U1",
+        name="TL074 analog LFO core",
+        footprint="Package_SO:SOIC-14",
+        nets=[plus12, minus12, gnd, vco_out, lfo_out, rate_cv, depth_cv, led_drive],
+        pins=14,
+    )
+    decap = _Part(
+        "C1",
+        value="100nF",
+        footprint="Capacitor_SMD:C_0603",
+        nets=[plus12, gnd],
+    )
+    circuit = _Circuit(
+        [power, *jacks, *controls, led, ic, decap],
+        [plus12, minus12, gnd, vco_out, lfo_out, rate_cv, depth_cv, led_drive],
+    )
+
+    plan = infer_placement_intents(
+        circuit,
+        outline=BoardOutline(40.0, 128.5),
+        assembly_policy="double_sided",
+    )
+
+    edge_refs = {anchor.ref for anchor in plan.edge_anchors}
+    face_refs = {face.ref for face in plan.face_edges}
+    panel_refs = {"J1", "J2", "RV1", "RV2", "D1"}
+
+    assert panel_refs.isdisjoint(edge_refs)
+    assert panel_refs.isdisjoint(face_refs)
+    for ref in panel_refs:
+        assert "front_panel_subject" in _kinds(plan, ref) or ref == "D1"
+        assert "panel_grid_subject" in _kinds(plan, ref)
+        assert "array_subject" in _kinds(plan, ref)
+
+    for ref in {"J1", "J2"}:
+        mating = next(mating for mating in plan.mating_intents if mating.ref == ref)
+        assert mating.kind == "panel_jack"
+        assert mating.edge_preference is None
+        assert mating.mating_side == "front_panel"
+        assert "panel_jack" in _kinds(plan, ref)
+        assert "edge_connector" not in _kinds(plan, ref)
+
+    assert all(anchor.ref != "J10" for anchor in plan.edge_anchors)
+    assert "bottom_back_mechanical_context" in _kinds(plan, "J10")
+    assert "rear_mechanical_context" in _kinds(plan, "J10")
+    assert plan.assembly_sides["J10"] == "back"
+    assert plan.assembly_sides["U1"] == "back"
+    assert plan.assembly_sides["C1"] == "back"
+    assert any("non-panel footprint" in warning for warning in plan.warnings)
+
+    align_by_refs = {frozenset(c.refs): c for c in plan.align_constraints}
+    distribute_by_refs = {frozenset(c.refs): c for c in plan.distribute_constraints}
+    jack_refs = frozenset({"J1", "J2"})
+    control_refs = frozenset({"RV1", "RV2"})
+    assert align_by_refs[jack_refs].axis == "x"
+    assert align_by_refs[control_refs].axis == "x"
+    assert distribute_by_refs[jack_refs].axis == "y"
+    assert distribute_by_refs[control_refs].axis == "y"
+
+
 def test_single_sided_policy_allows_only_explicit_back_side_override():
     vcc = _Net("VCC")
     gnd = _Net("GND")

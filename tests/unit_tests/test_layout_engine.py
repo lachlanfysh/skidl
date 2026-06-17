@@ -1745,6 +1745,45 @@ def test_fixed_generous_outline_spreads_ui_and_mechanics():
     assert not any("board outline is" in warning for warning in result.score.warnings)
 
 
+def test_fixed_generous_outline_uses_two_dimensional_visible_grid():
+    outline = BoardOutline(100.0, 70.0)
+    gnd = _Net("GND")
+    signals = [_Net(f"SIG{idx}") for idx in range(1, 5)]
+    u1 = _Part(
+        "U1",
+        name="MCU",
+        footprint="Package_QFP:MCU",
+        nets=[gnd, *signals],
+        pins=8,
+    )
+    leds = [
+        _Part(
+            f"LED{idx}",
+            name="indicator LED",
+            footprint="Capacitor:C_0805",
+            nets=[signal, gnd],
+            pins=2,
+        )
+        for idx, signal in enumerate(signals, start=1)
+    ]
+    circuit = _Circuit([u1, *leds], [gnd, *signals])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(outline=outline),
+    )
+
+    placed = {part.ref: part for part in result.placed_parts}
+    led_xs = [placed[ref].x_mm for ref in ("LED1", "LED2", "LED3", "LED4")]
+    led_ys = [placed[ref].y_mm for ref in ("LED1", "LED2", "LED3", "LED4")]
+
+    assert result.validation.overlaps == []
+    assert max(led_xs) - min(led_xs) >= outline.width_mm * 0.45
+    assert max(led_ys) - min(led_ys) >= outline.height_mm * 0.25
+    assert not any("board outline is" in warning for warning in result.score.warnings)
+
+
 def test_panel_grid_constraints_resist_proximity_optimization():
     outline = BoardOutline(40.0, 120.0)
     gnd = _Net("GND")
@@ -2036,3 +2075,39 @@ def test_plan_layout_refines_decaps_to_actual_parent_pads(monkeypatch):
         "actual U1 VDD/GND pads" in reason
         for reason in result.report.part_reasons["C1"]
     )
+
+
+def test_plan_layout_auto_outline_tightens_compact_passive_cluster():
+    vcc = _Net("VCC")
+    gnd = _Net("GND")
+    signals = [_Net(f"SIG{idx}") for idx in range(1, 9)]
+    u1 = _Part(
+        "U1",
+        name="MCU",
+        footprint="Package_QFP:MCU",
+        nets=[vcc, gnd, *signals],
+        pins=10,
+    )
+    passives = [
+        _Part(
+            f"R{idx}",
+            value="10K",
+            footprint="Capacitor:C_0805",
+            nets=[signal, gnd],
+            pins=2,
+        )
+        for idx, signal in enumerate(signals, start=1)
+    ]
+    circuit = _Circuit([u1, *passives], [vcc, gnd, *signals])
+
+    result = plan_layout(
+        circuit,
+        fp_bboxes=BBOXES,
+        constraints=LayoutConstraints(fixed=[FixedPosition("U1", 30.0, 30.0)]),
+    )
+
+    assert result.outline is not None
+    envelope = derive_outline(result.placed_parts, BBOXES)
+    outline_area = result.outline.width_mm * result.outline.height_mm
+    envelope_area = envelope.width_mm * envelope.height_mm
+    assert outline_area <= envelope_area * 1.15 + 0.001

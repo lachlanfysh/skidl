@@ -271,6 +271,40 @@ def test_refinement_uses_pad_aware_pin_gravity_for_signal_passive():
     assert "passive pin gravity" in "; ".join(result.ref_reasons["R1"])
 
 
+def test_refinement_uses_ic_gravity_when_pad_geometry_is_unavailable():
+    sig = _Net("SIG")
+    gnd = _Net("GND")
+    u1 = _Part("U1", "Package_QFP:MCU", nets=[sig, gnd], pins=8)
+    j1 = _Part("J1", "Connector:USB", nets=[sig, gnd], pins=2)
+    r1 = _Part("R1", "Resistor_SMD:R_0603", nets=[sig, gnd])
+    circuit = _Circuit([u1, j1, r1], [sig, gnd])
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("J1", 90.0, 20.0, 0.0, "Connector:USB"),
+        PlacedPart("R1", 82.0, 20.0, 0.0, "Resistor_SMD:R_0603"),
+    ]
+
+    result = refine_placement(
+        placed,
+        circuit,
+        BBOXES,
+        constraints=LayoutConstraints(
+            outline=BoardOutline(100.0, 40.0),
+            fixed=[FixedPosition("U1", 20.0, 20.0)],
+            edge_anchors=[EdgeAnchor("J1", "right", offset_mm=20.0)],
+        ),
+        fp_geometries=None,
+        max_passes=1,
+    )
+
+    final = {part.ref: part for part in result.placed_parts}
+
+    assert final["U1"].x_mm == pytest.approx(20.0)
+    assert final["J1"].x_mm == pytest.approx(90.0)
+    assert final["R1"].x_mm < 40.0
+    assert "passive pin gravity" in "; ".join(result.ref_reasons["R1"])
+
+
 def test_refinement_keeps_pin_gravity_passive_from_centroid_drift():
     sig = _Net("GPIO1")
     vcc = _Net("3V3")

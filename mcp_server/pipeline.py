@@ -47,6 +47,8 @@ class DesignResponse(BaseModel):
     decision_kind: str = ""
     recommended_next_tool: str = ""
     corrections_applied: list[dict] = Field(default_factory=list)
+    visual_review_ready: bool = False
+    reviewable_failure: bool = False
 
 
 def _repo_root() -> Path:
@@ -175,6 +177,8 @@ def _attach_layout_quality(response: DesignResponse, run_dir: Path) -> DesignRes
     response.metrics["review_state"] = str(
         quality.get("review", {}).get("state") or ""
     )
+    response.visual_review_ready = bool(response.metrics["visual_review_ready"])
+    response.reviewable_failure = bool(failed_reviewable)
     return response
 
 

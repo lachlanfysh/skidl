@@ -22,7 +22,8 @@ from schemas.circuit_spec import CircuitSpec
 from schemas.corrections import apply_candidate
 
 
-STALE_REAP_INTERVAL_S = 60.0
+STALE_REAP_INTERVAL_S = float(os.environ.get("WORKER_STALE_REAP_INTERVAL_S", "15"))
+WORKER_RUNTIME_GRACE_S = float(os.environ.get("WORKER_RUNTIME_GRACE_S", "15"))
 EASYEDA_CACHE = Path(__file__).resolve().parent.parent / "corpus" / "jlc" / "easyeda_cache"
 LCSC_RE = re.compile(r"\bC\d{2,}\b", re.IGNORECASE)
 
@@ -39,6 +40,30 @@ def _job_status_from_result(result: dict) -> str:
     }:
         return pipeline_status
     return "succeeded" if result["ok"] else "failed"
+
+
+def _job_timeout_s(job: dict) -> float:
+    """Return a safe wall-clock budget for one hosted job."""
+
+    try:
+        return max(0.0, float((job.get("options") or {}).get("timeout_s", 300)))
+    except (TypeError, ValueError):
+        return 300.0
+
+
+def _worker_deadline_s(job: dict) -> float:
+    """Slightly larger than engine timeout so cleanup can finish."""
+
+    return _job_timeout_s(job) + max(0.0, WORKER_RUNTIME_GRACE_S)
+
+
+def _prepare_job_for_execution(job: dict) -> dict:
+    """Give every hosted execution a stable run_id before the worker starts."""
+
+    prepared = dict(job)
+    prepared["options"] = dict(job.get("options") or {})
+    prepared["options"].setdefault("run_id", uuid.uuid4().hex[:12])
+    return prepared
 
 
 async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
@@ -68,10 +93,12 @@ async def worker_loop(db: DB, slot: int, worker_id: str) -> None:
                     f"{label}: restored {restored} converted LCSC asset(s) for job {job_id}",
                     flush=True,
                 )
-            result = await asyncio.to_thread(_execute_job, job)
+            job = _prepare_job_for_execution(job)
+            result = await _execute_job_with_deadline(job, label)
             # Extract artifact file contents before storing — they bloat
             # the jobs.result column and can cause tool response truncation.
             artifacts = _collect_artifacts(result)
+            _annotate_result_for_job_payload(result, artifacts)
             status = _job_status_from_result(result)
             await db.complete_job(job_id, status, result=result)
 
@@ -111,6 +138,25 @@ async def _reap_stale_jobs(db: DB, label: str) -> int:
     if stale:
         print(f"{label}: marked {stale} stale running job(s) failed", flush=True)
     return stale
+
+
+async def _execute_job_with_deadline(job: dict, worker_label: str) -> dict:
+    """Run a job but force the DB-visible state to respect timeout_s."""
+
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_execute_job, job),
+            timeout=_worker_deadline_s(job),
+        )
+    except asyncio.TimeoutError:
+        timeout_s = _job_timeout_s(job)
+        deadline_s = _worker_deadline_s(job)
+        print(
+            f"{worker_label}: job {job.get('id')} exceeded worker deadline "
+            f"{deadline_s:.1f}s for requested timeout_s={timeout_s:.1f}",
+            flush=True,
+        )
+        return _worker_timeout_result(job, str(job.get("id") or ""), worker_label)
 
 
 def _lcsc_refs_in_spec(spec: Any) -> set[str]:
@@ -295,6 +341,159 @@ def _worker_exception_result(
     }
 
 
+def _worker_timeout_result(job: dict, job_id: str, worker_id: str) -> dict[str, Any]:
+    """Structured result when the Python worker wrapper outlives timeout_s."""
+
+    raw = job.get("spec") or {}
+    mode = raw.get("_mode") if isinstance(raw, dict) else None
+    options = job.get("options") or {}
+    timeout_s = _job_timeout_s(job)
+    deadline_s = _worker_deadline_s(job)
+    run_id = options.get("run_id")
+    return {
+        "run_id": run_id,
+        "ok": False,
+        "status": "timeout",
+        "stage": "worker_runtime_timeout",
+        "failure_kind": "worker_runtime_timeout",
+        "worker_timeout": True,
+        "decision_required": True,
+        "decision_kind": "backend_failure",
+        "recommended_next_tool": "submit_skidl_code",
+        "exceptions": [
+            {
+                "id": "e-worker-runtime-timeout",
+                "code": "ENGINE_TIMEOUT",
+                "severity": "fatal",
+                "message": (
+                    "hosted worker exceeded the job timeout envelope; retry once unchanged"
+                ),
+                "subject": {
+                    "stage": "worker_runtime_timeout",
+                    "job_id": job_id,
+                    "worker_id": worker_id,
+                    "mode": mode or "circuit_spec",
+                    "timeout_s": timeout_s,
+                    "worker_deadline_s": deadline_s,
+                    "partial_artifacts": [],
+                },
+                "candidates": [
+                    {
+                        "id": "c1",
+                        "action": "regenerate",
+                        "params": {},
+                        "human_summary": (
+                            "retry unchanged; this is a hosted runtime timeout, "
+                            "not circuit feedback"
+                        ),
+                        "cost_hint": "cheap",
+                        "confidence": 0.8,
+                        "source": "deterministic",
+                    }
+                ],
+                "retry_hint": (
+                    "Retry once unchanged. If the timeout repeats, report the "
+                    "job_id as a hosted worker timeout instead of rewriting the circuit."
+                ),
+            }
+        ],
+        "summary": (
+            f"Hosted worker exceeded timeout_s={timeout_s:.1f}s "
+            f"(deadline {deadline_s:.1f}s) before returning an engine result."
+        ),
+        "metrics": {
+            "manufacturable": False,
+            "manufacturing_complete": False,
+            "visual_review_ready": False,
+            "product_layout_ok": False,
+        },
+        "visual_review_ready": False,
+        "reviewable_failure": False,
+    }
+
+
+def _artifact_summary(artifacts: dict[str, str]) -> dict[str, Any]:
+    """Small artifact manifest safe to keep in jobs.result."""
+
+    keys = sorted(artifacts)
+    previews = [
+        key for key in keys
+        if "preview" in key.lower() and key.lower().endswith((".png", ".svg"))
+    ]
+    kicad = [
+        key for key in keys
+        if key.lower().endswith((".kicad_pcb", ".kicad_sch", ".kicad_pro"))
+    ]
+    manufacturing = [
+        key for key in keys
+        if key in {"bom.csv", "cpl.csv", "_board.zip"}
+        or key.lower().startswith("gerbers/")
+    ]
+    return {
+        "available": bool(keys),
+        "count": len(keys),
+        "keys": keys[:50],
+        "truncated": max(len(keys) - 50, 0),
+        "preview_available": bool(previews),
+        "preview_keys": previews[:10],
+        "kicad_keys": kicad[:10],
+        "manufacturing_keys": manufacturing[:10],
+        "zip_available": "_board.zip" in artifacts,
+    }
+
+
+def _annotate_result_for_job_payload(
+    result: dict[str, Any],
+    artifacts: dict[str, str],
+) -> None:
+    """Expose reviewability and artifact availability without embedding files."""
+
+    summary = _artifact_summary(artifacts)
+    metrics = result.get("metrics") if isinstance(result.get("metrics"), dict) else {}
+    quality = (
+        result.get("layout_quality")
+        if isinstance(result.get("layout_quality"), dict)
+        else {}
+    )
+    gates = quality.get("gates") if isinstance(quality.get("gates"), dict) else {}
+    visual_review_ready = bool(
+        result.get("visual_review_ready")
+        or metrics.get("visual_review_ready")
+        or gates.get("visual_review_ready")
+        or summary["preview_available"]
+    )
+    product_layout_known = (
+        "product_layout_ok" in metrics
+        or "product_layout_ok" in gates
+    )
+    product_layout_ok = bool(
+        metrics.get("product_layout_ok", gates.get("product_layout_ok", False))
+    )
+    reviewable_failure = bool(
+        result.get("reviewable_failure")
+        or result.get("status") == "failed_reviewable"
+        or (
+            visual_review_ready
+            and product_layout_known
+            and not product_layout_ok
+        )
+    )
+    result["artifact_summary"] = summary
+    result["run_artifacts_available"] = bool(artifacts)
+    result["visual_review_ready"] = visual_review_ready
+    result["reviewable_failure"] = reviewable_failure
+    if result.get("run_id") and artifacts:
+        result["recommended_artifact_tool"] = "get_run"
+    if reviewable_failure:
+        result.setdefault(
+            "review_note",
+            (
+                "failed but reviewable: call get_run(run_id) and inspect previews/artifacts "
+                "before changing the design"
+            ),
+        )
+
+
 def _execute_job(job: dict) -> dict:
     """Run the engine pipeline synchronously (called via to_thread)."""
     raw = job["spec"]
@@ -391,6 +590,7 @@ def _execute_skidl_job(job: dict) -> dict:
             out_dir=tmpdir,
             timeout_s=timeout_s,
             route_timeout_s=route_timeout_s,
+            run_id=opts.get("run_id"),
             board_id=opts.get("board_id"),
             design_intent=raw.get("design_intent") or raw.get("marketing_text"),
             assembly_policy=assembly_policy,

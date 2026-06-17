@@ -182,6 +182,30 @@ def test_score_decoupling_cap_warns_when_far_from_parent():
     assert score.power_net_count == 2
 
 
+def test_score_warns_when_signal_passive_is_far_from_ic_parent():
+    sig = _Net("SIG")
+    gnd = _Net("GND")
+    ic = _Part("U1", name="MCU", footprint="Package_QFP:MCU", nets=[sig, gnd], pins=8)
+    connector = _Part(
+        "J1",
+        name="edge connector",
+        footprint="Connector:Header",
+        nets=[sig, gnd],
+    )
+    resistor = _Part("R1", value="10K", footprint="Capacitor:C_0805", nets=[sig, gnd])
+    circuit = _Circuit([ic, connector, resistor], [sig, gnd])
+    placed = [
+        PlacedPart("U1", 20.0, 20.0, 0.0, "Package_QFP:MCU"),
+        PlacedPart("J1", 90.0, 20.0, 0.0, "Connector:Header"),
+        PlacedPart("R1", 82.0, 20.0, 0.0, "Capacitor:C_0805"),
+    ]
+
+    score = score_placement(placed, circuit, BBOXES, outline=BoardOutline(100.0, 40.0))
+
+    assert any("signal passive" in warning for warning in score.warnings)
+    assert score.score < 100.0
+
+
 def test_score_decoupling_cap_ignores_panel_controls_as_parents():
     vcc = _Net("VCC")
     gnd = _Net("GND")

@@ -570,7 +570,7 @@ def _role_warnings(
                     f"{primary.ref}: primary IC/regulator is {distance:.1f}mm from board center"
                 )
 
-    parent_roles = {"ic", "regulator"}
+    parent_roles = {"ic", "regulator", "module_socket"}
     for ref, role in roles.items():
         if role.role != "decoupling_cap" or ref not in placed_by_ref:
             continue
@@ -604,6 +604,38 @@ def _role_warnings(
         if distance > 5.0:
             warnings.append(
                 f"{ref}: decoupling cap is {distance:.1f}mm from {nearest_ref}"
+            )
+
+    for ref, role in roles.items():
+        if role.role != "signal_passive" or ref not in placed_by_ref:
+            continue
+        passive_nets = nets_by_ref.get(ref, set())
+        signal_nets = {
+            name
+            for name in passive_nets
+            if not POWER_NET_RE.match(name) and not GND_NET_RE.match(name)
+        }
+        if not signal_nets:
+            continue
+        candidates = [
+            other_ref
+            for other_ref, other_role in roles.items()
+            if other_ref in placed_by_ref
+            and other_role.role in parent_roles
+            and signal_nets.intersection(nets_by_ref.get(other_ref, set()))
+        ]
+        if not candidates:
+            continue
+        nearest_ref = min(
+            candidates,
+            key=lambda other_ref: _distance(
+                placed_by_ref[ref], placed_by_ref[other_ref]
+            ),
+        )
+        distance = _distance(placed_by_ref[ref], placed_by_ref[nearest_ref])
+        if distance > 12.0:
+            warnings.append(
+                f"{ref}: signal passive is {distance:.1f}mm from {nearest_ref}"
             )
 
     for ref, role in roles.items():

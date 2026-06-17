@@ -19,6 +19,7 @@ from .connector_metadata import (
     TERMINAL_BLOCK_RE,
     infer_connector_mating_face,
     infer_edge_mating_rotation,
+    is_panel_style_audio_jack_text,
     rotation_for_local_exit,
 )
 from .roles import (
@@ -655,7 +656,13 @@ def _is_panel_mounted_jack_text(text: str) -> bool:
         return False
     if BARREL_RE.search(text) or "power jack" in text:
         return False
-    return bool(PANEL_MOUNT_JACK_RE.search(text) and not EDGE_AUDIO_JACK_RE.search(text))
+    return bool(
+        is_panel_style_audio_jack_text(text)
+        or (
+            PANEL_MOUNT_JACK_RE.search(text)
+            and not EDGE_AUDIO_JACK_RE.search(text)
+        )
+    )
 
 
 def _mating_intent_for_part(
@@ -984,6 +991,85 @@ def _assign_eurorack_assembly_sides(
             if mating is not None and mating.kind == "eurorack_power":
                 reason = "Eurorack rear-side power header"
             _add_intent(plan, ref, "back_assembly", 80, reason)
+
+
+def _apply_eurorack_panel_grid_policy(
+    circuit,
+    roles: dict[str, PartRole],
+    plan: PlacementIntentPlan,
+) -> None:
+    """Keep Eurorack front-panel subjects in panel grids, not board edges."""
+    if not _has_eurorack_context(circuit, roles):
+        return
+
+    explicit_edge_refs = set(plan.refs_with_kind("explicit_edge_anchor"))
+    mating_by_ref = {mating.ref: mating for mating in plan.mating_intents}
+    panel_refs: set[str] = set()
+
+    for part in circuit.parts:
+        ref = str(getattr(part, "ref", "") or "")
+        if not ref:
+            continue
+        role = roles.get(ref)
+        role_name = role.role if role is not None else ""
+        text = _part_text(part)
+        nets = pin_net_names(part)
+
+        if role_name in {"panel_jack", "control"} or LED_RE.search(text):
+            panel_refs.add(ref)
+            _add_intent(
+                plan,
+                ref,
+                "panel_grid_subject",
+                88,
+                "Eurorack front-panel part should align to the panel grid",
+            )
+            mating = mating_by_ref.get(ref)
+            if mating is not None:
+                mating.edge_preference = None
+                if role_name == "panel_jack":
+                    mating.kind = "panel_jack"
+                    mating.mating_side = "front_panel"
+                elif mating.kind in {"button", "encoder", "pot", "nav_control"}:
+                    mating.mating_side = "user_control"
+                elif mating.kind == "led":
+                    mating.mating_side = "visible_face"
+            if (
+                role_name == "panel_jack"
+                and AUDIO_JACK_RE.search(text)
+                and not is_panel_style_audio_jack_text(text)
+            ):
+                plan.warnings.append(
+                    f"{ref}: Eurorack panel jack is using a non-panel footprint; "
+                    "prefer a vertical Thonkiconn/PJ398/PJ301-style jack unless "
+                    "the human explicitly specified edge-mounted hardware."
+                )
+
+        if _is_eurorack_power_connector(text, role, nets):
+            _add_intent(
+                plan,
+                ref,
+                "bottom_back_mechanical_context",
+                84,
+                "Eurorack power header belongs in bottom/rear mechanical context",
+            )
+            if plan.assembly_policy == "double_sided":
+                _add_intent(
+                    plan,
+                    ref,
+                    "rear_mechanical_context",
+                    84,
+                    "double-sided Eurorack policy allows rear-side power header",
+                )
+
+    removable_refs = panel_refs - explicit_edge_refs
+    if removable_refs:
+        plan.edge_anchors = [
+            anchor for anchor in plan.edge_anchors if anchor.ref not in removable_refs
+        ]
+        plan.face_edges = [
+            face for face in plan.face_edges if face.ref not in removable_refs
+        ]
 
 
 def _is_panel_subject(ref: str, roles: dict[str, PartRole], plan: PlacementIntentPlan) -> bool:
@@ -2418,6 +2504,7 @@ def infer_placement_intents(
         outline,
     )
     _assign_eurorack_assembly_sides(circuit, roles, plan, plan.assembly_policy)
+    _apply_eurorack_panel_grid_policy(circuit, roles, plan)
     part_text_by_ref = {
         str(getattr(part, "ref", "") or ""): _part_text(part)
         for part in circuit.parts

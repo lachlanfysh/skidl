@@ -336,7 +336,10 @@ async def submit_skidl_code(
       Use fixed_positions for real user floorplans such as sensor grids,
       displays, batteries, mounting holes, panel controls, and large modules;
       do not strip them merely because the hosted service owns
-      generation/layout.
+      generation/layout. If porting existing project code, you may keep
+      `skidl.layout` constraint objects such as `FixedPosition`, `EdgeAnchor`,
+      `KeepOut`, `BoardCutout`, `BoardOutline`, or `LayoutConstraints` inside
+      `EDA_FLOORPLAN`; the hosted worker normalizes them before layout.
       For dense Eurorack, pedal, control-panel, or enclosure-front boards,
       edge_preference alone is usually not enough. Use EDA_FLOORPLAN to put
       panel controls into an intentional row/grid, reserve clearance for
@@ -1990,6 +1993,12 @@ positions plus row/column align/distribute constraints when origin and pitch
 are supplied. `cutouts`, `apertures`, and `slots` are physical board voids:
 they are emitted as internal Edge.Cuts geometry, shown in layout metadata and
 previews, and protected from component placement.
+
+When porting an existing local layout script, `EDA_FLOORPLAN` may also contain
+`skidl.layout` constraint objects such as `FixedPosition`, `EdgeAnchor`,
+`KeepOut`, `BoardCutout`, `BoardOutline`, or a `LayoutConstraints` instance.
+Keep those human floorplans intact rather than stripping them from hosted
+submissions.
 
 If the user has custom project footprints that Railway does not have installed,
 pass the KiCad `.kicad_mod` text to `submit_skidl_code(custom_footprints=...)`:

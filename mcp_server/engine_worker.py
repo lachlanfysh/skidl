@@ -2168,17 +2168,30 @@ def _normalize_pipeline_goal(value) -> str:
     return "manufacturing"
 
 
-def _float_field(data: dict, *keys: str, default: float | None = None) -> float | None:
+def _floorplan_get(data, *keys: str, default=None):
+    if isinstance(data, dict):
+        for key in keys:
+            if key in data:
+                return data.get(key)
+        return default
     for key in keys:
-        if key in data and data[key] is not None:
-            return float(data[key])
+        if hasattr(data, key):
+            return getattr(data, key)
+    return default
+
+
+def _float_field(data, *keys: str, default: float | None = None) -> float | None:
+    for key in keys:
+        value = _floorplan_get(data, key)
+        if value is not None:
+            return float(value)
     return default
 
 
 def _floorplan_refs(value) -> list[str]:
     if isinstance(value, str):
         refs = [part.strip() for part in value.split(",")]
-    elif isinstance(value, (list, tuple)):
+    elif isinstance(value, (list, tuple, set)):
         refs = [str(part).strip() for part in value]
     else:
         refs = []
@@ -2188,9 +2201,19 @@ def _floorplan_refs(value) -> list[str]:
 def _floorplan_items(value) -> list:
     if isinstance(value, dict):
         return [value]
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return value
+    if value is not None and not isinstance(value, (str, int, float, bool)):
+        return [value]
     return []
+
+
+def _floorplan_collect(floorplan: dict, *keys: str) -> list:
+    items: list = []
+    for key in keys:
+        if key in floorplan:
+            items.extend(_floorplan_items(floorplan.get(key)))
+    return items
 
 
 def _floorplan_axis(value) -> str | None:
@@ -2255,7 +2278,7 @@ def _floorplan_apply_side(
 
 
 def _floorplan_cutout_items(floorplan: dict) -> list[dict]:
-    items: list[dict] = []
+    items: list = []
     for key, default_shape in (
         ("cutouts", None),
         ("apertures", None),
@@ -2268,6 +2291,8 @@ def _floorplan_cutout_items(floorplan: dict) -> list[dict]:
                 if default_shape is not None:
                     normalized.setdefault("shape", default_shape)
                 items.append(normalized)
+            elif item is not None:
+                items.append(item)
     return items
 
 
@@ -2291,6 +2316,20 @@ def _floorplan_vertices(value) -> list[tuple[float, float]]:
 
 def _floorplan_cutout(item: dict):
     from skidl.layout import BoardCutout
+
+    if not isinstance(item, dict) and all(
+        hasattr(item, attr) for attr in ("x_min", "y_min", "x_max", "y_max")
+    ):
+        return BoardCutout(
+            x_min=float(getattr(item, "x_min")),
+            y_min=float(getattr(item, "y_min")),
+            x_max=float(getattr(item, "x_max")),
+            y_max=float(getattr(item, "y_max")),
+            shape=str(getattr(item, "shape", "rect") or "rect"),
+            name=str(getattr(item, "name", "") or ""),
+            vertices=list(getattr(item, "vertices", []) or []),
+            radius_mm=getattr(item, "radius_mm", None),
+        )
 
     shape = str(
         item.get("shape")
@@ -2397,8 +2436,27 @@ def _floorplan_cutout(item: dict):
 
 def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
     """Build layout constraints from a submitted EDA_FLOORPLAN dict."""
-    if not isinstance(floorplan, dict):
+    if floorplan is None:
         return None, {}
+    if not isinstance(floorplan, dict):
+        attrs = (
+            "outline",
+            "fixed",
+            "fixed_positions",
+            "edge_anchors",
+            "keepouts",
+            "cutouts",
+            "zones",
+            "align",
+            "distribute",
+        )
+        if not any(hasattr(floorplan, attr) for attr in attrs):
+            return None, {}
+        floorplan = {
+            attr: getattr(floorplan, attr)
+            for attr in attrs
+            if hasattr(floorplan, attr)
+        }
 
     from skidl.layout import (
         AlignConstraint,
@@ -2425,39 +2483,65 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
     grid_count = 0
     grid_fixed_count = 0
     explicit_fixed_refs: set[str] = set()
+    grid_refs: set[str] = set()
 
-    for item in _floorplan_items(floorplan.get("fixed_positions")):
-        if not isinstance(item, dict) or not item.get("ref"):
+    for item in _floorplan_collect(floorplan, "fixed_positions", "fixed", "positions"):
+        ref_value = _floorplan_get(item, "ref", "reference")
+        if not ref_value:
             warnings.append("ignored fixed_position without ref")
             continue
-        ref = str(item["ref"])
+        ref = str(ref_value)
         try:
+            x_mm = _float_field(item, "x_mm", "x")
+            y_mm = _float_field(item, "y_mm", "y")
+            if x_mm is None or y_mm is None:
+                pair = _floorplan_numeric_pair(
+                    _floorplan_get(
+                        item,
+                        "position",
+                        "position_mm",
+                        "xy",
+                        "center",
+                        "center_mm",
+                    )
+                )
+                if pair is not None:
+                    x_mm, y_mm = pair
+            if x_mm is None or y_mm is None:
+                raise ValueError("missing x_mm/y_mm")
             fixed.append(
                 FixedPosition(
                     ref=ref,
-                    x_mm=float(item["x_mm"]),
-                    y_mm=float(item["y_mm"]),
+                    x_mm=x_mm,
+                    y_mm=y_mm,
                     rot_deg=_float_field(item, "rotation_deg", "rot_deg", default=0.0) or 0.0,
                 )
             )
         except (TypeError, ValueError, KeyError) as exc:
-            warnings.append(f"ignored fixed_position for {item.get('ref')}: {exc}")
+            warnings.append(f"ignored fixed_position for {ref}: {exc}")
             continue
         explicit_fixed_refs.add(ref)
         _floorplan_apply_side(
             assembly_sides,
             warnings,
             ref,
-            item.get("side", item.get("assembly_side")),
+            _floorplan_get(item, "side", "assembly_side"),
         )
 
-    for item in _floorplan_items(floorplan.get("edge_anchors")):
-        if not isinstance(item, dict) or not item.get("ref") or not item.get("edge"):
+    for item in _floorplan_collect(
+        floorplan,
+        "edge_anchors",
+        "edge_connectors",
+        "edge_connections",
+    ):
+        ref_value = _floorplan_get(item, "ref", "reference")
+        edge_value = _floorplan_get(item, "edge", "edge_preference")
+        if not ref_value or not edge_value:
             warnings.append("ignored edge_anchor without ref/edge")
             continue
-        ref = str(item["ref"])
+        ref = str(ref_value)
         try:
-            edge = str(item["edge"])
+            edge = str(edge_value)
             offset = _float_field(item, "offset_mm")
             rot = _float_field(item, "rotation_deg", "rot_deg")
             edge_anchors.append(
@@ -2478,27 +2562,26 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
                 }
             )
         except (TypeError, ValueError) as exc:
-            warnings.append(f"ignored edge_anchor for {item.get('ref')}: {exc}")
+            warnings.append(f"ignored edge_anchor for {ref}: {exc}")
             continue
         _floorplan_apply_side(
             assembly_sides,
             warnings,
             ref,
-            item.get("side", item.get("assembly_side")),
+            _floorplan_get(item, "side", "assembly_side", "placement_side"),
         )
 
-    for item in _floorplan_items(floorplan.get("keepouts")):
-        if not isinstance(item, dict):
-            warnings.append("ignored non-dict keepout")
-            continue
+    for item in _floorplan_collect(floorplan, "keepouts", "no_place", "no_place_zones"):
         try:
             keepouts.append(
                 KeepOut(
-                    x_min=float(item["x_min"]),
-                    y_min=float(item["y_min"]),
-                    x_max=float(item["x_max"]),
-                    y_max=float(item["y_max"]),
-                    allowed_refs=_floorplan_refs(item.get("allowed_refs", [])),
+                    x_min=float(_floorplan_get(item, "x_min")),
+                    y_min=float(_floorplan_get(item, "y_min")),
+                    x_max=float(_floorplan_get(item, "x_max")),
+                    y_max=float(_floorplan_get(item, "y_max")),
+                    allowed_refs=_floorplan_refs(
+                        _floorplan_get(item, "allowed_refs", default=[])
+                    ),
                 )
             )
         except (TypeError, ValueError, KeyError) as exc:
@@ -2510,27 +2593,27 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         except (TypeError, ValueError, KeyError) as exc:
             warnings.append(f"ignored cutout: {exc}")
 
-    for item in _floorplan_items(floorplan.get("zones") or floorplan.get("anchor_zones")):
-        if not isinstance(item, dict):
-            warnings.append("ignored non-dict anchor zone")
-            continue
+    for item in _floorplan_collect(floorplan, "zones", "anchor_zones"):
         try:
             zones.append(
                 AnchorZone(
-                    group_name=str(item.get("group_name") or item.get("name") or "zone"),
-                    x_min=float(item["x_min"]),
-                    y_min=float(item["y_min"]),
-                    x_max=float(item["x_max"]),
-                    y_max=float(item["y_max"]),
-                    refs=_floorplan_refs(item.get("refs", [])),
+                    group_name=str(
+                        _floorplan_get(item, "group_name", "name", default="zone")
+                        or "zone"
+                    ),
+                    x_min=float(_floorplan_get(item, "x_min")),
+                    y_min=float(_floorplan_get(item, "y_min")),
+                    x_max=float(_floorplan_get(item, "x_max")),
+                    y_max=float(_floorplan_get(item, "y_max")),
+                    refs=_floorplan_refs(_floorplan_get(item, "refs", default=[])),
                 )
             )
         except (TypeError, ValueError, KeyError) as exc:
             warnings.append(f"ignored anchor zone: {exc}")
 
-    def _add_align(item: dict, *, source: str) -> None:
-        refs = _floorplan_refs(item.get("refs"))
-        axis = _floorplan_axis(item.get("axis"))
+    def _add_align(item, *, source: str) -> None:
+        refs = _floorplan_refs(_floorplan_get(item, "refs"))
+        axis = _floorplan_axis(_floorplan_get(item, "axis"))
         if len(refs) < 2 or axis is None:
             warnings.append(f"ignored {source} align constraint without refs/axis")
             return
@@ -2545,9 +2628,9 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         except (TypeError, ValueError) as exc:
             warnings.append(f"ignored {source} align constraint: {exc}")
 
-    def _add_distribute(item: dict, *, source: str) -> None:
-        refs = _floorplan_refs(item.get("refs"))
-        axis = _floorplan_axis(item.get("axis"))
+    def _add_distribute(item, *, source: str) -> None:
+        refs = _floorplan_refs(_floorplan_get(item, "refs"))
+        axis = _floorplan_axis(_floorplan_get(item, "axis"))
         if len(refs) < 2 or axis is None:
             warnings.append(f"ignored {source} distribute constraint without refs/axis")
             return
@@ -2563,22 +2646,15 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         except (TypeError, ValueError) as exc:
             warnings.append(f"ignored {source} distribute constraint: {exc}")
 
-    for item in _floorplan_items(
-        floorplan.get("align") or floorplan.get("align_constraints")
-    ):
-        if isinstance(item, dict):
-            _add_align(item, source="floorplan")
-        else:
-            warnings.append("ignored non-dict align constraint")
+    for item in _floorplan_collect(floorplan, "align", "align_constraints"):
+        _add_align(item, source="floorplan")
 
-    for item in _floorplan_items(
-        floorplan.get("distribute")
-        or floorplan.get("distribute_constraints")
+    for item in _floorplan_collect(
+        floorplan,
+        "distribute",
+        "distribute_constraints",
     ):
-        if isinstance(item, dict):
-            _add_distribute(item, source="floorplan")
-        else:
-            warnings.append("ignored non-dict distribute constraint")
+        _add_distribute(item, source="floorplan")
 
     def _grid_spacing(item: dict, axis: str) -> float | None:
         key_sets = {
@@ -2588,17 +2664,21 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         spacing = _float_field(item, *key_sets[axis])
         if spacing is not None:
             return spacing
-        pair = _floorplan_numeric_pair(item.get("pitch_mm") or item.get("pitch"))
+        pair = _floorplan_numeric_pair(
+            _floorplan_get(item, "pitch_mm", "pitch")
+        )
         if pair is not None:
             return pair[0] if axis == "x" else pair[1]
-        scalar = item.get("pitch_mm", item.get("pitch"))
+        scalar = _floorplan_get(item, "pitch_mm", "pitch")
         try:
             return float(scalar)
         except (TypeError, ValueError):
             return None
 
     def _grid_origin(item: dict) -> tuple[float | None, float | None]:
-        pair = _floorplan_numeric_pair(item.get("origin") or item.get("origin_mm"))
+        pair = _floorplan_numeric_pair(
+            _floorplan_get(item, "origin", "origin_mm", "position", "position_mm")
+        )
         if pair is not None:
             return pair
         return (
@@ -2606,17 +2686,14 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
             _float_field(item, "y_mm", "y0_mm", "origin_y_mm"),
         )
 
-    for grid in _floorplan_items(floorplan.get("grids") or floorplan.get("grid")):
-        if not isinstance(grid, dict):
-            warnings.append("ignored non-dict grid")
-            continue
-        refs = _floorplan_refs(grid.get("refs"))
+    for grid in _floorplan_collect(floorplan, "grids", "grid"):
+        refs = _floorplan_refs(_floorplan_get(grid, "refs"))
         if not refs:
             warnings.append("ignored grid without refs")
             continue
         try:
-            cols = int(grid.get("cols", grid.get("columns", 0)) or 0)
-            rows = int(grid.get("rows", 0) or 0)
+            cols = int(_floorplan_get(grid, "cols", "columns", default=0) or 0)
+            rows = int(_floorplan_get(grid, "rows", default=0) or 0)
         except (TypeError, ValueError) as exc:
             warnings.append(f"ignored grid with invalid rows/cols: {exc}")
             continue
@@ -2628,11 +2705,12 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         elif rows <= 0:
             rows = max(1, (len(refs) + cols - 1) // cols)
         grid_count += 1
+        grid_refs.update(refs)
         x0, y0 = _grid_origin(grid)
         dx = _grid_spacing(grid, "x")
         dy = _grid_spacing(grid, "y")
         rot = _float_field(grid, "rotation_deg", "rot_deg", default=0.0) or 0.0
-        side = grid.get("side", grid.get("assembly_side"))
+        side = _floorplan_get(grid, "side", "assembly_side")
 
         for row in range(rows):
             row_refs = refs[row * cols:(row + 1) * cols]
@@ -2714,6 +2792,8 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         warnings.append("ignored assembly_sides that was not dict or list")
 
     def _outline_from_value(data) -> BoardOutline | None:
+        if isinstance(data, BoardOutline):
+            return data
         if isinstance(data, (list, tuple)) and len(data) >= 2:
             try:
                 return BoardOutline(float(data[0]), float(data[1]))
@@ -2861,8 +2941,11 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
         "keepouts": len(keepouts),
         "cutouts": len(cutouts),
     }
+    fixed_refs = {item.ref for item in fixed}
+    if fixed_refs:
+        metadata["fixed_refs"] = sorted(fixed_refs)
     if explicit_fixed_refs:
-        metadata["fixed_refs"] = sorted(explicit_fixed_refs)
+        metadata["explicit_fixed_refs"] = sorted(explicit_fixed_refs)
     if zones:
         metadata["zones"] = len(zones)
     if align:
@@ -2872,6 +2955,7 @@ def _floorplan_constraints(floorplan) -> tuple[object | None, dict]:
     if grid_count:
         metadata["grids"] = grid_count
         metadata["grid_fixed_positions"] = grid_fixed_count
+        metadata["grid_refs"] = sorted(grid_refs)
     if assembly_sides:
         metadata["assembly_sides"] = dict(sorted(assembly_sides.items()))
         metadata["assembly_side_counts"] = _floorplan_side_counts(assembly_sides)
