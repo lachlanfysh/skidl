@@ -1,219 +1,137 @@
-"""
-IS31FL3731 16x9 Charlieplex LED Matrix Driver Board
-
-Features:
-- IS31FL3731 PWM LED driver for 16x9 LED matrices
-- I2C interface with address selection
-- 8 frames of display memory for animations
-- STEMMA QT (JST SH 4-pin) connectors for chainable I2C
-- Supports stacking up to 4 drivers (address select via AD pin)
-- R_EXT for LED current setting
-- C_FILT for internal charge pump filter
-- Decoupling caps for power stability
-"""
-
-import os
-
-os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
-
 from skidl import *
 
 set_default_tool(KICAD9)
 
-# ============================================================
-# Power nets
-# ============================================================
-vcc = Net("VCC")
-vcc.drive = POWER
-gnd = Net("GND")
-gnd.drive = POWER
+# Power rails
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
 
 # I2C bus
 sda = Net("SDA")
 scl = Net("SCL")
 
-# ============================================================
-# Subcircuit: IS31FL3731 LED driver with support components
-# ============================================================
+# Address select net (AD pin)
+ad_net = Net("AD")
+
+# SDB (shutdown bar) - active high, tied to VCC to keep chip enabled
+sdb_net = Net("SDB")
+sdb_net += vcc
+
+# LED matrix outputs: 9 column-anodes (CA) and 9 column-cathodes/rows (CB)
+ca = [Net(f"CA{i}") for i in range(1, 10)]
+cb = [Net(f"CB{i}") for i in range(1, 10)]
+
+# Ancillary IC nets
+in_net = Net("IN")        # current reference input (sets max LED current via R_EXT)
+intb_net = Net("INTB")   # interrupt bar output (open-drain, active low)
+cfilt_net = Net("CFILT") # internal charge pump filter cap pin
+
+
 @subcircuit
-def led_driver(vcc, gnd, sda, scl):
-    """IS31FL3731 LED matrix driver with external components."""
-
-    # IS31FL3731-QF LED matrix driver
-    u1 = Part(
-        "Driver_LED",
-        "IS31FL3731-QF",
-        footprint="Package_DFN_QFN:QFN-28-1EP_4x4mm_P0.4mm_EP2.3x2.3mm",
-    )
-
-    # Power connections
+def is31fl3731_core(vcc, gnd, sda, scl, ad_net, sdb_net, ca, cb, in_net, intb_net, cfilt_net):
+    # IS31FL3731 in SSOP-28 (hand-solderable variant)
+    u1 = Part("Driver_LED", "IS31FL3731-SA",
+              footprint="Package_SO:SSOP-28_5.3x10.2mm_P0.65mm")
     u1["VCC"] += vcc
     u1["GND"] += gnd
-
-    # I2C connections
     u1["SDA"] += sda
     u1["SCL"] += scl
-
-    # Address select pin - connect to GND for default address 0x74
-    u1["AD"] += gnd
-
-    # Shutdown pin - pull high via resistor to enable the chip
-    sdb_net = Net("SDB")
-    r_sdb = Part(
-        "Device",
-        "R",
-        value="10K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    r_sdb[1] += vcc
-    r_sdb[2] += sdb_net
+    u1["AD"] += ad_net
     u1["~{SDB}"] += sdb_net
-
-    # Interrupt pin - active low open collector, leave with pullup
-    intb_net = Net("INTB")
-    r_int = Part(
-        "Device",
-        "R",
-        value="10K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    r_int[1] += vcc
-    r_int[2] += intb_net
     u1["~{INTB}"] += intb_net
+    u1["IN"] += in_net
+    u1["C_FILT"] += cfilt_net
 
-    # Audio input pin - tie to GND when not used
-    u1["IN"] += gnd
+    for i, net in enumerate(ca, 1):
+        u1[f"CA{i}"] += net
 
-    # C_FILT - charge pump filter capacitor (1uF recommended)
-    c_filt = Part(
-        "Device",
-        "C",
-        value="1uF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_filt[1] += u1["C_FILT"]
-    c_filt[2] += gnd
+    for i, net in enumerate(cb, 1):
+        u1[f"CB{i}"] += net
 
-    # R_EXT - external resistor to set LED current (20K for ~20mA per LED)
-    r_ext = Part(
-        "Device",
-        "R",
-        value="20K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
-    r_ext[1] += u1["R_EXT"]
+    # R_EXT: 10k sets ~10mA max per LED channel
+    r_ext = Part("Device", "R", value="10k",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
+    r_ext[1] += in_net
     r_ext[2] += gnd
 
-    # Decoupling capacitor for VCC
-    c_dec = Part(
-        "Device",
-        "C",
-        value="100nF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_dec[1] += vcc
-    c_dec[2] += gnd
+    # C_FILT: 220nF charge pump filter cap
+    c_filt = Part("Device", "C", value="220nF",
+                  footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_filt[1] += cfilt_net
+    c_filt[2] += gnd
 
-    # Bulk capacitor for VCC
-    c_bulk = Part(
-        "Device",
-        "C",
-        value="10uF",
-        footprint="Capacitor_SMD:C_0805_2012Metric",
-    )
+    # VCC decoupling: 100nF (auto-placed near IC by layout engine)
+    c_dec1 = Part("Device", "C", value="100nF",
+                  footprint="Capacitor_SMD:C_0603_1608Metric")
+    c_dec1[1] += vcc
+    c_dec1[2] += gnd
+
+    # Bulk capacitor: 10uF
+    c_bulk = Part("Device", "C_Polarized", value="10uF",
+                  footprint="Capacitor_SMD:CP_Elec_5x5.3")
     c_bulk[1] += vcc
     c_bulk[2] += gnd
 
-    # ---- LED Matrix Outputs (directly to header) ----
-    # CA1-CA9 and CB1-CB9 are the charlieplex matrix lines
-    # They go to the LED matrix connector/header
 
-    # CA outputs header (9 pins: CA1-CA9)
-    ca_header = Part(
-        "Connector_Generic",
-        "Conn_01x09",
-        footprint="Connector_PinHeader_2.54mm:PinHeader_1x09_P2.54mm_Vertical",
-    )
-    for i in range(1, 10):
-        ca_header[i] += u1[f"CA{i}"]
-
-    # CB outputs header (9 pins: CB1-CB9)
-    cb_header = Part(
-        "Connector_Generic",
-        "Conn_01x09",
-        footprint="Connector_PinHeader_2.54mm:PinHeader_1x09_P2.54mm_Vertical",
-    )
-    for i in range(1, 10):
-        cb_header[i] += u1[f"CB{i}"]
-
-
-# ============================================================
-# Subcircuit: I2C interface with pullups and STEMMA QT connectors
-# ============================================================
 @subcircuit
-def i2c_interface(vcc, gnd, sda, scl):
-    """I2C bus with pull-up resistors and two STEMMA QT connectors for daisy-chaining."""
-
-    # I2C pull-up resistors
-    r_sda = Part(
-        "Device",
-        "R",
-        value="4.7K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
+def i2c_pullups(vcc, sda, scl):
+    # 4.7k pull-ups for I2C bus (3.3V operation)
+    r_sda = Part("Device", "R", value="4.7k",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
     r_sda[1] += vcc
     r_sda[2] += sda
 
-    r_scl = Part(
-        "Device",
-        "R",
-        value="4.7K",
-        footprint="Resistor_SMD:R_0603_1608Metric",
-    )
+    r_scl = Part("Device", "R", value="4.7k",
+                 footprint="Resistor_SMD:R_0603_1608Metric")
     r_scl[1] += vcc
     r_scl[2] += scl
 
-    # STEMMA QT connector 1 (input) - JST SH 4-pin
-    # Pin order: GND, VCC, SDA, SCL
-    j_qt1 = Part(
-        "Connector_Generic",
-        "Conn_01x04",
-        footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
-    )
-    j_qt1[1] += gnd
-    j_qt1[2] += vcc
-    j_qt1[3] += sda
-    j_qt1[4] += scl
 
-    # STEMMA QT connector 2 (output for daisy-chaining)
-    j_qt2 = Part(
-        "Connector_Generic",
-        "Conn_01x04",
-        footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal",
-    )
-    j_qt2[1] += gnd
-    j_qt2[2] += vcc
-    j_qt2[3] += sda
-    j_qt2[4] += scl
-
-    # Decoupling cap near connectors
-    c_con = Part(
-        "Device",
-        "C",
-        value="100nF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    c_con[1] += vcc
-    c_con[2] += gnd
+@subcircuit
+def address_select(vcc, gnd, ad_net):
+    # 3-position solder jumper for I2C address selection
+    # IS31FL3731 AD pin: GND=0x74, float=0x75, VCC=0x76
+    # Default (bridged pins 1-2): AD tied to GND, address 0x74
+    jp1 = Part("Jumper", "SolderJumper_3_Bridged12",
+               footprint="Jumper:SolderJumper-3_P1.3mm_Bridged12_Pad1.0x1.5mm")
+    jp1[1] += gnd
+    jp1[2] += ad_net
+    jp1[3] += vcc
 
 
-# ============================================================
-# Instantiate subcircuits
-# ============================================================
-led_driver(vcc, gnd, sda, scl)
-i2c_interface(vcc, gnd, sda, scl)
+@subcircuit
+def stemma_qt_connectors(vcc, gnd, sda, scl):
+    # Two STEMMA QT / Qwiic JST SH 4-pin connectors for solderless chaining
+    # Standard Qwiic pinout: 1=GND, 2=3.3V, 3=SDA, 4=SCL
+    qt1 = Part("Connector_Generic", "Conn_01x04",
+               footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal")
+    qt1[1] += gnd
+    qt1[2] += vcc
+    qt1[3] += sda
+    qt1[4] += scl
 
-# ============================================================
-# Generate schematic
-# ============================================================
-generate_schematic(auto_stub=True, auto_stub_fanout=3)
+    qt2 = Part("Connector_Generic", "Conn_01x04",
+               footprint="Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal")
+    qt2[1] += gnd
+    qt2[2] += vcc
+    qt2[3] += sda
+    qt2[4] += scl
+
+
+@subcircuit
+def led_matrix_header(ca, cb):
+    # 2x9 pin header for LED matrix connections (18 pins: CA1-CA9 + CB1-CB9)
+    # Odd pins = CA (anodes), even pins = CB (cathodes/row lines)
+    hdr = Part("Connector_Generic", "Conn_02x09_Odd_Even",
+               footprint="Connector_PinHeader_2.54mm:PinHeader_2x09_P2.54mm_Vertical")
+    for i in range(1, 10):
+        hdr[2*i - 1] += ca[i-1]
+        hdr[2*i]     += cb[i-1]
+
+
+# Instantiate all blocks
+is31fl3731_core(vcc, gnd, sda, scl, ad_net, sdb_net, ca, cb, in_net, intb_net, cfilt_net)
+i2c_pullups(vcc, sda, scl)
+address_select(vcc, gnd, ad_net)
+stemma_qt_connectors(vcc, gnd, sda, scl)
+led_matrix_header(ca, cb)

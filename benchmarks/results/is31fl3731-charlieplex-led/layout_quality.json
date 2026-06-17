@@ -1,0 +1,111 @@
+{
+  "artifacts": {
+    "has_manufacturing": false,
+    "has_pcb": true,
+    "has_preview": false,
+    "has_schematic": true,
+    "preview_files": []
+  },
+  "gates": {
+    "drc_ok": false,
+    "manufacturable": false,
+    "placement_ok": true,
+    "product_layout_ok": false,
+    "reviewable_failure": false,
+    "schematic_ok": true,
+    "visual_review_ready": false
+  },
+  "issue_counts": {
+    "advisory": 1,
+    "warning": 2
+  },
+  "issues": [
+    {
+      "code": "HIGH_CONGESTION",
+      "evidence": {
+        "congestion_score": 244.56959121532785
+      },
+      "message": "layout congestion is high (244.6)",
+      "recommendation": "Use this as placement feedback before growing the outline; try group movement, connector orientation, or route-aware retries first.",
+      "severity": "warning"
+    },
+    {
+      "code": "MISSING_VISUAL_PREVIEW",
+      "evidence": {},
+      "message": "no human-reviewable preview artifact was reported",
+      "recommendation": "Generate a top/assembly preview before asking for layout approval.",
+      "severity": "warning"
+    },
+    {
+      "code": "ROUTE_UNAVAILABLE",
+      "evidence": {},
+      "message": "Routing unavailable: Freerouting JAR or Java not found \u2014 board is unrouted but placement is valid",
+      "recommendation": "",
+      "severity": "advisory"
+    }
+  ],
+  "metrics": {
+    "board_area_mm2": 2638.7755807536837,
+    "congestion_score": 244.56959121532785,
+    "layout_score": 6.560604885735259,
+    "total_hpwl_mm": 1140.118941028637
+  },
+  "ok": true,
+  "pipeline_goal": null,
+  "placement": {
+    "board_area_mm2": 2638.7755807536837,
+    "center_spread_area_ratio": 0.7540594062295487,
+    "compact_outline_area_ratio": 1.0,
+    "compact_outline_mm": {
+      "area": 3014.9976724066323,
+      "height": 51.797498915027994,
+      "width": 58.207398726966176
+    },
+    "edge_margins_mm": {
+      "bottom": 2.2550000000000026,
+      "left": 5.425,
+      "right": 3.0050000000000026,
+      "top": 3.005
+    },
+    "empty_margin_ratios": {
+      "bottom": 0.01046079839635281,
+      "left": 0.02717027127864515,
+      "right": 0.02717027127864515,
+      "top": 0.03138239518905843
+    },
+    "footprint_envelope_area_ratio": 0.9060900456990595,
+    "footprint_envelope_bbox_mm": {
+      "area": 2390.9682865546674,
+      "height": 45.797498915027994,
+      "width": 52.207398726966176
+    },
+    "max_margin_ratio": 0.03138239518905843,
+    "outline_bounds_mm": {
+      "x_max": 56.229998553370656,
+      "x_min": 1.0225998264044787,
+      "y_max": 44.797498915027994,
+      "y_min": -3.0
+    },
+    "outline_intent": "auto_or_unknown",
+    "outline_mm": {
+      "height": 47.797498915027994,
+      "width": 55.207398726966176
+    },
+    "part_count": 38,
+    "spread_area_ratio": 0.9060900456990595,
+    "spread_bbox_mm": {
+      "height": 42.53749891502799,
+      "width": 46.777398726966176
+    }
+  },
+  "review": {
+    "message": "Layout produced placements but no preview artifact is available.",
+    "preview_available": false,
+    "requires_human_feedback": false,
+    "state": "placed_no_preview"
+  },
+  "run_id": "3ab2664d2617",
+  "stage": "complete",
+  "status": "succeeded_with_warnings",
+  "version": 1
+}
