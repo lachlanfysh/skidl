@@ -31,8 +31,6 @@ dtr_net  = Net("DTR")
 reset_n  = Net("RESET")
 xtal1    = Net("XTAL1")
 xtal2    = Net("XTAL2")
-sda      = Net("SDA")
-scl      = Net("SCL")
 mosi     = Net("MOSI")
 miso     = Net("MISO")
 sck_net  = Net("SCK")
@@ -42,7 +40,10 @@ d2 = Net("D2"); d3 = Net("D3"); d4 = Net("D4"); d5 = Net("D5")
 d6 = Net("D6"); d7 = Net("D7"); d8 = Net("D8"); d9 = Net("D9")
 d10 = Net("D10")
 a0 = Net("A0"); a1 = Net("A1"); a2 = Net("A2")
-a3 = Net("A3"); a4 = Net("A4"); a5 = Net("A5")
+a3 = Net("A3")
+# A4/A5 double as SDA/SCL — use SDA/SCL as the net names
+sda = Net("SDA")   # = A4
+scl = Net("SCL")   # = A5
 
 
 # ── Power supply ────────────────────────────────────────────────────────────
@@ -205,9 +206,11 @@ usb_uart(usb_dp, usb_dm, uart_tx, uart_rx, dtr_net, vcc, v3v3, gnd,
 @subcircuit
 def atmega_mcu(pwr, gnd_in, rst, xt1, xt2,
                tx, rx, dtr,
-               i2c_sda, i2c_scl, spi_mosi, spi_miso, spi_sck,
+               spi_mosi, spi_miso, spi_sck,
                pd2, pd3, pd4, pd5, pd6, pd7, pb0, pb1, pb2,
-               pc0, pc1, pc2, pc3, pc4, pc5):
+               pc0, pc1, pc2, pc3,
+               sda_scl_a4, scl_a5):
+    # Note: sda_scl_a4 = SDA/A4 (shared), scl_a5 = SCL/A5 (shared)
 
     mcu = Part("MCU_Microchip_ATmega", "ATmega328P-P",
                footprint="Package_DIP:DIP-28_W7.62mm")
@@ -243,12 +246,9 @@ def atmega_mcu(pwr, gnd_in, rst, xt1, xt2,
     mcu["PC1"]           += pc1
     mcu["PC2"]           += pc2
     mcu["PC3"]           += pc3
-    mcu["PC4"]           += pc4
-    mcu["PC5"]           += pc5
-
-    # A4/A5 also serve SDA/SCL
-    pc4 += i2c_sda
-    pc5 += i2c_scl
+    # PC4=SDA/A4 and PC5=SCL/A5 — use the SDA/SCL nets directly
+    mcu["PC4"]           += sda_scl_a4
+    mcu["PC5"]           += scl_a5
 
     # 16 MHz crystal
     y1 = Part("Device", "Crystal", value="16MHz",
@@ -294,9 +294,10 @@ def atmega_mcu(pwr, gnd_in, rst, xt1, xt2,
 
 atmega_mcu(vcc, gnd, reset_n, xtal1, xtal2,
            uart_tx, uart_rx, dtr_net,
-           sda, scl, mosi, miso, sck_net,
+           mosi, miso, sck_net,
            d2, d3, d4, d5, d6, d7, d8, d9, d10,
-           a0, a1, a2, a3, a4, a5)
+           a0, a1, a2, a3,
+           sda, scl)   # sda=A4/PC4, scl=A5/PC5
 
 
 # ── Status LEDs ─────────────────────────────────────────────────────────────
@@ -346,7 +347,8 @@ status_leds(vcc, gnd, sck_net, tx_led_n, rx_led_n)
 def shield_headers(pwr, ref3v3, gnd_in, rst, vin,
                    pd2, pd3, pd4, pd5, pd6, pd7, pb0, pb1, pb2,
                    d0, d1, spi_mosi, spi_miso, spi_sck,
-                   pc0, pc1, pc2, pc3, pc4, pc5, i2c_sda, i2c_scl):
+                   pc0, pc1, pc2, pc3, i2c_sda, i2c_scl):
+    # i2c_sda = A4/SDA, i2c_scl = A5/SCL
 
     # Power header 8-pin: IOREF, RESET, 3V3, 5V, GND, GND, VIN, NC
     j_pwr = Part("Connector_Generic", "Conn_01x08", value="PWR_HDR",
@@ -360,15 +362,15 @@ def shield_headers(pwr, ref3v3, gnd_in, rst, vin,
     j_pwr[7] += vin
     j_pwr[8] += NC
 
-    # Analog header A0-A5
+    # Analog header A0-A5 (A4=SDA, A5=SCL)
     j_ana = Part("Connector_Generic", "Conn_01x06", value="ANALOG_HDR",
                  footprint="Connector_PinSocket_2.54mm:PinSocket_1x06_P2.54mm_Vertical")
     j_ana[1] += pc0
     j_ana[2] += pc1
     j_ana[3] += pc2
     j_ana[4] += pc3
-    j_ana[5] += pc4
-    j_ana[6] += pc5
+    j_ana[5] += i2c_sda   # A4/SDA
+    j_ana[6] += i2c_scl   # A5/SCL
 
     # Digital low header D0-D7
     j_dlo = Part("Connector_Generic", "Conn_01x08", value="DIG_LO_HDR",
@@ -399,7 +401,7 @@ def shield_headers(pwr, ref3v3, gnd_in, rst, vin,
 shield_headers(vcc, v3v3, gnd, reset_n, vin_raw,
                d2, d3, d4, d5, d6, d7, d8, d9, d10,
                uart_rx, uart_tx, mosi, miso, sck_net,
-               a0, a1, a2, a3, a4, a5, sda, scl)
+               a0, a1, a2, a3, sda, scl)
 
 
 # ── ICSP header ─────────────────────────────────────────────────────────────
@@ -425,14 +427,19 @@ icsp_header(vcc, gnd, reset_n, mosi, miso, sck_net)
 EDA_FLOORPLAN = {
     "outline": {"width_mm": 75, "height_mm": 56},
     "edge_anchors": [
-        # Right edge: DC jack top, USB below it
+        # Right edge: DC jack near top, USB below it
         {"ref": "J1", "edge": "right", "offset_mm": 12},
         {"ref": "J2", "edge": "right", "offset_mm": 36},
-        # Top edge: power header at left, analog header to the right
-        {"ref": "J3", "edge": "top",   "offset_mm": 10},
-        {"ref": "J4", "edge": "top",   "offset_mm": 50},
-        # Bottom edge: two digital headers
+        # Top edge: power header at offset 30 (right of DIP socket zone),
+        # analog header at right
+        {"ref": "J3", "edge": "top",   "offset_mm": 30},
+        {"ref": "J4", "edge": "top",   "offset_mm": 55},
+        # Bottom edge: digital headers
         {"ref": "J5", "edge": "bottom","offset_mm": 10},
         {"ref": "J6", "edge": "bottom","offset_mm": 43},
+    ],
+    # Anchor zone hints (soft) to guide CH340G near USB connector
+    "align": [
+        {"refs": ["U4"], "axis": "x", "to": "J2", "mode": "soft"}
     ],
 }
