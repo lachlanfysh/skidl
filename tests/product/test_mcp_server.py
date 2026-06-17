@@ -4401,6 +4401,39 @@ def test_floorplan_constraint_preflight_blocks_fixed_ref_inside_keepout():
     assert exc.subject["issues"][0]["ref"] == "CIN"
 
 
+def test_floorplan_constraint_preflight_gives_mounting_hole_specific_fix():
+    circuit = SimpleNamespace(
+        parts=[
+            SimpleNamespace(
+                ref="H1",
+                name="MountingHole",
+                value="MountingHole",
+                footprint="MountingHole:MountingHole_2.2mm_M2",
+                pins=[],
+            ),
+        ]
+    )
+    constraints = LayoutConstraints(
+        outline=BoardOutline(20.0, 10.0),
+        fixed=[FixedPosition("H1", 0.5, 0.5, 0.0)],
+    )
+
+    exc = _floorplan_constraint_conflict_exception(
+        circuit,
+        constraints,
+        floorplan_meta={"outline": "explicit"},
+        fp_dirs=[],
+    )
+
+    assert exc is not None
+    issue = exc.subject["issues"][0]
+    assert issue["kind"] == "mounting_hole_outside_outline"
+    assert issue["ref"] == "H1"
+    assert "outside_by_mm" in issue
+    assert "mounting-hole centers inward" in exc.candidates[0].params["required_action"]
+    assert "hole centers" in exc.retry_hint
+
+
 def test_floorplan_constraint_preflight_blocks_fixed_edge_anchor_conflict():
     circuit = SimpleNamespace(
         parts=[

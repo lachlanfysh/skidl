@@ -3937,6 +3937,24 @@ def _floorplan_constraint_conflict_exception(
     def _footprint(part) -> str:
         return str(getattr(part, "footprint", "") or getattr(part, "foot", "") or "")
 
+    def _part_text(ref: str) -> str:
+        part = parts.get(ref)
+        if part is None:
+            return ref
+        return " ".join(
+            str(getattr(part, attr, "") or "")
+            for attr in ("ref", "name", "value", "footprint", "foot")
+        )
+
+    def _is_mounting_hole_ref(ref: str) -> bool:
+        text = _part_text(ref).lower().replace(" ", "")
+        return (
+            bool(re.match(r"^(h|mh)\d+$", str(ref), re.I))
+            or "mountinghole" in text
+            or "mounting_hole" in text
+            or "mounthole" in text
+        )
+
     def _pin_count(part) -> int:
         try:
             return len(part)
@@ -3984,6 +4002,15 @@ def _floorplan_constraint_conflict_exception(
             or y_max > outline.y_max + tol
         )
 
+    def _outline_intrusion(bounds) -> dict:
+        x_min, y_min, x_max, y_max = bounds
+        return {
+            "left_mm": round(max(0.0, outline.x_min - x_min), 3),
+            "top_mm": round(max(0.0, outline.y_min - y_min), 3),
+            "right_mm": round(max(0.0, x_max - outline.x_max), 3),
+            "bottom_mm": round(max(0.0, y_max - outline.y_max), 3),
+        }
+
     def _intersects(a, b, *, clearance: float = 0.25) -> bool:
         ax_min, ay_min, ax_max, ay_max = a
         bx_min, by_min, bx_max, by_max = b
@@ -4022,7 +4049,7 @@ def _floorplan_constraint_conflict_exception(
 
     for ref, bounds in fixed_bounds.items():
         if _outside_outline(bounds):
-            issues.append({
+            issue = {
                 "kind": "fixed_outside_outline",
                 "ref": ref,
                 "bounds_mm": [round(v, 3) for v in bounds],
@@ -4032,7 +4059,16 @@ def _floorplan_constraint_conflict_exception(
                     round(outline.x_max, 3),
                     round(outline.y_max, 3),
                 ],
-            })
+                "outside_by_mm": _outline_intrusion(bounds),
+            }
+            if _is_mounting_hole_ref(ref):
+                issue["kind"] = "mounting_hole_outside_outline"
+                issue["suggested_fix"] = (
+                    "move the hole center inward by at least its footprint "
+                    "radius/clearance, or expand the outline; hole centers in "
+                    "rounded corners should usually sit at the corner radius center"
+                )
+            issues.append(issue)
 
     fixed_items = list(fixed_bounds.items())
     for idx, (a_ref, a_bounds) in enumerate(fixed_items):
@@ -4091,6 +4127,11 @@ def _floorplan_constraint_conflict_exception(
                     "ref": ref,
                     "edge": edge,
                     "distance_mm": round(distance, 3),
+                    "suggested_fix": (
+                        "use either an edge_anchor without fixed_position, or move "
+                        "the fixed_position so the footprint body actually touches "
+                        f"the {edge} board edge"
+                    ),
                 })
             continue
         part = parts[ref]
@@ -4138,6 +4179,36 @@ def _floorplan_constraint_conflict_exception(
             focus_refs.append(str(ref))
     focus_refs = sorted(set(focus_refs))
     shown_issues = issues[:20]
+    issue_kinds = {str(issue.get("kind") or "") for issue in issues}
+    required_actions = [
+        (
+            "revise EDA_FLOORPLAN fixed_positions, keepouts, zones, "
+            "edge_anchors, or outline_mm so every fixed footprint fits "
+            "inside the outline and fixed refs do not collide"
+        )
+    ]
+    human_summary = "Fix the contradictory floorplan constraints, then regenerate"
+    if "mounting_hole_outside_outline" in issue_kinds:
+        required_actions.insert(
+            0,
+            (
+                "move mounting-hole centers inward enough that the full hole "
+                "footprint/courtyard fits inside the board, or enlarge the outline"
+            ),
+        )
+        human_summary = (
+            "Move mounting holes inward or expand the outline, then regenerate"
+        )
+    if "fixed_edge_anchor_conflict" in issue_kinds:
+        required_actions.append(
+            (
+                "do not give an edge connector a fixed_position far from its "
+                "requested edge; prefer edge_anchors with offset_mm for connector placement"
+            )
+        )
+        human_summary = (
+            "Reconcile fixed positions with edge anchors, then regenerate"
+        )
     return DesignException(
         id="e-floorplan-constraints",
         code=ExcCode.DESIGN_MISSING_FEATURE,
@@ -4161,15 +4232,10 @@ def _floorplan_constraint_conflict_exception(
                 params={
                     "fix_refs": focus_refs,
                     "issues": shown_issues,
-                    "required_action": (
-                        "revise EDA_FLOORPLAN fixed_positions, keepouts, zones, "
-                        "edge_anchors, or outline_mm so every fixed footprint fits "
-                        "inside the outline and fixed refs do not collide"
-                    ),
+                    "required_actions": required_actions,
+                    "required_action": required_actions[0],
                 },
-                human_summary=(
-                    "Fix the contradictory floorplan constraints, then regenerate"
-                ),
+                human_summary=human_summary,
                 cost_hint="free",
                 confidence=0.9,
             )
@@ -4178,7 +4244,10 @@ def _floorplan_constraint_conflict_exception(
             "Do not retry unchanged. Update the submitted floorplan: keep fixed "
             "refs inside the board outline, move fixed refs out of keepouts, "
             "separate fixed refs that overlap, and make any fixed_position for an "
-            "edge-anchored ref actually sit on that requested edge."
+            "edge-anchored ref actually sit on that requested edge. For mounting "
+            "holes, remember fixed_positions are hole centers but validation uses "
+            "the full footprint/courtyard; put the center far enough inward for "
+            "the hole radius and keep-clearance."
         ),
     )
 

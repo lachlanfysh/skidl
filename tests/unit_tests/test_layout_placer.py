@@ -490,6 +490,54 @@ def test_power_decaps_distribute_across_tied_fixed_parents():
     assert {nearest_parent("C1"), nearest_parent("C2")} == {"U1", "U2"}
 
 
+def test_signal_passive_between_opposing_headers_starts_near_centroid():
+    left = _make_mock_part(
+        "J_LEFT",
+        "Conn_01x06",
+        "Connector_PinHeader:PinHeader_1x06_P2.54mm",
+        num_pins=6,
+    )
+    right = _make_mock_part(
+        "J_RIGHT",
+        "Conn_01x06",
+        "Connector_PinHeader:PinHeader_1x06_P2.54mm",
+        num_pins=6,
+    )
+    r1 = _make_mock_part(
+        "R1",
+        "10k",
+        "Resistor_SMD:R_0805_2012Metric",
+        num_pins=2,
+        pin_nets=["IO1", "BIAS"],
+    )
+    group = PlacementGroup(
+        name="bus",
+        parts=[left, right, r1],
+        adjacency={
+            "J_LEFT": {"R1": 1},
+            "J_RIGHT": {"R1": 1},
+            "R1": {"J_LEFT": 1, "J_RIGHT": 1},
+        },
+    )
+    constraints = _simple_constraints(
+        outline=BoardOutline(80.0, 30.0),
+        edge_anchors=[
+            EdgeAnchor("J_LEFT", "left", offset_mm=15.0),
+            EdgeAnchor("J_RIGHT", "right", offset_mm=15.0),
+        ],
+    )
+
+    placed = {
+        part.ref: part
+        for part in place_parts({"bus": group}, constraints, _FP_BBOXES)
+    }
+
+    assert placed["J_LEFT"].x_mm < 10.0
+    assert placed["J_RIGHT"].x_mm > 70.0
+    assert placed["R1"].x_mm == pytest.approx(40.0, abs=4.0)
+    assert placed["R1"].y_mm == pytest.approx(15.0, abs=4.0)
+
+
 def test_derive_outline_encloses_parts():
     parts = [
         PlacedPart("R1", 10.0, 20.0, 0.0, "Resistor_SMD:R_0805_2012Metric"),

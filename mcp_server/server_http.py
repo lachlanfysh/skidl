@@ -47,7 +47,8 @@ mcp = FastMCP(
         "returns exceptions, edit the SKiDL code using the structured "
         "exception details and resubmit. "
         "Do all design submissions through submit_skidl_code(); read "
-        "eda://guide/skidl for conventions."
+        "eda://guide/skidl for conventions and eda://guide/parts before "
+        "choosing jacks, pots, switches, USB, headers, or other mechanical parts."
     ),
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
@@ -274,6 +275,14 @@ async def submit_skidl_code(
     - Power nets: set net.drive = POWER on every supply/ground rail.
     - Decoupling caps: value="100nF" between power and ground per IC.
     - Connectors: Part("Connector_Generic", "Conn_01x06", ...).
+    - Audio jacks, pots, switches, USB, and headers are mechanical choices, not
+      just symbols. Read eda://guide/parts and call search_kicad(...,
+      detail=true) before choosing them.
+    - Do not guess numeric pins on audio jacks. KiCad jack symbols often
+      expose semantic pins such as T/S, T1/S1, TN/SN, R/RN. Pots usually expose
+      1/2/3 terminals, but still confirm the selected symbol with
+      search_kicad(..., detail=true) when unsure. After an exception, use
+      subject.available_pins and wire the exact listed pins.
     - Connections: use `net += pin1, pin2` or `pin += net`. Do not write
       `connect(pin1, pin2)`, and do not put a function call on the left side
       of `+=`.
@@ -1748,6 +1757,27 @@ Common KiCad symbol patterns:
 If the request does not specify jack style, make the choice visible in your
 final report. For enclosure-edge products, prefer edge-facing through-hole
 jacks unless there is a reason to choose SMD or vertical.
+
+SKiDL pin examples:
+
+```python
+# Unswitched mono/TS-style audio symbol: inspect exact pins first.
+jack = Part("Connector_Audio", "AudioJack2", footprint="...")
+sig += jack["T"]
+gnd += jack["S"]
+
+# Switched symbols often use numbered/switch pins. Wire only the contacts
+# the design actually needs; N pins are normalling/detect contacts.
+jack = Part("Connector_Audio", "AudioJack2_SwitchT", footprint="...")
+sig += jack["T"]
+normalled += jack["TN"]
+gnd += jack["S"]
+
+pot = Part("Device", "R_Potentiometer", value="100k", footprint="...")
+top += pot[1]
+wiper += pot[2]
+bottom += pot[3]
+```
 
 For Eurorack or synth module boards with a Eurorack/Doepfer/IDC power header,
 prefer Thonkiconn/PJ398-style vertical panel jacks. Do not choose horizontal

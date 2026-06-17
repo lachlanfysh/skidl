@@ -473,6 +473,42 @@ def _most_adjacent_placed(
     return best_ref
 
 
+def _multi_primary_centroid_target(
+    ref: str,
+    adjacency: dict,
+    placed_map: dict[str, PlacedPart],
+    candidate_refs: set[str],
+    bounds,
+) -> tuple[float, float] | None:
+    """Return a useful centroid for passives spanning multiple primary refs."""
+
+    neighbors: list[tuple[str, int]] = []
+    for other_ref, count in (adjacency.get(ref, {}) or {}).items():
+        if other_ref not in placed_map or other_ref not in candidate_refs:
+            continue
+        neighbors.append((other_ref, max(1, int(count or 1))))
+    if len(neighbors) < 2:
+        return None
+
+    xs = [placed_map[other_ref].x_mm for other_ref, _ in neighbors]
+    ys = [placed_map[other_ref].y_mm for other_ref, _ in neighbors]
+    x_span = max(xs) - min(xs)
+    y_span = max(ys) - min(ys)
+    if bounds is not None:
+        bounds_w = float(getattr(bounds, "x_max", 0.0) - getattr(bounds, "x_min", 0.0))
+        bounds_h = float(getattr(bounds, "y_max", 0.0) - getattr(bounds, "y_min", 0.0))
+        min_span = max(10.0, min(bounds_w, bounds_h) * 0.35)
+    else:
+        min_span = 12.0
+    if max(x_span, y_span) < min_span:
+        return None
+
+    total = sum(weight for _, weight in neighbors)
+    x = sum(placed_map[other_ref].x_mm * weight for other_ref, weight in neighbors) / total
+    y = sum(placed_map[other_ref].y_mm * weight for other_ref, weight in neighbors) / total
+    return x, y
+
+
 def _largest_ic_ref(group: PlacementGroup) -> Optional[str]:
     """Return ref of the part with the most pins (tie: first encountered)."""
     best_ref, best_pins = None, -1
@@ -947,14 +983,36 @@ def place_parts(
             continue
         w, h = _bbox(part, fp_bboxes)
         bounds = _bounds_for_part(part, group, constraints)
-        parent_ref = _most_adjacent_placed(
+        bus_target = _multi_primary_centroid_target(
+            part.ref,
+            group.adjacency,
+            placed_map,
+            primary_refs,
+            bounds,
+        )
+        parent_ref = None if bus_target is not None else _most_adjacent_placed(
             part.ref,
             group.adjacency,
             placed_map,
             candidate_refs=primary_refs,
             usage_counts=stack_count,
         )
-        if parent_ref:
+        if bus_target is not None:
+            target_x, target_y = bus_target
+            rot = 0.0
+            target_x, target_y = _clamp_to_bounds(target_x, target_y, w, h, bounds)
+            x, y = _find_clear_position(
+                target_x,
+                target_y,
+                w,
+                h,
+                _grid,
+                bounds=bounds,
+                step=0.5,
+                max_radius=30.0,
+            )
+            x, y = _clamp_to_bounds(x, y, w, h, bounds)
+        elif parent_ref:
             parent = placed_map[parent_ref]
             pw, ph = _bbox_for_ref(parent_ref, all_parts, fp_bboxes)
             n = stack_count.get(parent_ref, 0)
