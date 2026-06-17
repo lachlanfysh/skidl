@@ -1,97 +1,58 @@
-"""NeoPixel Ring (16-LED) — WS2812B addressable LED ring.
+"""NeoPixel Ring (12-LED WS2812B) — generated via eda-mcp MCP pipeline.
 
-16 WS2812B LEDs daisy-chained in a ring configuration.
+12 WS2812B addressable LEDs arranged in a daisy-chain ring.
 Each LED has a 100nF decoupling cap on VDD.
-Power input via 3-pin JST connector (5V, DIN, GND).
-Data output via 3-pin JST connector (5V, DOUT, GND).
+Input: 3-pin header (VCC/GND/DATA_IN).
+Output: 3-pin header (VCC/GND/DATA_OUT) for chaining boards.
+Bulk 100uF cap on power input.
+5V supply, single-wire data protocol (NeoPixel/WS2812 timing).
 """
 
-import os
-os.environ["KICAD9_SYMBOL_DIR"] = "/usr/share/kicad/symbols"
-
 from skidl import *
-set_default_tool(KICAD9)
 
-# ── Power nets ──────────────────────────────────────────────
-vdd = Net("+5V")
-vdd.drive = POWER
-gnd = Net("GND")
-gnd.drive = POWER
+# Power rails
+vcc = Net("VCC"); vcc.drive = POWER
+gnd = Net("GND"); gnd.drive = POWER
 
-# ── Input connector (5V, DIN, GND) ─────────────────────────
-j_in = Part(
-    "Connector_Generic", "Conn_01x03",
-    ref="J1",
-    value="NeoPixel_In",
-    footprint="Connector_JST:JST_PH_S3B-PH-K_1x03_P2.00mm_Horizontal",
-)
-j_in[1] += vdd      # Pin 1 = 5V
-j_in[3] += gnd      # Pin 3 = GND
+# Data chain nets: DATA_0=input, DATA_1..DATA_12 between LEDs, DATA_12=output
+data_nets = [Net(f"DATA_{i}") for i in range(13)]
 
-# ── Output connector (5V, DOUT, GND) ───────────────────────
-j_out = Part(
-    "Connector_Generic", "Conn_01x03",
-    ref="J2",
-    value="NeoPixel_Out",
-    footprint="Connector_JST:JST_PH_S3B-PH-K_1x03_P2.00mm_Horizontal",
-)
-j_out[1] += vdd     # Pin 1 = 5V
-j_out[3] += gnd     # Pin 3 = GND
+# Input connector (5V, GND, DATA_IN)
+j_in = Part("Connector_Generic", "Conn_01x03",
+            footprint="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+j_in.ref = "J1"
+j_in[1] += vcc
+j_in[2] += gnd
+j_in[3] += data_nets[0]
 
-# ── Bulk decoupling cap on power input ──────────────────────
-c_bulk = Part(
-    "Device", "C",
-    ref="C1",
-    value="100uF",
-    footprint="Capacitor_SMD:C_0805_2012Metric",
-)
-c_bulk[1] += vdd
+# Output connector (5V, GND, DATA_OUT) for ring chaining
+j_out = Part("Connector_Generic", "Conn_01x03",
+             footprint="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+j_out.ref = "J2"
+j_out[1] += vcc
+j_out[2] += gnd
+j_out[3] += data_nets[12]
+
+# Bulk 100uF capacitor on power input
+c_bulk = Part("Device", "C", value="100uF",
+              footprint="Capacitor_SMD:C_1210_3225Metric")
+c_bulk.ref = "C_BULK"
+c_bulk[1] += vcc
 c_bulk[2] += gnd
 
-# ── 16 WS2812B LEDs in a daisy chain ───────────────────────
-NUM_LEDS = 16
-
-# Create all LEDs and their decoupling caps
-leds = []
-caps = []
+# 12 WS2812B LEDs in a daisy chain with 100nF decoupling cap per LED
+NUM_LEDS = 12
 for i in range(NUM_LEDS):
-    led = Part(
-        "LED", "WS2812B",
-        ref=f"D{i+1}",
-        value="WS2812B",
-        footprint="LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm",
-    )
-    led["VDD"] += vdd
+    led = Part("LED", "WS2812B",
+               footprint="LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm")
+    led.ref = f"LED{i+1}"
+    led["VDD"] += vcc
     led["VSS"] += gnd
-    leds.append(led)
+    led["DIN"] += data_nets[i]
+    led["DOUT"] += data_nets[i+1]
 
-    # Per-LED 100nF decoupling cap
-    cap = Part(
-        "Device", "C",
-        ref=f"C{i+2}",
-        value="100nF",
-        footprint="Capacitor_SMD:C_0603_1608Metric",
-    )
-    cap[1] += vdd
+    cap = Part("Device", "C", value="100nF",
+               footprint="Capacitor_SMD:C_0402_1005Metric")
+    cap.ref = f"C{i+1}"
+    cap[1] += vcc
     cap[2] += gnd
-    caps.append(cap)
-
-# ── Chain the data lines ────────────────────────────────────
-# Input connector DIN → first LED DIN
-data_in = Net("DIN")
-j_in[2] += data_in
-leds[0]["DIN"] += data_in
-
-# Chain DOUT of LED[n] → DIN of LED[n+1]
-for i in range(NUM_LEDS - 1):
-    chain_net = Net(f"D{i+1}_D{i+2}")
-    leds[i]["DOUT"] += chain_net
-    leds[i + 1]["DIN"] += chain_net
-
-# Last LED DOUT → output connector
-data_out = Net("DOUT")
-leds[-1]["DOUT"] += data_out
-j_out[2] += data_out
-
-# ── Generate schematic ─────────────────────────────────────
-generate_schematic(auto_stub=True)
