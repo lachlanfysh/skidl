@@ -1,0 +1,3126 @@
+(kicad_sch
+  (version 20230409)
+  (generator "skidl")
+  (generator_version "2.2.3")
+  (uuid 9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd)
+  (paper "A4")
+  (title_block
+    (title "SKiDL-Generated Schematic")
+    (date "2026-06-18")
+    (company "")
+    (comment 1 "Generated with SKiDL")
+    (comment 2 "")
+    (comment 3 "")
+    (comment 4 ""))
+  (lib_symbols
+    (symbol "/usr/share/kicad/symbols/LED:WS2812B"
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "D"
+        (at 2.032 0 90)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Value" "WS2812B"
+        (at 0 0 90)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "RGB LED with integrated controller"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "WS2812B_0_1"
+        (text RGB
+          (at 2.286 -4.191 0)
+          (effects
+            (font
+              (size 0.762 0.762))))
+        (polyline
+          (pts
+            (xy 1.27 -2.54)
+            (xy 1.778 -2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 1.27 -3.556)
+            (xy 1.778 -3.556))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 2.286 -1.524)
+            (xy 1.27 -2.54)
+            (xy 1.27 -2.032))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 2.286 -2.54)
+            (xy 1.27 -3.556)
+            (xy 1.27 -3.048))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 3.683 -1.016)
+            (xy 3.683 -3.556)
+            (xy 3.683 -4.064))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 4.699 -1.524)
+            (xy 2.667 -1.524)
+            (xy 3.683 -3.556)
+            (xy 4.699 -1.524))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 4.699 -3.556)
+            (xy 2.667 -3.556))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (rectangle
+          (start 5.08 5.08)
+          (end -5.08 -5.08)
+          (stroke
+            (width 0.254)
+            (type default))
+          (fill
+            (type background))))
+      (symbol "WS2812B_1_1"
+        (text RGB
+          (at 2.286 -4.191 0)
+          (effects
+            (font
+              (size 0.762 0.762))))
+        (polyline
+          (pts
+            (xy 1.27 -2.54)
+            (xy 1.778 -2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 1.27 -3.556)
+            (xy 1.778 -3.556))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 2.286 -1.524)
+            (xy 1.27 -2.54)
+            (xy 1.27 -2.032))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 2.286 -2.54)
+            (xy 1.27 -3.556)
+            (xy 1.27 -3.048))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 3.683 -1.016)
+            (xy 3.683 -3.556)
+            (xy 3.683 -4.064))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 4.699 -1.524)
+            (xy 2.667 -1.524)
+            (xy 3.683 -3.556)
+            (xy 4.699 -1.524))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 4.699 -3.556)
+            (xy 2.667 -3.556))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (rectangle
+          (start 5.08 5.08)
+          (end -5.08 -5.08)
+          (stroke
+            (width 0.254)
+            (type default))
+          (fill
+            (type background)))
+        (pin input line
+          (at -7.62 0 0)
+          (length 2.54)
+          (name "DIN"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "4"
+            (effects
+              (font
+                (size 1.27 1.27)))))
+        (pin power_in line
+          (at 0 7.62 270)
+          (length 2.54)
+          (name "VDD"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27)))))
+        (pin power_in line
+          (at 0 -7.62 90)
+          (length 2.54)
+          (name "VSS"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "3"
+            (effects
+              (font
+                (size 1.27 1.27)))))
+        (pin output line
+          (at 7.62 0 180)
+          (length 2.54)
+          (name "DOUT"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "2"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no))
+    (symbol "/usr/share/kicad/symbols/Device:C"
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "C"
+        (at 2.032 0 90)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Value" "C"
+        (at 0 0 90)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" "~"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Unpolarized capacitor"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "C_0_1"
+        (polyline
+          (pts
+            (xy -2.032 0.762)
+            (xy 2.032 0.762))
+          (stroke
+            (width 0.508)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy -2.032 -0.762)
+            (xy 2.032 -0.762))
+          (stroke
+            (width 0.508)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "C_1_1"
+        (polyline
+          (pts
+            (xy -2.032 0.762)
+            (xy 2.032 0.762))
+          (stroke
+            (width 0.508)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy -2.032 -0.762)
+            (xy 2.032 -0.762))
+          (stroke
+            (width 0.508)
+            (type default))
+          (fill
+            (type none)))
+        (pin passive line
+          (at 0 3.81 270)
+          (length 2.794)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27)))))
+        (pin passive line
+          (at 0 -3.81 90)
+          (length 2.794)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "2"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no))
+    (symbol "power:GND"
+      (power)
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0)
+        (hide yes))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "#PWR"
+        (at 0 -6.35 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Value" "GND"
+        (at 0 -3.81 0)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "ki_keywords" "global power"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "GND_0_1"
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 -1.27)
+            (xy 1.27 -1.27)
+            (xy 0 -2.54)
+            (xy -1.27 -1.27)
+            (xy 0 -1.27))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "GND_1_1"
+        (pin power_in line
+          (at 0 0 270)
+          (length 0)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no))
+    (symbol "power:+3V3"
+      (power)
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0)
+        (hide yes))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "#PWR"
+        (at 0 -3.81 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Value" "+3V3"
+        (at 0 3.556 0)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Power symbol creates a global label with name \"+3V3\""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "ki_keywords" "global power"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "+3V3_0_1"
+        (polyline
+          (pts
+            (xy -0.762 1.27)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 2.54)
+            (xy 0.762 1.27))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "+3V3_1_1"
+        (pin power_in line
+          (at 0 0 90)
+          (length 0)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no))
+    (symbol "power:VBUS"
+      (power)
+      (pin_numbers
+        (hide yes))
+      (pin_names
+        (offset 0)
+        (hide yes))
+      (exclude_from_sim no)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "#PWR"
+        (at 0 -3.81 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Value" "VBUS"
+        (at 0 3.556 0)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Datasheet" ""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "Description" "Power symbol creates a global label with name \"VBUS\""
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (property "ki_keywords" "global power"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27))
+          (hide yes)))
+      (symbol "VBUS_0_1"
+        (polyline
+          (pts
+            (xy -0.762 1.27)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 2.54)
+            (xy 0.762 1.27))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "VBUS_1_1"
+        (pin power_in line
+          (at 0 0 90)
+          (length 0)
+          (name "~"
+            (effects
+              (font
+                (size 1.27 1.27))))
+          (number "1"
+            (effects
+              (font
+                (size 1.27 1.27))))))
+      (embedded_fonts no)))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 116.84 40.64 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid c0e00bf9-719d-52d8-b048-8fce2ea0683c)
+    (property "Reference" "D13"
+      (at 116.84 38.1 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 116.84 43.18 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 116.84 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 116.84 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 116.84 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 23a785fe-e974-5de6-b91b-dfca5cbf69e3))
+    (pin "1"
+      (uuid 2a971e47-aada-550b-be5b-a0f8a4b553ad))
+    (pin "3"
+      (uuid 0177063a-ce0a-5a0b-a8ff-99d793eb70f3))
+    (pin "2"
+      (uuid 38a7bf7a-cea3-5cba-ac74-fffc6a81acf1))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D13")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 137.16 40.64 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid d474580f-9b67-5d1e-b8ee-587b1b044734)
+    (property "Reference" "D14"
+      (at 137.16 38.1 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 137.16 43.18 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 137.16 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 137.16 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 137.16 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 3dc64d3a-94b7-59cb-adec-c91d7f9a64bc))
+    (pin "1"
+      (uuid 692d5213-9841-5f68-b855-0e01644326cf))
+    (pin "3"
+      (uuid e05a839c-1806-5772-90ef-ce501b034746))
+    (pin "2"
+      (uuid db3e1155-d559-54ec-968c-e665656780d3))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D14")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 157.48 40.64 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid b8b826ce-ce29-5c56-b6fd-abf65d2a3f9c)
+    (property "Reference" "D15"
+      (at 157.48 38.1 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 157.48 43.18 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 157.48 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 157.48 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 157.48 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 936f9908-b4e4-58ce-8658-45fe8183c009))
+    (pin "1"
+      (uuid 6a026605-163c-50f8-a949-036fc31ff62a))
+    (pin "3"
+      (uuid ee87569f-b0a8-5061-a6d3-2a36d7ea26b1))
+    (pin "2"
+      (uuid 56fa5d5d-07a4-5b6f-9a5e-e7d12b7aada6))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D15")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 177.8 40.64 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 02c8f2b0-e72b-56cf-9588-73ffee1f98cf)
+    (property "Reference" "D16"
+      (at 177.8 38.1 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 177.8 43.18 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 177.8 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 177.8 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 177.8 40.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid eb4da8e8-bfbe-51bb-a44e-9d101b0d9472))
+    (pin "1"
+      (uuid 76d58ed1-ebb7-51cd-bb36-107a0cd89d5a))
+    (pin "3"
+      (uuid d3478f42-69e5-5c4f-8209-28b559d63de0))
+    (pin "2"
+      (uuid 7c41d8f2-8688-5d07-9a89-78dcc51444aa))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D16")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 116.84 123.19 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 88a168d2-1b9d-5db6-bb49-1ce1095b59b4)
+    (property "Reference" "D17"
+      (at 116.84 120.64999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 116.84 125.73 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 116.84 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 116.84 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 116.84 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 666640bf-7961-5f7c-af70-beccad17392f))
+    (pin "1"
+      (uuid cff094e9-02c5-5829-bdb9-31ee94ddf33b))
+    (pin "3"
+      (uuid c60d28eb-c548-575b-987a-a203489b2832))
+    (pin "2"
+      (uuid ed2a0fcd-107e-5d84-9d04-2b818bd2ca85))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D17")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 137.16 123.19 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 9d63abbe-2ace-58f9-bfa4-2859d7f91f3a)
+    (property "Reference" "D18"
+      (at 137.16 120.64999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 137.16 125.73 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 137.16 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 137.16 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 137.16 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 7c99f58b-2f15-5125-8ec2-7a6a4b49309f))
+    (pin "1"
+      (uuid a0f10394-7a0b-5f97-82f5-8596ce65b499))
+    (pin "3"
+      (uuid f735eb8b-44c0-5c14-9977-de4ca96750bf))
+    (pin "2"
+      (uuid 9d29e6b6-f5b9-5c37-a387-0b9bc14f1234))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D18")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 157.48 123.19 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 78b5569f-1432-5fdb-b653-b45aec0edab3)
+    (property "Reference" "D19"
+      (at 157.48 120.64999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 157.48 125.73 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 157.48 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 157.48 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 157.48 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 188bfdf4-3aef-5938-ab85-58fe37eff899))
+    (pin "1"
+      (uuid 3228f96d-6ab0-5e74-8b9d-5384819ee222))
+    (pin "3"
+      (uuid e94066be-811d-5c09-a891-27f63080aa3f))
+    (pin "2"
+      (uuid 57365117-a527-5233-ba8d-8bb5b7aa7112))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D19")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 177.8 123.19 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 0cd13100-2c8f-5bb0-8347-e49fbf3fdf95)
+    (property "Reference" "D20"
+      (at 177.8 120.64999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 177.8 125.73 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 177.8 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 177.8 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 177.8 123.19 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 78e90ba4-32f6-5e3c-8a9b-b4a9a14c045e))
+    (pin "1"
+      (uuid 90a40f40-d4a7-53b9-b6b2-4fdb60c1e88a))
+    (pin "3"
+      (uuid 274c2639-c206-53d2-92a2-b3a7f33e132f))
+    (pin "2"
+      (uuid 2f5b4d0f-e6e6-50e7-ab92-3bd8f8fb76c1))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D20")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 105.41 81.28 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 0ca72913-2a8a-577b-8330-0b2c1267b1b7)
+    (property "Reference" "D21"
+      (at 105.41 78.74 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 105.41 83.82000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 105.41 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 105.41 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 105.41 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 5917b621-24ee-5acf-98c2-1983e40b9c7b))
+    (pin "1"
+      (uuid 196e3ad1-8d69-58a5-a476-dcee0a2db0b4))
+    (pin "3"
+      (uuid 7cdf48b2-7aab-537c-b8ab-d16bf73fb04b))
+    (pin "2"
+      (uuid e668a357-8699-5432-84cf-12b3055a93ab))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D21")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 125.73 81.28 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid dc7680df-880d-5313-8d8f-f94fdd312ebc)
+    (property "Reference" "D22"
+      (at 125.73 78.74 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 125.73 83.82000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 125.73 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 125.73 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 125.73 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 1fd7d2ab-5358-54d6-927e-44b876eab447))
+    (pin "1"
+      (uuid 63b7bc56-de49-51c9-8138-39c0afae8102))
+    (pin "3"
+      (uuid df34142b-1bb8-5186-bbcd-8d7a2fc9fd65))
+    (pin "2"
+      (uuid fcdbeec9-7416-5383-8fa5-6384a73f92b3))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D22")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 146.05 81.28 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid b9d11757-6c1f-56b0-bc43-71619b07d31a)
+    (property "Reference" "D23"
+      (at 146.05 78.74 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 146.05 83.82000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 146.05 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 146.05 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 146.05 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid c6decffc-bd16-5481-bf0f-de0834d11bd3))
+    (pin "1"
+      (uuid ca4a1591-c299-5db1-8d88-76d0c1d25cda))
+    (pin "3"
+      (uuid cd5bc874-b044-51ce-8369-4b3197b93362))
+    (pin "2"
+      (uuid 36c28290-b975-536b-bcdf-ffef72dbbbb3))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D23")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/LED:WS2812B")
+    (at 166.37 81.28 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid b550b0ec-9965-5b51-83e7-2dd3a4d14eab)
+    (property "Reference" "D24"
+      (at 166.37 78.74 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "WS2812B"
+      (at 166.37 83.82000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm"
+      (at 166.37 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf"
+      (at 166.37 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "RGB LED with integrated controller"
+      (at 166.37 81.28 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "4"
+      (uuid 0fc9566f-31ac-5fc2-8d2c-8d9e9e32eb58))
+    (pin "1"
+      (uuid 290586ac-a580-5ecc-950c-d0e32d997bc6))
+    (pin "3"
+      (uuid b91cdb6c-efc0-5877-8939-d318bf92c061))
+    (pin "2"
+      (uuid 1c0dd005-8ec0-5c30-95f0-72c72fb3119b))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "D24")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Device:C")
+    (at 154.94 173.99 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid fe5ed2fa-a602-53f7-9192-e753f7e7d4da)
+    (property "Reference" "C17"
+      (at 154.94 171.45000000000002 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "100nF"
+      (at 154.94 176.53 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
+      (at 154.94 173.99 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 154.94 173.99 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Unpolarized capacitor"
+      (at 154.94 173.99 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 061a665d-d267-5c6d-b5e2-0c0efb313bce))
+    (pin "2"
+      (uuid d804f716-043a-5ce2-8f8b-963820cf81c0))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "C17")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Device:C")
+    (at 161.29 172.72 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid cefcd3b1-10cb-566b-90ee-905d36cef34b)
+    (property "Reference" "C18"
+      (at 161.29 170.18 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "100nF"
+      (at 161.29 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
+      (at 161.29 172.72 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 161.29 172.72 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Unpolarized capacitor"
+      (at 161.29 172.72 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid c073c12a-818e-5e2a-ab54-16865008906b))
+    (pin "2"
+      (uuid 21237ead-27f0-5397-b082-4f485a01e02a))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "C18")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Device:C")
+    (at 148.59 175.26 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid c6e5e71a-f042-59a6-900a-996fcc9bcb5d)
+    (property "Reference" "C19"
+      (at 148.59 172.72 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "100nF"
+      (at 148.59 177.79999999999998 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
+      (at 148.59 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 148.59 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Unpolarized capacitor"
+      (at 148.59 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 656bf2fe-d089-5ebb-8e1e-bffb49802c1e))
+    (pin "2"
+      (uuid 535d86d6-a7aa-5ef7-ac46-7090dc0929b8))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "C19")
+          (unit 1)))))
+  (symbol
+    (lib_id "/usr/share/kicad/symbols/Device:C")
+    (at 140.97 175.26 0)
+    (unit 1)
+    (exclude_from_sim no)
+    (in_bom yes)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 30ea5a32-b732-5f93-8c17-545746c7f0cb)
+    (property "Reference" "C20"
+      (at 140.97 172.72 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Value" "100uF"
+      (at 140.97 177.79999999999998 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (justify left)))
+    (property "Footprint" "Capacitor_SMD:C_1210_3225Metric"
+      (at 140.97 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" "~"
+      (at 140.97 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Description" "Unpolarized capacitor"
+      (at 140.97 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 7486baaa-a114-5868-a046-7d7c65a9ec46))
+    (pin "2"
+      (uuid 00427958-38c5-5022-9b7b-d74486ebcdc8))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/956e5a7d-c150-4dd0-b427-6552f1e3bb0b/9e434d3a-8fd9-5dfd-938a-5e1b8f7590bd"
+          (reference "C20")
+          (unit 1)))))
+  (global_label "NEO_CHAIN_1"
+    (shape bidirectional)
+    (at 147.32 45.72 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 52219f3a-08d7-5d1d-b6d7-d91557a39702))
+  (global_label "NEO_CHAIN_2"
+    (shape bidirectional)
+    (at 167.64 45.72 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid e46756a2-6708-5d0a-860a-d9e08fbc3400))
+  (global_label "NEO_CHAIN_5"
+    (shape bidirectional)
+    (at 147.32 128.27 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 55a845e9-0830-5152-987d-72481da97543))
+  (global_label "NEO_CHAIN_0"
+    (shape bidirectional)
+    (at 127.0 45.72 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid eefa494d-30d2-54f5-a7cc-8ad1b925203d))
+  (global_label "NEO_CHAIN_8"
+    (shape bidirectional)
+    (at 115.57 86.36 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid a43b22e7-c448-57f9-b968-fc08ecb07ba7))
+  (global_label "NEO_CHAIN_10"
+    (shape bidirectional)
+    (at 156.21 86.36 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 7377ad25-b042-5569-a0b0-7e1eb6c16fd8))
+  (global_label "NEO_CHAIN_6"
+    (shape bidirectional)
+    (at 167.64 128.27 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid e9906baa-6979-5189-a767-c608276894f8))
+  (global_label "NEO_CHAIN_3"
+    (shape bidirectional)
+    (at 147.32 151.13 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid c2b37af9-0014-56c3-8046-56df56afefab))
+  (global_label "NEO_CHAIN_4"
+    (shape bidirectional)
+    (at 127.0 128.27 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid bd98b868-3e6d-59e3-8af5-44402ce28eaf))
+  (global_label "NEO_DOUT_NC"
+    (shape bidirectional)
+    (at 181.61 81.28 180)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify right))
+    (uuid 4a9afab6-5767-5f2a-93e5-e4679a2c60e9))
+  (global_label "NEOPIXEL_DATA"
+    (shape bidirectional)
+    (at 147.32 161.29 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid ea55265f-567a-5fb1-9cba-f9f441c49f7f))
+  (global_label "NEO_CHAIN_7"
+    (shape bidirectional)
+    (at 147.32 156.21 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 71aff8aa-c87c-5be6-b451-ec84342d4171))
+  (global_label "NEO_CHAIN_9"
+    (shape bidirectional)
+    (at 135.89 86.36 90)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 8358db20-5480-51be-81f7-2820a6f3b87c))
+  (wire
+    (pts
+      (xy 124.46 40.64)
+      (xy 127.0 40.64))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid b91463d1-c545-522a-851e-5432f51920a9))
+  (wire
+    (pts
+      (xy 127.0 40.64)
+      (xy 129.54 40.64))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid f704825e-1b1c-5a7d-be68-17f96c13b638))
+  (wire
+    (pts
+      (xy 127.0 45.72)
+      (xy 127.0 40.64))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 368a0d6d-6a49-538b-9549-8df3ddc959de))
+  (wire
+    (pts
+      (xy 144.78 40.64)
+      (xy 147.32 40.64))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 195a8088-633e-5f6c-8bc7-9a63a32942e3))
+  (wire
+    (pts
+      (xy 147.32 40.64)
+      (xy 149.86 40.64))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid f07ce58f-dd89-5a0a-9d69-c7a863bb0516))
+  (wire
+    (pts
+      (xy 147.32 45.72)
+      (xy 147.32 40.64))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 60fe8f98-c412-53c7-afc1-ad52287561a7))
+  (wire
+    (pts
+      (xy 165.1 40.64)
+      (xy 167.64 40.64))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 10127cf5-f01f-5b8e-b1e9-5a94d840884d))
+  (wire
+    (pts
+      (xy 167.64 40.64)
+      (xy 170.18 40.64))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 289aec3c-09aa-5852-9fbd-fcb6bcfc40f5))
+  (wire
+    (pts
+      (xy 167.64 45.72)
+      (xy 167.64 40.64))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 4718d61b-bc62-5a96-962b-7b9265baec45))
+  (wire
+    (pts
+      (xy 124.46 123.19)
+      (xy 127.0 123.19))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 18f20e5e-79ff-59be-becf-24a95fcc172a))
+  (wire
+    (pts
+      (xy 127.0 123.19)
+      (xy 129.54 123.19))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 08612a56-3178-557e-964f-d04bb88521c6))
+  (wire
+    (pts
+      (xy 127.0 128.27)
+      (xy 127.0 123.19))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid b9572840-5f9b-51c1-96b8-8b5c1993ce37))
+  (wire
+    (pts
+      (xy 144.78 123.19)
+      (xy 147.32 123.19))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 53df2588-0358-5553-b74e-9b04a8d78351))
+  (wire
+    (pts
+      (xy 147.32 123.19)
+      (xy 149.86 123.19))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 83ce2c7e-3d5b-500d-8c1b-3f6b8fa7e158))
+  (wire
+    (pts
+      (xy 147.32 128.27)
+      (xy 147.32 123.19))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 2290a90b-7f84-5765-8899-eeb39dc5768e))
+  (wire
+    (pts
+      (xy 165.1 123.19)
+      (xy 167.64 123.19))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 42576ae3-9de4-5844-8c1e-faae1a1b02a4))
+  (wire
+    (pts
+      (xy 167.64 123.19)
+      (xy 170.18 123.19))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid c339ef77-7ced-5339-94fc-8ae8588f70ac))
+  (wire
+    (pts
+      (xy 167.64 128.27)
+      (xy 167.64 123.19))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid b7ea9e5c-f2dd-50f5-8e5d-0a66d7e627f0))
+  (wire
+    (pts
+      (xy 113.03 81.28)
+      (xy 115.57 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid dd3f44fc-b1f2-514e-a735-4a9f096fccb1))
+  (wire
+    (pts
+      (xy 115.57 81.28)
+      (xy 118.11 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid c9bae2a2-f565-59c7-8d98-aa55be1f99e8))
+  (wire
+    (pts
+      (xy 115.57 86.36)
+      (xy 115.57 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid df62d596-24e6-59d1-a294-e3b8dc5eb877))
+  (wire
+    (pts
+      (xy 133.35 81.28)
+      (xy 135.89 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid e8d5ff1c-92fa-54f0-84d7-51759132946b))
+  (wire
+    (pts
+      (xy 135.89 81.28)
+      (xy 138.43 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid aad7f38f-ea18-56ff-a151-3093d45f362c))
+  (wire
+    (pts
+      (xy 135.89 86.36)
+      (xy 135.89 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid e0b92bc9-2190-5032-a3bd-e23055369597))
+  (wire
+    (pts
+      (xy 153.67 81.28)
+      (xy 156.21 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid e01a0d6f-cb79-5fd5-8434-a724d0d94825))
+  (wire
+    (pts
+      (xy 156.21 81.28)
+      (xy 158.75 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 62b8caed-84c9-574c-afcc-ed4f1f6f99a5))
+  (wire
+    (pts
+      (xy 156.21 86.36)
+      (xy 156.21 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 6e1141d1-1f76-5a2f-a4d1-29000c9c0ef6))
+  (wire
+    (pts
+      (xy 173.99 81.28)
+      (xy 181.61 81.28))
+    (stroke
+      (width 0)
+      (type default))
+    (uuid 15d43afd-49b7-50e9-8896-f91f88f66e2a))
+  (junction
+    (at 127.0 40.64)
+    (diameter 0)
+    (color 0 0 0 0)
+    (uuid a05f2e3c-0f83-59a1-80f5-77f04299695b))
+  (junction
+    (at 147.32 40.64)
+    (diameter 0)
+    (color 0 0 0 0)
+    (uuid 213bea8c-7405-546e-9345-84370ea555bc))
+  (junction
+    (at 167.64 40.64)
+    (diameter 0)
+    (color 0 0 0 0)
+    (uuid f6bd9911-f0a1-5cff-bd70-d23ec74588be))
+  (junction
+    (at 127.0 123.19)
+    (diameter 0)
+    (color 0 0 0 0)
+    (uuid b124f7c6-35f4-581a-83f3-0b7582995817))
+  (junction
+    (at 147.32 123.19)
+    (diameter 0)
+    (color 0 0 0 0)
+    (uuid 83f0c3f2-44ee-595f-a164-7f9e2db3e197))
+  (junction
+    (at 167.64 123.19)
+    (diameter 0)
+    (color 0 0 0 0)
+    (uuid 40e2475e-26f4-5af7-9ebb-fe2d9e0acf08))
+  (junction
+    (at 115.57 81.28)
+    (diameter 0)
+    (color 0 0 0 0)
+    (uuid 76617a96-7356-5859-bdac-4999565e1e3c))
+  (junction
+    (at 135.89 81.28)
+    (diameter 0)
+    (color 0 0 0 0)
+    (uuid 9d979f6e-2e46-5ffc-987d-cfa95ddd947b))
+  (junction
+    (at 156.21 81.28)
+    (diameter 0)
+    (color 0 0 0 0)
+    (uuid 0655f2db-0dbf-5319-a645-3c6853317b91))
+  (global_label "NEOPIXEL_DATA"
+    (shape bidirectional)
+    (at 109.22 40.64 180)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify right))
+    (uuid 1bc6f0b9-d285-5614-96ec-eea1139614b4))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 116.84 33.02 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid b82969f1-ab36-57f5-8a17-a6f1478a9596)
+    (property "Reference" "#PWR065"
+      (at 116.84 31.750000000000004 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 116.84 29.210000000000004 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 116.84 33.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 116.84 33.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 248bd390-eceb-5703-baa9-9cd66cf9a86a))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR065")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 116.84 48.26 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 702aba09-82ef-5d15-a9b4-59106c605b14)
+    (property "Reference" "#PWR066"
+      (at 116.84 46.989999999999995 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 116.84 44.449999999999996 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 116.84 48.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 116.84 48.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid f284caef-5e32-58d4-98c4-36c7cdd6363e))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR066")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 137.16 33.02 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 69f8e52e-9152-5505-a091-bf46bf597fda)
+    (property "Reference" "#PWR067"
+      (at 137.16 31.750000000000004 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 137.16 29.210000000000004 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 137.16 33.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 137.16 33.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 8438a135-c6ba-5e33-9c38-0aea42644d4f))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR067")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 137.16 48.26 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 1c50c9de-273f-5067-b367-81082d157561)
+    (property "Reference" "#PWR068"
+      (at 137.16 46.989999999999995 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 137.16 44.449999999999996 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 137.16 48.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 137.16 48.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid b707b78f-8e3a-5e3f-b89e-4cc10a072b92))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR068")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 157.48 33.02 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 8335b55d-d747-57bb-9817-f36be70dc078)
+    (property "Reference" "#PWR069"
+      (at 157.48 31.750000000000004 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 157.48 29.210000000000004 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 157.48 33.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 157.48 33.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 6dc50cff-eaff-50d0-b582-decfbdc75dd6))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR069")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 157.48 48.26 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 56d5fae6-b59d-5f5d-a522-ede35a7cd428)
+    (property "Reference" "#PWR070"
+      (at 157.48 46.989999999999995 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 157.48 44.449999999999996 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 157.48 48.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 157.48 48.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid d88775ce-4fe4-556e-903f-82928a8ab45d))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR070")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 177.8 33.02 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid b5290d1d-2196-56d9-8d1a-bfed884672ff)
+    (property "Reference" "#PWR071"
+      (at 177.8 31.750000000000004 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 177.8 29.210000000000004 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 177.8 33.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 177.8 33.02 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid c828f719-735b-548c-91c2-62b85bb263cb))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR071")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 177.8 48.26 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 29f08aff-11b1-55cc-9c89-51178836f622)
+    (property "Reference" "#PWR072"
+      (at 177.8 46.989999999999995 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 177.8 44.449999999999996 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 177.8 48.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 177.8 48.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid a24a11ec-dfeb-5df5-b893-fecb981fac81))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR072")
+          (unit 1)))))
+  (global_label "NEO_CHAIN_3"
+    (shape bidirectional)
+    (at 185.42 40.64 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid ab4e315c-6c9d-5554-8227-58ec3abbd625))
+  (global_label "NEO_CHAIN_3"
+    (shape bidirectional)
+    (at 109.22 123.19 180)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify right))
+    (uuid 46defc4a-dfef-587e-86de-23aca7c96bec))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 116.84 115.57 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 89107e77-8e20-5d58-b052-7b01f245cf60)
+    (property "Reference" "#PWR073"
+      (at 116.84 114.3 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 116.84 111.75999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 116.84 115.57 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 116.84 115.57 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 2ed6469b-31b1-5f3f-9fbe-36c13f080acf))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR073")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 116.84 130.81 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 75258b1e-4328-5b80-8b9d-e0a5c93a1502)
+    (property "Reference" "#PWR074"
+      (at 116.84 129.54 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 116.84 127.0 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 116.84 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 116.84 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 4079d9f1-4950-55af-91f6-9b0ce4047ea8))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR074")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 137.16 115.57 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid c88a84cc-e7a2-5cb3-a1f8-573ab2aeb9e5)
+    (property "Reference" "#PWR075"
+      (at 137.16 114.3 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 137.16 111.75999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 137.16 115.57 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 137.16 115.57 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 33878f63-f7cc-5b26-b051-f05d434731d9))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR075")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 137.16 130.81 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 7cf269ad-78b3-518a-9fe4-1eed688e42e7)
+    (property "Reference" "#PWR076"
+      (at 137.16 129.54 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 137.16 127.0 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 137.16 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 137.16 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid b5621513-9d7e-506b-b0aa-9e97d1de0e47))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR076")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 157.48 115.57 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 60853070-bc39-5c46-9f61-5a920a47daae)
+    (property "Reference" "#PWR077"
+      (at 157.48 114.3 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 157.48 111.75999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 157.48 115.57 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 157.48 115.57 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid a3364b50-05de-57d1-a4ae-5f8d4413df40))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR077")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 157.48 130.81 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 07ec5103-20b1-58a5-a3ed-6f71d5953a61)
+    (property "Reference" "#PWR078"
+      (at 157.48 129.54 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 157.48 127.0 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 157.48 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 157.48 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 83bc2889-c8a2-5bf8-ad39-19e9fda4659a))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR078")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 177.8 115.57 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid e9920f6a-518d-5ebb-82a8-024155931f99)
+    (property "Reference" "#PWR079"
+      (at 177.8 114.3 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 177.8 111.75999999999999 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 177.8 115.57 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 177.8 115.57 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 65e070e0-f74b-5e03-95a9-0b8f383da149))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR079")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 177.8 130.81 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 80b12fa2-14df-5093-a0e0-53af5e3b163a)
+    (property "Reference" "#PWR080"
+      (at 177.8 129.54 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 177.8 127.0 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 177.8 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 177.8 130.81 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 91b8e9e1-5789-5bff-8d7c-a2d1df181802))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR080")
+          (unit 1)))))
+  (global_label "NEO_CHAIN_7"
+    (shape bidirectional)
+    (at 185.42 123.19 0)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify left))
+    (uuid 38090ed9-2337-5fc2-b6cd-1f6716577af9))
+  (global_label "NEO_CHAIN_7"
+    (shape bidirectional)
+    (at 97.79 81.28 180)
+    (effects
+      (font
+        (size 1.27 1.27))
+      (justify right))
+    (uuid 3a80b118-6e2e-5628-adc6-6da1c9f37cc4))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 105.41 73.66 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid d64293ad-0456-5460-8d33-827bb0a8ff3e)
+    (property "Reference" "#PWR081"
+      (at 105.41 72.39 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 105.41 69.85 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 105.41 73.66 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 105.41 73.66 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 62604206-217d-5e75-b21b-6d3b403aa31f))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR081")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 105.41 88.9 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 13a15924-0f1a-5596-ac80-9f835c0e97fa)
+    (property "Reference" "#PWR082"
+      (at 105.41 87.63000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 105.41 85.09 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 105.41 88.9 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 105.41 88.9 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 8f9dbb6b-d532-5897-b008-d05d017dfa06))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR082")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 125.73 73.66 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 59ca1048-ecab-58d2-ab61-276af9e06eb0)
+    (property "Reference" "#PWR083"
+      (at 125.73 72.39 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 125.73 69.85 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 125.73 73.66 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 125.73 73.66 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid fb132e8e-5a91-5eb6-aa93-8a60b043afad))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR083")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 125.73 88.9 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid ad1348b5-ab91-589d-bb2a-a04239dfeb1c)
+    (property "Reference" "#PWR084"
+      (at 125.73 87.63000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 125.73 85.09 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 125.73 88.9 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 125.73 88.9 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 92ab5c9f-a13c-5911-8224-3a65fa7493d5))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR084")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 146.05 73.66 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid e6a830ed-5243-5fbf-ae00-cae9bc46ff27)
+    (property "Reference" "#PWR085"
+      (at 146.05 72.39 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 146.05 69.85 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 146.05 73.66 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 146.05 73.66 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 3ef46718-ab34-5b27-ace0-b62a991c4209))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR085")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 146.05 88.9 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 9cdace83-3c21-55e4-bd2e-ef3ceaa71a25)
+    (property "Reference" "#PWR086"
+      (at 146.05 87.63000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 146.05 85.09 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 146.05 88.9 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 146.05 88.9 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 33113c2e-f7dd-5964-8f8a-760535e4efdc))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR086")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 166.37 73.66 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid f557f876-ce04-53dc-b862-cde81b0bd385)
+    (property "Reference" "#PWR087"
+      (at 166.37 72.39 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 166.37 69.85 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 166.37 73.66 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 166.37 73.66 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 5776b295-75c9-58d6-91c6-d7580e194716))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR087")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 166.37 88.9 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 19031032-8184-5287-badf-0e69f4a30c6d)
+    (property "Reference" "#PWR088"
+      (at 166.37 87.63000000000001 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 166.37 85.09 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 166.37 88.9 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 166.37 88.9 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid fc8b69fb-ec33-5d7b-b711-d8f9a98e82d7))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR088")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 154.94 170.18 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid a84a6653-f55f-5d10-976e-905568a6e154)
+    (property "Reference" "#PWR089"
+      (at 154.94 168.91 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 154.94 166.37 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 154.94 170.18 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 154.94 170.18 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 189e4ed2-85ef-5634-b0bc-556a648eea7a))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR089")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 154.94 177.8 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid c851b639-718f-5cc1-9529-14eb1d4df224)
+    (property "Reference" "#PWR090"
+      (at 154.94 176.53 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 154.94 173.99 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 154.94 177.8 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 154.94 177.8 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid af8ea353-cd34-5dee-b5e4-016c9df2168f))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR090")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 161.29 168.91 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid f3b82351-7d44-5632-829a-b27764b05abb)
+    (property "Reference" "#PWR091"
+      (at 161.29 167.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 161.29 165.1 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 161.29 168.91 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 161.29 168.91 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 07dadff2-ecf9-57cd-9216-ac46172bb5b9))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR091")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 161.29 176.53 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid dd4b9e7e-94b5-5f6c-b042-304647a92fa3)
+    (property "Reference" "#PWR092"
+      (at 161.29 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 161.29 172.72 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 161.29 176.53 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 161.29 176.53 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid b935e7c4-d223-5634-8f83-29378f186af3))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR092")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 148.59 171.45 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid eb0aae27-5376-50f0-b614-080aa96a7183)
+    (property "Reference" "#PWR093"
+      (at 148.59 170.17999999999998 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 148.59 167.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 148.59 171.45 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 148.59 171.45 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 66c97e60-9175-5905-8d70-ef64ee3f64b4))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR093")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 148.59 179.07 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid bd44ac24-5b84-53ae-9fd5-7dfd769eb0f0)
+    (property "Reference" "#PWR094"
+      (at 148.59 177.79999999999998 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 148.59 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 148.59 179.07 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 148.59 179.07 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid efc21c71-5332-5bb6-b804-a153e78c4a17))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR094")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:VBUS")
+    (at 140.97 171.45 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid f3173359-0683-5380-8119-0f87ef453234)
+    (property "Reference" "#PWR095"
+      (at 140.97 170.17999999999998 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "VBUS"
+      (at 140.97 167.64 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 140.97 171.45 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 140.97 171.45 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid c42a5aad-a167-5db0-936d-710382464736))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR095")
+          (unit 1)))))
+  (symbol
+    (lib_id "power:GND")
+    (at 140.97 179.07 0)
+    (unit 1)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp no)
+    (fields_autoplaced yes)
+    (uuid 1ac44710-cd52-5adb-a375-6fb9af899264)
+    (property "Reference" "#PWR096"
+      (at 140.97 177.79999999999998 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Value" "GND"
+      (at 140.97 175.26 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 140.97 179.07 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (property "Datasheet" ""
+      (at 140.97 179.07 0)
+      (effects
+        (font
+          (size 1.27 1.27))
+        (hide yes)))
+    (pin "1"
+      (uuid 797c6bc9-d411-5437-9e8e-322ba9c10edb))
+    (instances
+      (project "SKiDL-Generated"
+        (path "/218b5f90-a139-55d3-a988-331ecbe7ee0c"
+          (reference "#PWR096")
+          (unit 1))))))
